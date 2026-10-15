@@ -66,5 +66,9 @@
     "不争取控制度",
     "拆不了敌方建筑",
     "不会变形穿越隧道，拿不到隧道冷却增益"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

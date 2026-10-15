@@ -56,5 +56,9 @@
   "weaknesses": [
     "输出低",
     "不主动利用跳跃登阶抄近路，只沿公路与端坡寻路"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

@@ -8,7 +8,7 @@ import {FOCUS,STYLE_AXES,TACTICS,TAGS,UNIT_COLORS,PhaseTimeline,StyleRadar,Tacti
 import './gallery.css';
 
 // 策略库: every saved strategy as a tactics card drawn from its showcase.json (docs/STRATEGY_SHOWCASE.md) — never its source code.
-const AUTHORS:AgentProvider[]=[...LLM_PROVIDERS,'human','official','unknown'];
+const AUTHORS:AgentProvider[]=[...LLM_PROVIDERS,'human','unknown'];
 const SHORT:Partial<Record<AgentProvider,string>>={'bytedance-seed':'ByteDance'};
 const MODE_ORDER:ControlMode[]=['team','distributed','squad','robot','adaptive'];
 const TACTIC_ORDER:Tactic[]=['balanced','assault','siege','guard','economy'];
@@ -104,7 +104,7 @@ function PresetShelf({items,open,onToggle,onOpen}:{items:StrategySummary[];open:
   const groups=useMemo(()=>{const map=new Map<number,StrategySummary[]>();for(const s of items){const k=s.robot??0;map.set(k,[...(map.get(k)||[]),s]);}
     return [...map].sort((a,b)=>a[0]-b[0]).map(([robot,list])=>({robot,list:[...list].sort((a,b)=>TACTIC_ORDER.indexOf(tacticOf(a))-TACTIC_ORDER.indexOf(tacticOf(b)))}));},[items]);
   return <section className={`sg-presets ${open?'open':''}`}>
-    <button className="sg-presets-head" aria-expanded={open} aria-controls="sg-presets-body" onClick={onToggle}><AgentBadge provider="official" size={38}/><span><b>预置策略</b><small>{groups.length} 种机型 × 每型 3 种战术 · 自由对战时可直接选用</small></span><em>{items.length} 条</em><ChevronDown size={18}/></button>
+    <button className="sg-presets-head" aria-expanded={open} aria-controls="sg-presets-body" onClick={onToggle}><FileText size={38}/><span><b>预置策略</b><small>{groups.length} 种机型 × 每型 3 种战术 · 自由对战时可直接选用</small></span><em>{items.length} 条</em><ChevronDown size={18}/></button>
     {open&&<div id="sg-presets-body" className="sg-preset-grid">{groups.map(g=>{const head=g.list[0];return <div key={g.robot} className="sg-preset-group"><header><b>{g.robot||'—'}</b><span>{head.model_name||`型号 ${g.robot}`}</span>{head.role&&<small>{ROLE_NAMES[head.role]}</small>}</header>
       {g.list.map(s=>{const t=TACTICS[tacticOf(s)];return <button key={s.key} className="sg-preset" style={{'--tc':t.color} as CSSProperties} onClick={()=>onOpen(s.key)}><i/><span><b>{s.preset?.name||t.name}</b><small>{s.preset?.description||t.brief}</small></span>{s.standing?<em title="Elo">{Math.round(s.standing.rating)}</em>:null}<ArrowRight size={14}/></button>;})}</div>;})}</div>}
   </section>;
@@ -171,7 +171,7 @@ function DetailView({s,onClose,onBattle,onSaved}:{s:StrategySummary;onClose:()=>
           <h2 id="sg-detail-title">{title}</h2>
           {tagline?<p className="sg-hero-tagline">{tagline}</p>:!show&&<Skeleton h={18} w="60%"/>}
           <div className="sg-chips"><Chips s={s}/>{(s.profile?.tags||[]).map(t=><span key={t} className="sg-chip tag">#{TAGS[t]}</span>)}</div>
-          <dl className="sg-hero-meta"><div><dt>作者</dt><dd>{s.profile?.author||(p==='official'?'RMUC Arena':'未署名')}</dd></div><div><dt>版本</dt><dd><code title={s.version}>{s.version.slice(0,8)}</code></dd></div><div><dt>入库</dt><dd>{day(stamp(s))}</dd></div>{s.standing&&<div><dt>Elo</dt><dd className="elo">{Math.round(s.standing.rating)}</dd></div>}</dl>
+          <dl className="sg-hero-meta"><div><dt>作者</dt><dd>{s.profile?.author||(s.profile?.agent??s.agent)?.model||'未署名'}</dd></div><div><dt>版本</dt><dd><code title={s.version}>{s.version.slice(0,8)}</code></dd></div><div><dt>入库</dt><dd>{day(stamp(s))}</dd></div>{s.standing&&<div><dt>Elo</dt><dd className="elo">{Math.round(s.standing.rating)}</dd></div>}</dl>
         </div>
         <div className="sg-hero-actions">{onBattle&&<button className="primary" onClick={()=>onBattle(s)}><Swords size={15}/>用它对战</button>}<button className={editing?'on':''} aria-expanded={editing} onClick={()=>setEditing(v=>!v)}><Pencil size={14}/>编辑分类</button></div>
       </header>
@@ -224,7 +224,7 @@ function ProfileEditor({s,onClose,onSaved}:{s:StrategySummary;onClose:()=>void;o
   const p=s.profile,first=useRef<HTMLInputElement>(null);
   const [provider,setProvider]=useState<AgentProvider>(authorOf(s)),[model,setModel]=useState((p?.agent??s.agent)?.model||''),[tactic,setTactic]=useState<Tactic>(tacticOf(s)),[tags,setTags]=useState<StrategyTag[]>(p?.tags||[]);
   const [name,setName]=useState(p?.display_name||''),[author,setAuthor]=useState(p?.author||''),[description,setDescription]=useState(p?.description||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const choices=AUTHORS.filter(a=>a!=='official'||s.official||provider==='official');
+  const choices=AUTHORS;
   useEffect(()=>{first.current?.focus({preventScroll:true});first.current?.scrollIntoView({block:'nearest',behavior:'smooth'});},[]);
   async function submit(e:FormEvent){
     e.preventDefault();setBusy(true);setError('');
@@ -241,7 +241,7 @@ function ProfileEditor({s,onClose,onSaved}:{s:StrategySummary;onClose:()=>void;o
     <fieldset className="sg-edit-authors"><legend>生成者</legend><div>{choices.map(a=><label key={a} className={provider===a?'on':''} style={{'--pc':PROVIDERS[a].color} as CSSProperties} title={PROVIDERS[a].examples}><input type="radio" name="sg-provider" value={a} checked={provider===a} onChange={()=>setProvider(a)}/><AgentBadge provider={a} size={24}/><span>{PROVIDERS[a].name}</span></label>)}</div></fieldset>
     <div className="sg-edit-grid">
       <label><span>模型名称</span><input ref={first} value={model} maxLength={64} placeholder="如 Claude Opus 5.5、GPT-5、Kimi K2" onChange={e=>{const v=e.target.value,d=detectProvider(v);setModel(v);if(d&&provider==='unknown')setProvider(d);}}/></label>
-      <label><span>展示名称</span><input value={name} maxLength={40} placeholder={s.showcase?.title||s.name} onChange={e=>setName(e.target.value)}/></label>
+      <label><span>展示名称</span><input value={name} maxLength={40} placeholder={strategyTitle(s)} onChange={e=>setName(e.target.value)}/></label>
       <label><span>作者署名</span><input value={author} maxLength={40} placeholder="可留空" onChange={e=>setAuthor(e.target.value)}/></label>
     </div>
     <fieldset className="sg-edit-tactic"><legend>战术定位</legend><div>{TACTIC_ORDER.map(t=><label key={t} className={tactic===t?'on':''} style={{'--tc':TACTICS[t].color} as CSSProperties}><input type="radio" name="sg-tactic" value={t} checked={tactic===t} onChange={()=>setTactic(t)}/><b>{TACTICS[t].name}</b><small>{TACTICS[t].brief}</small></label>)}</div></fieldset>

@@ -99,6 +99,9 @@ class SeasonApiTests(unittest.TestCase):
         self.assertEqual({catalog[k]["season"] for k in catalog}, {"2027"})
         self.assertIn("official_2027_team", catalog)
         self.assertNotIn("official_team", catalog)
+        for entry in catalog.values():
+            self.assertEqual(entry["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+            self.assertNotRegex(entry["display_name"], r"(?i)official|官方")
 
     def test_a_match_without_a_map_follows_its_strategies_and_defaults_to_2027(self):
         started = self.client.post("/api/start", json={"duration": 2})
@@ -106,6 +109,11 @@ class SeasonApiTests(unittest.TestCase):
         record = self.wait(started.json()["match_id"])
         self.assertEqual((record["status"], record["metadata"]["season"], record["metadata"]["map"]), ("finished", "2027", "rmuc2027"))
         self.assertEqual(record["result"]["policy_errors"], 0)
+        for team in ("red", "blue"):
+            self.assertEqual(record["metadata"]["teams"][team]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+            for agent in record["metadata"]["agents"][team].values():
+                self.assertEqual((agent["provider"], agent["model"]), ("anthropic", "Claude Opus 5.5"))
+                self.assertNotRegex(agent["strategy"], r"(?i)official|官方")
         legacy = self.client.post("/api/start", json={"red": "official_team", "blue": "official_hold", "duration": 2})
         self.assertEqual(legacy.status_code, 200, legacy.text)
         self.assertEqual(self.wait(legacy.json()["match_id"])["metadata"]["map"], "rmuc2026")

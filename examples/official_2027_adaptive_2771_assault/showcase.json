@@ -64,5 +64,9 @@
   ],
   "weaknesses": [
     "前压后己方中央高地卡无人守"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

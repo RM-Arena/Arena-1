@@ -85,5 +85,9 @@
     "不打能量机关",
     "两台步兵分开行动，容易被各个击破",
     "不主动利用跳跃登阶抄近路，只沿公路与端坡寻路"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

@@ -1,3 +1,4 @@
+import {strategyDisplayName} from './strategyIdentity';
 import type {CatalogEntry,Role} from './types';
 export type RobotChoice={id:string;card:CatalogEntry};
 export type RobotGroup={model:number;name:string;role:Role;choices:RobotChoice[]};
@@ -20,7 +21,7 @@ export function applyDeckTactic(deck:string[],cards:Record<string,CatalogEntry>,
   const choices=new Map(groupRobotCards(cards).map(group=>[group.model,group.choices.find(c=>c.card.preset?.id===tactic)?.id]));
   return deck.map(id=>choices.get(cards[id]?.robot||0)||id);
 }
-export function strategyLabel(card:CatalogEntry){return card.preset?.name||card.name;}
+export function strategyLabel(card:CatalogEntry){return card.preset?.name||strategyDisplayName(card);}
 export function summarizeDeck(deck:string[]){
   const counts=new Map<string,number>();
   for(const id of deck)counts.set(id,(counts.get(id)||0)+1);

@@ -1,3 +1,4 @@
+import {strategyName} from './strategyIdentity';
 import {useEffect,useMemo,useRef,useState,type CSSProperties} from 'react';
 import type {Frame,Metadata,Robot,RobotHardware,Standing,TeamId} from './types';
 import {MODE_LABELS,ROLE_NAMES,frameSeason} from './types';
@@ -11,7 +12,7 @@ import './intro.css';
 const CHASSIS:Record<string,string>={mecanum:'麦克纳姆轮',swerve:'舵轮',omni:'全向轮',wheel_legged:'双轮足',quadrotor:'多旋翼',legged:'串联腿'};
 const CHECKS=['选手端连接','裁判系统模块','场地道具','机器人满血重置'];
 const record=(standings:Standing[],m:Metadata|null,team:TeamId)=>{const t=m?.teams[team];return t?standings.find(s=>s.name===t.name&&s.version===t.version):undefined;};
-const shownName=(m:Metadata|null,team:TeamId)=>m?.teams[team]?.display_name||teamName(m,team);
+const shownName=(m:Metadata|null,team:TeamId)=>teamName(m,team);
 // The public catalog (with level-one referee stats) when available, else the frame's own hardware table.
 const hardware=(f:Frame,r:Robot,models?:Record<string,RobotHardware>)=>models?.[String(r.model_slot??r.slot)]??f.robot_models?.[String(r.model_slot??r.slot)];
 
@@ -32,7 +33,7 @@ function AgentCard({agent,team,label='策略生成'}:{agent:RobotAgent|null;team
     <div className="li-agent-ring"><AgentBadge provider={provider} size={190} ring={info.color}/><i/><i/></div>
     <span className="li-agent-label">{label} · AGENT</span>
     <strong>{agentLabel(agent)}</strong><small>{agent?.model?(info.maker===info.name?info.name:`${info.maker} · ${info.name}`):info.maker}</small>
-    {agent?.strategy&&<em>策略 · {agent.strategy}</em>}
+    {agent?.strategy&&<em>策略 · {strategyName(agent.strategy)}</em>}
   </div>;
 }
 

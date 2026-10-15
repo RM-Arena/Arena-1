@@ -66,5 +66,9 @@
   "weaknesses": [
     "护罩耐撞次数有限，撞完即失效",
     "悬停待机时容易被射击磨损"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

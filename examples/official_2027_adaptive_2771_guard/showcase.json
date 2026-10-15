@@ -55,5 +55,9 @@
   ],
   "weaknesses": [
     "输出低"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

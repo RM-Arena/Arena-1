@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-const scope={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('frontend/src/deckCatalog.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,scope);
+const identityScope={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('frontend/src/strategyIdentity.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,identityScope);
+const scope={exports:{},require:name=>{if(name==='./strategyIdentity')return identityScope.exports;throw Error(name);}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('frontend/src/deckCatalog.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,scope);
 const {groupRobotCards,filterRobotGroups,applyDeckTactic,summarizeDeck}=scope.exports;
 const plain=x=>JSON.parse(JSON.stringify(x));
 const cards={

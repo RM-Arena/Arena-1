@@ -58,5 +58,9 @@
   ],
   "weaknesses": [
     "中段对基地没有压力"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

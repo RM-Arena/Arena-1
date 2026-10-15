@@ -3,7 +3,7 @@ import {PROVIDERS,type AgentProvider} from './agents';
 
 // Marks of the strategy authors. The LLM brand paths come from lobehub/lobe-icons (@lobehub/icons-static-svg 1.95.1, MIT, © LobeHub);
 // the marks are trademarks of their respective owners and only name who generated a strategy. Xiaomi (lobe-icons only has a MiMo
-// wordmark) and the human / official / unknown / mixed emblems are drawn here. Monochrome parts use currentColor, which the
+// wordmark) and the human / unknown / mixed emblems are drawn here. Monochrome parts use currentColor, which the
 // components take from --agent-logo-mono (white by default for the dark viewer; set it on an ancestor for light backgrounds).
 export type LogoKind=AgentProvider|'mixed';
 type Mark=(id:string)=>ReactNode;
@@ -24,7 +24,7 @@ const D={
   bytedance:['M14.944 18.587l-1.704-.445V10.01l1.824-.462c1-.254 1.84-.461 1.88-.453.032 0 .056 2.235.056 4.972v4.973l-.176-.008c-.104 0-.952-.207-1.88-.446z','M7 16.542c0-2.736.024-4.98.064-4.98.032-.008.872.2 1.88.454l1.816.461-.016 4.05-.024 4.049-1.632.422c-.896.23-1.736.445-1.856.469L7 21.523v-4.98z','M19.24 12.477c0-9.03.008-9.515.144-9.475.072.024.784.207 1.576.406.792.207 1.576.405 1.744.445l.296.08-.016 8.56-.024 8.568-1.624.414c-.888.23-1.728.437-1.856.47l-.24.055v-9.523z','M1 12.509c0-4.678.024-8.505.064-8.505.032 0 .872.207 1.872.454l1.824.461v7.582c0 4.16-.016 7.574-.032 7.574-.024 0-.872.215-1.88.47L1 21.013v-8.505z'],
 };
 const url=(id:string)=>`url(#${id})`;
-const HEX='M12 1.6 21.007 6.8V17.2L12 22.4 2.993 17.2V6.8Z',HEX_LINE='M12 1.9 20.747 6.95V17.05L12 22.1 3.253 17.05V6.95Z';
+const HEX_LINE='M12 1.9 20.747 6.95V17.05L12 22.1 3.253 17.05V6.95Z';
 const PEN='M13.2 20.8 14.33 17.41 16.59 19.67ZM14.83 16.91 20.87 10.87 23.13 13.13 17.09 19.17Z';
 const MIX_SEGMENTS=['M2.474 6.5 12 1 21.526 6.5 18.235 8.4 12 4.8 5.765 8.4Z','M21.526 6.5V17.5L12 23V19.2L18.235 15.6V8.4Z','M12 23 2.474 17.5V6.5L5.765 8.4V15.6L12 19.2Z'];
 const GEMINI_GLOW=[['#08B962',7,15.5,11,12,1],['#F94543',8,5.5,11.5,11,1],['#FABC12',3.5,13.5,17.5,12,.46]] as const;
@@ -43,12 +43,11 @@ const MARKS:Record<LogoKind,Mark>={
   'tencent-hy':()=><><circle cx="12" cy="12" r="12" fill="#0055E9"/>{D.hunyuan.map((d,i)=><path key={i} fill={['#A8DFF5','#0055E9','#00BCFF','#ECECEE'][i]} d={d}/>)}</>,
   'bytedance-seed':()=><>{D.bytedance.map((d,i)=><path key={i} fill={['#00C8D2','#3C8CFF','#78E6DC','#325AB4'][i]} d={d}/>)}</>,
   human:id=><><defs>{cutout(`${id}m`,PEN,3)}</defs><g fill="#E8C36A" mask={url(`${id}m`)}><circle cx="9.5" cy="7" r="4.2"/><path d="M1.5 22v-1.4c0-4 3.6-6.8 8-6.8s8 2.8 8 6.8V22Z"/></g><path fill={MONO} d={PEN}/></>,
-  official:id=><><defs><linearGradient id={`${id}g`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#FFDE8E"/><stop offset="1" stopColor="#E3A43C"/></linearGradient></defs><path d={HEX} fill={url(`${id}g`)} stroke={url(`${id}g`)} strokeWidth="1.2" strokeLinejoin="round"/><path fill="#2A1E08" fillRule="evenodd" transform="translate(2.85 0) skewX(-12)" d="M8.2 6.2h4.7c2.2 0 3.5 1.3 3.5 3.3 0 1.6-.9 2.7-2.3 3.1l2.6 5.2h-2.8L11.6 13h-.9v4.8H8.2ZM10.7 8.3v2.6h2c.8 0 1.2-.5 1.2-1.3s-.4-1.3-1.2-1.3Z"/></>,
   unknown:()=><><g fill="none" stroke="#8D98A6" strokeLinecap="round" strokeLinejoin="round"><path strokeWidth="1.8" d={HEX_LINE}/><path strokeWidth="2.3" d="M9.2 9.4c0-1.75 1.3-2.9 2.9-2.9 1.65 0 2.9 1.1 2.9 2.65 0 1.3-.75 1.95-1.7 2.55-.85.55-1.2 1.05-1.2 1.95v.25"/></g><circle cx="12.1" cy="17.1" r="1.35" fill="#8D98A6"/></>,
   mixed:id=><><defs>{cutout(`${id}m`,'M12 12 23.3 5.5M12 12V25M12 12 .7 5.5',1.5)}</defs><g mask={url(`${id}m`)}>{MIX_SEGMENTS.map((d,i)=><path key={i} fill={MIXED_COLORS[i]} d={d}/>)}</g><path fill="none" stroke={MONO} strokeWidth="1.3" strokeLinecap="round" d="M12 12V8.2M12 12l3.29 1.9M12 12l-3.29 1.9"/><g fill={MONO}><circle cx="12" cy="12" r="2.1"/><circle cx="12" cy="8.2" r="1.5"/><circle cx="15.29" cy="13.9" r="1.5"/><circle cx="8.71" cy="13.9" r="1.5"/></g></>,
 };
 // Marks that fill their whole square look larger on a disc than open glyphs; shrink them a little inside badges.
-const BADGE_SCALE:Partial<Record<LogoKind,number>>={'tencent-hy':.86,xiaomi:.86,official:.94,unknown:.94,mixed:.96};
+const BADGE_SCALE:Partial<Record<LogoKind,number>>={'tencent-hy':.86,xiaomi:.86,unknown:.94,mixed:.96};
 // Ids carry the kind, so even marks rendered by separate React roots (same useId) only ever share identical definitions.
 const drawMark=(provider:LogoKind,id:string)=>Object.hasOwn(MARKS,provider)?MARKS[provider](id+provider):MARKS.unknown(id+'unknown');
 const labelOf=(provider:LogoKind,title?:string)=>title??(provider==='mixed'?'混合':PROVIDERS[provider]?.name??PROVIDERS.unknown.name);

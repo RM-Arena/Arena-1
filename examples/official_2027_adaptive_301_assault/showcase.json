@@ -71,5 +71,9 @@
     "不回防己方控制点",
     "站位深入，容易阵亡",
     "不会变形穿越隧道，拿不到隧道冷却增益"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

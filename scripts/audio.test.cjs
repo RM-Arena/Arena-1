@@ -4,7 +4,7 @@ function compile(name,imports={},extras={}){
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const scope={exports:{},require:n=>{if(!(n in imports))throw new Error('Unexpected import '+n);return imports[n];},Float32Array,Map,Set,Math,Promise,Error,window:{setTimeout:()=>0},...extras};vm.runInNewContext(code,scope);return scope.exports;
 }
-const playlist=compile('audioPlaylist'),killAnnouncements=compile('killAnnouncements'),{MUSIC,broadcastMusicCue,audibleEvents}=playlist;
+const identity=compile('strategyIdentity'),playlist=compile('audioPlaylist'),killAnnouncements=compile('killAnnouncements'),{MUSIC,broadcastMusicCue,audibleEvents}=playlist;
 class Param{value=0;setValueAtTime(v){this.value=v;}setTargetAtTime(v){this.value=v;}exponentialRampToValueAtTime(v){this.value=v;}cancelScheduledValues(){}}
 class Node{gain=new Param();frequency=new Param();Q=new Param();playbackRate=new Param();connections=[];connect(node){this.connections.push(node);return node;}disconnect(){}start(at,offset=0){this.started={at,offset};}stop(at){this.stopped=at;}}
 class Context{
@@ -18,9 +18,20 @@ class Context{
  advance(seconds){if(this.state==='running')this.currentTime+=seconds;}
 }
 function harness(fetcher=async url=>({ok:true,arrayBuffer:async()=>({url})})){
- const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
+ const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
 }
 async function flush(){for(let i=0;i<12;i++)await Promise.resolve();}
+test('recorded video headings use display names and the actual season and roster',()=>{
+ const labels=[],ctx={fillRect(){},drawImage(){},fillText(text){labels.push(text);}};
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const recorder=new BroadcastRecorder({});recorder.source={width:1920,height:1080};recorder.recorder={state:'recording'};
+ const robots=['red','blue'].flatMap(team=>[1,3,4,6,7].map(slot=>({team,slot,role:'infantry',alive:true,hp:100,max_hp:100,heat:0,max_heat:40})));
+ const frame={season:'2027',remaining:420,seed:42,status:'running',arena:{name:'rmuc2027'},robots,teams:{red:{score:0},blue:{score:0}},bases:{red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}}};
+ recorder.draw(frame,{teams:{red:{name:'official_2027_team',display_name:'官方基线 2027'},blue:{name:'official_2027_hold'}}});
+ assert.ok(labels.some(t=>t.includes('基线策略 2027')));
+ assert.ok(labels.some(t=>t.includes('5v5 / RMUC 2027')));
+ assert.doesNotMatch(labels.join('\n'),/official|官方|6v6|RMUC 2026/i);
+});
 const state={page:'arena',hangar:false,prematch:null,post:null,status:'ready'};
 
 test('all stage cues use shipped assets and reserve the competition track for the match',()=>{

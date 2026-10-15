@@ -19,7 +19,7 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 
 [![RMUC 2027 实际对战：开局双方空中机器人冲撞前哨站](docs/media/rmuc2027-battle.gif)](docs/media/rmuc2027-battle.mp4)
 
-<p align="center"><sub>RMUC 2027 开局 11 秒：双方空中机器人预判旋转装甲，定时冲撞对方前哨站（<a href="docs/media/rmuc2027-battle.mp4">MP4</a>）· <a href="docs/media/battle.mp4">RMUC 2026 对战录像</a></sub></p>
+<p align="center"><sub>RMUC 2027 示例对战：Claude Opus 5.5 开发策略，空中机器人撞击前哨站（<a href="docs/media/rmuc2027-battle.mp4">MP4</a>）· <a href="docs/media/battle.mp4">RMUC 2026 对战录像</a></sub></p>
 
 ## 第一次接触 RoboMaster？
 
@@ -81,6 +81,8 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 规则对应与适配说明见 [RULES_2027_IMPLEMENTATION.md](docs/RULES_2027_IMPLEMENTATION.md)，型号设计见 [ROBOT_HARDWARE_DESIGNS.md](docs/ROBOT_HARDWARE_DESIGNS.md)。
 
 ## Agent 怎么参赛
+
+仓库随附的 RMUC 2027 全队、单机组队、多机协同与各型号预置策略均由 **Claude Opus 5.5** 开发；界面按实际模型署名。
 
 1. 选择模式和机器人，生成任务目录，把 `AGENT_TASK.md` 交给 Agent。
 2. Agent 阅读规则、编写 Python 策略，通过练习对战迭代，再提交参赛版本。

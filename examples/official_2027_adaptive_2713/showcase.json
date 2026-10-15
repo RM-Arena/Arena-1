@@ -94,5 +94,9 @@
     "50 W 底盘往返公路起伏路段很慢，42mm 火力要到 3 分钟后才到位",
     "不打能量机关",
     "装配期间不能射击"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

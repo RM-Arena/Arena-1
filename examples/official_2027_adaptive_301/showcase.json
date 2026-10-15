@@ -85,5 +85,9 @@
     "不打能量机关",
     "两台步兵分开行动，容易被各个击破",
     "不会变形穿越隧道，拿不到隧道冷却增益"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

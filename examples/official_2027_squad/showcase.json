@@ -136,5 +136,9 @@
     "不打能量机关",
     "重型往返公路很慢，42mm 火力 3 分钟后才到位",
     "哨兵独自守卡，被集火时控制点会失守"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

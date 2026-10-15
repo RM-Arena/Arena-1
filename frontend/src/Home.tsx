@@ -1,3 +1,4 @@
+import {strategyDisplayName} from './strategyIdentity';
 import {useCallback,useEffect,useMemo,useRef,useState,type CSSProperties,type KeyboardEvent as ReactKeyboardEvent} from 'react';
 import {Bot,ChevronLeft,ChevronRight,Crown,GraduationCap,History,LibraryBig,Radio,Shield,Trophy,Wifi,WifiOff} from 'lucide-react';
 import {ROLE_NAMES,type CatalogEntry,type RobotHardware,type Standing} from './types';
@@ -19,7 +20,7 @@ export function Home({models,catalog,cards,standings=[],connected=false,live,onT
     {id:'training',title:'策略训练',en:'STRATEGY TRAINING',icon:GraduationCap,accent:'#5fe0b6',brief:'四种开发方式，从单机技能到全队战术。创建任务、反复练习，再把参赛版本保存进策略库。',tags:['全队统筹','单机专精','多机协同','自由适配'],cta:'选择训练方式',run:onTraining},
     {id:'gallery',title:'策略库',en:'STRATEGY GALLERY',icon:LibraryBig,accent:'#c79bff',brief:'浏览每份策略的打法：由哪个 LLM 生成、风格雷达、七分钟节奏、战术路线与关键决策。上传你的策略，或给机器人换上自己的模型。',tags:['12 家 LLM','打法可视化','自定义机器人模型'],cta:'打开策略库',run:onGallery},
     {id:'history',title:'比赛与回放',en:'MATCH REPLAYS',icon:History,accent:'#86d8f0',brief:'每一场对战都有记录。回看完整回放、导出文件，或清理不再需要的比赛。',tags:['完整回放','导出 / 删除','本机保存'],cta:'打开比赛记录',run:onHistory},
-    {id:'rankings',title:'策略排行榜',en:'RANKINGS',icon:Trophy,accent:'#ff9d66',brief:champion?`当前榜首 ${champion.name} · Elo ${Math.round(champion.rating)}。按策略版本累计 Elo，手动结束和策略错误的比赛不计分。`:'按策略版本累计 Elo。两份不同策略完成有效比赛后，排行榜开始累计。',tags:['版本 Elo','胜 / 负 / 平'],cta:'查看排名',run:onRankings},
+    {id:'rankings',title:'策略排行榜',en:'RANKINGS',icon:Trophy,accent:'#ff9d66',brief:champion?`当前榜首 ${strategyDisplayName(champion)} · Elo ${Math.round(champion.rating)}。按策略版本累计 Elo，手动结束和策略错误的比赛不计分。`:'按策略版本累计 Elo。两份不同策略完成有效比赛后，排行榜开始累计。',tags:['版本 Elo','胜 / 负 / 平'],cta:'查看排名',run:onRankings},
   ],[cards,champion,onBattle,onTraining,onHistory,onRankings,onGallery]);
   const [active,setActive]=useState(0),buttons=useRef<(HTMLButtonElement|null)[]>([]);
   const units=useMemo(()=>Object.values(models).sort((a,b)=>ROLE_ORDER.indexOf(a.role)-ROLE_ORDER.indexOf(b.role)||a.slot-b.slot),[models]);
@@ -71,7 +72,7 @@ export function Home({models,catalog,cards,standings=[],connected=false,live,onT
         <span><b>5<small>v</small>5</b>RMUC 2027</span>
         <span><b>{Object.keys(models).length||'—'}</b>机器人构型</span>
         <span><b>{Object.keys(catalog).length+Object.keys(cards).length}</b>已保存策略</span>
-        {champion&&<span className="home-lobby-champion"><Crown size={14}/>榜首 <b>{champion.name}</b><small>{Math.round(champion.rating)}</small></span>}
+        {champion&&<span className="home-lobby-champion"><Crown size={14}/>榜首 <b>{strategyDisplayName(champion)}</b><small>{Math.round(champion.rating)}</small></span>}
       </div>
       <div className="home-keys" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd>选择模式</span><span><kbd>←</kbd><kbd>→</kbd>切换机体</span><span><kbd>Enter</kbd>确认</span></div>
     </div>

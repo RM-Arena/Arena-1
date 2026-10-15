@@ -48,5 +48,9 @@
   ],
   "weaknesses": [
     "护罩很快耗尽"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

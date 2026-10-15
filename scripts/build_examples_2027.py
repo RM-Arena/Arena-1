@@ -1,4 +1,4 @@
-"""Materialize the RMUC 2027 official team examples from scripts/robot_policy_2027.py.
+"""Materialize the RMUC 2027 Claude Opus 5.5 team examples from scripts/robot_policy_2027.py.
 
     official_2027_team         team mode, balanced (the default red strategy)
     official_2027_hold         team mode, guard (the default blue strategy)
@@ -22,7 +22,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from rmuc_arena import seasons as season_rules
-from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, parse_showcase, validate_profile
+from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, example_agent, parse_showcase, validate_profile
 from rmuc_arena.submissions import save_submission
 
 SEASON = "2027"
@@ -104,7 +104,7 @@ def team_showcase(tactic):
 
 
 def profile(tactic, name, description):
-    return validate_profile({"agent": {"provider": "official"}, "tactic": tactic,
+    return validate_profile({"agent": example_agent(SEASON), "tactic": tactic,
                              "tags": ["aerial", "assembly", "outpost_rush"] if tactic != "guard" else ["aerial", "assembly"],
                              "display_name": name, "description": description})
 
@@ -145,6 +145,7 @@ def outputs():
         showcase = team_showcase(tactic)
         if name != "official_2027_team" and name != "official_2027_hold":
             showcase = dict(showcase, title=title)
+        showcase["generated_by"] = example_agent(SEASON)
         files = dict(files)
         files[SHOWCASE_FILE] = dump(showcase)
         files[PROFILE_FILE] = dump(profile("guard" if tactic == "guard" else "balanced", title, text))

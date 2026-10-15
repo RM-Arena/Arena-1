@@ -19,8 +19,13 @@ from .paths import ROOT
 EXAMPLES = ROOT / "examples"
 
 PROVIDERS = ("openai", "anthropic", "google", "meta", "spacexai", "moonshot", "zai", "xiaomi", "deepseek", "qwen", "tencent-hy", "bytedance-seed")
-# Non-LLM authors: written by a person, shipped with the arena, or not stated.
-AUTHORS = PROVIDERS + ("human", "official", "unknown")
+# Bundling a strategy is independent of who developed it.
+AUTHORS = PROVIDERS + ("human", "unknown")
+
+
+def example_agent(season):
+    """Development attribution supplied by the project owner for the 2027 examples."""
+    return {"provider": "anthropic", "model": "Claude Opus 5.5"} if str(season) == "2027" else {"provider": "unknown"}
 STYLE_KEYS = ("aggression", "defense", "economy", "objective", "teamwork", "adaptability")
 PHASE_FOCUS = ("attack", "defense", "economy", "objective", "support")
 TACTICS = ("balanced", "assault", "siege", "guard", "economy")
@@ -95,7 +100,7 @@ def agent(value, field="agent"):
     model = (model or "").strip() or None
     provider = value.get("provider") or detect_provider(model) or "unknown"
     if provider not in AUTHORS:
-        provider = detect_provider(provider) or "unknown"
+        provider = detect_provider(provider) or detect_provider(model) or "unknown"
     return {"provider": provider, **({"model": model} if model else {})}
 
 
@@ -219,9 +224,13 @@ def is_official(path):
 
 
 def load_profile(path, official=None):
-    """Stored classification, else the agent's self-report in showcase.json; arena examples default to official."""
+    """Stored attribution, with compatibility for earlier bundled strategy profiles."""
     official = is_official(path) if official is None else official
+    from .seasons import season_of_profile
+    season = season_of_profile((_read(path, "manifest.json") or {}).get("rules_profile"))
     data = _read(path, PROFILE_FILE)
+    if official and isinstance(data, dict) and isinstance(data.get("agent"), dict) and data["agent"].get("provider") == "official":
+        data = {**data, "agent": example_agent(season)}
     try:
         profile = validate_profile(data) if data is not None else None
     except ValueError:
@@ -229,7 +238,7 @@ def load_profile(path, official=None):
     if profile is None:
         showcase = load_showcase(path)
         reported = (showcase or {}).get("generated_by")
-        profile = validate_profile({"agent": reported or {"provider": "official" if official else "unknown"}})
+        profile = validate_profile({"agent": reported or (example_agent(season) if official else {"provider": "unknown"})})
     return profile
 
 

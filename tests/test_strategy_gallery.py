@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from rmuc_arena.custom_models import inspect_glb
 from rmuc_arena.server import create_app, intro_seconds
-from rmuc_arena.showcase import detect_provider, parse_showcase, validate_profile, validate_showcase
+from rmuc_arena.showcase import detect_provider, load_profile, parse_showcase, validate_profile, validate_showcase
 from rmuc_arena.submissions import ROOT, load_submission, scaffold, start_training, submit
 from tests.showcase_fixture import SHOWCASE, SHOWCASE_TEXT, write_showcase
 
@@ -28,6 +28,15 @@ def glb(gltf, binary=b""):
 
 
 class ShowcaseFormatTests(unittest.TestCase):
+    def test_legacy_bundle_attribution_is_not_an_author_category(self):
+        self.assertEqual(validate_profile({"agent": {"provider": "official"}})["agent"], {"provider": "unknown"})
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "manifest.json").write_text(json.dumps({"rules_profile": "rmuc-2027-v1.0.0-arena-v1"}))
+            (root / "profile.json").write_text(json.dumps({"agent": {"provider": "official"}}))
+            self.assertEqual(load_profile(root, official=True)["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+            self.assertEqual(load_profile(root, official=False)["agent"], {"provider": "unknown"})
+
     def test_spec_example_and_limits(self):
         example = (ROOT / "docs/STRATEGY_SHOWCASE.md").read_text().split("```json\n")[1].split("```")[0]
         showcase = parse_showcase(example)
@@ -157,7 +166,7 @@ class GalleryApiTests(unittest.TestCase):
         self.assertEqual(metadata["skins"]["red"]["301"]["asset"], skin["asset"])
         self.assertEqual(metadata["skins"]["blue"], {})
         self.assertEqual(metadata["agents"]["red"]["1"], {"provider": "moonshot", "model": "Kimi K2", "strategy": "kimi-hero"})
-        self.assertEqual(metadata["agents"]["red"]["2"]["provider"], "official")
+        self.assertEqual(metadata["agents"]["red"]["2"]["provider"], "unknown")
         self.assertEqual(metadata["teams"]["red"]["cards"][0]["agent"]["provider"], "moonshot")
         self.assertEqual(self.client.delete(f"/api/custom-models/{skin['id']}").status_code, 200)
         self.assertEqual(self.client.get("/api/custom-models").json(), [])
@@ -174,7 +183,7 @@ class GalleryApiTests(unittest.TestCase):
                 break
             time.sleep(.05)
         self.assertEqual(state["prematch"]["duration"], intro_seconds(12))
-        self.assertEqual(state["metadata"]["agents"]["red"]["1"]["provider"], "official")
+        self.assertEqual(state["metadata"]["agents"]["red"]["1"]["provider"], "unknown")
         self.client.post("/api/control", json={"command": "stop"})
         self.wait()
 

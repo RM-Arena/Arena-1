@@ -76,5 +76,9 @@
     "很少领取每分钟配给",
     "一台机器人守卡，被集火时会失守",
     "不主动利用跳跃登阶抄近路，只沿公路与端坡寻路"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

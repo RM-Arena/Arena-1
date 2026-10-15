@@ -1,4 +1,4 @@
-"""Showcase cards of the RMUC 2027 official policies (scripts/robot_policy_2027.py).
+"""Showcase cards of the RMUC 2027 Claude Opus 5.5 policies (scripts/robot_policy_2027.py).
 
 Own-side metres (own base on the left); each card describes what the code really does.
 """

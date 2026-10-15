@@ -1,3 +1,4 @@
+import {strategyDisplayName,strategyName} from './strategyIdentity';
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import type {Frame,MatchEvent,Metadata,Robot,TeamId} from './types';
 import {MODE_LABELS,frameSeason} from './types';
@@ -61,16 +62,16 @@ export function Stage({children,className='',compactable=false}:{children:ReactN
 
 // ---------------------------------------------------------------- pieces
 const pct=(v:number,max:number)=>max>0?Math.max(0,Math.min(100,v/max*100)):0;
-export const teamName=(m:Metadata|null,team:TeamId)=>m?.teams[team]?.name||(team==='red'?'RED':'BLUE');
+export const teamName=(m:Metadata|null,team:TeamId)=>strategyDisplayName(m?.teams[team])||(team==='red'?'红方':'蓝方');
 export function Emblem({team,name,size=64}:{team:TeamId;name:string;size?:number}){
-  const letter=(name.replace(/^official_/,'').match(/[A-Za-z一-龥]/)?.[0]||'R').toUpperCase();
+  const letter=(strategyName(name).match(/[A-Za-z一-龥]/)?.[0]||'R').toUpperCase();
   return <svg className={`bc-emblem ${team}`} width={size} height={size} viewBox="-50 -50 100 100" aria-hidden><defs><linearGradient id={`em-${team}`} x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stopColor={team==='red'?'#ff6b5f':'#5fb2ff'}/><stop offset="1" stopColor={team==='red'?'#8c0d14':'#0b3f8c'}/></linearGradient></defs>
     <circle r="47" fill="#f4f6f8"/><circle r="41" fill={`url(#em-${team})`}/><polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15" fill="none" stroke="#fff" strokeWidth="3" opacity=".55"/><text y="13" textAnchor="middle" fontSize="38" fontWeight="900" fontStyle="italic" fill="#fff">{letter}</text></svg>;
 }
 // The team emblem: the one LLM maker behind the team, the mixed emblem for several, or the classic letter crest.
 export function TeamCrest({metadata,team,size}:{metadata:Metadata|null;team:TeamId;size:number}){
   const emblem=teamEmblem(metadata,team);
-  return emblem?<AgentBadge provider={emblem} size={size} ring={team==='red'?'#ff4b4b':'#3aa0ff'} title={emblem==='mixed'?`混合 · ${teamAgents(metadata,team).map(agentLabel).join(' / ')}`:PROVIDERS[emblem].name}/>:<Emblem team={team} name={teamName(metadata,team)} size={size}/>;
+  return emblem?<AgentBadge provider={emblem} size={size} ring={team==='red'?'#ff4b4b':'#3aa0ff'} title={emblem==='mixed'?`混合 · ${teamAgents(metadata,team).map(agentLabel).join(' / ')}`:teamAgents(metadata,team).map(agentLabel).join(' / ')||PROVIDERS[emblem].name}/>:<Emblem team={team} name={teamName(metadata,team)} size={size}/>;
 }
 function Chevrons({level}:{level:number}){const n=level>=10?3:Math.ceil(level/3);return <span className={`bc-chev ${level>=10?'max':''}`} title={`Lv.${level}`}>{Array.from({length:n},(_,i)=><i key={i}/>)}</span>;}
 
@@ -78,7 +79,7 @@ function RobotCard({r,image,selected,onSelect,assemblies,metadata}:{r:Robot;imag
   const agent=robotAgent(metadata,r.team,r.slot);
   const air=r.role==='aerial',fleet=r.drones,dead=!air&&!r.alive,hp=air?(fleet?pct(fleet.reduce((sum,d)=>sum+Math.max(0,d.integrity),0),fleet.length*Math.max(1,...fleet.map(d=>d.integrity),3)):r.support_active?100:0):pct(r.hp,r.max_hp),respawn=r.respawn_required>0?Math.floor(Math.min(1,r.respawn_progress/r.respawn_required)*100):0;
   return <button className={`bc-card ${r.team} ${dead?'dead':''} ${selected?'selected':''}`} onClick={()=>onSelect(r.id)} aria-label={`${TEAM_LABEL[r.team]}${r.slot}号${robotName(r)}${agent?` · 策略来自 ${agentLabel(agent)}`:''}`}>
-    {agent&&<span className="bc-card-agent" title={`${agentLabel(agent)}${agent.strategy?` · ${agent.strategy}`:''}`}><AgentLogo provider={providerOf(agent)} size={20}/></span>}
+    {agent&&<span className="bc-card-agent" title={`${agentLabel(agent)}${agent.strategy?` · ${strategyName(agent.strategy)}`:''}`}><AgentLogo provider={providerOf(agent)} size={20}/></span>}
     <span className="bc-card-art">{image?<img src={image} alt=""/>:<span className="bc-card-ph"/>}{r.role==='hero'&&<i className="bc-mode">{(r as Robot&{profile?:string}).profile==='melee'?'近':'远'}</i>}{dead&&<b className="bc-respawn">{respawn}%</b>}</span>
     <span className="bc-card-id"><em>{r.slot}</em><span>{robotName(r)}</span><Chevrons level={r.level||1}/></span>
     <span className="bc-card-hp"><i style={{width:`${hp}%`}}/>{Array.from({length:4},(_,k)=><s key={k} style={{left:`${(k+1)*20}%`}}/>)}</span>
@@ -129,7 +130,7 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
       {TEAMS.map(team=>{const base=frame.bases[team],op=frame.outposts?.[team],t=frame.teams[team] as {rebuild_credits?:number};return <div key={team} className={`bc-side ${team}`}>
         <div className="bc-outpost"><span>前哨站 <i className="bc-tower"/></span><b className={op&&op.hp<=0?'down':''}>{op?Math.ceil(Math.max(0,op.hp)):'—'}</b>{season==='2027'?positionLabel(team):<small title="可用重建次数">⚒ {t.rebuild_credits??0}</small>}</div>
         <div className="bc-team-main">
-          <div className="bc-team-name"><span>{metadata?.teams[team]?.display_name||teamName(metadata,team)}</span><small>{teamEmblem(metadata,team)==='mixed'?`${teamAgents(metadata,team).length} 个 Agent 混合`:teamAgents(metadata,team).length?agentLabel(teamAgents(metadata,team)[0]):metadata?MODE_LABELS[metadata.teams[team].mode]:''}</small></div>
+          <div className="bc-team-name"><span>{teamName(metadata,team)}</span><small>{teamEmblem(metadata,team)==='mixed'?`${teamAgents(metadata,team).length} 个 Agent 混合`:teamAgents(metadata,team).length?agentLabel(teamAgents(metadata,team)[0]):metadata?MODE_LABELS[metadata.teams[team].mode]:''}</small></div>
           <div className="bc-basebar"><i className="fill" style={{width:`${pct(base.hp,base.max_hp)}%`}}/><span className="bc-basebar-hex"/><b>{Math.ceil(Math.max(0,base.hp))}</b><i className="bc-base-icon"/></div>
           <div className="bc-team-sub"><span title="基地护盾">⛨ {Math.ceil(base.shield_hp||0)}</span>{invulnerable(team)&&base.hp>0&&<span className="bc-invuln">基地无敌</span>}{base.armor_open&&<span className="bc-armor">护甲展开</span>}</div>
         </div>
@@ -139,7 +140,7 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
         <small>{round}</small>
         <div className="bc-clock-row"><span className="bc-wins red">{wins('red')}</span><strong>{clock(frame.remaining).replace(/^0/,'')}</strong><span className="bc-wins blue">{wins('blue')}</span></div>
         <div className="bc-adv"><i style={{width:`${share}%`}}/><em style={{left:`${share}%`}}/></div>
-        <div className="bc-coins"><span className="red">{Math.floor(frame.teams.red.resources)}<small>/{Math.floor(stats.teams.red.economy)}</small></span><b>R</b><span className="blue">{Math.floor(frame.teams.blue.resources)}<small>/{Math.floor(stats.teams.blue.economy)}</small></span></div>
+        <div className="bc-coins"><span className="red">{Math.floor(frame.teams.red.resources)}<small>/{Math.floor(stats.teams.red.economy)}</small></span><b title="金币" aria-label="金币">¤</b><span className="blue">{Math.floor(frame.teams.blue.resources)}<small>/{Math.floor(stats.teams.blue.economy)}</small></span></div>
         {season==='2027'&&<div className="bc-dmg bc-control"><span>{control('red')}</span><small>CONTROL</small><span>{control('blue')}</span></div>}
         <div className="bc-dmg"><span>{damage('red')}</span><small>DAMAGE</small><span>{damage('blue')}</span></div>
       </div>

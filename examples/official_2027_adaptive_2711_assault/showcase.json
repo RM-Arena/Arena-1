@@ -79,5 +79,9 @@
   "weaknesses": [
     "放弃 4 级的全队 50% 防御",
     "炮位暴露在中央高地，易被集火"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

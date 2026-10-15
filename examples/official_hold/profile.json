@@ -1,7 +1,7 @@
 {
   "format": "rmuc-strategy-profile-v1",
   "agent": {
-    "provider": "official"
+    "provider": "unknown"
   },
   "tactic": "guard",
   "tags": [

@@ -75,5 +75,9 @@
   "weaknesses": [
     "很少领取每分钟配给",
     "一台机器人守卡，被集火时会失守"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

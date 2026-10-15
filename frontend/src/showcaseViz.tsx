@@ -1,3 +1,4 @@
+import {strategyName} from './strategyIdentity';
 import {useEffect,useId,useState,type CSSProperties} from 'react';
 import {ROLE_NAMES,type Arena,type Showcase,type StrategySummary,type StrategyTag,type StyleKey,type Tactic,type TeamId} from './types';
 import './gallery.css';
@@ -22,7 +23,7 @@ export const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).p
 
 // The classification wins over the preset id, except that an unclassified preset keeps its own tactic.
 export function tacticOf(s:Pick<StrategySummary,'profile'|'preset'>):Tactic{const t=s.profile?.tactic||'balanced';return t==='balanced'&&s.preset?.id?s.preset.id:t;}
-export function strategyTitle(s:StrategySummary){return s.profile?.display_name||s.display_name||s.showcase?.title||(s.preset&&s.model_name?`${s.model_name} · ${s.preset.name}`:s.name);}
+export function strategyTitle(s:StrategySummary){return strategyName(s.profile?.display_name||s.display_name||s.showcase?.title||(s.preset&&s.model_name?`${s.model_name} · ${s.preset.name}`:s.name));}
 export function fallbackStyle(s:Pick<StrategySummary,'profile'|'preset'>){
   const style={...TACTICS[tacticOf(s)].style};
   for(const tag of s.profile?.tags||[])for(const [k,v] of Object.entries(TAG_STYLE[tag]||{}))style[k as StyleKey]=Math.min(100,style[k as StyleKey]+(v||0));

@@ -74,5 +74,9 @@
   "weaknesses": [
     "很少主动攻击敌方基地",
     "守位固定，容易被远程消耗"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

@@ -108,5 +108,9 @@
   "weaknesses": [
     "几乎不争取控制度，到时判定吃亏",
     "不进攻敌方堡垒"
-  ]
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  }
 }

@@ -2,9 +2,14 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const code=ts.transpileModule(fs.readFileSync('frontend/src/broadcast.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const killCode=ts.transpileModule(fs.readFileSync('frontend/src/killAnnouncements.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const killScope={exports:{}};vm.runInNewContext(killCode,killScope);
-const imports={'./types':{},'./matchStats':{TEAM_LABEL:{red:'红方',blue:'蓝方'}},'./media':{},'./broadcast.css':{},'./killAnnouncements':killScope.exports,'./agentLogos':{},'./agents':{}};
+const identityScope={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('frontend/src/strategyIdentity.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,identityScope);
+const imports={'./strategyIdentity':identityScope.exports,'./types':{},'./matchStats':{TEAM_LABEL:{red:'红方',blue:'蓝方'}},'./media':{},'./broadcast.css':{},'./killAnnouncements':killScope.exports,'./agentLogos':{},'./agents':{}};
 const scope={exports:{},performance,require:name=>name in imports?imports[name]:require(name)};vm.runInNewContext(code,scope);
 const {BroadcastDirector}=scope.exports;
+test('broadcast team headings normalize names recorded in older replays',()=>{
+ const metadata={teams:{red:{name:'official_2027_team',display_name:'官方基线 2027'}}};
+ assert.equal(scope.exports.teamName(metadata,'red'),'基线策略 2027');
+});
 test('paid revival announces the full-health purchase and its exact coin cost once',()=>{
  const director=new BroadcastDirector(),event={type:'respawn',id:'paid-1',tick:40,team:'red',robot:'red-3',instant:true,cost:120,hp:150,max_hp:150};
  director.events([event],null);director.events([event],null);const toasts=director.active('toast');assert.equal(toasts.length,1);

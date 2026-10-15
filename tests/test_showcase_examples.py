@@ -7,7 +7,7 @@ import unittest
 from rmuc_arena import seasons as season_rules
 from rmuc_arena.models import model_ids
 from rmuc_arena.robot_presets import TACTICS, preset_key
-from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, parse_showcase, validate_profile
+from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, example_agent, parse_showcase, validate_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
@@ -51,7 +51,7 @@ class ShowcaseExampleTests(unittest.TestCase):
             with self.subTest(example=file.parent.name):
                 agent = json.loads(file.read_text(encoding="utf-8"))["agent"]
                 reported = parse_showcase(showcase_file.read_bytes()).get("generated_by")
-                if agent["provider"] in ("official", "human", "unknown"):
+                if agent["provider"] in ("human", "unknown"):
                     self.assertIsNone(reported)
                 else:
                     self.assertEqual(reported, agent)
@@ -67,7 +67,7 @@ class ShowcaseExampleTests(unittest.TestCase):
                     for name, data in build.sidecars(model, tactic, season).items():
                         self.assertEqual((directory / name).read_bytes(), build.dump(data), name)
                     profile = json.loads((directory / PROFILE_FILE).read_text(encoding="utf-8"))
-                    self.assertEqual(profile["agent"], {"provider": "official"})
+                    self.assertEqual(profile["agent"], example_agent(season))
 
 
 if __name__ == "__main__":

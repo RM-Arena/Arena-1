@@ -1,7 +1,8 @@
 {
   "format": "rmuc-strategy-profile-v1",
   "agent": {
-    "provider": "official"
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
   },
   "tactic": "guard",
   "tags": [

@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 from rmuc_arena.models import model_ids, robot_models
 from rmuc_arena import seasons as season_rules
 from rmuc_arena.robot_presets import PROFILES, PROFILES_2027, TACTICS, preset_key
-from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, parse_showcase, validate_profile
+from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, example_agent, parse_showcase, validate_profile
 from rmuc_arena.submissions import load_submission, save_submission
 
 # Own-side metres (own base on the left). The balanced policy is the official baseline
@@ -270,7 +270,9 @@ def sidecars(model, tactic, season="2026"):
                 "style": card["style"], "phases": card["phases"], "units": [{"name": "本机", **card["unit"]}],
                 "rules": card["rules"], "priorities": card["priorities"], "strengths": card["strengths"],
                 "weaknesses": weaknesses}
-    profile = validate_profile({"agent": {"provider": "official"}, "tactic": card["tactic"], "tags": card["tags"],
+    if season == "2027":
+        showcase["generated_by"] = example_agent(season)
+    profile = validate_profile({"agent": example_agent(season), "tactic": card["tactic"], "tags": card["tags"],
                                 "display_name": name, "description": summary})
     return {SHOWCASE_FILE: showcase, PROFILE_FILE: profile}
 
