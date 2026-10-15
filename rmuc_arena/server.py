@@ -29,6 +29,7 @@ from .worker import SOURCE_LIMIT
 from .training import TrainingService
 from .decks import prepare_decks
 from .models import robot_models,normalize_team_lineup,mirrored_lineups,DEFAULT_TEAM_LINEUP
+from . import __version__
 from .robot_presets import preset_metadata
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, is_official, load_profile, load_showcase, validate_profile
 from .custom_models import CustomModels
@@ -433,7 +434,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         yield
         await asyncio.to_thread(service.shutdown)
         await asyncio.to_thread(training.shutdown)
-    app = FastAPI(title="RMUC Arena",version="0.4.3",lifespan=lifespan)
+    app = FastAPI(title="RMUC Arena",version=__version__,lifespan=lifespan)
     @app.get("/api/desktop/health")
     def desktop_health():
         return {"application": "arena-1", "instance": os.environ.get("RMUC_DESKTOP_INSTANCE", ""), "engine": "rust"}
@@ -465,7 +466,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     @app.get("/api/health")
     def health():
         default=season_rules.DEFAULT_SEASON
-        return {"version":"0.4.0","rules":season_rules.rules_profile(default),"season":default,"roster":list(season_rules.slots(default)),
+        return {"version":__version__,"rules":season_rules.rules_profile(default),"season":default,"roster":list(season_rules.slots(default)),
                 "team_size":len(season_rules.slots(default)),"seasons":season_rules.summary(),"duration":420,"engine":service.frame["engine"],
                 "simulation_hz":20,"policy_hz":10,"transport":"websocket","sandbox":sandbox}
 

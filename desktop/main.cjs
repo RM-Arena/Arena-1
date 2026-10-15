@@ -62,7 +62,10 @@ else {
         const end=Date.now()+60000;const check=()=>{const d=window.arenaDiagnostics?.();
           if(d?.connected&&d.engine==='rust')resolve({engine:d.engine,robots:d.robots,url:location.origin,webgl:!!document.createElement('canvas').getContext('webgl2')});
           else if(Date.now()>end)reject(new Error('Renderer did not connect'));else setTimeout(check,100);};check();})`);
-      if (result.robots !== 12 || !result.webgl) throw new Error('Desktop renderer failed: '+JSON.stringify(result));
+      const health = await window.webContents.executeJavaScript('fetch("/api/health").then(response=>response.json())');
+      result.season = health.season;
+      result.version = health.version;
+      if (result.robots !== health.team_size * 2 || !result.webgl) throw new Error('Desktop renderer failed: '+JSON.stringify(result));
       if (process.env.RMUC_SMOKE_SCREENSHOT) {
         await new Promise(resolve=>setTimeout(resolve,2500));
         fs.writeFileSync(process.env.RMUC_SMOKE_SCREENSHOT,(await window.webContents.capturePage()).toPNG());

@@ -9,6 +9,7 @@ import weakref
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from rmuc_arena import __version__
 from rmuc_arena.paths import ROOT, data_path
 from rmuc_arena.server import create_app
 from rmuc_arena.engine import Match
@@ -95,6 +96,9 @@ for _ in range(15):
                 self.assertTrue(Path(response.json()["task_file"]).is_relative_to(Path(temporary).resolve()))
                 self.assertTrue(service.workspace_registry.exists())
                 self.assertEqual(client.get("/api/desktop/health").json()["engine"], "rust")
+                self.assertEqual(client.get("/api/health").json()["version"], __version__)
+                self.assertEqual(client.get("/openapi.json").json()["info"]["version"], __version__)
+                self.assertEqual(json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"], __version__)
 
 
 if __name__ == "__main__":
