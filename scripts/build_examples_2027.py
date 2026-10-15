@@ -66,9 +66,9 @@ def team_showcase(tactic):
         units.append({"name": name, **card["unit"]})
     if tactic == "balanced":
         return {
-            "format": SHOWCASE_FORMAT, "title": "官方基线 2027 · official_2027_team",
+            "format": SHOWCASE_FORMAT, "title": "基线策略 2027",
             "tagline": "空中机器人开局拆前哨，步兵夺控制点，重型升满科技后装炮，哨兵守卡",
-            "summary": "RMUC 2027 默认阵容的官方基线。空中机器人开局按装甲转速定时冲撞敌方前哨站，前哨倒下且敌方失去前哨控制点的完全控制后改撞基地。编号小的步兵占领敌方中央高地卡夺取敌方前哨控制点（控制度每秒 +1），180 秒后进攻敌方堡垒；另一台步兵打敌方前哨并在己方控制点吃紧时回防。哨兵常驻己方中央高地卡守住己方控制点，按战况切换进攻、防御、移动姿态。重型搬运能量单元完成 1–4 级装配（收入、步兵等级上限、全队防御），解锁后在工作台装上 42mm，再从中央高地炮位炮击。",
+            "summary": "RMUC 2027 默认阵容的基线策略。空中机器人开局按装甲转速定时冲撞敌方前哨站，前哨倒下且敌方失去前哨控制点的完全控制后改撞基地。编号小的步兵占领敌方中央高地卡夺取敌方前哨控制点（控制度每秒 +1），180 秒后进攻敌方堡垒；另一台步兵打敌方前哨并在己方控制点吃紧时回防。哨兵常驻己方中央高地卡守住己方控制点，按战况切换进攻、防御、移动姿态。重型搬运能量单元完成 1–4 级装配（收入、步兵等级上限、全队防御），解锁后在工作台装上 42mm，再从中央高地炮位炮击。",
             "style": {"aggression": 60, "defense": 45, "economy": 70, "objective": 90, "teamwork": 55, "adaptability": 45},
             "phases": [{"from": 0, "to": 30, "title": "开局", "goal": "空中机器人冲撞敌方前哨；步兵与哨兵上中央高地；重型取能量单元", "focus": "attack"},
                        {"from": 30, "to": 180, "title": "控制点与科技", "goal": "夺取敌方前哨控制点、守住己方控制点；重型完成 1–3 级装配", "focus": "objective"},
@@ -86,7 +86,7 @@ def team_showcase(tactic):
             "weaknesses": ["不打能量机关", "重型往返公路很慢，42mm 火力 3 分钟后才到位", "哨兵独自守卡，被集火时控制点会失守"],
         }
     return {
-        "format": SHOWCASE_FORMAT, "title": "官方守势 2027 · official_2027_hold",
+        "format": SHOWCASE_FORMAT, "title": "守势策略 2027",
         "tagline": "守住己方前哨控制点，科技升满，空中机器人只清前哨",
         "summary": "RMUC 2027 默认阵容的守势基线。两台步兵分别守己方中央高地卡与前哨卡，哨兵常驻己方中央高地卡并默认防御姿态，敌方难以夺取己方前哨控制点。重型完成 1–4 级装配与装炮后守在己方前哨一侧。空中机器人只冲撞前哨站，300 秒后才冲撞可受伤的敌方基地。",
         "style": {"aggression": 25, "defense": 90, "economy": 75, "objective": 55, "teamwork": 50, "adaptability": 35},
@@ -138,13 +138,13 @@ def outputs():
     squad = submission("squad", "squad", {str(s): balanced for s in SLOTS})
     distributed = submission("distributed", "distributed", {str(s): balanced + DISTRIBUTED_TAIL.format(slot=s) for s in SLOTS})
     for name, files, tactic, title, text in (
-            ("official_2027_team", team, "balanced", "官方基线 2027", "RMUC 2027 官方基线全队策略：空中机器人拆前哨，步兵夺控制点，重型升科技后装炮，哨兵守卡。"),
-            ("official_2027_hold", hold, "guard", "官方守势 2027", "RMUC 2027 官方守势全队策略：守住己方前哨控制点，科技升满，空中机器人只清前哨。"),
-            ("official_2027_squad", squad, "balanced", "官方单机组队 2027", "RMUC 2027 官方基线的单机组队版本：每台机器人运行同一份策略、只控制自己。"),
-            ("official_2027_distributed", distributed, "balanced", "官方多机协同 2027", "RMUC 2027 官方基线的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。")):
+            ("official_2027_team", team, "balanced", "基线策略 2027", "RMUC 2027 基线全队策略：空中机器人拆前哨，步兵夺控制点，重型升科技后装炮，哨兵守卡。"),
+            ("official_2027_hold", hold, "guard", "守势策略 2027", "RMUC 2027 守势全队策略：守住己方前哨控制点，科技升满，空中机器人只清前哨。"),
+            ("official_2027_squad", squad, "balanced", "单机组队 2027", "RMUC 2027 基线策略的单机组队版本：每台机器人运行同一份策略、只控制自己。"),
+            ("official_2027_distributed", distributed, "balanced", "多机协同 2027", "RMUC 2027 基线策略的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。")):
         showcase = team_showcase(tactic)
         if name != "official_2027_team" and name != "official_2027_hold":
-            showcase = dict(showcase, title=f"{title} · {name}")
+            showcase = dict(showcase, title=title)
         files = dict(files)
         files[SHOWCASE_FILE] = dump(showcase)
         files[PROFILE_FILE] = dump(profile("guard" if tactic == "guard" else "balanced", title, text))

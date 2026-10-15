@@ -75,9 +75,9 @@ export function StrategyGallery({onUpload,onBattle,refreshKey}:{onUpload:()=>voi
       :<div className="sg-grid" aria-busy="true">{Array.from({length:6},(_,i)=><div key={i} className="sg-card sg-skeleton" aria-hidden="true"/>)}</div>
     :!all.length?<div className="sg-empty"><Upload size={26}/><p>策略库还是空的。<br/>上传第一份策略，并附上 showcase.json 战术卡。</p><button className="primary" onClick={onUpload}>上传策略</button></div>
     :<>
-      <div className="sg-result" aria-live="polite"><span>{filtered?<>筛选出 <b>{main.length+presets.length}</b> 条 / 共 {all.length} 条</>:<>共 <b>{all.length}</b> 条策略</>}{presets.length>0&&<>，其中官方预置 {presets.length} 条已折叠</>}</span>{filtered&&<button className="sg-clear" onClick={clear}><X size={12}/>清除筛选</button>}</div>
+      <div className="sg-result" aria-live="polite"><span>{filtered?<>筛选出 <b>{main.length+presets.length}</b> 条 / 共 {all.length} 条</>:<>共 <b>{all.length}</b> 条策略</>}{presets.length>0&&<>，其中预置策略 {presets.length} 条已折叠</>}</span>{filtered&&<button className="sg-clear" onClick={clear}><X size={12}/>清除筛选</button>}</div>
       {main.length?<div className="sg-grid">{main.map((s,i)=><StrategyCard key={s.key} s={s} index={i} onOpen={()=>setOpenKey(s.key)}/>)}</div>
-        :<div className="sg-empty compact"><Search size={22}/><p>{presets.length?'没有符合条件的用户策略，下方官方预置中有匹配项。':'没有符合条件的策略。'}</p>{filtered&&<button onClick={clear}>清除筛选</button>}</div>}
+        :<div className="sg-empty compact"><Search size={22}/><p>{presets.length?'没有符合条件的用户策略，下方预置策略中有匹配项。':'没有符合条件的策略。'}</p>{filtered&&<button onClick={clear}>清除筛选</button>}</div>}
       {presets.length>0&&<PresetShelf items={presets} open={presetsExpanded} onToggle={()=>setPresetsOpen(!presetsExpanded)} onOpen={setOpenKey}/>}
     </>}
     {open&&<DetailView s={open} onClose={()=>setOpenKey(null)} onBattle={onBattle} onSaved={saved}/>}
@@ -92,7 +92,7 @@ function StrategyCard({s,index,onOpen}:{s:StrategySummary;index:number;onOpen:()
   const p=authorOf(s),info=PROVIDERS[p],title=strategyTitle(s),tagline=s.showcase?.tagline||s.profile?.description||s.preset?.description||TACTICS[tacticOf(s)].brief;
   return <button className={`sg-card ${s.showcase?'':'bare'}`} style={{'--pc':info.color,animationDelay:`${Math.min(index,14)*35}ms`} as CSSProperties} onClick={onOpen} aria-label={`${title}：${info.name} ${modelLine(s)}，${MODE_LABELS[s.mode]}。查看战术卡`}>
     <span className="sg-card-top"><span className="sg-card-badge"><AgentBadge provider={p} size={44}/></span><span className="sg-card-agent"><small>{info.name}</small><b>{modelLine(s)}</b></span><StyleRadar thumb size={60} style={s.showcase?.style??fallbackStyle(s)} color={light(info.color)} auto={!s.showcase}/></span>
-    <span className="sg-card-title"><span>{title}</span>{s.official&&<em>官方</em>}</span>
+    <span className="sg-card-title"><span>{title}</span></span>
     <span className="sg-card-tagline">{tagline}</span>
     <span className="sg-chips"><Chips s={s}/></span>
     <span className="sg-card-foot">{s.standing?<span className="sg-card-elo"><Trophy size={12}/><b>{Math.round(s.standing.rating)}</b><small>{s.standing.wins}胜 {s.standing.losses}负{s.standing.draws?` ${s.standing.draws}平`:''}</small></span>:<span>尚未上榜</span>}
@@ -104,7 +104,7 @@ function PresetShelf({items,open,onToggle,onOpen}:{items:StrategySummary[];open:
   const groups=useMemo(()=>{const map=new Map<number,StrategySummary[]>();for(const s of items){const k=s.robot??0;map.set(k,[...(map.get(k)||[]),s]);}
     return [...map].sort((a,b)=>a[0]-b[0]).map(([robot,list])=>({robot,list:[...list].sort((a,b)=>TACTIC_ORDER.indexOf(tacticOf(a))-TACTIC_ORDER.indexOf(tacticOf(b)))}));},[items]);
   return <section className={`sg-presets ${open?'open':''}`}>
-    <button className="sg-presets-head" aria-expanded={open} aria-controls="sg-presets-body" onClick={onToggle}><AgentBadge provider="official" size={38}/><span><b>官方预置策略</b><small>{groups.length} 种机型 × 每型 3 种战术 · 自由对战时可直接选用</small></span><em>{items.length} 条</em><ChevronDown size={18}/></button>
+    <button className="sg-presets-head" aria-expanded={open} aria-controls="sg-presets-body" onClick={onToggle}><AgentBadge provider="official" size={38}/><span><b>预置策略</b><small>{groups.length} 种机型 × 每型 3 种战术 · 自由对战时可直接选用</small></span><em>{items.length} 条</em><ChevronDown size={18}/></button>
     {open&&<div id="sg-presets-body" className="sg-preset-grid">{groups.map(g=>{const head=g.list[0];return <div key={g.robot} className="sg-preset-group"><header><b>{g.robot||'—'}</b><span>{head.model_name||`型号 ${g.robot}`}</span>{head.role&&<small>{ROLE_NAMES[head.role]}</small>}</header>
       {g.list.map(s=>{const t=TACTICS[tacticOf(s)];return <button key={s.key} className="sg-preset" style={{'--tc':t.color} as CSSProperties} onClick={()=>onOpen(s.key)}><i/><span><b>{s.preset?.name||t.name}</b><small>{s.preset?.description||t.brief}</small></span>{s.standing?<em title="Elo">{Math.round(s.standing.rating)}</em>:null}<ArrowRight size={14}/></button>;})}</div>;})}</div>}
   </section>;
@@ -167,7 +167,7 @@ function DetailView({s,onClose,onBattle,onSaved}:{s:StrategySummary;onClose:()=>
         <div className="sg-hero-art" aria-hidden="true"/>
         <div className="sg-hero-badge"><span className="sg-halo glow" aria-hidden="true"/><span className="sg-halo" aria-hidden="true"/><AgentBadge provider={p} size={104}/></div>
         <div className="sg-hero-main">
-          <span className="sg-hero-kicker"><b>{info.name}</b><i/>{modelLine(s)}{info.maker!==info.name&&p!=='human'&&p!=='unknown'&&<><i/><span>{info.maker}</span></>}{s.official&&<em>官方</em>}</span>
+          <span className="sg-hero-kicker"><b>{info.name}</b><i/>{modelLine(s)}{info.maker!==info.name&&p!=='human'&&p!=='unknown'&&<><i/><span>{info.maker}</span></>}</span>
           <h2 id="sg-detail-title">{title}</h2>
           {tagline?<p className="sg-hero-tagline">{tagline}</p>:!show&&<Skeleton h={18} w="60%"/>}
           <div className="sg-chips"><Chips s={s}/>{(s.profile?.tags||[]).map(t=><span key={t} className="sg-chip tag">#{TAGS[t]}</span>)}</div>

@@ -19,7 +19,7 @@ export const PROVIDERS:Record<AgentProvider,ProviderInfo>={
   'tencent-hy':{name:'Tencent HY',maker:'腾讯混元',color:'#0052d9',examples:'Hunyuan'},
   'bytedance-seed':{name:'ByteDance Seed',maker:'字节跳动',color:'#3c8cff',examples:'Seed · 豆包'},
   human:{name:'人类作者',maker:'手写',color:'#e8c36a',examples:'人工编写'},
-  official:{name:'RMUC 官方',maker:'RMUC Arena',color:'#f2c35b',examples:'官方示例与预置'},
+  official:{name:'示例策略',maker:'RMUC Arena',color:'#f2c35b',examples:'示例与预置策略'},
   unknown:{name:'未标注',maker:'来源未知',color:'#8d98a6',examples:'未标注生成者'},
 };
 // Same order and patterns as the backend: specific product names first.

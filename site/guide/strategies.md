@@ -1,47 +1,153 @@
-# 开发策略
+# 开发你的第一份策略
 
-Arena-1 的 Python 策略实现 `act(observation, state)`，返回动作和下一轮状态。
-观察包含己方机器人、视野内敌人、裁判公开信息、经济和时间；不会直接提供视野外敌人的位置。
+你不需要先实现一个完整冠军队伍。第一次可以选择一个明确目标，例如“让步兵在有弹药时守住己方高地卡，残血就回补给区”，先让它稳定工作，再加入其他行为。
 
-```python
-def act(observation, state):
-    actions = {}
-    for slot in observation['controlled_ids']:
-        actions[str(slot)] = {'move': [0, 0], 'fire': False}
-    return actions, state
+**开发阶段由你或 Agent 写程序，比赛阶段由程序自己决策。** 引擎每 0.1 秒把当前允许的观察交给 Python 函数，程序返回动作；引擎负责运动、射击、资源与裁判判定。
+
+[![从创建任务到练习、提交、对战和复盘的流程](/media/strategy-workflow.svg)](/media/strategy-workflow.svg)
+
+## 1. 先选赛季，再选开发方式
+
+训练页默认使用 2027，也能切换 2026。两季的兵种、观察、机构与判胜条件不同；先选赛季，避免写完代码才发现引用了另一季的动作。
+
+| 模式 | 交付文件 | 控制范围 | 适合的第一个目标 |
+| --- | --- | --- | --- |
+| 全队统筹 `team` | `strategy.py` | 一个进程控制全队；2027 五台 / 2026 六台，共享状态 | 给全队安排简单分工 |
+| 单机专精 `robot` | `strategy.py` | 固定位置的一台机器人，之后组装为 `squad` | 让 3 号步兵可靠抢点 |
+| 多机协同 `distributed` | `robot_1.py`、`robot_3.py` 等 | 各位置独立运行、通过消息配合；2027 五份 / 2026 六份 | 让两个位置互报敌人再协同行动 |
+| 自由适配 `adaptive` | `strategy.py` | 一次部署控制自身，型号可重复 | 为一个型号写不依赖固定队友的策略 |
+
+如果想先完成一场完整比赛，选全队统筹；只研究局部技能，选单机专精；想在自由对战中反复部署同型号，选自由适配。
+
+## 2. 创建任务，拿到工作区
+
+在应用中进入 **训练**：
+
+1. 选择规则赛季和开发方式。
+2. 全队模式先确认共同阵容；单机模式选择位置，自由适配选择合规型号。
+3. 填任务名称，例如 `my-first-2027`，设置开发分钟数。
+4. 创建后复制 `AGENT_TASK.md` 路径，交给开发者或 Agent。
+
+**网页创建任务后立即开始开发计时。** 阅读、编码、练习和提交均在同一时间窗口内，截止前最后一次成功提交才是参赛版本。
+
+给 Agent 的任务可以这样写，把第一行换成应用返回的真实路径：
+
+```text
+阅读 <任务目录>/AGENT_TASK.md，并以这个工作区的赛季、阵容和规则为准。
+先运行现有模板做一次短练习并检查错误，再改进 2027 步兵的占点与补给行为。
+只修改任务允许的策略文件和 showcase.json，练习产物放在 practice/。
+为策略补充真实的战术卡；截止前成功提交，报告版本与练习结果。
 ```
 
-此示例只展示协议，比赛前应阅读工作区中对应模式的完整手册。
+工作区中有这些文件：
 
-| 模式 | 文件 | 运行方式 |
+| 文件 | 作用 | 要不要改 |
 | --- | --- | --- |
-| team | strategy.py | 一个进程控制整队 |
-| robot | strategy.py | 每个编号独立开发，组装为 squad |
-| distributed | robot_1.py 等六份文件 | 一次提交，六个独立进程 |
-| adaptive | strategy.py | 每次部署控制自身实例 |
+| `AGENT_TASK.md` | 本次任务、阵容、时间与操作入口 | 阅读，遵守其中的文件边界 |
+| `AGENT_GUIDE.md` / `.en.md` | 对应赛季、模式的完整参赛手册 | 阅读 |
+| `arena.json`、`sdk.py` | 场地、规则、硬件与辅助函数 | 作为参考，保持受保护文件不变 |
+| `strategy.py` / `robot_*.py` | 允许编辑的策略代码 | 按任务要求修改 |
+| `SHOWCASE.md`、`showcase.json` | 展示规范与打法说明 | 阅读规范，编写展示文件 |
+| `arena.py`、`agent.json` | 练习工具与凭证配置 | 由工具管理，不公开其中的令牌 |
+| `practice/` | 日志、回放与开发笔记 | 可保存练习产物，不进入比赛代码 |
 
-## 练习与提交
+生成的任务摘要会列出允许编辑的文件。最终提交需要合格的 `showcase.json`；仅在编辑器保存 Python 文件还不算提交。
 
-桌面训练页生成的工作区已经配置对应服务地址和开发令牌。在该目录运行：
+## 3. 跑通模板，再改代码
+
+在**新建工作区目录**打开终端，使用可用的 Python 3：
 
 ```sh
 python -B arena.py status
-python -B arena.py test
-python -B arena.py results
+python -B arena.py test --duration 30 --games 1 --seed 42
+```
+
+第二条命令返回练习任务的 `id`。把它填入下面的命令，不要把占位词当成真实 ID：
+
+```sh
+python -B arena.py results <练习任务ID>
+python -B arena.py replay <练习任务ID> --game 0
+```
+
+`results` 用于查询进度、结果与策略诊断；练习是异步任务，第一次查询可能仍在运行。`replay` 下载自己练习的回放，默认保存在 `practice/`，可以在应用中导入。
+
+先确认模板没有异常、超时或非法动作，再修改一个行为。30 秒短局用于验证流程；评价 2027 控制度、后期装炮与终局表现时，仍需要完整时长和多局对照。
+
+## 4. 看懂策略的最小接口
+
+```python
+# 这是协议示例：让己方受控机器人原地停留，不是一份完整参赛打法。
+def act(observation, state):
+    actions = {}
+    for slot in observation["controlled_ids"]:
+        actions[str(slot)] = {"move": [0, 0], "fire": False}
+    return actions, state
+```
+
+- `observation` 是这一轮允许知道的状态。敌人位置受视野和遮挡限制，裁判公开数据不等于敌人实时坐标。
+- `actions` 的键必须来自 `controlled_ids`，例如 `"1"`、`"3"`，不要假设编号连续。
+- `state` 保存程序自己的记忆，第一次可能是 `None`；下一轮收到上轮返回的 JSON 状态。
+- 全队模式能维护一份共享状态；独立单机进程不共享内部状态与全部视野，需要通过队内消息配合。
+
+使用工作区 `sdk.py` 的导航、瞄准和动作工具，减少几何计算错误。自由对战尤其应读取受控身份和实际阵容，**不能把 2731 这样的型号编号当作自己的部署编号**。
+
+## 5. 为 2027 做一个小而完整的改进
+
+假设目标是“稳定维持前哨控制点”，可以逐步检查：
+
+| 问题 | 可验证的改进 |
+| --- | --- |
+| 到不了卡片 | 读取实际场地与硬件，选择坡道或合适的越障路线 |
+| 到了点却没夺取 | 检查卡片是否能激活、敌方是否同时占卡、是否保持足够时间 |
+| 占到点后马上丢失 | 决定谁驻守、谁掩护，而不是所有人一起追击 |
+| 缺弹后一直站着 | 加入兑换、补给与撤退逻辑 |
+| 只顾局部交火 | 读取控制度与剩余时间，判断该守优势还是争取新点 |
+
+同时保留模板中其他兵种的基本行为，再逐步改进重型装配、哨兵姿态和空中撞击。2027 的机库不提供侦察视野，重型也不能开局直接射击；详细条件见[规则图解](./rules-2027)。
+
+## 6. 写战术卡并提交
+
+`showcase.json` 让其他人不用看代码，也能理解你的策略：主打风格是什么，各阶段做什么，机器人走哪条路线，遇到什么条件会改变决策。应描述实际实现的行为，未验证的能力不要写成已经做到。
+
+![战术卡由风格、阶段、路线、决策和验证说明构成的阅读示意](/media/strategy-card-guide.svg)
+
+*这是展示内容的阅读示意，不是某份策略的性能测评。实际战术卡来自作者提供的数据。*
+
+按工作区的 `SHOWCASE.md` 填写并通过校验后，在截止前执行：
+
+```sh
 python -B arena.py submit
 ```
 
-`python` 应为本机可用的 Python 3；开发者也可以使用应用内的 Python 解释器。
-以 `arena.py --help` 和任务手册中的参数为准。不要公开工作区中的令牌或私有练习记录。
+确认返回成功并保存版本信息。之后改进代码需要再次提交；截止前最后一次成功提交有效。只改展示说明不改变代码身份与 Elo。
 
-## 接口与限制
+在应用的策略库找到新版本；全队策略选择匹配的赛季和共同阵容，自由适配策略在自由对战中选用。最后用比赛与回放确认行为和说明一致。
 
-策略决策频率为 10 Hz，默认单次决策时限 200 ms。源码限额、状态和动作限额以
-`rmuc_arena/worker.py` 为唯一运行时定义。使用 `sdk.py` 的动作和几何工具，避免把型号编号当成自由赛的部署编号。
-队内消息支持有限大小的定向消息与广播，在下一轮送达，不自动共享状态或视野。
+## 7. 时间、资源与错误
 
-完整中英文手册与硬件说明位于
-[docs/agent_guides](https://github.com/RM-Arena/Arena-1/tree/main/docs/agent_guides)。
-示例位于 [examples](https://github.com/RM-Arena/Arena-1/tree/main/examples)。
-规则依据、模拟假设与实现边界见
-[规则审计](https://github.com/RM-Arena/Arena-1/blob/main/docs/RULES_IMPLEMENTATION_AUDIT.md)。
+| 限制 | 当前运行值 |
+| --- | --- |
+| 策略频率 | 10 Hz，每 0.1 秒决策 |
+| 单次决策时限 | 默认 200 ms |
+| 源码 / JSON 状态 | 512 KiB / 256 KiB |
+| 动作大小 | 总计 16 KiB，每台 1 KiB |
+| Docker 资源 | 1 GiB 内存、1 CPU；单进程、无网络、只读根目录 |
+
+运行时定义以 `rmuc_arena/worker.py` 及宿主执行器为准。异常、超时、非法数值、越权控制和大小超限会导致策略在本局剩余时间被停用。出现“机器人突然都不动”时，先看练习诊断，再判断是不是导航问题。
+
+## 源码用户：命令行创建任务
+
+已按[源码运行](./development)准备环境后，可在仓库目录创建 2027 全队工作区：
+
+```sh
+uv run python -m rmuc_arena new-agent agents/my-first-2027 --mode team --season 2027 --minutes 90
+uv run python -m rmuc_arena start-training agents/my-first-2027
+```
+
+这条路径与网页不同：`new-agent` 只创建任务，`start-training` 才启动计时。练习客户端还需要连接正在运行的本机服务；自定义端口时，创建任务通过 `--training-url` 指定相应地址。2026 则使用 `--season 2026`，不要复用另一季的受保护资料。
+
+## 完整参考
+
+- [2027 中文参赛手册](https://github.com/RM-Arena/Arena-1/tree/main/docs/agent_guides/zh/2027) · [2026 中文参赛手册](https://github.com/RM-Arena/Arena-1/tree/main/docs/agent_guides/zh)
+- [战术卡规范](https://github.com/RM-Arena/Arena-1/blob/main/docs/STRATEGY_SHOWCASE.md) · [可运行策略示例](https://github.com/RM-Arena/Arena-1/tree/main/examples)
+- [2027 规则与适配](https://github.com/RM-Arena/Arena-1/blob/main/docs/RULES_2027_IMPLEMENTATION.md) · [2026 规则审计](https://github.com/RM-Arena/Arena-1/blob/main/docs/RULES_IMPLEMENTATION_AUDIT.md)

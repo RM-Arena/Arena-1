@@ -9,6 +9,6 @@
     "aerial",
     "outpost_rush"
   ],
-  "display_name": "官方多机协同 2027",
-  "description": "RMUC 2027 官方基线的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。"
+  "display_name": "多机协同 2027",
+  "description": "RMUC 2027 基线策略的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。"
 }

@@ -9,6 +9,6 @@
     "aerial",
     "outpost_rush"
   ],
-  "display_name": "官方单机组队 2027",
-  "description": "RMUC 2027 官方基线的单机组队版本：每台机器人运行同一份策略、只控制自己。"
+  "display_name": "单机组队 2027",
+  "description": "RMUC 2027 基线策略的单机组队版本：每台机器人运行同一份策略、只控制自己。"
 }

@@ -20,6 +20,23 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 
 <p align="center"><sub>RMUC 2027 开局 11 秒：双方空中机器人预判旋转装甲，定时冲撞对方前哨站（<a href="docs/media/rmuc2027-battle.mp4">MP4</a>）· <a href="docs/media/battle.mp4">RMUC 2026 对战录像</a></sub></p>
 
+## 第一次接触 RoboMaster？
+
+RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把场地、运动、射击、搬运与规则判定搬进电脑：两队保护基地、争夺目标，所有机器人由 Python 策略程序控制。你可以先用内置策略观战，再自己写代码，或让 Agent 开发并通过练习迭代。比赛中运行的是完成的程序，不会逐帧调用语言模型。
+
+一局通常持续 7 分钟；击毁基地可以提前结束。**2027 到时先比较控制度，2026 到时先比较基地血量**，因此不能只看攻击伤害判断胜负。2027 的 5v5 指五个出战位置，其中机库虽有多架飞行器，仍只占一个位置。
+
+| 你想了解什么 | 图文文档 |
+| --- | --- |
+| 基地、前哨、兵种和资源是什么 | [从零认识比赛](https://rm-arena.github.io/Arena-1/guide/what-is-arena) |
+| 2027 怎么占点、装炮和判胜 | [2027 规则图解](https://rm-arena.github.io/Arena-1/guide/rules-2027) |
+| 与旧版 2026 有什么区别 | [两季对照](https://rm-arena.github.io/Arena-1/guide/seasons) |
+| 从安装到跑完第一局 | [第一场比赛](https://rm-arena.github.io/Arena-1/guide/getting-started) |
+| 把一个想法变成可参赛程序 | [开发策略](https://rm-arena.github.io/Arena-1/guide/strategies) |
+| 查术语 | [术语速查](https://rm-arena.github.io/Arena-1/guide/glossary) |
+
+![2027 控制点结构与控制度条件](docs/media/control-2027.svg)
+
 ## 为什么做 Arena-1
 
 - **给 Agent 一个足够难的赛场。** RM 把局部视野、机动、射击、资源管理、机构操作和多机协同放在同一场比赛中，是检验 Agent 规划、编程与协作能力的好 testbed。
@@ -27,7 +44,7 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 
 ## RMUC 2027 一览
 
-- **控制点与控制度**：双方各有前哨控制点和基地控制点，占卡 5 秒即可夺取；到时先比控制度。己方前哨控制点被自己完全控制时，基地无敌。
+- **控制点与控制度**：双方各有前哨控制点和基地控制点，满足激活条件并独占关联卡片 5 秒可夺取为临时控制；同时控制双方同类控制点才累计控制度，到时先比控制度。己方前哨控制点被自己完全控制时，基地无敌。
 - **新兵种**：
   - 重型机器人：搬运能量单元完成 1–4 级科技装配，解锁后在工作台装上模块化 42mm。
   - 全自动哨兵：进攻、防御、移动三种姿态。
@@ -77,7 +94,7 @@ def act(obs, state):
 
 **RM 对战**按所选地图固定阵容（2027 为 5v5，2026 为 6v6），双方硬件阵容一致；**自由对战**可以自由组合该赛季合规的型号、数量与策略（2027 每方最多一套空中机器人系统）。两种对战都可以在开赛前选择 RMUC 2027 或 RMUC 2026 地图。
 
-训练、策略库等功能两个赛季通用（以下截图来自 RMUC 2026 界面）：
+训练、策略库等功能两个赛季通用（以下实机截图来自 RMUC 2026，另附战术卡阅读示意）：
 
 <table>
   <tr>
@@ -86,7 +103,7 @@ def act(obs, state):
   </tr>
   <tr>
     <td><img src="docs/media/training.jpg" alt="Agent 策略训练与任务生成" /><p align="center">生成任务，交给 Agent 开发</p></td>
-    <td><img src="docs/media/strategies.jpg" alt="策略库与战术展示" /><p align="center">观察策略，理解打法</p></td>
+    <td><img src="docs/media/strategy-card-guide.svg" alt="战术卡阅读示意" /><p align="center">战术卡示意：观察策略，理解打法</p></td>
   </tr>
 </table>
 
@@ -117,7 +134,7 @@ python scripts/project.py desktop   # 或者以桌面窗口运行
 bun run dev                                                     # 前端热更新：http://127.0.0.1:5173，API 代理到 8765
 cargo build --release --manifest-path simulation/Cargo.toml     # 改了 Rust 引擎或 config/rules.json 后重新编译
 python scripts/configure_rmuc2027.py                            # 改了 2027 场地、型号或合规规则后重新生成配置
-uv run python scripts/build_examples_2027.py                    # 改了 scripts/robot_policy_2027.py 后重新生成 2027 官方策略
+uv run python scripts/build_examples_2027.py                    # 改了 scripts/robot_policy_2027.py 后重新生成 2027 示例策略
 uv run python scripts/build_robot_presets.py                    # 重新生成各型号的预置策略
 uv run python scripts/build_agent_guides.py                     # 重新生成中英文参赛手册
 ```
@@ -125,7 +142,7 @@ uv run python scripts/build_agent_guides.py                     # 重新生成�
 **3. 命令行对局与测试**
 
 ```sh
-uv run python -m rmuc_arena match --trusted-local --duration 60           # 2027 官方全队策略对守势策略
+uv run python -m rmuc_arena match --trusted-local --duration 60           # 2027 基线全队策略对守势策略
 uv run python -m rmuc_arena match --trusted-local --duration 60 \
   --red examples/official_team --blue examples/official_hold              # 2026 策略自动使用 2026 地图
 python scripts/project.py test                                            # Rust、Python、JS 与桌面端测试

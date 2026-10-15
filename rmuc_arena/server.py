@@ -592,7 +592,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             raise HTTPException(404, "Unknown strategy")
         item, path = found
         if item["official"]:
-            raise HTTPException(403, "官方示例的分类随项目发布，不能在网页修改")
+            raise HTTPException(403, "内置示例的分类随项目发布，不能在网页修改")
         try:
             profile = validate_profile({**data.model_dump(exclude_none=True), "created_at": item["profile"].get("created_at") or item["created_at"]})
         except ValueError as exc:
