@@ -313,6 +313,35 @@ fn the_2027_heavy_completes_a_level_one_assembly_physically() {
 }
 
 #[test]
+fn every_heavy_picks_two_energy_units_at_the_resource_hub() {
+    // The arm masts stand at the front corners beside the central gimbal; from the SDK's hub
+    // approach (resource_pickup_point) each heavy still reaches the 0.70 m units.
+    for model in [2711, 2712, 2713] {
+        let mut m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, model), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+        let h = robot(&m, "red-1");
+        let station = m.arena.field_geometry["fixtures"].as_array().unwrap().iter()
+            .find(|f| f["kind"] == "resource" && f["team"] == "red").unwrap().clone();
+        let (point, dir) = (&station["pick_point"], &station["pick_dir"]);
+        let (dx, dy) = (dir[0].as_f64().unwrap(), dir[1].as_f64().unwrap());
+        let reach = if model == 2712 { 0.48 } else { 0.60 };
+        place(&mut m, h, point[0].as_f64().unwrap() - dx * reach, point[1].as_f64().unwrap() - dy * reach);
+        let r = &mut m.robots[h];
+        r.heading = dy.atan2(dx);
+        r.aim = r.heading;
+        r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+        m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+        for _ in 0..600 {
+            m.step(&json!({"red":{"1":{"pick_unit":true,"brake":true,"heading":dy.atan2(dx)}}}));
+            if m.robots[h].carried_units == 2 {
+                break;
+            }
+        }
+        assert_eq!(m.robots[h].carried_units, 2, "{model}: {:?}", m.robots[h].unit_pickup.as_ref().map(|p| p.stage.clone()));
+        assert_eq!(m.teams["red"].energy_units_left, Some(4), "{model}");
+    }
+}
+
+#[test]
 fn launcher_fitting_restarts_when_the_heavy_robot_stops_asking_or_leaves_the_workbench() {
     let mut m = match_();
     let h = robot(&m, "red-1");

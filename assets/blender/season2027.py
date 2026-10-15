@@ -562,34 +562,42 @@ def s27_world(name):
 
 # ---- heavy robots
 
-def s27_heavy_arm(d, body, prefix='', key='arm', mast=.26):
-    """engineer_arm with a shorter mast (the gimbal dock sits on its head) and a long carriage
-    shoe for the 0.68 m lift; node names and joint frames are identical to the engineer's."""
+def s27_heavy_arm(d, body, prefix='', key='arm', mast=.24):
+    """engineer_arm with a shorter mast, a long carriage shoe for the 0.64 m lift and the
+    boom overhang behind the carriage cut to boom_tail_m, so the tail stays clear of the
+    central gimbal; node names and joint frames are identical to the engineer's."""
     before = set(bpy.data.objects)
-    arm = d[key]; rest = arm['shoulder_rest_z_m']-arm['base_m'][2]
+    arm = d[key]; rest = arm['shoulder_rest_z_m']-arm['base_m'][2]; tail = arm['boom_tail_m']
     slew = empty('ArmSlew', body); slew.location = tuple(arm['base_m'])
-    cyl('SlewBearing', .08, .02, (0, 0, -.006), ALLOY, slew, vertices=28)
-    box('SlewDriveMotor', (.05, .05, .04), (-.09, 0, .0), MOTOR, slew, .004)
+    # The bearing's outer race is fixed to the mount plate; everything above it slews.
+    cyl('SlewBearing', .08, .02, (arm['base_m'][0], arm['base_m'][1], arm['base_m'][2]-.006), ALLOY, body, vertices=28)
+    # Slew drive fixed inboard of the bearing; the lift motor lies along the mast's inboard
+    # face when stowed, so the folded arm keeps inside the 600 mm box.
+    inboard = -math.copysign(1, arm['base_m'][1])
+    box('SlewDriveMotor', (.05, .05, .04), (arm['base_m'][0], arm['base_m'][1]+inboard*.09, arm['base_m'][2]), MOTOR, body, .004)
     for y in (-.045, .045):
         box('MastOuterRail', (.03, .022, mast), (0, y, mast/2), ROBOT_ALUMINUM, slew, .002)
     box('MastHead', (.05, .12, .02), (0, 0, mast+.01), ROBOT_ALUMINUM, slew, .003)
     box('MastFoot', (.08, .14, .02), (0, 0, .01), ROBOT_ALUMINUM, slew, .003)
     rod('LiftBelt', (-.022, 0, .02), (-.022, 0, mast), .004, ROBOT_MATTE, slew, 6)
-    m3508('LiftMotor', (-.04, 0, .035), (-1, 0, 0), slew, .75)
+    m3508('LiftMotor', (-.04, 0, .035), (0, inboard, 0), slew, .75)
     stage = empty('ArmMastStage', slew)
+    # Inner stage tops out 60 mm below the mast head, under the barrel when stowed (also
+    # the dual arm's upper fold); the longer carriage shoe still grips it at full lift.
     inner = mast+.045
     for y in (-.03, .03):
-        box('MastInnerRail', (.022, .016, inner), (0, y, mast+.005-inner/2), ALLOY, stage, .002)
+        box('MastInnerRail', (.022, .016, inner), (0, y, mast-.06-inner/2), ALLOY, stage, .002)
     lift = empty('ArmLift', slew); lift.location = (0, 0, rest)
     box('LiftCarriage', (.07, .13, .06), (0, 0, 0), ROBOT_ALUMINUM, lift, .004)
-    box('LiftCarriageShoe', (.012, .1, .13), (-.026, 0, -.095), ROBOT_ALUMINUM, lift, .002)
-    box('BoomOuter', (.32, .05, .05), (.04, 0, 0), ROBOT_PANEL, lift, .004)
-    box('BoomTail', (.06, .07, .06), (-arm['boom_tail_m']+.03, 0, 0), MOTOR, lift, .004)
-    m3508('ReachMotor', (-.09, 0, .03), (1, 0, 0), lift, .6)
-    rod('BoomCableChain', (-.08, 0, .035), (.16, 0, .035), .008, ROBOT_MATTE, lift, 8)
+    box('LiftCarriageShoe', (.012, .1, .185), (-.026, 0, -.1225), ROBOT_ALUMINUM, lift, .002)
+    box('BoomOuter', (.2+tail, .05, .05), ((.2-tail)/2, 0, 0), ROBOT_PANEL, lift, .004)
+    box('BoomTail', (.06, .07, .06), (-tail+.03, 0, 0), MOTOR, lift, .004)
+    m3508('ReachMotor', (-tail+.005, 0, .03), (1, 0, 0), lift, .6)
+    rod('BoomCableChain', (-tail+.04, 0, .035), (.16, 0, .035), .008, ROBOT_MATTE, lift, 8)
     box('BoomStripe', (.2, .052, .008), (.08, 0, .021), ORANGE, lift, .002)
     reach = empty('ArmReach', lift); reach.location = (arm['stowed'][2], 0, 0)
-    box('BoomInner', (.30, .036, .036), (-.15, 0, 0), ALLOY, reach, .003)
+    inner = min(.30, arm['limits'][2][0]+tail)
+    box('BoomInner', (inner, .036, .036), (-inner/2, 0, 0), ALLOY, reach, .003)
     box('WristBlock', (.05, .05, .05), (-.015, 0, 0), ROBOT_MATTE, reach, .004)
     wyaw = empty('ArmWristYaw', reach)
     cyl('WristYawMotor', .024, .024, (0, 0, .032), MOTOR, wyaw, vertices=18)
@@ -607,7 +615,8 @@ def s27_heavy_arm(d, body, prefix='', key='arm', mast=.26):
         box('JawGuide', (.024, .01, .012), (.066, 0, 0), ALLOY, jaw, .002)
         c4_local_prism('JawFinger', [(.075, -.018), (.15, -.012), (.15, .012), (.075, .018)], .008, ROBOT_ALUMINUM, jaw, 'y', -.004)
         box('JawPad', (.05, .003, .022), (.122, -side*.006, 0), TYRE, jaw, .001)
-    vtm_camera('ArmCamera', (-.01, .085, .17), slew, 0)
+    # Camera on the mast's inboard face when stowed (folded across the front).
+    vtm_camera('ArmCamera', (-.01, -math.copysign(.085, arm['base_m'][1]), .17), slew, 0)
     if prefix:
         for obj in set(bpy.data.objects)-before:
             obj.name = prefix+(obj.name.rsplit('.', 1)[0] if obj.name.rsplit('.', 1)[-1].isdigit() else obj.name)
@@ -625,7 +634,7 @@ def s27_launcher_module(d, turret, base_z):
     module = empty('LauncherModule', turret)
     module['stowed_m'] = json.dumps(size); module['mass_kg'] = d.get('launcher_module_kg', 0)
     back = reach-size[0]+.002
-    box('ModuleCradlePlate', (.28, .26, .012), (back+.14, 0, base_z+.006), ROBOT_ALUMINUM, module, .003)
+    box('ModuleCradlePlate', (.075-back, .26, .012), ((back+.075)/2, 0, base_z+.006), ROBOT_ALUMINUM, module, .003)
     box('ModuleLatchLever', (.03, .09, .014), (back+.016, 0, base_z+.019), ORANGE, module, .003)
     for side in (-1, 1):
         y0 = .122 if side > 0 else -.134
@@ -668,40 +677,50 @@ def s27_launcher_module(d, turret, base_z):
 
 
 def spec_heavy_2027(d):
-    """Heavy robot: the engineer chassis and arm(s) of its base model, a gimbal dock on the
-    lift mast (Turret, coaxial with the chassis centre like the engine's muzzle pivot) and
-    the modular 42 mm launcher under LauncherModule (hidden by the viewer until fitted)."""
+    """Heavy robot: the engineer chassis and arm(s) of its base model with the lift mast(s)
+    at the front corners (arm.base_m), a gimbal dock on a central column (Turret, coaxial
+    with the engine's muzzle pivot) and the modular 42 mm launcher under LauncherModule
+    (hidden by the viewer until fitted)."""
     reset(); root = empty('Robot'); body = empty('Chassis', root)
     root['season'] = '2027'; root['launcher'] = d['launcher']
     deck = mecanum_chassis(2, d, body)
-    mast = .26
-    s27_heavy_arm(d, body, mast=mast)
+    s27_heavy_arm(d, body)
     if d.get('arm_count') == 2:
-        s27_heavy_arm(d, body, 'Aux_', 'arm2', mast=mast)
-    dock = d['arm']['base_m'][2]+mast+.02
-    if d.get('arm_count') == 2 or abs(d['arm']['base_m'][1]) > .01:
-        # Dual arms: the dock stands on a slim column between the two masts.
-        box('GimbalColumn', (.026, .026, dock-deck), (0, 0, (dock+deck)/2), ROBOT_ALUMINUM, body, .003)
-        box('GimbalColumnFoot', (.06, .026, .012), (0, 0, deck+.006), ROBOT_ALUMINUM, body, .002)
+        s27_heavy_arm(d, body, 'Aux_', 'arm2')
+    for key in ('arm', 'arm2'):
+        if d.get(key):
+            # Carbon plate under the top deck carrying the corner slew bearing past its edge.
+            x, y = d[key]['base_m'][:2]
+            box('CornerMountPlate', (.16, .16, .005), (x, y, deck-.006), CARBON, body, .002)
+    dock = deck+.28
+    # The dock stands on its own column at the chassis centre, clear of the arm(s).
+    box('GimbalColumn', (.05, .05, dock-deck), (0, 0, (dock+deck)/2), ROBOT_ALUMINUM, body, .003)
+    box('GimbalColumnFoot', (.11, .11, .012), (0, 0, deck+.006), ROBOT_ALUMINUM, body, .002)
+    for k in range(4):
+        a = k*math.pi/2
+        box('GimbalColumnGusset', (.04, .006, .06), (.045*math.cos(a), .045*math.sin(a), deck+.042), ROBOT_ALUMINUM, body, .001).rotation_euler[2] = a
+    box('GimbalColumnHead', (.12, .12, .012), (0, 0, dock-.006), ROBOT_ALUMINUM, body, .002)
+    # Yaw drive hangs static under the column head and turns the ring by belt, so nothing
+    # that yaws reaches past 0.205 m from the axis (the magazine tipped back at full
+    # elevation) except the launcher's barrel.
+    gm6020('YawMotor', (-.07, 0, dock-.03), (0, 0, -1), body)
     # Bare gimbal (stays visible without the module): hollow yaw ring, dock frame, guide
-    # pins, module connector and latches; the yaw drive sits behind the dock.
+    # pins, module connector and latches.
     turret = empty('Turret', body)
     s27_ring_z('YawRing', .045, .085, .016, dock+.002, ALLOY, turret)
     s27_ring_z('YawRingCover', .045, .09, .004, dock+.018, CARBON, turret)
     plate = dock+.022
-    for x0, x1, y0, y1 in ((.05, .12, -.11, .11), (-.12, -.05, -.11, .11), (-.05, .05, .05, .11), (-.05, .05, -.11, -.05)):
+    for x0, x1, y0, y1 in ((.05, .105, -.105, .105), (-.105, -.05, -.105, .105), (-.05, .05, .05, .105), (-.05, .05, -.105, -.05)):
         box('DockFrame', (x1-x0, y1-y0, .01), ((x0+x1)/2, (y0+y1)/2, plate+.005), CARBON, turret, .002)
     for x in (-.09, .09):
         for y in (-.085, .085):
             s27_cyl('DockGuidePin', .007, .02, (x, y, plate+.02), ALLOY, turret, vertices=12, bevel=.001)
     box('ModuleConnector', (.03, .06, .016), (.07, 0, plate+.018), DARK, turret, .003)
     for side in (-1, 1):
-        box('DockLatch', (.04, .012, .02), (0, side*.113, plate+.01), ORANGE, turret, .003)
-    gm6020('YawMotor', (-.135, 0, plate+.016), (0, 0, 1), turret)
-    box('YawBeltCover', (.07, .05, .012), (-.1, 0, plate+.004), ROBOT_MATTE, turret, .003)
-    box('DockStatusLamp', (.004, .16, .006), (-.122, 0, plate+.007), GLOW, turret, .001)
+        box('DockLatch', (.04, .012, .02), (0, side*.099, plate+.01), ORANGE, turret, .003)
+    box('DockStatusLamp', (.004, .16, .006), (-.107, 0, plate+.007), GLOW, turret, .001)
     s27_launcher_module(d, turret, plate+.01)
-    # Energy-unit cradles behind the mast (as the engineer) and the referee light bar.
+    # Energy-unit cradles behind the gimbal column (as the engineer's) and the referee light bar.
     for i, y in enumerate((-.07, .07)):
         box('UnitCradle', (.10, .10, .012), (-.17, y, deck+.006), ROBOT_ALUMINUM, body, .003)
         for k in range(3):

@@ -72,8 +72,39 @@ def tall_lift(d):
     return d
 
 
+# Lift masts at the front corners, 0.275 m from the gimbal axis: carriage and boom stay
+# outside the yaw sweep of the gimbal and launcher module (0.205 m with the magazine tipped
+# back at full elevation) at every lift, with the boom overhang behind the carriage cut to
+# 60 mm, and the boom crosses in front of the muzzle on a hub pick. Only the barrel itself,
+# aimed into the raised arm's corner, can still meet it.
+HEAVY_MAST_XY = (.18, .21)
+HEAVY_BOOM_TAIL_M = .06
+# Stowed: folded across the front of the chassis with the tool level (a 35-55 degree swing
+# to the hub), lifted over the front armor module and below the gimbal and its barrel at any
+# yaw and pitch; the dual arm's left arm folds 80 mm above the right one.
+HEAVY_STOW_LIFT_M = (.09, .17)
+
+
+def beside_gimbal(d):
+    """The heavy robot's 42 mm gimbal stands on a column at the chassis centre, coaxial with
+    the engine's muzzle pivot; the engineer arm (arm: right side, arm2: left) moves to a
+    front corner beside it. Off-centre, the single arm's tool tip is held within 0.84 m of
+    the chassis centre (workspace_half_m, applied by the engine and the asset build, as the
+    dual arm already does) so it keeps to the 1.2 m extended envelope."""
+    for key, side, lift in (('arm', -1, HEAVY_STOW_LIFT_M[0]), ('arm2', 1, HEAVY_STOW_LIFT_M[1])):
+        arm = d.get(key)
+        if not isinstance(arm, dict):
+            continue
+        arm['base_m'] = [HEAVY_MAST_XY[0], side*HEAVY_MAST_XY[1], arm['base_m'][2]]
+        arm['boom_tail_m'] = HEAVY_BOOM_TAIL_M
+        arm['stowed'] = [round(-side*math.pi/2, 4), lift, arm['limits'][2][0], 0, 0, 0, 0]
+        arm.setdefault('workspace_half_m', .84)
+        arm['source_status'] += '; 2027 mast at a front corner beside the central 42 mm gimbal'
+    return d
+
+
 def heavy(designs):
-    """Engineer chassis and arm(s) plus a 42 mm gimbal mount above the lift mast."""
+    """Engineer chassis and arm(s) beside a central column carrying the 42 mm gimbal."""
     launcher = dict(launcher='modular_42mm', launcher_module_kg=5.2, launcher_module_stowed_m=[.38, .30, .26],
                     launcher_module_voltage_v=24, launcher_capacitance_mf=40, launcher_install_s=6.0,
                     muzzle_speed_mps=15.6, turret_yaw_rate_rad_s=4.5, turret_pitch_rate_rad_s=2.2, trigger_interval_s=.2,
@@ -85,20 +116,20 @@ def heavy(designs):
              'HV-A Single-arm Heavy', 'One arm for energy units; modular 42 mm launcher from the workbench',
              bare_mass_kg=28.9, referee_mass_kg=HEAVY_REFEREE_KG, battery_wh=280, voltage_v=24,
              stowed_m=[.59, .59, .59], extended_m=[1.18, 1.18, 1.08], speed_reference_mps=3.2, **launcher)
-    finish(tall_lift(a), designs)
+    finish(beside_gimbal(tall_lift(a)), designs)
     d = base(designs, 201, 2712, 'heavy', 'HV-D 双臂重装', '双臂同时操作两枚能量单元，适合四级双核心',
              'HV-D Dual-arm Heavy', 'Two arms handle both cores of a level-4 assembly',
              bare_mass_kg=31.2, referee_mass_kg=HEAVY_REFEREE_KG, battery_wh=290, voltage_v=24, chassis_type='swerve',
              steer_rate_rad_s=5.0, stowed_m=[.60, .60, .60], extended_m=[1.20, 1.20, 1.08], speed_reference_mps=2.8,
              tire_friction=1.2, lateral_friction_ratio=1.0, drive_efficiency=.84, motor_force_max_n=150, **launcher)
     d['launcher_module_kg'] = 5.6
-    finish(tall_lift(d), designs)
+    finish(beside_gimbal(tall_lift(d)), designs)
     o = base(designs, 203, 2713, 'heavy', 'HV-O 全向轻装重装', '轻量全向底盘、快速腕部与较轻发射模块',
              'HV-O Light Omni Heavy', 'Light omni chassis, fast wrist and a lighter launcher module',
              bare_mass_kg=26.4, referee_mass_kg=HEAVY_REFEREE_KG, battery_wh=260, voltage_v=24,
              stowed_m=[.59, .59, .59], extended_m=[1.18, 1.18, 1.06], speed_reference_mps=3.7, **launcher)
     o.update(launcher_module_kg=4.6, muzzle_speed_mps=15.2)
-    finish(tall_lift(o), designs)
+    finish(beside_gimbal(tall_lift(o)), designs)
 
 
 def infantry(designs):

@@ -4687,8 +4687,8 @@
           "grip"
         ],
         "base_m": [
-          0,
-          0,
+          0.18,
+          -0.21,
           0.245
         ],
         "shoulder_rest_z_m": 0.3,
@@ -4734,15 +4734,15 @@
           4.0
         ],
         "stowed": [
-          0,
-          0,
+          1.5708,
+          0.09,
           0.22,
           0,
-          -1.5708,
+          0,
           0,
           0
         ],
-        "boom_tail_m": 0.12,
+        "boom_tail_m": 0.06,
         "mast_half_size_m": [
           0.05,
           0.05,
@@ -4751,7 +4751,8 @@
         "grip_force_max_n": 320,
         "grasp_tolerance_m": 0.05,
         "rescue_upright_cos": 0.93,
-        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub"
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub; 2027 mast at a front corner beside the central 42 mm gimbal",
+        "workspace_half_m": 0.84
       },
       "transform_allowed": false,
       "arm_count": 1,
@@ -4915,8 +4916,8 @@
           "grip"
         ],
         "base_m": [
-          0,
-          -0.085,
+          0.18,
+          -0.21,
           0.245
         ],
         "shoulder_rest_z_m": 0.3,
@@ -4962,15 +4963,15 @@
           4.0
         ],
         "stowed": [
+          1.5708,
+          0.09,
+          0.18,
           0,
           0,
-          0.22,
-          0,
-          -1.5708,
           0,
           0
         ],
-        "boom_tail_m": 0.12,
+        "boom_tail_m": 0.06,
         "mast_half_size_m": [
           0.05,
           0.05,
@@ -4979,7 +4980,7 @@
         "grip_force_max_n": 320,
         "grasp_tolerance_m": 0.05,
         "rescue_upright_cos": 0.93,
-        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub",
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub; 2027 mast at a front corner beside the central 42 mm gimbal",
         "workspace_half_m": 0.54,
         "moving_mass_kg": 1.8
       },
@@ -4995,8 +4996,8 @@
           "grip"
         ],
         "base_m": [
-          0,
-          0.085,
+          0.18,
+          0.21,
           0.245
         ],
         "shoulder_rest_z_m": 0.3,
@@ -5042,15 +5043,15 @@
           4.0
         ],
         "stowed": [
-          0,
-          0,
-          0.22,
-          0,
           -1.5708,
+          0.17,
+          0.18,
+          0,
+          0,
           0,
           0
         ],
-        "boom_tail_m": 0.12,
+        "boom_tail_m": 0.06,
         "mast_half_size_m": [
           0.05,
           0.05,
@@ -5059,7 +5060,7 @@
         "grip_force_max_n": 320,
         "grasp_tolerance_m": 0.05,
         "rescue_upright_cos": 0.93,
-        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub",
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub; 2027 mast at a front corner beside the central 42 mm gimbal",
         "workspace_half_m": 0.54,
         "moving_mass_kg": 1.8
       },
@@ -5225,8 +5226,8 @@
           "grip"
         ],
         "base_m": [
-          0,
-          0,
+          0.18,
+          -0.21,
           0.245
         ],
         "shoulder_rest_z_m": 0.3,
@@ -5272,15 +5273,15 @@
           5.0
         ],
         "stowed": [
-          0,
-          0,
+          1.5708,
+          0.09,
           0.22,
           0,
-          -1.5708,
+          0,
           0,
           0
         ],
-        "boom_tail_m": 0.12,
+        "boom_tail_m": 0.06,
         "mast_half_size_m": [
           0.05,
           0.05,
@@ -5289,7 +5290,8 @@
         "grip_force_max_n": 320,
         "grasp_tolerance_m": 0.05,
         "rescue_upright_cos": 0.93,
-        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub"
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes; 2027 lift stage 0.64 m for the 0.70 m resource hub; 2027 mast at a front corner beside the central 42 mm gimbal",
+        "workspace_half_m": 0.84
       },
       "name_en": "HV-O Light Omni Heavy",
       "focus_en": "Light omni chassis, fast wrist and a lighter launcher module",
