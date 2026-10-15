@@ -722,6 +722,7 @@ def spec_robots():
     only=set(filter(None,os.environ.get('RMUC_ROBOTS','').split(',')))
     for slot,design in CONFIG['robot_designs'].items():
         if only and slot not in only:continue
+        if design.get('season')=='2027':season2027_robot(design);continue  # season2027.py
         if design['role']=='aerial':spec_air_robot(design)
         elif design['role']=='engineer':spec_engineer(design)
         elif design.get('chassis_type')=='wheel_legged':spec_wheel_legged(design)

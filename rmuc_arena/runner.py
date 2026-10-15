@@ -23,8 +23,9 @@ from .communication import TeamCommunication, validate_messages
 from .decks import prepare_decks
 from .showcase import load_profile
 from .worker import MEMORY_LIMIT
+from . import seasons as season_rules
 
-IMAGE = "rmuc-arena-policy:0.4"
+IMAGE = "rmuc-arena-policy:0.5"
 CPU_LIMIT = 1.0
 # Seconds for module import and global initialization before the first decision.
 STARTUP_LIMIT = {"docker": 60, "trusted-local": 15}
@@ -217,7 +218,9 @@ class Policy:
                 raise ValueError("Invalid action object")
             if not set(actions) <= controlled:
                 raise ValueError("Attempt to control an unowned robot")
-            fields = {"move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support", "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform"}
+            fields = {"move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support", "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform",
+                      # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
+                      "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "posture", "posture_enhanced", "drones"}
             if has_messages:
                 fields.add("messages")
             for slot, action in actions.items():
@@ -276,29 +279,39 @@ class Policy:
 
 
 class Battle:
-    def __init__(self, red, blue, seed=42, duration=420, map_name="rmuc2026", sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, practice_lineup=False, free_team_strategies=None):
-        lineups, deck_policies, deck_metadata = prepare_decks(decks, seed, free_team_strategies) if decks is not None else (None, None, None)
+    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, practice_lineup=False, free_team_strategies=None):
+        # The field follows the strategies' rules season unless the caller names it.
+        if map_name is None:
+            from .submissions import manifest_season
+            sources = [s for s in (red, blue) if s is not None] or [cards[0] for cards in (decks or {}).values() if cards]
+            found = {manifest_season(load_submission(s)[0]) for s in sources}
+            map_name = season_rules.map_of(found.pop() if len(found) == 1 else season_rules.LEGACY_SEASON)
+        season = season_rules.season_of_map(map_name)
+        self.season, rules_profile, slot_ids = season, season_rules.rules_profile(season), season_rules.slots(season)
+        lineups, deck_policies, deck_metadata = prepare_decks(decks, seed, free_team_strategies, season) if decks is not None else (None, None, None)
         if decks is None:
             if free_team_strategies:raise ValueError("Free controllers require free battle")
-            from .models import normalize_team_lineup,mirrored_lineups,DEFAULT_TEAM_LINEUP
+            from .models import normalize_team_lineup,mirrored_lineups
             manifests=[load_submission(source)[0] for source in (red,blue)]
-            selected=[normalize_team_lineup(m.get('team_lineup')) for m in manifests]
-            chosen=normalize_team_lineup(team_lineup) if team_lineup is not None else selected[0]
+            if any(m.get("rules_profile") != rules_profile for m in manifests):
+                raise ValueError(f"Both strategies must be written for the {season} season to play on {map_name}")
+            selected=[normalize_team_lineup(m.get('team_lineup'),season) for m in manifests]
+            chosen=normalize_team_lineup(team_lineup,season) if team_lineup is not None else selected[0]
             if not practice_lineup and (selected[0]!=selected[1] or any(s!=chosen for s in selected)):
                 raise ValueError('Team matches require identical registered robot lineups; develop both strategies on the same lineup')
-            if chosen!=DEFAULT_TEAM_LINEUP:lineups=mirrored_lineups(chosen)
+            if chosen!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(chosen,season)
         elif team_lineup is not None:raise ValueError('Decks and shared team lineups cannot be combined')
         self.match, self.sandbox, self.policies, self.closed = Match(seed, duration, map_name, lineups=lineups), sandbox, [], False
         self.deck_mode = decks is not None
         self.deadline, self.stop_event = deadline, stop_event
         self.pool = ThreadPoolExecutor(max_workers=24 if self.deck_mode else 12)
-        self.metadata = {"api_version": 3, "engine": "rust", "rules": RULES_PROFILE, "decision_timeout_s":timeout, "roster":list(SLOT_IDS), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
+        self.metadata = {"api_version": 3, "engine": "rust", "rules": rules_profile, "season": season, "decision_timeout_s":timeout, "roster":list(slot_ids), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
                          "map": map_name, "sandbox": sandbox, "match_mode":"deck" if self.deck_mode else "standard", "teams": {}}
         self.frames, self.actions, self.diagnostics = FrameLog(self.match.snapshot()), [], []
         self.metadata["rules_hash"] = self.frames[0]["rules_hash"]
         self.metadata["engine_hash"] = self.frames[0]["engine_hash"]
         self.held_commands = {"red": {}, "blue": {}}
-        self.communication = TeamCommunication({team:[d["slot"] for d in items] for team, items in lineups.items()} if lineups else None)
+        self.communication = TeamCommunication({team:[d["slot"] for d in items] for team, items in lineups.items()} if lineups else None, slot_ids)
         if lineups:
             self.metadata.update({"lineups":lineups,"test_match":True,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
         if not self.deck_mode:
@@ -322,14 +335,14 @@ class Battle:
                         self.policies.append((team,None if slot is None else [slot],policy))
                     continue
                 manifest, entries = load_submission(source)
-                if manifest.get("api_version") != 3 or manifest.get("rules_profile") != RULES_PROFILE:
-                    raise ValueError("This submission uses old rules; create and submit a v3 strategy workspace")
+                if manifest.get("api_version") != 3 or manifest.get("rules_profile") != rules_profile:
+                    raise ValueError(f"This submission does not use the {season} rules; create and submit a {season} strategy workspace")
                 if manifest["mode"] not in ("team", "squad", "distributed"):
                     raise ValueError("Assemble robot submissions into a squad before matching")
                 profile = load_profile(source)
                 self.metadata["teams"][team] = {"name": Path(source).name, "version": manifest["version"], "mode": manifest["mode"], "agent": profile["agent"],
                                                 **({"display_name": profile["display_name"]} if profile.get("display_name") else {})}
-                self.metadata["agents"][team] = {str(slot): {**profile["agent"], "strategy": profile.get("display_name") or Path(source).name} for slot in SLOT_IDS}
+                self.metadata["agents"][team] = {str(slot): {**profile["agent"], "strategy": profile.get("display_name") or Path(source).name} for slot in slot_ids}
                 # Each process sees exactly one strategy. Robot policy seed is stable per slot.
                 for key, path in sorted(entries.items()):
                     if self.cancelled():

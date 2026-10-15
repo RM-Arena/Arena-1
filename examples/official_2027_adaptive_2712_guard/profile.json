@@ -1,0 +1,12 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "guard",
+  "tags": [
+    "assembly"
+  ],
+  "display_name": "[2027] HV-D 双臂重装 · 守势重炮",
+  "description": "HV-D 双臂重装（舵轮底盘）：完成 1–4 级装配与装炮流程（与均衡重型相同），之后停在己方前哨站一侧的中央高地上，优先打进入射程的敌人，其次才打敌方建筑。残血或弹尽回补给区。"
+}

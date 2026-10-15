@@ -20,6 +20,7 @@ function surface(t:Terrain,x:number,y:number){
  return t.elevation;
 }
 export function terrainHeight(arena:Arena,x:number,y:number){
- const floor=arena.name==='rmuc2026'?Math.min(y,arena.height-y)*Math.tan(1.5*Math.PI/180):0;
+ const slope=arena.floor_slope_deg??(arena.name==='rmuc2026'?1.5:0);
+ const floor=slope?Math.min(y,arena.height-y)*Math.tan(slope*Math.PI/180):0;
  return floor+Math.max(0,...arena.terrain.filter(t=>x>=t.x-1e-8&&x<=t.x+t.w+1e-8&&y>=t.y-1e-8&&y<=t.y+t.h+1e-8&&(!t.polygon||pointInPolygon(x,y,t.polygon))).map(t=>surface(t,x,y)));
 }

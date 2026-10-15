@@ -32,7 +32,7 @@ export class MatchStats{
     for(const e of list){
       const key=e.id||`${e.tick}:${e.type}:${e.robot}:${e.x}`;if(this.seen.has(key))continue;this.seen.add(key);
       const team=(e.team as TeamId|undefined)||teamOf(e.robot);
-      if(e.type==='shot'&&team){if(e.role==='hero')this.teams[team].shots42++;else this.teams[team].shots17++;this.shots.set(e.robot!,(this.shots.get(e.robot!)||0)+1);}
+      if(e.type==='shot'&&team){if(e.role==='hero'||e.role==='heavy')this.teams[team].shots42++;else this.teams[team].shots17++;this.shots.set(e.robot!,(this.shots.get(e.robot!)||0)+1);}
       else if(e.type==='rune_activated'&&team)this.teams[team].runes[(e as {mode?:string}).mode==='large'?'large':'small']++;
       else if(e.type==='assembly_start'&&team)this.starts[team]={difficulty:(e as {difficulty?:number}).difficulty||1,time:e.time??e.tick*.05};
       else if(e.type==='assembly_success'&&team){
@@ -65,19 +65,19 @@ export function verdict(f:Frame):{headline:string;detail:string}{
   return {headline:'双方平局',detail:'所有判定条件均相同'};
 }
 
-export const robotName=(r:Robot)=>r.role==='infantry'?'步兵':r.role==='aerial'?'无人机':ROLE_NAMES[r.role];
+export const robotName=(r:Robot)=>r.role==='infantry'?'步兵':r.role==='aerial'?(r.drones?'空中机器人':'无人机'):ROLE_NAMES[r.role];
 export function nickname(r:Robot){const parts=(r.design_name||'').split(' ');return {code:parts.length>1?parts[0]:'',name:parts.slice(parts.length>1?1:0).join(' ')||robotName(r)};}
 
 export interface MvpLine{label:string;value:string;unit?:string}
 export interface Mvp{robot:Robot;score:number;lines:MvpLine[];note?:string}
 export function mvp(f:Frame,stats:MatchStats):Mvp|null{
   const pool=f.robots.filter(r=>!f.winner||r.team===f.winner);if(!pool.length)return null;
-  const score=(r:Robot)=>{const t=stats.teams[r.team];return r.damage+300*r.kills+(r.role==='engineer'?1.5*t.assemblyEconomy+300*t.assemblies.reduce((a,b)=>a+b,0):0);};
+  const score=(r:Robot)=>{const t=stats.teams[r.team];return r.damage+300*r.kills+(r.role==='engineer'||r.role==='heavy'?1.5*t.assemblyEconomy+300*t.assemblies.reduce((a,b)=>a+b,0):0);};
   const robot=pool.reduce((best,r)=>score(r)>score(best)?r:best,pool[0]),t=stats.teams[robot.team];
-  if(robot.role==='engineer'){
+  if(robot.role==='engineer'||(robot.role==='heavy'&&robot.launcher!=='installed'&&robot.launcher!=='fitted')){
     const done=t.assemblies.map((n,i)=>n?i+1:0).filter(Boolean),top=done.length?Math.max(...done):0,fastest=t.assemblyTimes[top];
     return {robot,score:score(robot),lines:[{label:'装配获得经济',value:String(Math.round(t.assemblyEconomy))},{label:'成功装配次数',value:t.assemblies.join('/')},{label:'最高装配难度',value:top?`Lv.${top}`:'—'},{label:top?`${['一','二','三','四'][top-1]}级装配耗时`:'装配耗时',value:fastest?fastest.toFixed(1):'—',unit:fastest?'s':''}],note:'*成功装配次数：成功装配一级/二级/三级/四级难度的次数'};
   }
-  const shots=stats.shots.get(robot.id)||0,calibre=robot.role==='hero'?'42mm':'17mm';
+  const shots=stats.shots.get(robot.id)||0,calibre=robot.role==='hero'||robot.role==='heavy'?'42mm':'17mm';
   return {robot,score:score(robot),lines:[{label:'总伤害',value:String(Math.round(robot.damage))},{label:'击毁机器人',value:String(robot.kills)},{label:`${calibre}弹丸发弹量`,value:String(shots)},{label:'最高等级',value:`Lv.${stats.levels.get(robot.id)||robot.level}`}],note:'*总伤害：本局对敌方机器人、前哨站与基地造成的攻击伤害'};
 }

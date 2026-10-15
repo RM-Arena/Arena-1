@@ -1,0 +1,14 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "balanced",
+  "tags": [
+    "assembly",
+    "aerial",
+    "outpost_rush"
+  ],
+  "display_name": "官方单机组队 2027",
+  "description": "RMUC 2027 官方基线的单机组队版本：每台机器人运行同一份策略、只控制自己。"
+}

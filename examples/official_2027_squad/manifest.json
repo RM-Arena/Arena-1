@@ -1,0 +1,21 @@
+{
+  "api_version": 3,
+  "rules_profile": "rmuc-2027-v1.0.0-arena-v1",
+  "mode": "squad",
+  "robot": null,
+  "entries": {
+    "1": "robot_1.py",
+    "3": "robot_3.py",
+    "4": "robot_4.py",
+    "6": "robot_6.py",
+    "7": "robot_7.py"
+  },
+  "hashes": {
+    "robot_1.py": "9a247a0a8ee24430136a54f87fea3577993050be55c2804f105a158159b3ca1f",
+    "robot_3.py": "9a247a0a8ee24430136a54f87fea3577993050be55c2804f105a158159b3ca1f",
+    "robot_4.py": "9a247a0a8ee24430136a54f87fea3577993050be55c2804f105a158159b3ca1f",
+    "robot_6.py": "9a247a0a8ee24430136a54f87fea3577993050be55c2804f105a158159b3ca1f",
+    "robot_7.py": "9a247a0a8ee24430136a54f87fea3577993050be55c2804f105a158159b3ca1f"
+  },
+  "version": "4f8a19364b410ad5"
+}

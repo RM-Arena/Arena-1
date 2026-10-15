@@ -7,9 +7,10 @@ const W=28,H=15,GAP=5,TIERS=7,DEPTH=1.25,RISE=.55;
 const rng=(seed:number)=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
 
 // One seamless cycle of the scrolling ribbon; RIBBON_M is its length in metres on the boards.
-const RIBBON_FONT='italic 800 50px "SF Pro Display","PingFang SC",system-ui,sans-serif',RIBBON_PARTS=[['ROBOMASTER 2026','#e9edf7'],['THE FINALS','#ff3b6b'],['RMUC ARENA','#7fb4ff'],['STRATEGY LEAGUE','#e9edf7']] as const;
+const RIBBON_FONT='italic 800 50px "SF Pro Display","PingFang SC",system-ui,sans-serif',ribbonParts=(year:string)=>[[`ROBOMASTER ${year}`,'#e9edf7'],['THE FINALS','#ff3b6b'],['RMUC ARENA','#7fb4ff'],['STRATEGY LEAGUE','#e9edf7']] as const;
 let RIBBON_M=16;
-function ribbonTexture(){
+function ribbonTexture(year:string){
+  const RIBBON_PARTS=ribbonParts(year);
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d')!;ctx.font=RIBBON_FONT;
   const width=Math.ceil(RIBBON_PARTS.reduce((w,[text])=>w+ctx.measureText(text).width+60,0));canvas.width=width;canvas.height=96;RIBBON_M=width/96*.5;
   const g=ctx.createLinearGradient(0,0,width,0);g.addColorStop(0,'#1a0b33');g.addColorStop(.5,'#0b1a3d');g.addColorStop(1,'#1a0b33');ctx.fillStyle=g;ctx.fillRect(0,0,width,96);
@@ -33,8 +34,8 @@ function Ribbon({length,height,repeat,texture,...props}:{length:number;height:nu
   return <mesh geometry={geometry} {...props}><meshBasicMaterial map={texture} toneMapped={false} fog={false} side={THREE.DoubleSide}/></mesh>;
 }
 
-export function Venue(){
-  const crowd=useRef<THREE.InstancedMesh>(null),ribbon=useMemo(ribbonTexture,[]),screens=useMemo(()=>({red:screenTexture('red'),blue:screenTexture('blue')}),[]);
+export function Venue({season='2027'}:{season?:string}){
+  const crowd=useRef<THREE.InstancedMesh>(null),ribbon=useMemo(()=>ribbonTexture(season),[season]),screens=useMemo(()=>({red:screenTexture('red'),blue:screenTexture('blue')}),[]);
   const sides=useMemo(()=>[
     {pos:[0,0,H/2+GAP] as const,rot:0,len:W+2*GAP+4},{pos:[0,0,-H/2-GAP] as const,rot:Math.PI,len:W+2*GAP+4},
     {pos:[W/2+GAP,0,0] as const,rot:Math.PI/2,len:H+2*GAP},{pos:[-W/2-GAP,0,0] as const,rot:-Math.PI/2,len:H+2*GAP}],[]);

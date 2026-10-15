@@ -185,7 +185,7 @@ export class ArenaAudio {
     if(!frame||frame.status!=='running'){this.stopDrones();return;}
     if(!this.enabled||!this.context||this.paused||this.context.state!=='running')return;
     this.arena=frame.arena;const c=this.context,t=c.currentTime;
-    const flying=frame.robots.filter(r=>r.role==='aerial'&&r.powered!==false&&(r.support_active||r.z>.25)&&r.grounded!==true);
+    const flying=frame.robots.filter(r=>r.role==='aerial'&&(r.drones?r.drones.some(d=>d.state==='flying'):r.powered!==false&&(r.support_active||r.z>.25)&&r.grounded!==true));
     const active=new Set(flying.map(r=>r.id));
     for(const id of this.rotorVoices.keys())if(!active.has(id))this.stopDrone(id);
     for(const r of flying){
@@ -234,9 +234,9 @@ export class ArenaAudio {
   play(e:MatchEvent){
     if(!this.enabled||!this.context||this.paused||this.context.state!=='running')return;const c=this.context,t=c.currentTime+.005,v=1+(Math.random()-.5)*.1;
     this.voices=this.voices.filter(end=>end>c.currentTime);if(this.voices.length>40&&!IMPORTANT.has(e.type))return;
-    const heavyHit=(e.damage??0)>=60,key=e.type==='shot'&&e.role==='hero'?'shot-hero':e.type==='hit'&&heavyHit?'hit-heavy':e.type,gap=THROTTLE[key];
+    const heavyHit=(e.damage??0)>=60,key=e.type==='shot'&&(e.role==='hero'||e.role==='heavy')?'shot-hero':e.type==='hit'&&heavyHit?'hit-heavy':e.type,gap=THROTTLE[key];
     if(gap!==undefined){if(t-(this.last.get(key)??-1)<gap)return;this.last.set(key,t);}
-    if(e.type==='shot'&&e.role==='hero'){
+    if(e.type==='shot'&&(e.role==='hero'||e.role==='heavy')){
       const o=this.voice(e,1,.22,.5);
       this.hiss(o,t,'highpass',2400,2400,.009,.18,.7);this.tone(o,t,'sine',125*v,40,.3,.9,.002);this.hiss(o,t,'lowpass',1600,240,.22,.6,.7);
       this.tone(o,t+.035,'square',240*v,170,.035,.05);this.hiss(o,t+.03,'bandpass',900,600,.08,.12,2);

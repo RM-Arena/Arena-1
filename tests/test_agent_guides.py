@@ -49,9 +49,15 @@ class AgentGuideTests(unittest.TestCase):
                              workspace_registry=root / "registry.json")
             try:
                 client = TestClient(app)
-                self.assertEqual(client.get("/api/agent-guide").text, guide_path("team").read_text(encoding="utf-8"))
+                # RMUC 2027 is the default season; 2026 guides stay available by season.
+                self.assertEqual(client.get("/api/agent-guide").text, guide_path("team", season="2027").read_text(encoding="utf-8"))
+                self.assertEqual(client.get("/api/agent-guide", params={"season": "2026"}).text, guide_path("team").read_text(encoding="utf-8"))
                 response = client.get("/api/agent-guide", params={"mode": "robot", "robot": 6, "lang": "en"})
-                self.assertEqual(response.text, guide_path("robot", 6, "en").read_text(encoding="utf-8"))
+                self.assertEqual(response.text, guide_path("robot", 6, "en", "2027").read_text(encoding="utf-8"))
+                # Slot 2 exists only in 2026, so it selects that season by itself.
+                response = client.get("/api/agent-guide", params={"mode": "robot", "robot": 2})
+                self.assertEqual(response.text, guide_path("robot", 2).read_text(encoding="utf-8"))
+                self.assertEqual(client.get("/api/agent-guide", params={"mode": "robot", "robot": 2, "season": "2027"}).status_code, 404)
                 self.assertEqual(client.get("/api/agent-guide", params={"mode": "robot", "robot": 5}).status_code, 404)
             finally:
                 app.state.arena.shutdown()

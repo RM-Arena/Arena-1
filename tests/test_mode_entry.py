@@ -19,7 +19,7 @@ class ModeEntryTests(unittest.TestCase):
         for mode,robot,files in [('team',None,['strategy.py']),('robot',6,['strategy.py']),
                 ('distributed',None,['robot_1.py','robot_2.py','robot_3.py','robot_4.py','robot_6.py','robot_7.py']),('adaptive',103,['strategy.py'])]:
             with self.subTest(mode=mode):
-                body={'name':'train-'+mode,'mode':mode,'minutes':15}
+                body={'name':'train-'+mode,'mode':mode,'minutes':15,'season':'2026'}
                 if robot is not None:body['robot']=robot
                 if mode=='team':body['team_lineup']={'1':103,'2':201,'3':301,'4':302,'6':601,'7':303}
                 response=self.client.post('/api/training-workspaces',json=body)

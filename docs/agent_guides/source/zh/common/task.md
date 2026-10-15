@@ -18,7 +18,7 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| {{source_files}} | 你的策略代码，{{^distributed}}唯一可编辑的文件{{/distributed}}{{#distributed}}六份可编辑的源码文件{{/distributed}} |
+| {{source_files}} | 你的策略代码，{{^distributed}}唯一可编辑的文件{{/distributed}}{{#distributed}}{{count_sources}}可编辑的源码文件{{/distributed}} |
 | `AGENT_GUIDE.md`、`AGENT_GUIDE.en.md` | 本手册的中文版与英文版，内容一致 |
 | `AGENT_TASK.md` | 任务摘要 |
 | `sdk.py` | 比赛环境中可以 `import` 的辅助库 |

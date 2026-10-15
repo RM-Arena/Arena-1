@@ -16,7 +16,7 @@ pub struct PickupState {
 impl Engine {
     pub(super) fn request_pickup(&mut self, i: usize, rpc: &Value) {
         let r = &self.robots[i];
-        if r.role != "engineer" {
+        if r.arm_count == 0 {
             return;
         }
         let arm=rpc["pickup_arm"].as_u64().unwrap_or(if r.arm_count==2 {r.carried_units as u64%2} else {0}) as u32;
@@ -30,6 +30,7 @@ impl Engine {
             && !r.red_card
             && r.unit_pickup.as_ref().map(|s|s.arm==arm).unwrap_or(true)
             && r.carried_units < 2
+            && self.teams[&r.team].energy_units_left.map(|left| left > 0).unwrap_or(true)
             && self.raw_zone(i, "resource", Some(&r.team));
         if !eligible {
             if self.robots[i].unit_pickup.take().is_some() {
@@ -132,6 +133,10 @@ impl Engine {
             if next == "complete" {
                 r.carried_units += 1;
                 r.unit_pickup = None;
+                let team = r.team.clone();
+                if let Some(left) = self.teams.get_mut(&team).unwrap().energy_units_left.as_mut() {
+                    *left = left.saturating_sub(1);
+                }
                 self.event("unit_pickup", json!({"robot":self.robots[i].id,"amount":1}));
             } else {
                 state.stage = next.into();

@@ -9,6 +9,12 @@ impl Engine {
         let now = self.time();
         for i in 0..self.robots.len() {
             let r = &self.robots[i];
+            if self.season == 2027 {
+                let r = &mut self.robots[i];
+                r.overspeed_locked = r.overspeed_permanent_lock || r.overspeed_lock_until > now + 1e-8;
+                r.launcher_fault = false;
+                continue;
+            }
             let heavy = r.role == "hero";
             let caliber = if heavy { "42mm" } else { "17mm" };
             let speed = if heavy && r.deployed {
@@ -150,11 +156,14 @@ impl Engine {
         r.last_yellow_time = now;
         r.yellow_damage_ratio = ratio;
         let count = r.yellow_cards;
-        let limit = if r.role == "engineer" {
+        let limit = if rule["yellow_limit"].is_number() {
+            n(&rule, "yellow_limit")
+        } else if r.role == "engineer" {
             n(&rule, "engineer_yellow_limit")
         } else {
             n(&rule, "other_yellow_limit")
         } as u32;
+        let sentry = r.role == "sentry";
         for j in 0..self.robots.len() {
             if self.robots[j].team != team {
                 continue;
@@ -167,7 +176,12 @@ impl Engine {
                     "teammate_fpv_s"
                 },
             );
-            self.robots[j].fpv_blocked_until = self.robots[j].fpv_blocked_until.max(now) + duration;
+            if i == j && sentry {
+                // A sentry has no operator screen: its chassis loses power instead (7.1.2).
+                self.robots[j].power_cutoff_until = self.robots[j].power_cutoff_until.max(now) + n(&rule, "sentry_chassis_off_s");
+            } else {
+                self.robots[j].fpv_blocked_until = self.robots[j].fpv_blocked_until.max(now) + duration;
+            }
             self.penalty_hp(
                 j,
                 if i == j {

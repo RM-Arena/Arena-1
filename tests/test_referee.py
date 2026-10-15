@@ -87,8 +87,10 @@ class RefereeTests(unittest.TestCase):
                 self.assertEqual(client.post('/api/referee',json={"kind":"yellow","robot":"red-5"},headers=headers).status_code,409)
                 client.post('/api/control',json={"command":"pause"})
                 deadline=time.monotonic()+2
-                while time.monotonic()<deadline and not app.state.arena.frame['robots'][3]['yellow_cards']:time.sleep(.01)
-                self.assertEqual(app.state.arena.frame['robots'][3]['yellow_cards'],1)
+                # The default (RMUC 2027) roster has no slot 2, so find red-4 by id.
+                red4=lambda:next(r for r in app.state.arena.frame['robots'] if r['id']=='red-4')
+                while time.monotonic()<deadline and not red4()['yellow_cards']:time.sleep(.01)
+                self.assertEqual(red4()['yellow_cards'],1)
             finally:
                 app.state.arena.shutdown();app.state.training.shutdown()
 

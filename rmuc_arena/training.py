@@ -10,9 +10,15 @@ import time
 
 from .runner import Battle
 from .paths import data_path
-from .submissions import (ROOT, SLOT_IDS, check_training_window, load_submission,
+from .submissions import (ROOT, SLOT_IDS, check_training_window, load_submission, manifest_season,
     locked_registry, save_submission, validate_workspace, workspace_entries, workspace_showcase, write_json)
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, validate_profile
+from . import seasons as season_rules
+
+
+def official_example(season, name):
+    """Public baseline example directory of a season (2026 keeps the original names)."""
+    return ROOT / "examples" / (f"official_{name}" if season == season_rules.LEGACY_SEASON else f"official_{season}_{name}")
 
 
 class TrainingService:
@@ -72,17 +78,19 @@ class TrainingService:
 
     def _capture(self, workspace, record, output):
         validate_workspace(workspace, self.registry)
-        return save_submission(output, record["mode"], workspace_entries(workspace, record), record["robot"],team_lineup=record.get('team_lineup'))
+        return save_submission(output, record["mode"], workspace_entries(workspace, record), record["robot"],team_lineup=record.get('team_lineup'),
+                               season=manifest_season(record))
 
     def _squad(self, candidate, directory):
         manifest, entries = load_submission(candidate)
         if manifest["mode"] in ("team", "distributed", "adaptive"):
             return candidate
         # A single author never receives other entrants' code. Practice teammates are public examples.
-        _, baseline = load_submission(ROOT / "examples/official_squad")
-        files = {str(slot): baseline[str(slot)] for slot in SLOT_IDS}
+        season = manifest_season(manifest)
+        _, baseline = load_submission(official_example(season, "squad"))
+        files = {str(slot): baseline[str(slot)] for slot in season_rules.slots(season)}
         files[str(manifest["robot"])] = entries[str(manifest["robot"])]
-        save_submission(directory, "squad", files)
+        save_submission(directory, "squad", files, season=season)
         return directory
 
     def test(self, session_id, authorization, options):
@@ -99,8 +107,10 @@ class TrainingService:
             directory = self._session_directory(record) / "jobs" / job_id
             self._capture(workspace, record, directory / "candidate")
             candidate = self._squad(directory / "candidate", directory / "candidate-squad")
-            candidate_mode = load_submission(candidate)[0]["mode"]
-            opponent = ROOT / "examples/official_adaptive_3" if options["opponent"] == "baseline" and candidate_mode == "adaptive" else ROOT / "examples/official_hold" if options["opponent"] == "baseline" else candidate
+            candidate_manifest = load_submission(candidate)[0]
+            candidate_mode, season = candidate_manifest["mode"], manifest_season(candidate_manifest)
+            baseline_model = 3 if season == season_rules.LEGACY_SEASON else 2731
+            opponent = official_example(season, f"adaptive_{baseline_model}") if options["opponent"] == "baseline" and candidate_mode == "adaptive" else official_example(season, "hold") if options["opponent"] == "baseline" else candidate
             if options["opponent"] not in ("self", "baseline"):
                 opponent = self._squad(self._versions(record)[options["opponent"]], directory / "opponent-squad")
             check_training_window(self.authenticate(session_id, authorization)[1])
@@ -135,7 +145,9 @@ class TrainingService:
                         # fixed by the participant workspace or task description.
                         import random
                         rng = random.Random(seed)
-                        extras = lambda: [ROOT / f"examples/official_adaptive_{rng.choice(SLOT_IDS)}" for _ in range(rng.randrange(4))]
+                        season = manifest_season(candidate_manifest)
+                        pool = list(season_rules.default_lineup(season).values())
+                        extras = lambda: [official_example(season, f"adaptive_{rng.choice(pool)}") for _ in range(rng.randrange(4))]
                         candidate_deck, opponent_deck = [candidate] + extras(), [opponent] + extras()
                         decks = {"red":opponent_deck if swapped else candidate_deck,"blue":candidate_deck if swapped else opponent_deck}
                     remaining = deadline_at - time.time()
@@ -198,7 +210,7 @@ class TrainingService:
             if not destination.exists():
                 _, entries = load_submission(output)
                 save_submission(destination, record["mode"], entries, record["robot"],team_lineup=record.get('team_lineup'),
-                                showcase=showcase, profile=profile)
+                                showcase=showcase, profile=profile, season=manifest_season(record))
             else:
                 # Same code, newer presentation: the latest showcase describes the entry.
                 write_json(destination / SHOWCASE_FILE, showcase)

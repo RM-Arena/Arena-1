@@ -28,7 +28,7 @@ def main():
         run("cargo", "build", "--locked", "--release", "--manifest-path", "legacy/v2/simulation/Cargo.toml")
         run("bun", "run", "build")
         if args.docker:
-            run("docker", "build", "-t", "rmuc-arena-policy:0.4", "-f", "sandbox/Dockerfile", ".")
+            run("docker", "build", "-t", "rmuc-arena-policy:0.5", "-f", "sandbox/Dockerfile", ".")
     elif args.command == "run":
         run("uv", "run", "--locked", "python", "-X", "utf8", "-m", "rmuc_arena", "serve", "--port", str(args.port),
             *([] if args.docker else ["--trusted-local"]))

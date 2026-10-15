@@ -30,3 +30,4 @@
 @media(max-width:760px){.deck-preset-toolbar{grid-template-columns:1fr auto;gap:10px}}
 .deck-builder .deck-workbench{flex:1;overflow:hidden;grid-template-rows:minmax(0,1fr)}.deck-builder .card-library,.deck-builder .deployment-decks{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#425968 transparent}.deck-builder .card-library{padding-right:8px}
 @media(max-width:760px){.deck-builder .deck-workbench{overflow:auto;grid-template-rows:auto auto}.deck-builder .card-library,.deck-builder .deployment-decks{overflow:visible}}
+.training-season{display:inline-flex;gap:6px;margin-top:6px}.training-season>button{font-size:11px;padding:7px 13px;border-radius:999px;background:#15232c}.training-season>button.active{border-color:#c7aa73;color:#e8cf9f;background:#20303a}

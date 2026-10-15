@@ -1,0 +1,10 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "guard",
+  "tags": [],
+  "display_name": "[2027] S27-L 串联腿哨兵 · 固守哨兵",
+  "description": "S27-L 串联腿哨兵（轮足底盘）：哨兵开到己方中央高地卡后默认保持防御姿态（50% 防御），只在有目标且就位时切进攻姿态，残血受击时开启防御强化。"
+}

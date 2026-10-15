@@ -34,7 +34,7 @@ python3 -B arena.py test --opponent VERSION --duration 420 --games 2 --seed 200
 {{/team}}
 {{#robot}}
 {{^adaptive}}
-- In practice your program controls only slot {{slot}}, and **the other five robots run public example strategies**; with `self`, slot {{slot}} on both sides runs your code and the rest are still examples. The example teammates are only sparring partners and do not represent how your real teammates will play.
+- In practice your program controls only slot {{slot}}, and **the other {{count_others}} robots run public example strategies**; with `self`, slot {{slot}} on both sides runs your code and the rest are still examples. The example teammates are only sparring partners and do not represent how your real teammates will play.
 {{/adaptive}}
 {{#adaptive}}
 - Practice varies the decks: your code controls one instance of the selected model, identified by `controlled_ids[0]`. Teammate counts and models vary and use public examples. Self-play gives each side one instance of your policy with example teammates.

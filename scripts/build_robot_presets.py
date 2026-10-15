@@ -2,10 +2,15 @@
 
 Every preset directory (balanced, assault and guard) also gets its display sidecars,
 showcase.json and profile.json, generated from the role x tactic cards below.
+
+RMUC 2027 presets (official_2027_adaptive_<model>[_assault|_guard]) cover every model
+legal in 2027; all three come from scripts/robot_policy_2027.py with its TACTIC set, and
+their cards live in scripts/robot_cards_2027.py.
 """
 import argparse
 import json
 from pathlib import Path
+import importlib.util
 import re
 import sys
 import tempfile
@@ -13,7 +18,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from rmuc_arena.models import model_ids, robot_models
-from rmuc_arena.robot_presets import PROFILES, TACTICS, preset_key
+from rmuc_arena import seasons as season_rules
+from rmuc_arena.robot_presets import PROFILES, PROFILES_2027, TACTICS, preset_key
 from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, parse_showcase, validate_profile
 from rmuc_arena.submissions import load_submission, save_submission
 
@@ -231,18 +237,32 @@ CARDS = {
         "weaknesses": ["不参与进攻，拆不了敌方建筑", "8 m 外的敌人一概不打", "己方前哨倒下后退得太深，让出中场"],
     },
 }
-CHASSIS = {"mecanum": "麦轮底盘", "swerve": "舵轮底盘", "omni": "全向轮底盘", "wheel_legged": "轮足底盘", "quadrotor": "旋翼"}
+CHASSIS = {"mecanum": "麦轮底盘", "swerve": "舵轮底盘", "omni": "全向轮底盘", "wheel_legged": "轮足底盘", "quadrotor": "旋翼", "hangar": "机库"}
 
 
-def sidecars(model, tactic):
+def cards_2027():
+    spec = importlib.util.spec_from_file_location("robot_cards_2027", ROOT / "scripts/robot_cards_2027.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.CARDS
+
+
+def legal_models(season):
+    return [model for model in model_ids() if season_rules.legal(model, season)]
+
+
+def sidecars(model, tactic, season="2026"):
     """showcase.json and profile.json contents for one preset."""
     design = robot_models()[str(model)]
     role = design["role"]
-    card = CARDS[(role, tactic)]
-    name = f'{design["name"]} · {PROFILES[role][tactic][0]}'
+    card = (CARDS if season == "2026" else cards_2027())[(role, tactic)]
+    name = f'{design["name"]} · {(PROFILES if season == "2026" else PROFILES_2027)[role][tactic][0]}'
+    if season != "2026":
+        name = f"[2027] {name}"
     weaknesses = list(card["weaknesses"])
     if design.get("chassis_type") == "wheel_legged":
-        weaknesses.append("不使用本型号的跳跃能力，台阶与飞坡只能靠寻路绕行")
+        weaknesses.append("不使用本型号的跳跃能力，台阶与飞坡只能靠寻路绕行" if season == "2026" else
+                          "不主动利用跳跃登阶抄近路，只沿公路与端坡寻路")
     if design.get("transform_allowed"):
         weaknesses.append("不会变形穿越隧道，拿不到隧道冷却增益")
     summary = f'{design["name"]}（{CHASSIS.get(design.get("chassis_type"), "底盘")}）：{card["summary"]}'
@@ -262,8 +282,8 @@ def dump(data):
     return (text + "\n").encode()
 
 
-def write_sidecars(destination, model, tactic, check):
-    for name, data in sidecars(model, tactic).items():
+def write_sidecars(destination, model, tactic, check, season="2026"):
+    for name, data in sidecars(model, tactic, season).items():
         expected = dump(data)
         if name == SHOWCASE_FILE:
             parse_showcase(expected)
@@ -276,27 +296,44 @@ def write_sidecars(destination, model, tactic, check):
             (destination / name).write_bytes(expected)
 
 
+def materialize(destination, source_text, model, check, season):
+    """strategy.py and manifest.json of one preset, built through the normal submission path."""
+    with tempfile.TemporaryDirectory() as temporary:
+        source = Path(temporary) / 'source.py'
+        source.write_text(source_text)
+        output = Path(temporary) / 'submission'
+        save_submission(output, 'adaptive', {str(model): source}, model, season=season)
+        for name in ('strategy.py', 'manifest.json'):
+            expected = (output / name).read_bytes()
+            if check:
+                if not (destination / name).is_file() or (destination / name).read_bytes() != expected:
+                    raise SystemExit(f'Outdated preset: {destination / name}')
+            else:
+                destination.mkdir(exist_ok=True)
+                (destination / name).write_bytes(expected)
+
+
 def build(check=False):
     template = (ROOT / 'scripts/robot_preset_template.py').read_text()
-    for model in model_ids():
-        load_submission(ROOT / 'examples' / preset_key(model, 'balanced'))
+    baseline = (ROOT / 'examples/official_adaptive/strategy.py').read_text()
+    for model in legal_models('2026'):
+        balanced = ROOT / 'examples' / preset_key(model, 'balanced')
+        if (balanced / 'manifest.json').is_file():
+            load_submission(balanced)
+        else:
+            # Models added after the original presets (2027 infantry legal in 2026) get the baseline.
+            materialize(balanced, baseline, model, check, '2026')
         for tactic in ('assault', 'guard'):
-            destination = ROOT / 'examples' / preset_key(model, tactic)
-            with tempfile.TemporaryDirectory() as temporary:
-                source = Path(temporary) / 'source.py'
-                source.write_text(template.replace('TACTIC = "assault"', f'TACTIC = "{tactic}"'))
-                output = Path(temporary) / 'submission'
-                save_submission(output, 'adaptive', {str(model): source}, model)
-                for name in ('strategy.py', 'manifest.json'):
-                    expected = (output / name).read_bytes()
-                    if check:
-                        if not (destination / name).is_file() or (destination / name).read_bytes() != expected:
-                            raise SystemExit(f'Outdated preset: {destination / name}')
-                    else:
-                        destination.mkdir(exist_ok=True)
-                        (destination / name).write_bytes(expected)
+            materialize(ROOT / 'examples' / preset_key(model, tactic),
+                        template.replace('TACTIC = "assault"', f'TACTIC = "{tactic}"'), model, check, '2026')
         for tactic in TACTICS:
             write_sidecars(ROOT / 'examples' / preset_key(model, tactic), model, tactic, check)
+    policy = (ROOT / 'scripts/robot_policy_2027.py').read_text()
+    for model in legal_models('2027'):
+        for tactic in TACTICS:
+            destination = ROOT / 'examples' / preset_key(model, tactic, '2027')
+            materialize(destination, policy.replace('TACTIC = "balanced"', f'TACTIC = "{tactic}"'), model, check, '2027')
+            write_sidecars(destination, model, tactic, check, '2027')
 
 
 if __name__ == '__main__':

@@ -75,8 +75,54 @@ pub struct AssemblyState {
     pub buffer_until: f64,
     #[serde(default)]
     pub repeat_ready_at: f64,
+    /// 2027 steps 3-6 on the own core, and the borrowed core of a level-4 attempt.
+    #[serde(default, skip_serializing_if = "is_zero_f")]
+    pub lifted: f64,
+    #[serde(default, skip_serializing_if = "is_zero_f")]
+    pub flipped: f64,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub confirmed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub second: Option<season2027::CoreProgress>,
+    #[serde(default, skip_serializing_if = "no_steps")]
+    pub step_times: [Option<f64>; 5],
+}
+fn is_zero_f(v: &f64) -> bool {
+    *v == 0.0
+}
+fn no_steps(v: &[Option<f64>; 5]) -> bool {
+    v.iter().all(Option::is_none)
 }
 impl AssemblyState {
+    pub fn core(&self, core: usize) -> season2027::CoreProgress {
+        if core == 1 {
+            return self.second.clone().unwrap_or_default();
+        }
+        season2027::CoreProgress {
+            inserted: self.inserted,
+            lifted: self.lifted,
+            flipped: self.flipped,
+            rotation: self.rotation,
+            target_rotation: self.target_rotation,
+            confirm: self.confirm_progress_s,
+            confirmed: self.confirmed,
+            step_times: self.step_times,
+        }
+    }
+    pub fn set_core(&mut self, core: usize, c: season2027::CoreProgress) {
+        if core == 1 {
+            self.second = Some(c);
+            return;
+        }
+        self.inserted = c.inserted;
+        self.lifted = c.lifted;
+        self.flipped = c.flipped;
+        self.rotation = c.rotation;
+        self.target_rotation = c.target_rotation;
+        self.confirm_progress_s = c.confirm;
+        self.confirmed = c.confirmed;
+        self.step_times = c.step_times;
+    }
     pub fn new() -> Self {
         Self {
             difficulty: 0,
@@ -100,6 +146,11 @@ impl AssemblyState {
             confirm_progress_s: 0.0,
             buffer_until: 0.0,
             repeat_ready_at: 0.0,
+            lifted: 0.0,
+            flipped: 0.0,
+            confirmed: false,
+            second: None,
+            step_times: [None; 5],
         }
     }
 }
@@ -188,6 +239,9 @@ impl Engine {
         })
     }
     pub(super) fn apply_performance(&mut self, i: usize, add_delta: bool) {
+        if self.season == 2027 {
+            return self.apply_performance_2027(i, add_delta);
+        }
         let r = &self.robots[i];
         let level = (r.level.clamp(1, 10) - 1) as usize;
         let old = r.max_hp;
@@ -230,6 +284,9 @@ impl Engine {
         }
     }
     fn gain_xp(&mut self, i: usize, value: f64) {
+        if self.season == 2027 {
+            return self.gain_xp_2027(i, value);
+        }
         let r = &self.robots[i];
         if r.role == "engineer" || !r.alive || r.level >= self.teams[&r.team].level_cap {
             return;
@@ -923,7 +980,7 @@ impl Engine {
             json!({"robot":self.robots[i].id,"kind":kind}),
         );
     }
-    fn dispersed_shot_direction(&mut self, direction: [f64; 3], role: &str) -> [f64; 3] {
+    pub(super) fn dispersed_shot_direction(&mut self, direction: [f64; 3], role: &str) -> [f64; 3] {
         let caliber = if role == "hero" { "42mm" } else { "17mm" };
         let half_angle = n(&self.sim["projectile_spread_half_angle_deg"], caliber).to_radians();
         if half_angle <= 0.0 {
@@ -1271,7 +1328,7 @@ impl Engine {
     fn arm_design(&self) -> Value {
         self.robots
             .iter()
-            .position(|r| r.role == "engineer")
+            .position(|r| r.arm_count > 0)
             .and_then(|i| self.physics.as_ref().map(|w| w.design(i)["arm"].clone()))
             .unwrap_or(Value::Null)
     }
@@ -1328,7 +1385,7 @@ impl Engine {
         let mut goals = vec![physics::ArmGoal::default(); self.robots.len()];
         for i in 0..self.robots.len() {
             let r = &self.robots[i];
-            if r.role != "engineer" {
+            if r.arm_count == 0 {
                 continue;
             }
             let rpc = &actions[i].rpc;
@@ -1396,7 +1453,24 @@ impl Engine {
                 }
             }
             let state = &self.assemblies[&team];
-            if goal.mode == "stow"
+            let mut secondary_core = None;
+            if self.season == 2027 {
+                // 2027: the tool follows the selected core's step progress; a dual-arm heavy
+                // robot works the borrowed level-4 core with its second arm.
+                if goal.mode == "stow" && ["moving", "inserting"].contains(&state.stage.as_str()) && self.raw_zone(i, "assembly", Some(&team)) {
+                    let choice = rpc.get("assembly_core").and_then(Value::as_u64).unwrap_or(0);
+                    let core = if state.difficulty == 4 && r.arm_count < 2 { choice.min(1) as usize } else { 0 };
+                    if let Some((point, dir, roll)) = self.core_goal_2027(&team, core) {
+                        goal.mode = "assembly".into();
+                        goal.point = Some(point);
+                        goal.dir = Some(dir);
+                        goal.roll = roll;
+                    }
+                    if state.difficulty == 4 && r.arm_count == 2 {
+                        secondary_core = self.core_goal_2027(&team, 1);
+                    }
+                }
+            } else if goal.mode == "stow"
                 && ["moving", "inserting", "buffered"].contains(&state.stage.as_str())
                 && self.raw_zone(i, "assembly", Some(&team))
             {
@@ -1418,6 +1492,7 @@ impl Engine {
                 }
             }
             let mut secondary=physics::ArmGoal::default();secondary.mode="stow".into();
+            if let Some((point,dir,roll))=secondary_core {secondary.mode="assembly".into();secondary.point=Some(point);secondary.dir=Some(dir);secondary.roll=roll;}
             if r.arm_count==2 {if let Some(cmd)=rpc.get("arm2").filter(|v|v.is_object()) {
                 if let Some(g)=physics::manual_arm_goal(cmd,r,&self.physics.as_ref().unwrap().design(i)["arm2"]) {secondary=g;}
             }}
@@ -1441,10 +1516,10 @@ impl Engine {
         }
         goals
     }
-    fn assembly_difficulty(&self, difficulty: u32) -> &Value {
+    pub(super) fn assembly_difficulty(&self, difficulty: u32) -> &Value {
         &self.sim["assembly_difficulties"][difficulty.saturating_sub(1).min(3) as usize]
     }
-    fn assembly_motion_blocked(&self, i: usize) -> bool {
+    pub(super) fn assembly_motion_blocked(&self, i: usize) -> bool {
         let r = &self.robots[i];
         let profile = self.assembly_difficulty(self.assemblies[&r.team].difficulty);
         r.tipped || r.upright < n(profile, "min_upright")
@@ -1717,7 +1792,7 @@ impl Engine {
         }
         self.event("assembly_failed", json!({"team":team,"difficulty":self.assemblies[team].difficulty}));
     }
-    fn start_rune(&mut self, team: &str) {
+    pub(super) fn start_rune(&mut self, team: &str) {
         let now = self.time();
         let mode = if now < 180.0 { "small" } else { "large" };
         let s = &self.runes[team];
@@ -1758,7 +1833,7 @@ impl Engine {
         }
         self.event("rune_start", json!({"team":team,"mode":mode}));
     }
-    fn update_rune_motor(&mut self) {
+    pub(super) fn update_rune_motor(&mut self) {
         let now = self.time();
         // Integrate the smooth, nonuniform shaft speed over this frame. It keeps
         // running while idle and while buffs are active, on both faces together.
@@ -1826,6 +1901,12 @@ impl Engine {
     }
     pub(super) fn assembly_snapshots(&self) -> Value {
         let mut result = serde_json::to_value(&self.assemblies).unwrap();
+        if self.season == 2027 {
+            for team in ["red", "blue"] {
+                self.assembly_snapshot_2027(team, &mut result[team]);
+            }
+            return result;
+        }
         for (team, s) in &self.assemblies {
             let insert =
                 (s.inserted / n(&self.rules["assembly"], "insert_depth_m")).clamp(0.0, 1.0);
@@ -1913,12 +1994,27 @@ impl Engine {
         let mut result = json!(self.bases);
         for team in ["red", "blue"] {
             result[team]["armor_plates"] = json!(structures::plates(&self.bases[team], false));
+            if self.season == 2027 {
+                // RMUC 2027: every exposed base module accepts 17 mm, 42 mm and aerial impacts.
+                for plate in result[team]["armor_plates"].as_array_mut().unwrap() {
+                    plate["heavy_only"] = json!(false);
+                    plate["weakspot"] = json!(false);
+                }
+            }
         }
         result
     }
     pub(super) fn outpost_snapshots(&self) -> Value {
         let mut result = serde_json::to_value(&self.outposts).unwrap();
         for team in ["red", "blue"] {
+            if self.season == 2027 {
+                result[team]["armor_plates"] = json!(Self::structure_plates_2027(&self.outposts[team], true));
+                for plate in result[team]["armor_plates"].as_array_mut().unwrap() {
+                    plate["weakspot"] = json!(false);
+                }
+                result[team]["rebuild"] = Value::Null;
+                continue;
+            }
             result[team]["armor_plates"] = json!(structures::plates(&self.outposts[team], true));
             result[team]["rebuild"] = Value::Null;
             if self.outposts[team].hp > 0.0
@@ -1980,7 +2076,7 @@ impl Engine {
         r.pair_deadline = 0.0;
     }
     /// World positions of a team's five rune targets at the current shaft angle.
-    fn rune_target_points(&self, team: &str) -> [[f64; 3]; 5] {
+    pub(super) fn rune_target_points(&self, team: &str) -> [[f64; 3]; 5] {
         let center_x = n(&self.arena.rune, "x");
         let center_y = n(&self.arena.rune, "y");
         let center_z = n(&self.arena.rune, "z");
@@ -2034,6 +2130,9 @@ impl Engine {
         let mut all = serde_json::to_value(&self.teams).unwrap();
         let other = opponent(team);
         all[other] = json!({"attack_damage":self.teams[other].attack_damage,"score":self.teams[other].attack_damage});
+        if self.season == 2027 {
+            all[other]["control"] = json!(self.teams[other].control);
+        }
         all
     }
     pub(super) fn rune_intersection(
@@ -2165,7 +2264,7 @@ impl Engine {
                 .robots
                 .iter()
                 .enumerate()
-                .filter(|(_, r)| r.team == team && r.alive && r.role != "engineer")
+                .filter(|(_, r)| r.team == team && r.alive && if self.season == 2027 { r.role == "infantry" } else { r.role != "engineer" })
                 .map(|(i, _)| i)
                 .collect();
             let amount = 750.0 / recipients.len().max(1) as f64;
@@ -2320,6 +2419,9 @@ impl Engine {
         self.finish(winner, "timeout");
     }
     pub(super) fn public_rule_summary(&self) -> Value {
+        if self.season == 2027 {
+            return self.public_rule_summary_2027();
+        }
         json!({"source":self.rules["source"],"construction_source":self.rules["construction"]["source"],"physical_design_revision":"construction-2026-v1","physics_hz":120,"adaptations":self.rules["adaptations"],"match":self.rules["match"],"profile_defaults":self.rules["profiles"]["defaults"],"full_rules_available":"sdk.RULES, sdk.DESIGNS and protected arena.json"})
     }
 }

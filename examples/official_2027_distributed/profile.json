@@ -1,0 +1,14 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "balanced",
+  "tags": [
+    "assembly",
+    "aerial",
+    "outpost_rush"
+  ],
+  "display_name": "官方多机协同 2027",
+  "description": "RMUC 2027 官方基线的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。"
+}

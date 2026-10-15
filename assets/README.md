@@ -30,3 +30,18 @@ macOS 已安装 Blender 时也可以使用 `/Applications/Blender.app/Contents/M
 - 科技核心：`CoreCarriage/Lift/Yaw/Pitch/Roll` 对应装配坐标系的位姿，`CoreUnit` 显示插入的能量单元。
 
 尺寸校验属于采样姿态检查；碰撞体使用低复杂度组合形状。机器人部件与未标注场地细节是本项目的工程设计，未作为官方完整 CAD 复刻。
+
+## RMUC 2027
+
+2027 资产源程序为 `blender/season2027.py`（由 `build_assets.py` 加载，复用第四章与制作规范模型的构建函数）。`RMUC_ASSETS=season2027` 只构建 2027 资产，`robots2027`、`map2027` 分别只构建机器人或地图，可再用 `RMUC_ROBOTS=2711,2761` 筛选；不会重新导出 2026 资产。完整构建时，`robots` 与 `map` 也会把 `season` 为 2027 的型号和地图交给这些构建函数。
+
+```bash
+RMUC_ASSETS=season2027 blender --background --factory-startup --disable-autoexec --python assets/blender/build_assets.py
+```
+
+- 地图 `map-rmuc2027.glb` 读取 `maps.rmuc2027`（由 `scripts/chapter4_2027_layout.py` 生成）。包含：0.3 m 中央高地、靠堡垒一侧的 0.2 m 台阶带和 0.4 m 边沿、两端 12° 坡；0.4 m 装配台（12° 斜边）和能量机关龙门；龙门立柱外侧的 0.4 m 机库平台（比装配台高 1.2 m，属于地图网格）；0.2 m 梯形高地和 23° 细阶坡；0.8 m 制高点、三级 0.2 m 台阶和护墙；0.2 m 公路、11°/15° 坡、起伏路段（70 mm 高，240 mm 间距）；每侧三条隧道（侧墙和顶板）；0.15 m 堡垒、0.2 m 基地台、0.4 m 前哨站台；补给区的工作台（0.75×0.45 m，顶面 0.40 m）和资源岛（6 个能量单元，Ø0.454 m 环，中心高 0.70 m）；飞镖站只作布景。地形顶面在中线处按 1.5° 屋脊式地板分割，高度与引擎地形一致；23° 坡的视觉细阶与 2026 版相同，物理仍为平滑坡。涂装包括队伍色的边界、出发区和增益卡轮廓，以及白色通行标识。资源岛中心待取的能量单元是 `AvailableUnit_<team>`，被抓起时由观战端隐藏。
+- 重装机器人 `robot-2711/2712/2713-spec2027.glb`：底盘和机械臂节点与工程机器人相同（`ArmSlew`、`ArmMastStage`、`ArmLift`、`ArmReach`、`ArmWristYaw/Pitch/Roll`、`GripperJaw_0/1`，双臂另有 `Aux_` 前缀），升降行程 0.64 m。云台座 `Turret` 位于升降桅杆顶部，与底盘中心同轴，对应引擎的枪口轴心。`LauncherModule` 含完整的模块化 42 mm 发射机构，包括托架、俯仰支架、`GunPitch`（枪管、摩擦轮、42 mm 测速模块、弹仓和相机），尺寸约 0.385×0.30×0.26 m，未装配时由观战端隐藏。裸云台座（偏航环、定位销、接插件和偏航电机）不属于该节点。不含发射模块时，收纳尺寸不超过 0.6 m。
+- 步兵 2731/2732 和哨兵 2771/2772 沿用基础型号（304/301/303/305）的构建函数和全部动画节点，并加上 2027 涂装：橙色饰条、徽标，以及弹仓上的“27”环带。哨兵另有加高的弹仓料斗和顶部状态灯 `StatusBeacon`（随 `Turret` 转动）。
+- 空中系统 2761/2762/2763 的 `robot-27x-spec2027.glb` 只含机库：0.30×0.30×0.20 m，前方为 +X，原点在底面中心。顶部有 `drone_count` 个停机位，`DroneBay_<k>` 标记停机坪中心和顶面；后侧嵌有裁判灯条，前侧有状态灯和图传。根节点 extras 含 `drone_count`、`drone_size_m` 和 `drone_asset`。机库没有 `Chassis` 节点，因此保持静止。
+- `drone-27x-spec2027.glb` 是单架四旋翼，外形边长等于 `drone.size_m`（0.141/0.095/0.120 m）。每个桨叶的上、下和四周都有封闭护罩，格栅孔为 10 mm。顶部有 7 灯导航环（`TeamGlow`）。原点在几何中心，前方为 +X，动画节点为 `Rotor_0..3`。
+- `robot-27xx-envelope.json` 按 2027 规则的收纳和展开尺寸采样；重装机器人的收纳尺寸不计发射模块，超限项记录在 `issues` 中。

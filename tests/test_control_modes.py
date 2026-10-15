@@ -205,7 +205,7 @@ def act(obs, state):
         response = client.post("/api/submissions", json={"name": "c-upload", "mode": "distributed", "entries": entries, "showcase": SHOWCASE_TEXT})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(client.get("/api/catalog").json()["c-upload"]["mode"], "distributed")
-        guide = client.get("/api/agent-guide", params={"mode": "distributed", "lang": "en"})
+        guide = client.get("/api/agent-guide", params={"mode": "distributed", "lang": "en", "season": "2026"})
         self.assertEqual(guide.text, guide_path("distributed", lang="en").read_text())
         workspace = scaffold(self.root / "c-author", "distributed", registry=self.registry)
         start_training(workspace, self.registry)

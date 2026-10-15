@@ -43,6 +43,8 @@ jobs:
       - run: bun run test:js
       - run: bun run test:desktop
       - run: uv run --locked python scripts/build_agent_guides.py --check
+      - run: uv run --locked python scripts/build_examples_2027.py --check
+      - run: uv run --locked python scripts/build_robot_presets.py --check
       - run: bun run build
       - run: bun run docs:build
       - run: uv run --locked python scripts/check_release.py
@@ -58,7 +60,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --locked
       - run: cargo build --locked --release --manifest-path simulation/Cargo.toml
-      - run: docker build -t rmuc-arena-policy:0.4 -f sandbox/Dockerfile .
+      - run: docker build -t rmuc-arena-policy:0.5 -f sandbox/Dockerfile .
       - run: uv run --locked python -m unittest discover -s tests -p test_runner.py
         env:
           RMUC_DOCKER_TESTS: '1'

@@ -1,0 +1,52 @@
+{
+  "format": "rmuc-showcase-v1",
+  "title": "[2027] AS-2 重型双机机库 · 全程突袭",
+  "tagline": "持续冲撞前哨与基地，不保留编队",
+  "summary": "AS-2 重型双机机库（机库）：与撞击编队相同的定时冲撞，但目标始终开放：前哨倒下后只要敌方基地可受伤就持续撞击，直到护罩耗尽。",
+  "style": {
+    "aggression": 95,
+    "defense": 5,
+    "economy": 5,
+    "objective": 95,
+    "teamwork": 20,
+    "adaptability": 40
+  },
+  "phases": [
+    {
+      "from": 0,
+      "to": 420,
+      "title": "全程突袭",
+      "goal": "持续冲撞敌方建筑",
+      "focus": "attack"
+    }
+  ],
+  "units": [
+    {
+      "name": "本机",
+      "role": "突袭编队",
+      "task": "持续冲撞敌方前哨与基地",
+      "route": [
+        [13.01, 8.49],
+        [16.3, 4.3],
+        [25.59, 7.5]
+      ],
+      "anchor": [25.59, 7.5]
+    }
+  ],
+  "rules": [
+    {
+      "when": "有可撞击的装甲",
+      "then": "定时冲撞"
+    }
+  ],
+  "priorities": [
+    "敌方前哨站",
+    "敌方基地"
+  ],
+  "strengths": [
+    "对建筑伤害最高"
+  ],
+  "weaknesses": [
+    "护罩很快耗尽"
+  ]
+}

@@ -1,6 +1,6 @@
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import type {Frame,MatchEvent,Metadata,Robot,TeamId} from './types';
-import {MODE_LABELS} from './types';
+import {MODE_LABELS,frameSeason} from './types';
 import {TEAM_LABEL,TEAMS,other,robotName,type MatchStats} from './matchStats';
 import {clock} from './media';
 import {KillAnnouncer,type KillAnnouncement,type KillHighlight} from './killAnnouncements';
@@ -76,13 +76,13 @@ function Chevrons({level}:{level:number}){const n=level>=10?3:Math.ceil(level/3)
 
 function RobotCard({r,image,selected,onSelect,assemblies,metadata}:{r:Robot;image?:string;selected:boolean;onSelect:(id:string)=>void;assemblies:number[];metadata:Metadata|null}){
   const agent=robotAgent(metadata,r.team,r.slot);
-  const air=r.role==='aerial',dead=!air&&!r.alive,hp=air?(r.support_active?100:0):pct(r.hp,r.max_hp),respawn=r.respawn_required>0?Math.floor(Math.min(1,r.respawn_progress/r.respawn_required)*100):0;
+  const air=r.role==='aerial',fleet=r.drones,dead=!air&&!r.alive,hp=air?(fleet?pct(fleet.reduce((sum,d)=>sum+Math.max(0,d.integrity),0),fleet.length*Math.max(1,...fleet.map(d=>d.integrity),3)):r.support_active?100:0):pct(r.hp,r.max_hp),respawn=r.respawn_required>0?Math.floor(Math.min(1,r.respawn_progress/r.respawn_required)*100):0;
   return <button className={`bc-card ${r.team} ${dead?'dead':''} ${selected?'selected':''}`} onClick={()=>onSelect(r.id)} aria-label={`${TEAM_LABEL[r.team]}${r.slot}号${robotName(r)}${agent?` · 策略来自 ${agentLabel(agent)}`:''}`}>
     {agent&&<span className="bc-card-agent" title={`${agentLabel(agent)}${agent.strategy?` · ${agent.strategy}`:''}`}><AgentLogo provider={providerOf(agent)} size={20}/></span>}
     <span className="bc-card-art">{image?<img src={image} alt=""/>:<span className="bc-card-ph"/>}{r.role==='hero'&&<i className="bc-mode">{(r as Robot&{profile?:string}).profile==='melee'?'近':'远'}</i>}{dead&&<b className="bc-respawn">{respawn}%</b>}</span>
     <span className="bc-card-id"><em>{r.slot}</em><span>{robotName(r)}</span><Chevrons level={r.level||1}/></span>
     <span className="bc-card-hp"><i style={{width:`${hp}%`}}/>{Array.from({length:4},(_,k)=><s key={k} style={{left:`${(k+1)*20}%`}}/>)}</span>
-    <span className="bc-card-meta">{r.role==='engineer'?<span className="bc-stars">{[0,1,2,3].map(k=><i key={k} className={assemblies[k]?'on':''}>★</i>)}</span>:<span>≡ {r.ammo}</span>}{air&&<small>{r.support_active?'空中支援':'待命'}</small>}</span>
+    <span className="bc-card-meta">{r.role==='engineer'||(r.role==='heavy'&&r.launcher!=='installed'&&r.launcher!=='fitted')?<span className="bc-stars">{[0,1,2,3].map(k=><i key={k} className={assemblies[k]?'on':''}>★</i>)}</span>:fleet?<span>✈ {fleet.filter(d=>d.state==='flying').length}/{fleet.filter(d=>d.state!=='disabled').length}</span>:<span>≡ {r.ammo}</span>}{air&&!fleet&&<small>{r.support_active?'空中支援':'待命'}</small>}{r.role==='sentry'&&r.posture&&<small>{({attack:'进攻',defense:'防御',move:'移动'} as const)[r.posture]}{r.posture_enhanced?'·强化':''}</small>}</span>
   </button>;
 }
 
@@ -119,14 +119,19 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
   const wins=(t:TeamId)=>frame.status==='finished'&&frame.winner===t?1:0;
   const banner=director.active('banner',now).at(-1),toast=director.active('toast',now).at(-1),kills=director.active('kill',now).slice(-4);
   const image=(r?:Robot)=>r?images[`${r.model_asset}|${r.team}`]:undefined,find=(id?:string)=>frame.robots.find(r=>r.id===id);
+  // RMUC 2027: control positions decide base invulnerability; control degree decides timeouts.
+  const season=frameSeason(frame),position=(team:TeamId,kind:'outpost'|'base')=>frame.positions?.[`${team}_${kind}`];
+  const control=(t:TeamId)=>Math.floor(frame.teams[t].control??0);
+  const positionLabel=(team:TeamId)=>{const p=position(team,'outpost');if(!p)return null;const mine=p.controller===team;return <small className={`bc-position ${p.controller}`} title={`前哨控制点：${p.controller==='red'?'红方':'蓝方'}${p.control==='full'?'完全':'临时'}控制`}>{mine?'⚑':'⚐'} {p.control==='full'?'完全':'临时'}{mine?'':'·失守'}</small>;};
+  const invulnerable=(team:TeamId)=>season==='2027'?(()=>{const p=position(team,'outpost');return !!p&&p.controller===team&&p.control==='full';})():(frame.outposts?.[team]?.hp??0)>0;
   return <Stage compactable>
     <div className="bc-top">
       {TEAMS.map(team=>{const base=frame.bases[team],op=frame.outposts?.[team],t=frame.teams[team] as {rebuild_credits?:number};return <div key={team} className={`bc-side ${team}`}>
-        <div className="bc-outpost"><span>前哨站 <i className="bc-tower"/></span><b className={op&&op.hp<=0?'down':''}>{op?Math.ceil(Math.max(0,op.hp)):'—'}</b><small title="可用重建次数">⚒ {t.rebuild_credits??0}</small></div>
+        <div className="bc-outpost"><span>前哨站 <i className="bc-tower"/></span><b className={op&&op.hp<=0?'down':''}>{op?Math.ceil(Math.max(0,op.hp)):'—'}</b>{season==='2027'?positionLabel(team):<small title="可用重建次数">⚒ {t.rebuild_credits??0}</small>}</div>
         <div className="bc-team-main">
           <div className="bc-team-name"><span>{metadata?.teams[team]?.display_name||teamName(metadata,team)}</span><small>{teamEmblem(metadata,team)==='mixed'?`${teamAgents(metadata,team).length} 个 Agent 混合`:teamAgents(metadata,team).length?agentLabel(teamAgents(metadata,team)[0]):metadata?MODE_LABELS[metadata.teams[team].mode]:''}</small></div>
           <div className="bc-basebar"><i className="fill" style={{width:`${pct(base.hp,base.max_hp)}%`}}/><span className="bc-basebar-hex"/><b>{Math.ceil(Math.max(0,base.hp))}</b><i className="bc-base-icon"/></div>
-          <div className="bc-team-sub"><span title="基地护盾">⛨ {Math.ceil(base.shield_hp||0)}</span>{(op?.hp??0)>0&&base.hp>0&&<span className="bc-invuln">基地无敌</span>}{base.armor_open&&<span className="bc-armor">护甲展开</span>}</div>
+          <div className="bc-team-sub"><span title="基地护盾">⛨ {Math.ceil(base.shield_hp||0)}</span>{invulnerable(team)&&base.hp>0&&<span className="bc-invuln">基地无敌</span>}{base.armor_open&&<span className="bc-armor">护甲展开</span>}</div>
         </div>
         <TeamCrest metadata={metadata} team={team} size={70}/>
       </div>;})}
@@ -135,6 +140,7 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
         <div className="bc-clock-row"><span className="bc-wins red">{wins('red')}</span><strong>{clock(frame.remaining).replace(/^0/,'')}</strong><span className="bc-wins blue">{wins('blue')}</span></div>
         <div className="bc-adv"><i style={{width:`${share}%`}}/><em style={{left:`${share}%`}}/></div>
         <div className="bc-coins"><span className="red">{Math.floor(frame.teams.red.resources)}<small>/{Math.floor(stats.teams.red.economy)}</small></span><b>R</b><span className="blue">{Math.floor(frame.teams.blue.resources)}<small>/{Math.floor(stats.teams.blue.economy)}</small></span></div>
+        {season==='2027'&&<div className="bc-dmg bc-control"><span>{control('red')}</span><small>CONTROL</small><span>{control('blue')}</span></div>}
         <div className="bc-dmg"><span>{damage('red')}</span><small>DAMAGE</small><span>{damage('blue')}</span></div>
       </div>
     </div>
@@ -148,6 +154,6 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
       <span className={`bc-kill-bot ${victim?.team||other(k.team)}`}>{image(victim)&&<img src={image(victim)} alt=""/>}<em>{victim?.slot??'?'}</em></span></div>;})}</div>
     {toast&&<div key={toast.key} className={`bc-toast ${toast.team}`}><span className="bc-toast-icon"><ToastIcon kind={toast.icon}/></span><div><strong>{toast.title}</strong><div className="bc-chips">{toast.chips?.map(c=><span key={c}>{c}</span>)}</div></div></div>}
     <div className="bc-mini"><MiniMap frame={frame} selected={selected}/></div>
-    <div className="bc-plate"><span>对抗赛 · 策略联赛</span><b>ROBOMASTER 2026</b></div>
+    <div className="bc-plate"><span>对抗赛 · 策略联赛</span><b>ROBOMASTER {season}</b></div>
   </Stage>;
 }

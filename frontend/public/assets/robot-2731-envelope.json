@@ -1,0 +1,28 @@
+{
+  "slot": 2731,
+  "season": "2027",
+  "stowed_mesh_m": [
+    0.46865230798721313,
+    0.4959999918937683,
+    0.42610003054142
+  ],
+  "articulated_mesh_max_m": [
+    0.4784831702709198,
+    0.4959999918937683,
+    0.7952056378126144
+  ],
+  "stowed_limit_m": [
+    0.6,
+    0.6,
+    0.6
+  ],
+  "extended_limit_m": [
+    0.8,
+    0.8,
+    0.8
+  ],
+  "bare_mass_kg": 20.6,
+  "referee_mass_kg": 3.25,
+  "mast_excluded": false,
+  "issues": []
+}

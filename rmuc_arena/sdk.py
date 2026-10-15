@@ -71,6 +71,14 @@ class Action(TypedDict, total=False):
     lean: float
     arm: dict[str, Any]
     messages: list[dict[str, Any]]
+    # RMUC 2027
+    install_launcher: bool
+    assembly_core: int
+    assembly_lift: bool
+    assembly_flip: bool
+    posture: str
+    posture_enhanced: bool
+    drones: dict[str, dict[str, Any]]
 
 
 class _TeamInbox(TypedDict, total=False):
@@ -104,20 +112,44 @@ API_VERSION = 3
 TEAM_SLOTS = (1, 2, 3, 4, 6, 7)
 TEAM_SIZE = 6
 RULES_PROFILE = "rmuc-2026-v1.0.0-arena-v3"
+# RMUC 2027: heavy 1, infantry 3 and 4, aerial system 6, sentry 7.
+TEAM_SLOTS_2027 = (1, 3, 4, 6, 7)
+TEAM_SIZE_2027 = 5
+RULES_PROFILE_2027 = "rmuc-2027-v1.0.0-arena-v1"
 
 def _load_rules():
+    """Rules and reference field of every season available to this runtime."""
     here = Path(__file__).resolve().parent
     for file in (here / "rules.json", here.parent / "config/rules.json"):
         if file.is_file():
             bundle=json.loads(file.read_text(encoding="utf-8"))
-            return bundle["official"],bundle["maps"]["rmuc2026"],bundle.get('robot_designs',{})
+            seasons={'2026':(bundle["official"],bundle["maps"]["rmuc2026"])}
+            if 'official_2027' in bundle and 'rmuc2027' in bundle['maps']:
+                seasons['2027']=(bundle['official_2027'],bundle['maps']['rmuc2027'])
+            return seasons,bundle.get('robot_designs',{})
     file = here / "arena.json"
     if file.is_file():
         bundle=json.loads(file.read_text(encoding="utf-8"))
-        return bundle["official_rules"],bundle["map"],bundle.get('robot_designs',{})
+        return {bundle.get('season','2026'):(bundle["official_rules"],bundle["map"])},bundle.get('robot_designs',{})
     raise RuntimeError("Public rules reference missing from SDK runtime")
 
-RULES, _REFERENCE_ARENA, DESIGNS = _load_rules()
+_SEASONS, DESIGNS = _load_rules()
+RULES_BY_SEASON = {season: value[0] for season, value in _SEASONS.items()}
+ARENAS_BY_SEASON = {season: value[1] for season, value in _SEASONS.items()}
+# 2026 strategies read RULES; a 2027 workspace (or the full runtime) also has RULES_2027.
+RULES = RULES_BY_SEASON.get('2026') or next(iter(RULES_BY_SEASON.values()))
+RULES_2027 = RULES_BY_SEASON.get('2027')
+_REFERENCE_ARENA = ARENAS_BY_SEASON.get('2026') or next(iter(ARENAS_BY_SEASON.values()))
+
+
+def season_of(observation):
+    """'2027' or '2026': the rules season of this match."""
+    return observation.get('season') or observation.get('arena', {}).get('season') or '2026'
+
+
+def rules(observation):
+    """The full public rules of the observation's season."""
+    return RULES_BY_SEASON[season_of(observation)]
 
 
 def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgrade=None, **operations):
@@ -134,7 +166,8 @@ def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgra
     """
     if skill or upgrade is not None:
         raise ValueError("Unsupported action; use the documented game operations")
-    allowed = {"profile", "power", "altitude", "buy_ammo", "remote_heal", "revive", "deploy", "support", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform", "messages"}
+    allowed = {"profile", "power", "altitude", "buy_ammo", "remote_heal", "revive", "deploy", "support", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform", "messages",
+               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "posture", "posture_enhanced", "drones"}
     if not set(operations) <= allowed:
         raise ValueError("Unknown action operation")
     # A move from `navigate` that backs a chassis off the road bumps keeps its heading.
@@ -168,8 +201,21 @@ def referee_info(observation: Observation) -> dict[str, Any]:
     return observation["referee"]
 
 
+def _design(robot):
+    return DESIGNS.get(str(robot.get("model_slot") or robot.get("slot")), {})
+
+
+def is_42(robot):
+    """True for 42 mm launchers (2026 hero, 2027 heavy robot)."""
+    return robot["role"] in ("hero", "heavy")
+
+
 def muzzle_speed(robot):
-    return 16.5 if robot["role"] == "hero" and robot.get("deployed") else 12.0 if robot["role"] == "hero" else 25.0
+    if robot["role"] == "heavy":
+        return _design(robot).get("muzzle_speed_mps", 15.6)
+    if robot["role"] == "hero":
+        return 16.5 if robot.get("deployed") else 12.0
+    return _design(robot).get("muzzle_speed_mps", 25.0)
 
 
 def aim_height(target):
@@ -192,7 +238,7 @@ def _aim_target(robot,target):
     if 'aim_z' in target:
         return (target['x'],target['y'],target['aim_z'])
     if target.get('armor_plates'):
-        candidates=[p for p in target['armor_plates'] if not p['heavy_only'] or robot['role']=='hero']
+        candidates=[p for p in target['armor_plates'] if not p['heavy_only'] or is_42(robot)]
         if target.get('armor_open') and target.get('kind')!='outpost':
             lower=[p for p in candidates if p.get('weakspot')]
             if lower:candidates=lower
@@ -226,9 +272,9 @@ def _ballistic_solution(robot,target,speed=None):
     inherited=robot.get('vx',0)*ux+robot.get('vy',0)*uy
     pivot=_rotate(robot.get('quaternion',(0,0,0,1)),(0,0,robot.get('muzzle_height_m',.25 if robot['role']=='aerial' else .55)))
     base_z=robot.get('z',0)+pivot[2];reach=robot.get('muzzle_reach_m',.3)
-    key=tuple(round(v,3) for v in (distance_,point[2]-base_z,speed,inherited,robot.get('vz',0),reach))+(robot['role'],)
+    key=tuple(round(v,3) for v in (distance_,point[2]-base_z,speed,inherited,robot.get('vz',0),reach))+(is_42(robot),)
     if key in _AIM_CACHE:return _AIM_CACHE[key]
-    radius=.02125 if robot['role']=='hero' else .0084;mass=.0445 if robot['role']=='hero' else .0032
+    radius=.02125 if is_42(robot) else .0084;mass=.0445 if is_42(robot) else .0032
     drag=.5*1.225*.47*math.pi*radius*radius/mass;dt=1/120
     def height(angle):
         x=reach*math.cos(angle);z=base_z+reach*math.sin(angle);vx=speed*math.cos(angle)+inherited;vz=speed*math.sin(angle)+robot.get('vz',0)
@@ -263,9 +309,15 @@ def ballistic_reachable(robot,target):
 
 def can_fire(robot):
     if 0.0<robot.get('transform_progress',0.0)<1.0:return False
-    if robot["role"]=="engineer" or not robot["alive"] or robot.get("weak") or robot.get("overheated") or robot.get("heat_permanent_lock") or robot.get("overspeed_locked") or robot.get("overspeed_permanent_lock") or robot.get("launcher_fault") or robot.get("red_card"):
+    if robot["role"]=="engineer" or robot.get("drones") is not None and robot["role"]=="aerial":
         return False
-    heat = 100 if robot["role"]=="hero" else 10
+    # The 2027 heavy robot fires only with its modular launcher on board.
+    if robot["role"]=="heavy" and robot.get("launcher") not in ("fitted","installed"):
+        return False
+    if not robot["alive"] or robot.get("weak") or robot.get("overheated") or robot.get("heat_permanent_lock") or robot.get("overspeed_locked") or robot.get("overspeed_permanent_lock") or robot.get("launcher_fault") or robot.get("red_card"):
+        return False
+    heat = 100 if is_42(robot) else 10
+    if robot.get("posture")=="attack" and robot.get("posture_enhanced"):heat=0
     return robot["ammo"]>0 and robot["heat"]+heat<=robot["max_heat"]+1e-8
 
 
@@ -356,6 +408,8 @@ def navigate(robot, point, arena):
     import heapq
 
     if robot["role"] == "aerial":
+        if robot.get("drones") is not None:
+            return (0.0, 0.0)  # a 2027 hangar is fixed; steer its aerial robots with `drones`
         lane=arena["flight_lanes"][robot["team"]]
         return _physical_toward(robot,(max(lane["min_x"],min(point[0],lane["max_x"])),lane["center_y"]))
     if arena.get("layout_revision"):
@@ -375,7 +429,7 @@ def navigate(robot, point, arena):
                     point = (ramp["x"] + .1 if ramp["direction"] > 0 else ramp["x"] + ramp["w"] - .1, max(ramp["y"] + margin, min(point[1], ramp["y"] + ramp["h"] - margin)))
     obstacles=list(arena["obstacles"])
     for zone in arena.get("forbidden",[]):
-        if zone["kind"] in ("base","pad","highway") or zone.get("owner") not in (None,robot["team"]):
+        if zone["kind"] in ("base","pad","highway","dart_station") or zone.get("owner") not in (None,robot["team"]):
             obstacles.append(zone)
     walls = [{"x": w["x"] - margin, "y": w["y"] - margin,
               "w": w["w"] + margin * 2, "h": w["h"] + margin * 2}
@@ -466,10 +520,13 @@ def _prepare_chapter4(arena,team):
     margin=.36
     walls=[w for w in arena['obstacles'] if 'roof' not in w.get('id','')]
     # The highway no-go area behind a fly slope is entered only by flying the ramp (R58).
-    walls += [w for w in arena['forbidden'] if w['kind'] in ('base','pad','highway') or w.get('owner') not in (None,team)]
+    walls += [w for w in arena['forbidden'] if w['kind'] in ('base','pad','highway','dart_station') or w.get('owner') not in (None,team)]
     boxes=[]
     for w in walls:
         a=w.get('rotation',0);boxes.append((w['x']+w['w']/2,w['y']+w['h']/2,w['w']/2+margin,w['h']/2+margin,math.cos(a),math.sin(a)))
+    # RMUC 2027 outposts stand on the central deck beside its kerb: route around their pedestals.
+    if arena.get('season')=='2027':
+        for x,y in arena['outposts'].values():boxes.append((x,y,.34+margin,.34+margin,1.0,0.0))
     # A small spatial index keeps height checks bounded during decision calls.
     tiles={}
     for t in arena['terrain']:
@@ -558,7 +615,7 @@ def _chapter4_navigate(robot,point,arena):
         for near_start in ((guarded,set(guarded)) if guarded else (guarded,)):
             ignore={**near_start,**dict.fromkeys(near_goal)} if isinstance(near_start,dict) else near_start|near_goal
             if clear(start,goal,ignore,strict):return _square_to_bumps(robot,goal,arena)
-            step=_route(graph,start,goal,near_start,near_goal,strict)
+            step=_route(graph,start,goal,near_start,near_goal,strict,.3 if arena.get('season')=='2027' else 0)
             if step is not None:return _square_to_bumps(robot,nodes[step],arena)
     return (0.0,0.0)
 
@@ -628,11 +685,16 @@ def _route_costs(graph,goal,near_goal,strict):
     return distances
 
 
-def _route(graph,start,goal,near_start,near_goal,strict):
-    """First visible waypoint on the cheapest complete route, or None."""
+def _route(graph,start,goal,near_start,near_goal,strict,reached=0):
+    """First visible waypoint on the cheapest complete route, or None. Waypoints closer
+    than `reached` count as passed, so a robot standing on one heads for the next instead
+    of creeping on the spot (on a 2027 slope it would slide back)."""
     nodes,_,clear,_=graph
     costs=_route_costs(graph,goal,near_goal,strict)
     candidates=sorted((math.dist(start,nodes[i])+cost,i) for i,cost in costs.items())
+    if reached:
+        ahead=[c for c in candidates if math.dist(start,nodes[c[1]])>=reached]
+        candidates=ahead or candidates
     # The cost of every complete route is already known; test visibility in
     # increasing cost order instead of scanning every start/goal pair again.
     for _,i in candidates:
@@ -642,8 +704,9 @@ def _route(graph,start,goal,near_start,near_goal,strict):
 
 # Prepare static, public geometry during strategy initialization, before the
 # decision timer begins. This creates no threads, external reads or hidden data.
-if _REFERENCE_ARENA.get('layout_revision'):
-    for _team in ('red','blue'):_prepare_chapter4(_REFERENCE_ARENA,_team)
+for _arena in ARENAS_BY_SEASON.values():
+    if _arena.get('layout_revision'):
+        for _team in ('red','blue'):_prepare_chapter4(_arena,_team)
 
 
 def resource_pickup_point(robot,arena):
@@ -661,3 +724,73 @@ def assembly_work_point(robot,arena):
     length=math.hypot(dx,dy) or 1.0
     docking_distance=.25*math.sqrt(2)
     return (zone['x']+docking_distance*dx/length,zone['y']+docking_distance*dy/length)
+
+
+# ---- RMUC 2027 helpers ------------------------------------------------------------------
+
+def workbench_point(robot, arena):
+    """Where a 2027 heavy robot parks to fit its modular 42 mm launcher (install_launcher=True)."""
+    bench=next(f for f in arena['field_geometry']['fixtures'] if f['kind']=='workbench' and f['team']==robot['team'])
+    return tuple(bench['dock_point'])
+
+
+def launcher_ready(robot):
+    """The heavy robot's launcher is unlocked (by level-3 assembly or the time rule) but not yet fitted."""
+    return robot.get('launcher') in ('unlocked','installing')
+
+
+def position(observation, name):
+    """A control position: {'owner','kind','control':'full'|'temporary','controller',...}.
+    Names: red_outpost, red_base, blue_outpost, blue_base."""
+    return observation.get('positions',{}).get(name)
+
+
+def controls(observation, name, team=None):
+    """True while `team` (default: own) controls the position, fully or temporarily."""
+    p=position(observation,name);team=team or observation['team']
+    return bool(p) and p['controller']==team
+
+
+def control_degree(observation, team=None):
+    team=team or observation['team']
+    return observation['teams'].get(team,{}).get('control') or 0.0
+
+
+def zone_center(arena, zone_id):
+    """A point on the buff card: its reference point, which lies inside even oddly shaped
+    cards such as the long central-highland strips."""
+    z=next(z for z in arena['zones'] if z['id']==zone_id)
+    return (z['x'],z['y'])
+
+
+def drones(robot):
+    """The aerial robots of a 2027 aerial system (hangar), with state, pose, battery and integrity."""
+    return robot.get('drones') or []
+
+
+def strike_plan(drone, plate, standoff=.9, team_heights=None):
+    """A ramming run at an armor plate: hover at `standoff` in front of its face, then
+    fly straight into it. Returns ('approach', point) until lined up, then ('strike', direction).
+    Use as drones={'1':{'goto':point}} or drones={'1':{'move':direction}}."""
+    n=plate['normal'];c=plate['center']
+    flat=math.hypot(n[0],n[1]) or 1.0
+    ux,uy=n[0]/flat,n[1]/flat
+    stand=(c[0]+ux*standoff,c[1]+uy*standoff,c[2])
+    lateral=abs((drone['x']-c[0])*(-uy)+(drone['y']-c[1])*ux)
+    ahead=(drone['x']-c[0])*ux+(drone['y']-c[1])*uy
+    if lateral<.05 and abs(drone['z']-c[2])<.06 and ahead>.15:
+        return 'strike',(-ux,-uy,(c[2]-drone['z'])*2)
+    return 'approach',stand
+
+
+def hostile_plates(observation, kind):
+    """Armor plates a 2027 aerial robot may strike: 'outpost' (any outpost not owned by
+    this team and still standing) or 'base' (the enemy base)."""
+    team=observation['team'];enemy='blue' if team=='red' else 'red'
+    if kind=='base':
+        base=observation['bases'][enemy]
+        return base.get('armor_plates',[]) if base['hp']>0 else []
+    plates=[]
+    for owner,outpost in observation['outposts'].items():
+        if outpost['hp']>0 and outpost.get('owner',owner)!=team:plates+=outpost.get('armor_plates',[])
+    return plates

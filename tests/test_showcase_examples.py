@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import unittest
 
+from rmuc_arena import seasons as season_rules
 from rmuc_arena.models import model_ids
 from rmuc_arena.robot_presets import TACTICS, preset_key
 from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, parse_showcase, validate_profile
@@ -58,11 +59,12 @@ class ShowcaseExampleTests(unittest.TestCase):
     def test_preset_sidecars_match_the_build_script(self):
         # Same comparison as `scripts/build_robot_presets.py --check` for the sidecars.
         build = build_script()
-        for model in model_ids():
+        for season in season_rules.seasons():
+          for model in season_rules.legal_models(season):
             for tactic in TACTICS:
-                directory = EXAMPLES / preset_key(model, tactic)
+                directory = EXAMPLES / preset_key(model, tactic, season)
                 with self.subTest(preset=directory.name):
-                    for name, data in build.sidecars(model, tactic).items():
+                    for name, data in build.sidecars(model, tactic, season).items():
                         self.assertEqual((directory / name).read_bytes(), build.dump(data), name)
                     profile = json.loads((directory / PROFILE_FILE).read_text(encoding="utf-8"))
                     self.assertEqual(profile["agent"], {"provider": "official"})

@@ -7,7 +7,7 @@ import './modelWorkshop.css';
 
 export type CustomModel=RobotSkin&{role?:string;base_name?:string;triangles?:number;meshes?:number};
 const AXES:{id:RobotSkin['forward'];label:string}[]=[{id:'+x',label:'+X'},{id:'-x',label:'−X'},{id:'+z',label:'+Z'},{id:'-z',label:'−Z'}];
-const ROLE_ORDER=['hero','engineer','infantry','aerial'];
+const ROLE_ORDER=['heavy','hero','engineer','infantry','sentry','aerial'];
 const mb=(n=0)=>n>1048576?`${(n/1048576).toFixed(1)} MB`:`${Math.round(n/1024)} KB`;
 async function base64(file:File){const bytes=new Uint8Array(await file.arrayBuffer());let out='';for(let i=0;i<bytes.length;i+=0x8000)out+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(out);}
 

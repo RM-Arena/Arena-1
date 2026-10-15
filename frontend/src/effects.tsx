@@ -204,7 +204,7 @@ class FxWorld{
     if(e.type==='shot'){
       const s=this.rendered(feed,e.robot,alpha);if(!s)return;pulses.set('shot:'+s.r.id,now);
       const dir=aim(e.angle??s.r.aim,e.pitch??s.r.pitch??0),reach=s.r.muzzle_reach_m??.3;
-      p.add(s.offset);if(!e.muzzle_origin)p.addScaledVector(this.v.set(dir.x,0,dir.z),reach);this.muzzle(p,dir,e.role==='hero');
+      p.add(s.offset);if(!e.muzzle_origin)p.addScaledVector(this.v.set(dir.x,0,dir.z),reach);this.muzzle(p,dir,e.role==='hero'||e.role==='heavy');
     }else if(e.type==='impact')this.ricochet(p);
     else if(e.type==='hit'){
       const s=this.rendered(feed,e.robot,alpha);if(s){p.add(s.offset);pulses.set(s.r.id,now);}
@@ -262,7 +262,7 @@ class FxWorld{
     if(this.previous!==feed.previous){this.previous=feed.previous;this.projectiles=new Map((feed.previous?.projectiles||[]).map(p=>[p.id,p]));}
     const head=new THREE.Vector3(),tail=new THREE.Vector3();let count=0;
     for(const p of f.projectiles.slice(0,320)){
-      const old=this.projectiles.get(p.id),heavy=p.role==='hero',back=old?0:(1-alpha)*f.dt;
+      const old=this.projectiles.get(p.id),heavy=p.role==='hero'||p.role==='heavy',back=old?0:(1-alpha)*f.dt;
       if(old)toWorld(f.arena,old.x+(p.x-old.x)*alpha,old.y+(p.y-old.y)*alpha,old.z+(p.z-old.z)*alpha,head);
       else toWorld(f.arena,p.x-p.vx*back,p.y-p.vy*back,p.z-p.vz*back,head);
       this.v.set(p.vx,p.vz,p.vy);const speed=this.v.length();if(speed<1e-3)continue;

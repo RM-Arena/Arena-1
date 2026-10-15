@@ -8,8 +8,8 @@ fn place(m:&mut Engine,i:usize,x:f64,y:f64,yaw:f64){let r=&mut m.robots[i];r.x=x
 
 #[test]
 fn catalog_models_preserve_role_and_mirrored_fixed_spawn_points(){
-    let cfg=config();assert_eq!(cfg.robot_designs.len(),19);
-    for (id,d) in cfg.robot_designs {
+    let cfg=config();assert_eq!(cfg.robot_designs.values().filter(|d|d["seasons"]["2026"]["legal"]==true).count(),21);
+    for (id,d) in cfg.robot_designs.into_iter().filter(|(_,d)|d["seasons"]["2026"]["legal"]==true) {
         let model=id.parse().unwrap();let slot=match d["role"].as_str().unwrap(){"hero"=>1,"engineer"=>2,"aerial"=>6,_=>3};
         let m=selected(slot,model);let red=m.robots.iter().find(|r|r.team=="red"&&r.slot==slot).unwrap();
         let blue=m.robots.iter().find(|r|r.team=="blue"&&r.slot==slot).unwrap();

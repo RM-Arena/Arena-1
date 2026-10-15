@@ -80,7 +80,10 @@ class ModelTests(unittest.TestCase):
     def test_models_and_team_development_are_available_from_the_local_app(self):
         app=create_app('trusted-local',submission_root=self.root/'submissions',data_root=self.root/'data',workspace_registry=self.registry,test_mode=True)
         with TestClient(app) as client:
-            info=client.get('/api/models').json();self.assertEqual(len(info['models']),19);self.assertEqual(info['default_team_lineup'],DEFAULT_TEAM_LINEUP)
+            info=client.get('/api/models').json()
+            legal_2026=[k for k,d in info['models'].items() if d['seasons']['2026']['legal']]
+            self.assertEqual(len(legal_2026),21);self.assertEqual(info['seasons']['2026']['default_lineup'],DEFAULT_TEAM_LINEUP)
+            self.assertEqual(info['default_season'],'2027');self.assertEqual(info['default_team_lineup'],info['seasons']['2027']['default_lineup'])
             response=client.post('/api/team-workspaces',json={'name':'custom-team','minutes':10,'team_lineup':CUSTOM})
             self.assertEqual(response.status_code,200,response.text);data=response.json()
             self.assertEqual(data['team_lineup'],CUSTOM);self.assertTrue(Path(data['task_file']).is_file())
@@ -89,7 +92,7 @@ class ModelTests(unittest.TestCase):
     def test_team_briefing_is_generated_for_confirmed_models_without_starting_a_clock(self):
         app=create_app('trusted-local',submission_root=self.root/'submissions',data_root=self.root/'data',workspace_registry=self.registry,test_mode=True)
         with TestClient(app) as client:
-            generic=client.get('/api/agent-guide').text
+            generic=client.get('/api/agent-guide',params={'season':'2026'}).text
             self.assertNotIn('已锁定的双方共同阵容',generic)
             self.assertNotIn('H42',generic)
             response=client.post('/api/team-briefing',json={'team_lineup':CUSTOM})

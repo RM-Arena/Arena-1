@@ -18,7 +18,7 @@ You deliver only {{source_files}}. It must define `act(observation, state)` and 
 
 | File | Purpose |
 | --- | --- |
-| {{source_files}} | {{^distributed}}Your strategy — the only editable file{{/distributed}}{{#distributed}}Your six editable strategy source files{{/distributed}} |
+| {{source_files}} | {{^distributed}}Your strategy — the only editable file{{/distributed}}{{#distributed}}Your {{count_sources}} editable strategy source files{{/distributed}} |
 | `AGENT_GUIDE.md`, `AGENT_GUIDE.en.md` | This guide in Chinese and in English, with identical content |
 | `AGENT_TASK.md` | Task summary |
 | `sdk.py` | Helper library you can `import` during a match |

@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties,type ChangeEvent,type DragEvent} from 'react';
 import {ArrowLeft,ArrowRight,Check,FileCode2,FileJson,Upload,X} from 'lucide-react';
-import {CURRENT_SLOTS,MODE_LABELS,ROLE_NAMES,type ControlMode,type RobotHardware,type StrategyTag,type Tactic,type TeamLineup} from './types';
+import {MODE_LABELS,ROLE_NAMES,SEASON_LABELS,SEASON_SLOTS,type ControlMode,type RobotHardware,type Season,type StrategyTag,type Tactic,type TeamLineup} from './types';
+import {legalIn} from './TeamLineup';
 import {LLM_PROVIDERS,PROVIDERS,detectProvider,type AgentProvider} from './agents';
 import {AgentBadge,AgentLogo} from './agentLogos';
 import './uploadWizard.css';
@@ -37,9 +38,9 @@ export const TAGS:{id:StrategyTag;name:string}[]=[
   {id:'mobility',name:'高机动 / 飞坡'},{id:'comms',name:'队内通信'},{id:'focus_fire',name:'集火'},{id:'outpost_rush',name:'速拆前哨'},{id:'base_rush',name:'直取基地'},
 ];
 const MODES:{id:ControlMode;note:string}[]=[
-  {id:'team',note:'一个进程控制全队六台，共享 state'},
-  {id:'distributed',note:'一次提交六份策略，每台独立运行'},
-  {id:'squad',note:'六份单机策略组成整队'},
+  {id:'team',note:'一个进程控制全队（2027 五台 / 2026 六台），共享 state'},
+  {id:'distributed',note:'一次提交每台一份策略，每台独立运行'},
+  {id:'squad',note:'每台一份单机策略组成整队'},
   {id:'robot',note:'只控制一个固定编号，等待与队友组队'},
   {id:'adaptive',note:'一台型号的单机策略，可用于自由对战'},
 ];
@@ -55,17 +56,19 @@ function previewShowcase(text:string):{ok:true;title:string;tagline:string;phase
   catch(e){return {ok:false,error:'不是有效的 JSON：'+(e as Error).message};}
 }
 
-export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initialMode='team'}:{onClose:()=>void;onSave:()=>void;onGallery?:()=>void;teamLineup:TeamLineup;models:Record<string,RobotHardware>;initialMode?:ControlMode}){
+export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initialMode='team',season='2027'}:{onClose:()=>void;onSave:()=>void;onGallery?:()=>void;teamLineup:TeamLineup;models:Record<string,RobotHardware>;initialMode?:ControlMode;season?:Season}){
+  // Strategies are written for one rules season: its slots, and for adaptive cards its legal models.
+  const slots=SEASON_SLOTS[season];
   const [step,setStep]=useState(0),[agent,setAgent]=useState<Picked>({provider:null,model:'',manual:false});
   const [mode,setMode]=useState<ControlMode>(initialMode),[robot,setRobot]=useState(initialMode==='robot'?'1':'3'),[tactic,setTactic]=useState<Tactic>('balanced'),[tags,setTags]=useState<StrategyTag[]>([]);
   const [codes,setCodes]=useState<Record<string,string>>({}),[fileNames,setFileNames]=useState<Record<string,string>>({}),[slot,setSlot]=useState('1'),[showcase,setShowcase]=useState(''),[showcaseName,setShowcaseName]=useState('');
   const [name,setName]=useState(''),[displayName,setDisplayName]=useState(''),[author,setAuthor]=useState(''),[description,setDescription]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState<string|null>(null),[dragging,setDragging]=useState('');
   const dialog=useRef<HTMLElement>(null),close=useRef(onClose);close.current=onClose;
-  const keys=mode==='team'?['team']:mode==='robot'||mode==='adaptive'?[robot]:CURRENT_SLOTS.map(String);
+  const keys=mode==='team'?['team']:mode==='robot'||mode==='adaptive'?[robot]:slots.map(String);
   const detected=agent.model.trim()?detectProvider(agent.model):null;
   const preview=useMemo(()=>previewShowcase(showcase),[showcase]);
-  const modelList=useMemo(()=>Object.values(models).filter(m=>mode==='adaptive'||CURRENT_SLOTS.includes(m.slot as typeof CURRENT_SLOTS[number])).sort((a,b)=>a.slot-b.slot),[models,mode]);
+  const modelList=useMemo(()=>Object.values(models).filter(m=>mode==='adaptive'?legalIn(m,season):slots.includes(m.slot)).sort((a,b)=>a.slot-b.slot),[models,mode,season,slots]);
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();close.current();}};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key);},[]);
   useEffect(()=>{dialog.current?.querySelector<HTMLElement>('.uw-body')?.scrollTo({top:0});},[step]);
   // A typed model name picks its maker unless the user chose a tile by hand.
@@ -89,7 +92,7 @@ export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initial
     try{
       const entries=Object.fromEntries(keys.map(k=>[k,codes[k]]));
       const profile={agent:{provider:agent.provider,...(agent.model.trim()?{model:agent.model.trim()}:{})},tactic,tags,...(displayName.trim()?{display_name:displayName.trim()}:{}),...(author.trim()?{author:author.trim()}:{}),...(description.trim()?{description:description.trim()}:{})};
-      const response=await fetch('/api/submissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mode,entries,showcase,profile,...(mode==='robot'||mode==='adaptive'?{robot:Number(robot)}:{}),...(mode==='team'?{team_lineup:teamLineup}:{})})});
+      const response=await fetch('/api/submissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mode,entries,showcase,profile,season,...(mode==='robot'||mode==='adaptive'?{robot:Number(robot)}:{}),...(mode==='team'?{team_lineup:teamLineup}:{})})});
       const data=await response.json();if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:Array.isArray(data.detail)?data.detail.map((d:{msg:string;loc:string[]})=>`${d.loc.at(-1)}: ${d.msg}`).join('；'):'提交失败，请检查名称与文件');
       setDone(name);onSave();
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
@@ -104,9 +107,9 @@ export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initial
         <label className="uw-model"><span>模型名称（可选）</span><input autoFocus placeholder="例如：Claude Opus 5.5、GPT-5、Gemini 3 Pro、Kimi K2、GLM-4.6…" value={agent.model} maxLength={64} onChange={e=>typeModel(e.target.value)}/>{agent.model.trim()&&<em className={detected?'ok':''}>{detected?<><AgentLogo provider={detected} size={16}/>识别为 {PROVIDERS[detected].name}</>:'未能识别，请在下方选择'}</em>}</label>
         <div className="uw-providers" role="radiogroup" aria-label="生成者">{[...LLM_PROVIDERS,'human' as const,'unknown' as const].map(p=><button key={p} role="radio" aria-checked={chosen===p} className={chosen===p?'selected':''} style={{'--c':PROVIDERS[p].color} as CSSProperties} onClick={()=>pick(p)}><AgentLogo provider={p} size={34}/><b>{p==='unknown'?'不确定':PROVIDERS[p].name}</b><small>{PROVIDERS[p].examples}</small>{chosen===p&&<i><Check size={12}/></i>}</button>)}</div></div>}
       {step===1&&<div className="uw-step"><h3>它控制哪些机器人？</h3><p className="uw-lead">决定策略出现在 RM 对战还是自由对战，以及需要几份程序。</p>
-        <div className="uw-options">{MODES.map(m=><button key={m.id} className={mode===m.id?'selected':''} aria-pressed={mode===m.id} onClick={()=>{setMode(m.id);if(m.id==='robot'&&!CURRENT_SLOTS.includes(Number(robot) as typeof CURRENT_SLOTS[number]))setRobot('1');}}><b>{MODE_LABELS[m.id]}</b><small>{m.note}</small><span>{m.id==='adaptive'?'自由对战':m.id==='robot'?'组队后参赛':'RM 对战'}</span></button>)}</div>
-        {(mode==='robot'||mode==='adaptive')&&<label className="uw-select">{mode==='robot'?'控制的编号 / 型号':'机器人型号'}<select value={robot} onChange={e=>setRobot(e.target.value)}>{modelList.map(m=><option key={m.slot} value={m.slot}>{m.slot} · {m.name} · {ROLE_NAMES[m.role]}</option>)}</select></label>}
-        {mode==='team'&&<p className="uw-note">全队策略随当前共同阵容锁定：{CURRENT_SLOTS.map(s=>`${s}号 ${models[String(teamLineup[String(s)])]?.name||teamLineup[String(s)]}`).join(' · ')}。要换阵容，请先在「选择共同阵容」中调整。</p>}</div>}
+        <div className="uw-options">{MODES.map(m=><button key={m.id} className={mode===m.id?'selected':''} aria-pressed={mode===m.id} onClick={()=>{setMode(m.id);if(m.id==='robot'&&!slots.includes(Number(robot)))setRobot('1');}}><b>{MODE_LABELS[m.id]}</b><small>{m.note}</small><span>{m.id==='adaptive'?'自由对战':m.id==='robot'?'组队后参赛':'RM 对战'}</span></button>)}</div>
+        {(mode==='robot'||mode==='adaptive')&&<label className="uw-select">{mode==='robot'?'控制的编号 / 型号':'机器人型号'}<select value={robot} onChange={e=>setRobot(e.target.value)}>{mode==='robot'?slots.map(slot=>{const m=models[String(teamLineup[String(slot)])];return <option key={slot} value={slot}>{slot} 号 · {m?`${m.name} · ${ROLE_NAMES[m.role]}`:'—'}</option>;}):modelList.map(m=><option key={m.slot} value={m.slot}>{m.slot} · {m.name} · {ROLE_NAMES[m.role]}</option>)}</select></label>}
+        {mode==='team'&&<p className="uw-note">全队策略（{SEASON_LABELS[season]}）随当前共同阵容锁定：{slots.map(s=>`${s}号 ${models[String(teamLineup[String(s)])]?.name||teamLineup[String(s)]}`).join(' · ')}。要换阵容，请先在「选择共同阵容」中调整。</p>}</div>}
       {step===2&&<div className="uw-step"><h3>它怎么打？</h3><p className="uw-lead">选择最接近的主打风格，再勾选它的特色。策略库按这些标签筛选。</p>
         <div className="uw-tactics">{TACTICS.map(t=><button key={t.id} className={tactic===t.id?'selected':''} aria-pressed={tactic===t.id} onClick={()=>setTactic(t.id)}><b>{t.name}</b><small>{t.note}</small></button>)}</div>
         <h4>特色（可多选）</h4><div className="uw-tags">{TAGS.map(t=><button key={t.id} className={tags.includes(t.id)?'selected':''} aria-pressed={tags.includes(t.id)} onClick={()=>setTags(v=>v.includes(t.id)?v.filter(x=>x!==t.id):[...v,t.id])}>{tags.includes(t.id)&&<Check size={12}/>}{t.name}</button>)}</div></div>}

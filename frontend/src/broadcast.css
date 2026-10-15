@@ -220,3 +220,6 @@
 .bc-card-agent{position:absolute;left:50%;top:-15px;transform:translateX(-50%);z-index:2;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1b222c,#07090d);border:2px solid var(--r);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.7)}
 .bc-card.blue .bc-card-agent{border-color:var(--b)}
 .bc-card.dead .bc-card-agent{filter:grayscale(1) brightness(.6)}
+/* RMUC 2027 control positions and control degree. */
+.bc-position{font-size:9px;letter-spacing:.5px;padding:1px 5px;border-radius:3px;background:#0008}.bc-position.red{color:#f2a597}.bc-position.blue{color:#9fd2ef}
+.bc-control span{color:#f5dfa8}.bc-control small{color:#c9a96a}

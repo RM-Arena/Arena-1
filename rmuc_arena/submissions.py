@@ -11,6 +11,7 @@ from .platform_support import file_lock
 from .paths import data_path
 import os
 from .models import model_ids, normalize_team_lineup
+from . import seasons as season_rules
 from .worker import SOURCE_LIMIT
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_LIMIT, parse_showcase, validate_profile
 
@@ -18,10 +19,16 @@ from .paths import ROOT
 SDK = Path(__file__).with_name("sdk.py")
 SLOT_IDS = (1, 2, 3, 4, 6, 7)
 RULES_PROFILE = "rmuc-2026-v1.0.0-arena-v3"
+RULES_PROFILE_2027 = "rmuc-2027-v1.0.0-arena-v1"
 
 
-def editable_files(mode):
-    return [f"robot_{slot}.py" for slot in SLOT_IDS] if mode == "distributed" else ["strategy.py"]
+def manifest_season(manifest):
+    """The rules season a manifest or workspace record was written for."""
+    return season_rules.season_of_profile(manifest.get("rules_profile")) or season_rules.LEGACY_SEASON
+
+
+def editable_files(mode, season=season_rules.LEGACY_SEASON):
+    return [f"robot_{slot}.py" for slot in season_rules.slots(season)] if mode == "distributed" else ["strategy.py"]
 
 
 # The agent writes showcase.json once its strategy is finished; it may be absent while practising.
@@ -38,17 +45,20 @@ def workspace_showcase(path):
 
 def workspace_entries(path, record):
     if record["mode"] == "distributed":
-        return {str(slot): path / f"robot_{slot}.py" for slot in SLOT_IDS}
+        return {str(slot): path / f"robot_{slot}.py" for slot in season_rules.slots(manifest_season(record))}
     key = "team" if record["mode"] == "team" else str(record["robot"])
     return {key: path / "strategy.py"}
 
 
-def submission_keys(mode, robot=None, slots=SLOT_IDS):
+def submission_keys(mode, robot=None, slots=SLOT_IDS, season=None):
+    if season is not None:
+        slots = season_rules.slots(season)
     if mode == "team":
         return {"team"}
     if mode in ("squad", "distributed"):
         return {str(slot) for slot in slots}
-    if (mode == "robot" and robot in slots) or (mode == "adaptive" and robot in model_ids()):
+    if (mode == "robot" and robot in slots) or (mode == "adaptive" and robot in model_ids()
+                                                and (season is None or season_rules.legal(robot, season))):
         return {str(robot)}
     raise ValueError("Invalid submission mode or robot slot")
 
@@ -94,56 +104,65 @@ def check_training_window(record):
         raise ValueError("Development deadline expired; tests and submissions are closed")
 
 
-def guide_path(mode, robot=None, lang="zh"):
+def guide_path(mode, robot=None, lang="zh", season=season_rules.LEGACY_SEASON):
     """The guide for team, distributed or one robot slot, built from shared fragments."""
     if lang not in ("zh", "en"):
         raise ValueError("Guide language must be zh or en")
+    slots = season_rules.slots(season)
     if mode in ("team", "distributed"):
         name = mode
-    elif (mode == "robot" and robot in SLOT_IDS) or (mode == "adaptive" and robot in model_ids()):
+    elif (mode == "robot" and robot in slots) or (mode == "adaptive" and robot in model_ids() and season_rules.legal(robot, season)):
         name = f"{'adaptive-' if mode == 'adaptive' else ''}robot-{robot}"
     else:
-        raise ValueError("Guides exist for team, distributed, robot and adaptive model slots 1,2,3,4,6,7")
-    return ROOT / "docs/agent_guides" / lang / f"{name}.md"
+        raise ValueError(f"Guides exist for team, distributed, robot slots {','.join(map(str, slots))} and this season's adaptive models")
+    folder = ROOT / "docs/agent_guides" / lang
+    return (folder / f"{name}.md") if season == season_rules.LEGACY_SEASON else (folder / season / f"{name}.md")
 
 
 def write_references(path, metadata):
-    from .engine import arena_map, SPECS
+    from .engine import arena_map
+    season = manifest_season(metadata)
     shutil.copyfile(SDK, path / "sdk.py")
     shutil.copyfile(Path(__file__).with_name("author_client.py"), path / "arena.py")
     rules = json.loads((ROOT / "config/rules.json").read_text(encoding="utf-8"))
-    write_json(path / "arena.json", {"map":arena_map(),"specs":SPECS,"official_rules":rules["official"],
-        "simulation_assumptions":rules["simulation_assumptions"],"robot_designs":rules.get("robot_designs",{})})
+    write_json(path / "arena.json", {"season":season,"map":arena_map(season_rules.map_of(season)),"specs":season_rules.specs(season),
+        "official_rules":season_rules.official(season),"simulation_assumptions":season_rules.simulation(season),
+        "robot_designs":rules.get("robot_designs",{})})
     write_json(path / "agent.json", metadata)
     if metadata['mode']=='team':
-        lineup=normalize_team_lineup(metadata.get('team_lineup'))
+        lineup=normalize_team_lineup(metadata.get('team_lineup'),season)
         write_json(path/'lineup.json',lineup)
     # Each competition receives its own mode/slot guide.
     shutil.copyfile(ROOT / "docs/STRATEGY_SHOWCASE.md", path / "SHOWCASE.md")
-    shutil.copyfile(guide_path(metadata["mode"], metadata.get("robot")), path / "AGENT_GUIDE.md")
-    shutil.copyfile(guide_path(metadata["mode"], metadata.get("robot"), "en"), path / "AGENT_GUIDE.en.md")
+    shutil.copyfile(guide_path(metadata["mode"], metadata.get("robot"), "zh", season), path / "AGENT_GUIDE.md")
+    shutil.copyfile(guide_path(metadata["mode"], metadata.get("robot"), "en", season), path / "AGENT_GUIDE.en.md")
     if metadata['mode']=='team':
         from scripts.build_agent_guides import render
         for lang,name in [('zh','AGENT_GUIDE.md'),('en','AGENT_GUIDE.en.md')]:
-            (path/name).write_text(render(lang,team_lineup=lineup),encoding='utf-8')
+            (path/name).write_text(render(lang,team_lineup=lineup,season=season),encoding='utf-8')
     minutes = metadata["training"]["time_limit_seconds"] // 60
+    slots = season_rules.slots(season)
+    count_zh = {5: "五", 6: "六"}.get(len(slots), str(len(slots)))
+    count_en = {5: "five", 6: "six"}.get(len(slots), str(len(slots)))
+    listed = "、".join(map(str, slots))
+    listed_en = ", ".join(map(str, slots[:-1])) + f" and {slots[-1]}"
     if metadata["mode"] == "team":
-        zh, en = "全队赛：你控制己方 1、2、3、4、6、7 号全部六台机器人", "Team Competition: you control all six of your robots, slots 1, 2, 3, 4, 6 and 7"
+        zh, en = f"全队赛（{season} 赛季）：你控制己方 {listed} 号全部{count_zh}台机器人", f"Team Competition ({season} season): you control all {count_en} of your robots, slots {listed_en}"
     elif metadata["mode"] == "distributed":
-        zh, en = "六机协同：由你独立开发六份策略，比赛时每份只控制对应机器人，各自维护 state，可通过 messages 与队友通信", \
-            "Distributed Squad: you develop six strategies; each controls its own robot in a separate process with private state and may communicate via messages"
+        zh, en = f"{count_zh}机协同（{season} 赛季）：由你独立开发{count_zh}份策略，比赛时每份只控制对应机器人，各自维护 state，可通过 messages 与队友通信", \
+            f"Distributed Squad ({season} season): you develop {count_en} strategies; each controls its own robot in a separate process with private state and may communicate via messages"
     elif metadata["mode"] == "adaptive":
         zh, en = f"自由适配：你只开发一台 {metadata['robot']} 型机器人的策略。开发时不预告最终阵容；比赛时可读取完整己方阵容，可能有重复型号，只控制 controlled_ids 中的自身实例", \
             f"Adaptive Robot: develop one model {metadata['robot']} robot policy. The final lineup is not disclosed during development; the match observation includes the full current own lineup, possibly with duplicates. Control only your own instance from controlled_ids"
     else:
-        zh, en = f"单机器人赛：你只控制己方 {metadata['robot']} 号，其余五台由其他参赛者的程序控制", \
-            f"Single-Robot Competition: you control only your slot {metadata['robot']}; other participants' programs control the other five"
-    files = "、".join(editable_files(metadata["mode"]))
-    files_en = ", ".join(editable_files(metadata["mode"]))
+        zh, en = f"单机器人赛：你只控制己方 {metadata['robot']} 号，其余{len(slots)-1}台由其他参赛者的程序控制", \
+            f"Single-Robot Competition: you control only your slot {metadata['robot']}; other participants' programs control the other {len(slots)-1}"
+    files = "、".join(editable_files(metadata["mode"], season))
+    files_en = ", ".join(editable_files(metadata["mode"], season))
     lineup_context={'zh':'','en':''}
     if metadata['mode']=='team':
         from scripts.build_agent_guides import team_task_context
-        lineup_context={lang:team_task_context(lang,rules,lineup) for lang in ('zh','en')}
+        lineup_context={lang:team_task_context(lang,rules,lineup,season) for lang in ('zh','en')}
     task = f"""# 机器人策略对战任务
 
 {zh}。以 observation["controlled_ids"] 为准。
@@ -174,20 +193,24 @@ def protected_hashes(path, editable=("strategy.py",)):
     return {p.name:sha(p) for p in path.iterdir() if p.is_file() and p.name not in editable and p.name not in OPTIONAL_FILES}
 
 
-def scaffold(path, mode="team", robot=None, registry=None, minutes=90, training_url="http://127.0.0.1:8765", team_lineup=None):
+def scaffold(path, mode="team", robot=None, registry=None, minutes=90, training_url="http://127.0.0.1:8765", team_lineup=None, season=None):
     path = Path(path).resolve()
     if path.exists():
         raise ValueError("Workspace already exists")
-    if mode not in ("team", "robot", "distributed", "adaptive") or (mode == "robot" and robot not in SLOT_IDS) or (mode == "adaptive" and robot not in model_ids()) or (mode not in ("robot", "adaptive") and robot is not None):
-        raise ValueError("Use team/distributed without --robot; robot/adaptive requires --robot model 1,2,3,4,6,7")
-    lineup=normalize_team_lineup(team_lineup) if mode=='team' else None
+    if season is None:
+        season = season_rules.infer_season(team_lineup.keys()) if mode == "team" and team_lineup else season_rules.LEGACY_SEASON
+    slots = season_rules.slots(season)
+    if mode not in ("team", "robot", "distributed", "adaptive") or (mode == "robot" and robot not in slots) or (mode == "adaptive" and (robot not in model_ids() or not season_rules.legal(robot, season))) or (mode not in ("robot", "adaptive") and robot is not None):
+        raise ValueError(f"Use team/distributed without --robot; robot/adaptive requires --robot model legal in {season} (slots {','.join(map(str, slots))})")
+    lineup=normalize_team_lineup(team_lineup,season) if mode=='team' else None
     if mode!='team' and team_lineup is not None:raise ValueError('A shared team lineup is only for team mode')
     path.mkdir(parents=True)
-    editable = editable_files(mode)
+    editable = editable_files(mode, season)
+    prefix = "official" if season == season_rules.LEGACY_SEASON else f"official_{season}"
     for name in editable:
-        template = ROOT / "examples" / "official_distributed" / name if mode == "distributed" else ROOT / "examples" / "official_adaptive" / "strategy.py" if mode == "adaptive" else ROOT / "examples" / "official_team" / "strategy.py"
+        template = ROOT / "examples" / f"{prefix}_distributed" / name if mode == "distributed" else ROOT / "examples" / f"{prefix}_adaptive" / "strategy.py" if mode == "adaptive" else ROOT / "examples" / f"{prefix}_team" / "strategy.py"
         shutil.copyfile(template, path / name)
-    metadata = {"api_version":3,"rules_profile":RULES_PROFILE,"mode":mode,"robot":robot,
+    metadata = {"api_version":3,"rules_profile":season_rules.rules_profile(season),"mode":mode,"robot":robot,
         "editable":editable,"output_directories":["practice"],"training":training_metadata(minutes,training_url)}
     if mode=='team':metadata['team_lineup']=lineup
     write_references(path, metadata)
@@ -227,17 +250,20 @@ def refresh_workspace(workspace, registry=None):
         metadata.setdefault("training",training_metadata())
         metadata["output_directories"] = ["practice"]
         write_references(path,metadata)
-        records[str(path)] = {**metadata,"protected":protected_hashes(path, editable_files(metadata["mode"]))}
+        records[str(path)] = {**metadata,"protected":protected_hashes(path, editable_files(metadata["mode"], manifest_season(metadata)))}
     return path
 
 
-def save_submission(output, mode, entries, robot=None, team_lineup=None, showcase=None, profile=None):
+def save_submission(output, mode, entries, robot=None, team_lineup=None, showcase=None, profile=None, season=None):
     output = Path(output).resolve()
     if output.exists():
         raise ValueError("Submission exists; choose a new version name")
-    lineup=normalize_team_lineup(team_lineup) if mode=='team' else None
+    if season is None:
+        season = season_rules.infer_season(team_lineup.keys()) if mode == "team" and team_lineup else \
+            season_rules.infer_season(entries.keys()) if mode in ("squad", "distributed") and len(entries) in (5, 6) else season_rules.LEGACY_SEASON
+    lineup=normalize_team_lineup(team_lineup,season) if mode=='team' else None
     if mode!='team' and team_lineup is not None:raise ValueError('A shared team lineup is only for team mode')
-    if set(entries) != submission_keys(mode, robot):
+    if set(entries) != submission_keys(mode, robot, season=season):
         raise ValueError("Entries do not match the selected control mode")
     if any(p.is_symlink() or not p.is_file() or p.stat().st_size > SOURCE_LIMIT for p in entries.values()):
         raise ValueError(f"Strategy must be a regular file of at most {SOURCE_LIMIT // 1024} KiB")
@@ -250,7 +276,7 @@ def save_submission(output, mode, entries, robot=None, team_lineup=None, showcas
     if profile is not None:
         sidecars[PROFILE_FILE] = validate_profile(profile)
     output.mkdir(parents=True)
-    manifest = {"api_version": 3, "rules_profile":RULES_PROFILE, "mode": mode, "robot": robot, "entries": {}, "hashes": {}}
+    manifest = {"api_version": 3, "rules_profile":season_rules.rules_profile(season), "mode": mode, "robot": robot, "entries": {}, "hashes": {}}
     if mode=='team':manifest['team_lineup']=lineup
     for slot, source in sources.items():
         name = "strategy.py" if mode in ("team", "robot", "adaptive") else f"robot_{slot}.py"
@@ -272,7 +298,7 @@ def validate_workspace(workspace, registry=None, require_window=True):
     if str(path) not in records:
         raise ValueError("Unknown workspace; use new-agent first")
     record = records[str(path)]
-    editable = editable_files(record["mode"])
+    editable = editable_files(record["mode"], manifest_season(record))
     expected = set(record["protected"]) | set(editable)
     actual = {p.name for p in path.iterdir()}
     for name in OPTIONAL_FILES:
@@ -308,20 +334,21 @@ def submit(workspace, output, registry=None, profile=None):
     showcase = workspace_showcase(path)
     profile = profile or {"agent": showcase.get("generated_by") or {"provider": "unknown"}, "created_at": time.time()}
     return save_submission(output, record["mode"], workspace_entries(path, record), record["robot"],team_lineup=record.get('team_lineup'),
-                           showcase=showcase, profile=profile)
+                           showcase=showcase, profile=profile, season=manifest_season(record))
 
 
 def load_submission(path):
     path = Path(path).resolve()
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     mode = manifest.get("mode")
-    slots = SLOT_IDS if manifest.get("api_version")==3 else tuple(range(1,8))
+    season = manifest_season(manifest)
+    slots = season_rules.slots(season) if manifest.get("api_version")==3 else tuple(range(1,8))
     expected = submission_keys(mode, manifest.get("robot"), slots)
     if manifest.get("api_version") not in (1, 2, 3) or (mode in ("distributed", "adaptive") and manifest.get("api_version") != 3) or set(manifest["entries"]) != expected:
         raise ValueError("Invalid submission manifest")
     if mode == "robot" and manifest.get("robot") not in slots:
         raise ValueError("Invalid robot slot")
-    if mode=='team':normalize_team_lineup(manifest.get('team_lineup'))
+    if mode=='team':normalize_team_lineup(manifest.get('team_lineup'),season)
     # Refuse nested paths and symlinks before resolving or mounting anything.
     for name in manifest["entries"].values():
         p = path / name
@@ -336,13 +363,14 @@ def load_submission(path):
     return manifest, {key: path / name for key, name in manifest["entries"].items()}
 
 
-def assemble(inputs, output):
-    if len(inputs) != 6:
-        raise ValueError("Exactly six robot submissions are required, ordered 1,2,3,4,6,7")
+def assemble(inputs, output, season=season_rules.LEGACY_SEASON):
+    slots = season_rules.slots(season)
+    if len(inputs) != len(slots):
+        raise ValueError(f"Exactly {len(slots)} robot submissions are required, ordered {','.join(map(str, slots))}")
     entries = {}
-    for i, source in zip(SLOT_IDS, inputs):
+    for i, source in zip(slots, inputs):
         manifest, files = load_submission(source)
-        if manifest["mode"] != "robot" or manifest["robot"] != i:
-            raise ValueError(f"Input {i} must be a robot {i} submission")
+        if manifest["mode"] != "robot" or manifest["robot"] != i or manifest_season(manifest) != season:
+            raise ValueError(f"Input {i} must be a {season} robot {i} submission")
         entries[str(i)] = files[str(i)]
-    return save_submission(output, "squad", entries)
+    return save_submission(output, "squad", entries, season=season)

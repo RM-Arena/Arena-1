@@ -33,7 +33,7 @@ AppImage 是否能直接启动取决于发行版的用户命名空间策略；�
 Docker 模式需要单独安装并启动 Docker，并构建项目沙箱镜像：
 
 ```sh
-docker build -t rmuc-arena-policy:0.4 -f sandbox/Dockerfile .
+docker build -t rmuc-arena-policy:0.5 -f sandbox/Dockerfile .
 ```
 
 Docker 不可用时应用不会静默改用本地执行。

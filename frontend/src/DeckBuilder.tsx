@@ -2,20 +2,24 @@ import {useEffect,useMemo,useRef,useState,type DragEvent} from 'react';
 import {ArrowDown,ArrowUp,Bot,Check,Copy,FolderOpen,GripVertical,Minus,Plus,Save,Search,SlidersHorizontal,Trash2,X} from 'lucide-react';
 import type {DeckPreset,FreeControllers} from './freeBattle';
 import {applyDeckTactic,filterRobotGroups,groupRobotCards,strategyLabel} from './deckCatalog';
-import {type CatalogEntry,type Role,type TeamId} from './types';
+import {SEASON_LABELS,type CatalogEntry,type RobotHardware,type Role,type Season,type TeamId} from './types';
+import {legalIn,legalityIssues} from './TeamLineup';
 import './deckBuilder.css';
 export const MODEL_NAMES:Record<number,string>={1:'重型英雄',2:'搬运工程',3:'双轮足步兵',4:'爆发步兵',6:'空中机器人',7:'稳健步兵'};
 type Decks=Record<TeamId,string[]>;
 type DragCard={source:string;team?:TeamId;index?:number};
 const DRAG_TYPE='application/x-rmuc-robot';
-const ROLES:[Role|'all',string][]=[['all','全部'],['hero','英雄'],['engineer','工程'],['infantry','步兵'],['aerial','空中']];
+const ALL_ROLES:[Role|'all',string][]=[['all','全部'],['hero','英雄'],['engineer','工程'],['heavy','重型'],['infantry','步兵'],['sentry','哨兵'],['aerial','空中']];
 const TEAM_NAME={red:'红方',blue:'蓝方'};
 
-export function DeckBuilder({cards,decks,onChange,onClose,strategies,controllers,onControllers}:{cards:Record<string,CatalogEntry>;strategies:Record<string,CatalogEntry>;controllers:FreeControllers;onControllers:(value:FreeControllers)=>void;decks:Decks;onChange:(decks:Decks)=>void;onClose:()=>void}){
+export function DeckBuilder({cards,decks,onChange,onClose,strategies,controllers,onControllers,season='2026',models={}}:{cards:Record<string,CatalogEntry>;strategies:Record<string,CatalogEntry>;controllers:FreeControllers;onControllers:(value:FreeControllers)=>void;decks:Decks;onChange:(decks:Decks)=>void;onClose:()=>void;season?:Season;models?:Record<string,RobotHardware>}){
   const [team,setTeam]=useState<TeamId>('red'),[query,setQuery]=useState(''),[role,setRole]=useState<Role|'all'>('all'),[model,setModel]=useState(0),[sources,setSources]=useState<Record<number,string>>({}),[quantity,setQuantity]=useState(1),[dragOver,setDragOver]=useState(false);
   const [presets,setPresets]=useState<DeckPreset[]>([]),[presetName,setPresetName]=useState(''),[selectedPreset,setSelectedPreset]=useState(''),[saving,setSaving]=useState(false),[presetError,setPresetError]=useState(''),[saved,setSaved]=useState(false);
   const dialog=useRef<HTMLElement>(null),search=useRef<HTMLInputElement>(null),close=useRef(onClose);close.current=onClose;
   const groups=useMemo(()=>groupRobotCards(cards),[cards]);
+  // Only roles with cards in this season; models failing its construction rules are listed apart and cannot be added.
+  const ROLES=ALL_ROLES.filter(([id])=>id==='all'||groups.some(g=>g.role===id));
+  const excluded=Object.values(models).filter(m=>!legalIn(m,season)&&m.role!=='scout').sort((a,b)=>a.slot-b.slot);
   const filtered=filterRobotGroups(groups,query,role),current=filtered.find(group=>group.model===model)||filtered[0];
   const choice=current&&(current.choices.find(c=>c.id===sources[current.model])||current.choices[0]);
   const other=team==='red'?'blue':'red',independent=controllers[team].mode==='independent';
@@ -52,6 +56,10 @@ export function DeckBuilder({cards,decks,onChange,onClose,strategies,controllers
     if(!cards[card.source])return;
     const next=[...decks[target]],moving=card.team===target&&typeof card.index==='number'&&next[card.index]===card.source;
     if(moving){next.splice(card.index!,1);if(card.index!<at)at--;}
+    // RMUC 2027: one aerial robot system (hangar) per team.
+    const hangar=(id:string)=>cards[id]?.role==='aerial';
+    if(season==='2027'&&!moving&&hangar(card.source)&&(count>1||next.some(hangar))){setPresetError(`RMUC 2027 每方最多一套空中机器人系统，${TEAM_NAME[target]}已经有了。`);return;}
+    setPresetError('');
     next.splice(at,0,...Array.from({length:count},()=>card.source));onChange({...decks,[target]:next});
   }
   function replace(index:number,source:string){if(cards[source]?.robot===cards[decks[team][index]]?.robot)onChange({...decks,[team]:decks[team].map((id,i)=>i===index?source:id)});}
@@ -60,10 +68,10 @@ export function DeckBuilder({cards,decks,onChange,onClose,strategies,controllers
   function allow(event:DragEvent){if(Array.from(event.dataTransfer.types).includes(DRAG_TYPE)){event.preventDefault();setDragOver(true);}}
   function drop(event:DragEvent,at?:number){event.preventDefault();event.stopPropagation();setDragOver(false);try{insert(team,JSON.parse(event.dataTransfer.getData(DRAG_TYPE)),at);}catch{/* Ignore unrelated drags. */}}
   return <div className="modal-backdrop free-backdrop"><section ref={dialog} className="free-builder" role="dialog" aria-modal="true" aria-labelledby="free-builder-title">
-    <header className="free-header"><div><span className="eyebrow">FREE BATTLE</span><h2 id="free-builder-title">自由对战 · 阵容工坊</h2><p>选机器人，配策略，加入阵容。每台机器人都可以单独搭配。</p></div><div className="free-catalog-count"><b>{groups.length}</b> 种型号 <span> / </span><b>{Object.values(cards).filter(c=>c.preset).length}</b> 条预置</div><button className="icon-button" aria-label="关闭卡组编辑器" onClick={onClose}><X size={20}/></button></header>
+    <header className="free-header"><div><span className="eyebrow">FREE BATTLE</span><h2 id="free-builder-title">自由对战 · 阵容工坊</h2><p>选机器人，配策略，加入阵容。每台机器人都可以单独搭配。当前规则：{SEASON_LABELS[season]}{season==='2027'?'（每方最多一套空中机器人系统）':''}。</p></div><div className="free-catalog-count"><b>{groups.length}</b> 种型号 <span> / </span><b>{Object.values(cards).filter(c=>c.preset).length}</b> 条预置</div><button className="icon-button" aria-label="关闭卡组编辑器" onClick={onClose}><X size={20}/></button></header>
     <div className="free-workbench">
       <aside className="free-library"><div className="free-section-label"><b>01</b> 选择机器人<span>{filtered.length} 种</span></div><label className="free-search"><Search size={15}/><input ref={search} aria-label="搜索机器人或策略" placeholder="搜索型号、名称或策略" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label="清空搜索" onClick={()=>setQuery('')}><X size={13}/></button>}</label><div className="free-role-filters" aria-label="机器人类型">{ROLES.map(([id,label])=><button key={id} aria-pressed={role===id} onClick={()=>setRole(id)}>{label}</button>)}</div>
-        <div className="free-model-list">{filtered.map(group=><button key={group.model} className={`free-model ${current?.model===group.model?'selected':''}`} aria-pressed={current?.model===group.model} onClick={()=>setModel(group.model)}><span className="free-model-id">{group.model}</span><span><strong>{group.name}</strong><small>{group.choices.filter(c=>c.card.preset).length} 条预置{group.choices.some(c=>!c.card.preset)?` · ${group.choices.filter(c=>!c.card.preset).length} 条自定义`:''}</small></span>{current?.model===group.model&&<Check size={14}/>}</button>)}{!filtered.length&&<p className="free-empty">没有找到匹配的机器人。<button onClick={()=>{setQuery('');setRole('all');}}>重置筛选</button></p>}</div>
+        <div className="free-model-list">{filtered.map(group=><button key={group.model} className={`free-model ${current?.model===group.model?'selected':''}`} aria-pressed={current?.model===group.model} onClick={()=>setModel(group.model)}><span className="free-model-id">{group.model}</span><span><strong>{group.name}</strong><small>{group.choices.filter(c=>c.card.preset).length} 条预置{group.choices.some(c=>!c.card.preset)?` · ${group.choices.filter(c=>!c.card.preset).length} 条自定义`:''}</small></span>{current?.model===group.model&&<Check size={14}/>}</button>)}{!filtered.length&&<p className="free-empty">没有找到匹配的机器人。<button onClick={()=>{setQuery('');setRole('all');}}>重置筛选</button></p>}</div>{excluded.length>0&&<details className="free-excluded"><summary>不符合 {SEASON_LABELS[season]} 制作规范的型号 · {excluded.length} 种（不可上场）</summary><ul>{excluded.map(m=><li key={m.slot} title={legalityIssues(m,season)}><b>{m.slot}</b> {m.name}<small>{legalityIssues(m,season)||'该赛季没有此兵种'}</small></li>)}</ul></details>}
       </aside>
       <section className="free-policy"><div className="free-section-label"><b>02</b> 搭配策略</div>{current&&choice?<><div className="free-chosen-model"><Bot size={32}/><span>{current.model}</span><h3>{current.name}</h3></div><div className="free-tactics" role="group" aria-label={`${current.model} 型预置策略`}>{current.choices.filter(c=>c.card.preset).map(c=><button key={c.id} aria-pressed={choice.id===c.id} className={choice.id===c.id?'selected':''} onClick={()=>setSources({...sources,[current.model]:c.id})}><span className="free-radio">{choice.id===c.id&&<Check size={11}/>}</span><span><strong>{c.card.preset!.name}</strong><small>{c.card.preset!.description}</small></span></button>)}</div>{current.choices.some(c=>!c.card.preset)&&<label className="free-custom">自定义策略<select aria-label={`${current.model} 型自定义策略`} value={choice.card.preset?'':choice.id} onChange={e=>{if(e.target.value)setSources({...sources,[current.model]:e.target.value});}}><option value="">选择自定义版本</option>{current.choices.filter(c=>!c.card.preset).map(c=><option key={c.id} value={c.id}>{c.card.name} · {c.card.version.slice(0,8)}</option>)}</select></label>}
         <div className="free-add-area"><div className="free-destination" role="group" aria-label="添加目标">{(['red','blue'] as const).map(t=><button key={t} className={t} aria-label={`添加目标${TEAM_NAME[t]}`} aria-pressed={team===t} onClick={()=>setTeam(t)}>{TEAM_NAME[t]} · {decks[t].length} 台</button>)}</div><div className="free-quantity"><span>添加数量</span><div><button disabled={quantity<=1} aria-label="减少添加数量" onClick={()=>setQuantity(quantity-1)}><Minus size={14}/></button><input type="number" aria-label="添加数量" min={1} max={99} value={quantity} onChange={e=>setQuantity(Math.max(1,Math.min(99,Math.floor(Number(e.target.value))||1)))}/><button disabled={quantity>=99} aria-label="增加添加数量" onClick={()=>setQuantity(quantity+1)}><Plus size={14}/></button></div></div><button className={`free-add ${team}`} onClick={()=>insert(team,{source:choice.id},undefined,quantity)}><Plus size={16}/>加入{TEAM_NAME[team]} · {quantity} 台</button><small>{independent?`当前策略：${strategyLabel(choice.card)}`:'当前由全队策略统一控制'}</small></div></>:<p className="free-empty">选一个机器人开始配置。</p>}</section>

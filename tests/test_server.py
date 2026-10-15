@@ -34,7 +34,8 @@ class FastApiTests(unittest.TestCase):
             message=socket.receive_json()
             self.assertEqual(message['type'],'snapshot')
             self.assertEqual(message['state']['frame']['engine'],'rust')
-            self.assertEqual(len(message['state']['frame']['robots']),12)
+            # The idle arena shows the default RMUC 2027 field: five robots per team.
+            self.assertEqual(len(message['state']['frame']['robots']),10)
             self.client.post('/api/control',json={'command':'speed','speed':4})
             self.assertEqual(socket.receive_json()['state']['speed'],4)
 

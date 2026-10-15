@@ -142,7 +142,8 @@ def act(obs, state):
 
     def test_api_single_robot_cards_and_repeated_unequal_lineups(self):
         app,client=self.app()
-        response=client.post("/api/submissions",json={"name":"custom-d","mode":"adaptive","robot":3,
+        # Model 3 is legal in both seasons; this deck plays the 2026 field.
+        response=client.post("/api/submissions",json={"name":"custom-d","mode":"adaptive","robot":3,"season":"2026",
             "entries":{"3":'def act(obs,state):\n return {obs["controlled_ids"][0]:{}},state\n'},"showcase":SHOWCASE_TEXT})
         self.assertEqual(response.status_code,200,response.text)
         cards=client.get("/api/robot-catalog").json()

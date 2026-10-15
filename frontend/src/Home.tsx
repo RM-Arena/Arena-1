@@ -6,7 +6,7 @@ import './home.css';
 export type ArenaMode='standard'|'deck';
 
 type MenuItem={id:string;title:string;en:string;icon:typeof Shield;accent:string;brief:string;tags:string[];cta:string;run:()=>void};
-const ROLE_ORDER=['hero','engineer','infantry','aerial'];
+const ROLE_ORDER=['heavy','hero','engineer','infantry','sentry','aerial'];
 const CHASSIS:Record<string,string>={mecanum:'麦克纳姆轮',swerve:'舵轮',omni:'全向轮',wheel_legged:'双轮足',quadrotor:'多旋翼'};
 // Deterministic sparks so the backdrop is stable across renders.
 const SPARKS=Array.from({length:18},(_,i)=>({left:(i*37+11)%100,delay:-(i*1.7)%12,duration:9+(i*7)%8,size:2+(i%3),hue:i%3===0?'var(--home-red)':i%3===1?'var(--home-blue)':'var(--home-gold)'}));
@@ -14,9 +14,9 @@ const SPARKS=Array.from({length:18},(_,i)=>({left:(i*37+11)%100,delay:-(i*1.7)%1
 export function Home({models,catalog,cards,standings=[],connected=false,live,onTraining,onBattle,onHistory,onRankings,onGallery,onWatch,busy}:{models:Record<string,RobotHardware>;catalog:Record<string,CatalogEntry>;cards:Record<string,CatalogEntry>;standings?:Standing[];connected?:boolean;live?:{red:string;blue:string}|null;onTraining:()=>void;onBattle:(mode:ArenaMode)=>void;onHistory:()=>void;onRankings:()=>void;onGallery:()=>void;onWatch:()=>void;busy:boolean}){
   const champion=standings[0];
   const menu=useMemo<MenuItem[]>(()=>[
-    {id:'rm',title:'RM 对战',en:'RM COMPETITION',icon:Shield,accent:'#f2c35b',brief:'严格 6V6 正式赛制。双方使用相同构型阵容：一台英雄、一台工程、一台无人机、三台步兵，七分钟决出胜负。',tags:['镜像阵容','7 分钟比赛','策略版本锁定'],cta:'准备正式对战',run:()=>onBattle('standard')},
+    {id:'rm',title:'RM 对战',en:'RM COMPETITION',icon:Shield,accent:'#f2c35b',brief:'正式赛制，可选 RMUC 2027（默认，5v5：重型、两台步兵、空中机器人系统、全自动哨兵）或 RMUC 2026（6v6）。双方使用相同构型阵容，只能选择符合该赛季制作规范的型号，七分钟决出胜负。',tags:['2027 / 2026 地图','镜像阵容','合规检查'],cta:'准备正式对战',run:()=>onBattle('standard')},
     {id:'free',title:'自由对战',en:'FREE BATTLE',icon:Bot,accent:'#5aaeff',brief:'从已保存的单机策略中部署任意型号、任意数量。红蓝阵容独立选择，支持重复出场。',tags:['不对称阵容','自由数量',`${Object.keys(cards).length} 份单机策略`],cta:'组建自由阵容',run:()=>onBattle('deck')},
-    {id:'training',title:'策略训练',en:'STRATEGY TRAINING',icon:GraduationCap,accent:'#5fe0b6',brief:'四种开发方式，从单机技能到全队战术。创建任务、反复练习，再把参赛版本保存进策略库。',tags:['全队统筹','单机专精','六机协同','自由适配'],cta:'选择训练方式',run:onTraining},
+    {id:'training',title:'策略训练',en:'STRATEGY TRAINING',icon:GraduationCap,accent:'#5fe0b6',brief:'四种开发方式，从单机技能到全队战术。创建任务、反复练习，再把参赛版本保存进策略库。',tags:['全队统筹','单机专精','多机协同','自由适配'],cta:'选择训练方式',run:onTraining},
     {id:'gallery',title:'策略库',en:'STRATEGY GALLERY',icon:LibraryBig,accent:'#c79bff',brief:'浏览每份策略的打法：由哪个 LLM 生成、风格雷达、七分钟节奏、战术路线与关键决策。上传你的策略，或给机器人换上自己的模型。',tags:['12 家 LLM','打法可视化','自定义机器人模型'],cta:'打开策略库',run:onGallery},
     {id:'history',title:'比赛与回放',en:'MATCH REPLAYS',icon:History,accent:'#86d8f0',brief:'每一场对战都有记录。回看完整回放、导出文件，或清理不再需要的比赛。',tags:['完整回放','导出 / 删除','本机保存'],cta:'打开比赛记录',run:onHistory},
     {id:'rankings',title:'策略排行榜',en:'RANKINGS',icon:Trophy,accent:'#ff9d66',brief:champion?`当前榜首 ${champion.name} · Elo ${Math.round(champion.rating)}。按策略版本累计 Elo，手动结束和策略错误的比赛不计分。`:'按策略版本累计 Elo。两份不同策略完成有效比赛后，排行榜开始累计。',tags:['版本 Elo','胜 / 负 / 平'],cta:'查看排名',run:onRankings},
@@ -49,7 +49,7 @@ export function Home({models,catalog,cards,standings=[],connected=false,live,onT
     <div className="home-backdrop" aria-hidden="true"><div className="home-glow red"/><div className="home-glow blue"/><div className="home-beam red"/><div className="home-beam blue"/><div className="home-floor"/><div className="home-scan"/>{SPARKS.map((s,i)=><i key={i} className="home-spark" style={{left:`${s.left}%`,animationDelay:`${s.delay}s`,animationDuration:`${s.duration}s`,width:s.size,height:s.size,background:s.hue}}/>)}<div className="home-vignette"/></div>
     <section className="home-stage">
       <div className="home-command">
-        <div className="home-logo"><span className="home-kicker"><i/>RMUC 2026 · ROBOT STRATEGY LEAGUE</span><h1 className="home-title" aria-label="Arena-1"><span>ARENA</span><em>1</em></h1><p className="home-tagline"><strong>让策略，<b>驱动战场。</b></strong><span>训练你的 Agent，组建六台机器人的阵容，然后上场。</span></p></div>
+        <div className="home-logo"><span className="home-kicker"><i/>RMUC 2027 · 2026 · ROBOT STRATEGY LEAGUE</span><h1 className="home-title" aria-label="Arena-1"><span>ARENA</span><em>1</em></h1><p className="home-tagline"><strong>让策略，<b>驱动战场。</b></strong><span>训练你的 Agent，组建 RMUC 2027 五台或 2026 六台机器人的阵容，然后上场。</span></p></div>
         {busy&&<button className="home-live" onClick={onWatch}><span className="home-live-dot"/><b>LIVE</b><span>{live?<>{live.red}<small> vs </small>{live.blue}</>:'比赛进行中'}</span><em><Radio size={14}/>观战</em></button>}
         <nav className="home-menu" aria-label="主菜单" onKeyDown={onMenuKey}>
           {menu.map((m,i)=>{const Icon=m.icon;return <button key={m.id} ref={el=>{buttons.current[i]=el;}} className={`home-menu-item ${i===active?'active':''} ${i===0?'featured':''}`} style={{'--accent':m.accent} as CSSProperties} aria-describedby={i===active?'home-brief':undefined} onMouseEnter={()=>setActive(i)} onFocus={()=>setActive(i)} onClick={m.run}><span className="home-menu-index">{String(i+1).padStart(2,'0')}</span><Icon size={20} className="home-menu-icon"/><span className="home-menu-label"><b>{m.title}</b><small>{m.en}</small></span><ChevronRight size={20} className="home-menu-go"/></button>;})}
@@ -68,7 +68,7 @@ export function Home({models,catalog,cards,standings=[],connected=false,live,onT
     <div className="home-lobby">
       <div className="home-lobby-stats">
         <span className={connected?'online':'offline'}>{connected?<Wifi size={14}/>:<WifiOff size={14}/>}{connected?'仿真服务器在线':'正在连接服务器'}</span>
-        <span><b>6<small>v</small>6</b>标准赛制</span>
+        <span><b>5<small>v</small>5</b>RMUC 2027</span>
         <span><b>{Object.keys(models).length||'—'}</b>机器人构型</span>
         <span><b>{Object.keys(catalog).length+Object.keys(cards).length}</b>已保存策略</span>
         {champion&&<span className="home-lobby-champion"><Crown size={14}/>榜首 <b>{champion.name}</b><small>{Math.round(champion.rating)}</small></span>}

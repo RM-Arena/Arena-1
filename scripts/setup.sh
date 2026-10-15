@@ -18,7 +18,7 @@ uv sync --locked
 bun install --frozen-lockfile
 cargo build --release --manifest-path simulation/Cargo.toml
 if [ "$setup_mode" = docker ]; then
-  docker build -t rmuc-arena-policy:0.4 -f sandbox/Dockerfile .
+  docker build -t rmuc-arena-policy:0.5 -f sandbox/Dockerfile .
 fi
 bun run build
 printf '\n准备完成。\n'

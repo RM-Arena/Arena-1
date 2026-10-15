@@ -31,7 +31,7 @@ def act(obs, state):
 ```
 {{/independent}}
 
-- `message(data)` broadcasts to the other robots in your actual lineup. `message(data, to="2")` addresses an own deployment slot: 1,2,3,4,6,7 in fixed lineups, or the actual instance IDs in free battle. Never address yourself or opponents. The host authenticates the sender from the action's robot slot.
+- `message(data)` broadcasts to the other robots in your actual lineup. `message(data, to="2")` addresses an own deployment slot: {{slot_list}} in fixed lineups, or the actual instance IDs in free battle. Never address yourself or opponents. The host authenticates the sender from the action's robot slot.
 - The raw format is `{"to": "all" or a teammate slot string, "data": JSON value}`. Encoded data is at most 512 bytes. Messages and physical operations must together fit each robot's 1 KiB action budget. The four-message limit is per robot, including whole-team mode.
 - Received envelopes are `{"from": "red-1", "to": "red-2", "tick": 0, "delivery_tick": 2, "data": ...}`. Inboxes start empty; each envelope appears once at the next decision. Keep useful reports in `state`.
 - Ordering follows sender instance number and message-list order, regardless of action-dictionary or process completion order. Missing free-battle recipients receive nothing. Disabled programs no longer send or process messages.

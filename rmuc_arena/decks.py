@@ -5,8 +5,10 @@ from pathlib import Path
 
 from .submissions import load_submission, RULES_PROFILE
 from .showcase import load_profile
+from . import seasons as season_rules
 
-def prepare_decks(decks, seed, team_strategies=None):
+def prepare_decks(decks, seed, team_strategies=None, season=season_rules.LEGACY_SEASON):
+    profile_required = season_rules.rules_profile(season)
     if set(decks) != {"red", "blue"}:
         raise ValueError("Deck matches require red and blue decks")
     team_strategies = team_strategies or {}
@@ -20,9 +22,11 @@ def prepare_decks(decks, seed, team_strategies=None):
         lineups[team], policies[team], versions, agents = [], [], [], []
         for slot, source in zip(ids, cards):
             manifest, entries = load_submission(source)
-            if manifest["mode"] != "adaptive" or manifest["api_version"] != 3 or manifest["rules_profile"] != RULES_PROFILE:
-                raise ValueError("Free battle requires saved adaptive single-robot strategies")
+            if manifest["mode"] != "adaptive" or manifest["api_version"] != 3 or manifest["rules_profile"] != profile_required:
+                raise ValueError(f"Free battle on the {season} field requires saved {season} adaptive single-robot strategies")
             model = manifest["robot"]
+            if not season_rules.legal(model, season):
+                raise ValueError(f"Model {model} does not pass the {season} construction rules")
             path = entries[str(model)]
             lineups[team].append({"slot": slot, "model": model})
             policies[team].append((slot, path, manifest["hashes"][path.name]))
@@ -35,8 +39,8 @@ def prepare_decks(decks, seed, team_strategies=None):
         controller = team_strategies.get(team)
         if controller is not None:
             manifest, entries = load_submission(controller)
-            if manifest["mode"] != "team" or manifest["api_version"] != 3 or manifest["rules_profile"] != RULES_PROFILE:
-                raise ValueError("Whole-team free battle requires a saved current team strategy")
+            if manifest["mode"] != "team" or manifest["api_version"] != 3 or manifest["rules_profile"] != profile_required:
+                raise ValueError(f"Whole-team free battle on the {season} field requires a saved {season} team strategy")
             path = entries["team"]
             policies[team] = [(None, path, manifest["hashes"][path.name])]
             profile = load_profile(controller)

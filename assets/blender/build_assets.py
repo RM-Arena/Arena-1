@@ -268,10 +268,13 @@ def arena(name,arena):
 
 exec((SOURCE/'chapter4.py').read_text(),globals())
 exec((SOURCE/'robot_specs.py').read_text(),globals())
+exec((SOURCE/'season2027.py').read_text(),globals())
 # RMUC_ASSETS=legacy,robots,structures,map limits a development rebuild; default builds all.
+# RMUC_ASSETS=season2027 (or robots2027 / map2027) builds only the RMUC 2027 assets.
 import os
 PARTS=set(filter(None,os.environ.get('RMUC_ASSETS','legacy,robots,structures,map').split(',')))
 chapter4_materials()
+if PARTS&{'season2027','robots2027','map2027'}:season2027_assets()
 if 'legacy' in PARTS:
     for role in CONFIG['specs']:robot(role)
 if 'robots' in PARTS:spec_robots()
@@ -284,7 +287,8 @@ if 'structures' in PARTS or 'units' in PARTS:
     chapter4_energy_unit()
 if 'map' in PARTS:
     for name,data in CONFIG['maps'].items():
-        if data.get('layout_revision'):chapter4_arena(data)
+        if data.get('season')=='2027':chapter4_2027_arena(data)
+        elif data.get('layout_revision'):chapter4_arena(data)
         else:arena(name,data)
 manifest={'author':'RMUC Arena procedural Blender source','units':'meters','forward':'+X','format':'glTF 2.0 GLB','assets':sorted(p.name for p in OUT.glob('*.glb'))}
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2))

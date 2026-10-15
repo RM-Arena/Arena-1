@@ -32,8 +32,11 @@ from .models import robot_models,normalize_team_lineup,mirrored_lineups,DEFAULT_
 from .robot_presets import preset_metadata
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, is_official, load_profile, load_showcase, validate_profile
 from .custom_models import CustomModels
-from .submissions import write_json
+from .submissions import write_json, manifest_season
+from . import seasons as season_rules
 
+# The official baseline pair each season starts with when a request names no strategies.
+DEFAULT_PAIRS = {"2026": ("official_team", "official_hold"), "2027": ("official_2027_team", "official_2027_hold")}
 
 # Pre-match broadcast (rule 6.4 self-check): opening, a title card per team, one camera shot per robot and a face-off.
 # frontend/src/intro.ts lays out the same segments, scaled to the duration the server announces.
@@ -47,11 +50,14 @@ def intro_seconds(robots):
 
 class StartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    red: str = "official_team"
-    blue: str = "official_hold"
+    # Omitted strategies default to the season's official baseline pair.
+    red: str | None = None
+    blue: str | None = None
     seed: int = Field(default=42, ge=-(2**31), le=2**31-1)
     duration: int = Field(default=420, ge=1, le=420)
-    map: Literal["rmuc2026"] = "rmuc2026"
+    # RMUC 2027 is the default field; RMUC 2026 stays playable with its own rules. Without a
+    # map, the season of the selected strategies decides, and 2027 when nothing is selected.
+    map: Literal["rmuc2027", "rmuc2026"] | None = None
     mode: Literal["standard", "deck"] = "standard"
     red_deck: list[str] = Field(default_factory=list)
     blue_deck: list[str] = Field(default_factory=list)
@@ -74,6 +80,7 @@ class FreeControllerRequest(BaseModel):
 class DeckPresetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1,max_length=64)
+    map: Literal["rmuc2027", "rmuc2026"] | None = None
     decks: dict[Literal["red","blue"],list[str]]
     controllers: dict[Literal["red","blue"],FreeControllerRequest]
     replace: bool = False
@@ -92,6 +99,7 @@ class SubmissionRequest(BaseModel):
     robot: int | None = None
     entries: dict[str, str]
     team_lineup: dict[str,int] | None = None
+    season: Literal["2026","2027"] | None = None
     # The agent-written presentation is required; the questionnaire classifies the upload.
     showcase: str = Field(min_length=2, max_length=65536)
     profile: dict | None = None
@@ -119,6 +127,7 @@ class CustomModelRequest(BaseModel):
 class TeamBriefingRequest(BaseModel):
     model_config=ConfigDict(extra='forbid')
     team_lineup:dict[str,int]
+    season:Literal["2026","2027"]|None=None
 
 
 class TeamWorkspaceRequest(TeamBriefingRequest):
@@ -135,6 +144,7 @@ class TrainingWorkspaceRequest(BaseModel):
     robot: int | None = None
     minutes: int = Field(default=90, ge=1, le=1440)
     team_lineup: dict[str,int] | None = None
+    season: Literal["2026","2027"] | None = None
 
 
 class RefereeRequest(BaseModel):
@@ -172,7 +182,7 @@ class ArenaService:
         self.lock = threading.RLock()
         self.battle, self.thread, self.error = None, None, None
         self.speed, self.paused, self.stopping, self.revision = 1, False, False, 0
-        with Match(duration=420) as match:
+        with Match(duration=420, map_name=season_rules.map_of(season_rules.DEFAULT_SEASON)) as match:
             self.frame = match.snapshot()
         self.metadata, self.match_id = None, None
         self.busy = False
@@ -182,7 +192,9 @@ class ArenaService:
         self.prematch_stages = () if test_mode else (("self_check", None), ("countdown", 5.0))
         self.prematch, self.skip_prematch = None, False
 
-    def catalog(self, modes=("team", "squad", "distributed")):
+    def catalog(self, modes=("team", "squad", "distributed"), season=None):
+        """Saved strategies by key; `season` keeps only strategies written for that season."""
+        profiles = {season_rules.rules_profile(season)} if season else set(season_rules.profiles())
         paths = list((ROOT / "examples").glob("*/manifest.json"))
         if self.submission_root.exists():
             paths += list(self.submission_root.glob("*/manifest.json"))
@@ -195,22 +207,23 @@ class ArenaService:
                 if manifest_path.parent.name.startswith("entry-") and str(manifest_path.parent.resolve()) not in current_entries:
                     continue
                 manifest, _ = load_submission(manifest_path.parent)
-                if manifest["mode"] in modes and manifest.get("api_version")==3 and manifest.get("rules_profile")==RULES_PROFILE:
+                if manifest["mode"] in modes and manifest.get("api_version")==3 and manifest.get("rules_profile") in profiles:
                     key = manifest_path.parent.name
                     if key in choices:
                         key = "submission-" + key
+                    strategy_season = manifest_season(manifest)
                     choices[key] = {"name": manifest_path.parent.name, "mode": manifest["mode"],
-                                    "version": manifest["version"], "path": manifest_path.parent}
+                                    "version": manifest["version"], "path": manifest_path.parent, "season": strategy_season}
                     if manifest["mode"] == "adaptive":
                         choices[key]["robot"] = manifest["robot"]
                         model = robot_models()[str(manifest["robot"])]
                         choices[key]["model_name"] = model["name"]
                         choices[key]["role"] = model["role"]
                         if manifest_path.parent.parent == ROOT / 'examples':
-                            preset = preset_metadata(key, manifest['robot'], model['role'])
+                            preset = preset_metadata(key, manifest['robot'], model['role'], strategy_season)
                             if preset:
                                 choices[key]['preset'] = preset
-                    if manifest['mode']=='team':choices[key]['team_lineup']=normalize_team_lineup(manifest.get('team_lineup'))
+                    if manifest['mode']=='team':choices[key]['team_lineup']=normalize_team_lineup(manifest.get('team_lineup'),strategy_season)
                     profile = load_profile(manifest_path.parent)
                     choices[key]['agent'] = profile['agent']
                     if profile.get('display_name'):
@@ -231,8 +244,22 @@ class ArenaService:
                     "match_id": self.match_id, "events": events,
                     "busy": self.busy, "prematch": copy.copy(self.prematch)}
 
+    def resolve_season(self, args):
+        """The request with its map and default strategies filled in: an explicit map wins,
+        otherwise the season shared by every selected strategy, otherwise RMUC 2027."""
+        if args.map:
+            season = season_rules.season_of_map(args.map)
+        else:
+            catalog = self.catalog(("team", "squad", "distributed", "adaptive"))
+            keys = [args.red, args.blue, args.red_team_strategy, args.blue_team_strategy, *args.red_deck, *args.blue_deck]
+            seasons = {catalog[key]["season"] for key in keys if key and key in catalog}
+            season = seasons.pop() if len(seasons) == 1 else season_rules.DEFAULT_SEASON
+        defaults = DEFAULT_PAIRS[season]
+        return args.model_copy(update={"map": season_rules.map_of(season), "red": args.red or defaults[0],
+                                       "blue": args.blue or defaults[1]}), season
+
     def free_controllers(self,args):
-        choices=self.catalog(("team",));controllers={}
+        choices=self.catalog(("team",),season_rules.season_of_map(args.map));controllers={}
         for team in ("red","blue"):
             mode=getattr(args,team+"_control");key=getattr(args,team+"_team_strategy")
             if mode=="team":
@@ -242,43 +269,43 @@ class ArenaService:
         return controllers
 
     def start(self, data):
-        args = StartRequest.model_validate(data)
+        args, season = self.resolve_season(StartRequest.model_validate(data))
         if args.duration!=420 and not self.test_mode:
             raise ValueError("Official matches are 420 seconds; use CLI for unranked short test matches")
         with self.lock:
             if self.busy:
                 raise ValueError("请先结束当前比赛")
-            choices = self.catalog()
+            choices = self.catalog(season=season)
             decks, lineups, free_team_strategies = None, None, None
             if args.mode == "deck":
                 if args.team_lineup is not None:
                     raise ValueError("Free battle uses separate red and blue lineups")
-                cards = self.catalog(("adaptive",))
+                cards = self.catalog(("adaptive",), season)
                 if not args.red_deck or not args.blue_deck or any(key not in cards for key in args.red_deck + args.blue_deck):
-                    raise ValueError("每方至少选择一台机器人，且每台必须绑定已保存的单机策略")
+                    raise ValueError(f"每方至少选择一台机器人，且每台必须绑定 {season} 赛季已保存的单机策略（型号须符合 {season} 制作规范）")
                 decks = {"red":[cards[key]["path"] for key in args.red_deck],"blue":[cards[key]["path"] for key in args.blue_deck]}
                 free_team_strategies = self.free_controllers(args)
-                lineups, _, team_metadata = prepare_decks(decks, args.seed, free_team_strategies)
+                lineups, _, team_metadata = prepare_decks(decks, args.seed, free_team_strategies, season)
             elif args.red_control!="independent" or args.blue_control!="independent" or args.red_team_strategy or args.blue_team_strategy:
                 raise ValueError("Free controllers require free battle mode")
             elif args.red_deck or args.blue_deck:
                 raise ValueError("Robot decks require deck mode")
             elif args.red not in choices or args.blue not in choices:
-                raise ValueError("Unknown submission")
+                raise ValueError(f"双方策略都必须是 {season} 赛季的策略" if any(k in self.catalog() for k in (args.red,args.blue)) else "Unknown submission")
             if not decks:
                 manifests=[load_submission(choices[key]['path'])[0] for key in (args.red,args.blue)]
-                registered=[normalize_team_lineup(m.get('team_lineup')) for m in manifests]
-                selected=normalize_team_lineup(args.team_lineup) if args.team_lineup is not None else registered[0]
+                registered=[normalize_team_lineup(m.get('team_lineup'),season) for m in manifests]
+                selected=normalize_team_lineup(args.team_lineup,season) if args.team_lineup is not None else registered[0]
                 if registered[0]!=registered[1] or any(value!=selected for value in registered):
                     raise ValueError('双方 team 策略必须在同一套已锁定阵容下开发和提交')
-                if selected!=DEFAULT_TEAM_LINEUP:lineups=mirrored_lineups(selected)
-            fielded = lineups or mirrored_lineups(DEFAULT_TEAM_LINEUP)
+                if selected!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(selected,season)
+            fielded = lineups or mirrored_lineups(season_rules.default_lineup(season),season)
             skins = {team: self.custom_models.resolve(team, getattr(args, team + "_skins"), {d["model"] for d in fielded[team]}) for team in ("red", "blue")}
             with Match(args.seed, args.duration, args.map, lineups=lineups) as match:
                 self.frame = match.snapshot()
             self.error, self.paused, self.stopping, self.battle = None, False, False, None
             self.match_id = uuid.uuid4().hex[:16]
-            self.metadata = {"engine":"rust","rules":RULES_PROFILE,"roster":list(SLOT_IDS),"test_match":args.duration!=420,"seed":args.seed,"duration":args.duration,"map":args.map,
+            self.metadata = {"engine":"rust","rules":season_rules.rules_profile(season),"season":season,"roster":list(season_rules.slots(season)),"test_match":args.duration!=420,"seed":args.seed,"duration":args.duration,"map":args.map,
                              "teams":team_metadata if decks else {t:{k:v for k,v in choices[key].items() if k!="path"} for t,key in (("red",args.red),("blue",args.blue))}}
             if decks:
                 self.metadata.update({"lineups":lineups,"test_match":True,"match_mode":"deck"})
@@ -379,6 +406,7 @@ class ArenaService:
         standings = {(s["name"], s["version"]): s for s in self.store.leaderboard()}
         result = {}
         for key, entry in {**self.catalog(), **self.catalog(("adaptive",))}.items():
+            # Each entry already names its rules season.
             path = entry["path"]
             profile, showcase = load_profile(path), load_showcase(path)
             item = {k: v for k, v in entry.items() if k != "path"}
@@ -436,22 +464,28 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.get("/api/health")
     def health():
-        return {"version":"0.3.0","rules":RULES_PROFILE,"roster":list(SLOT_IDS),"team_size":6,"duration":420,"engine":service.frame["engine"],"simulation_hz":20,"policy_hz":10,"transport":"websocket","sandbox":sandbox}
+        default=season_rules.DEFAULT_SEASON
+        return {"version":"0.4.0","rules":season_rules.rules_profile(default),"season":default,"roster":list(season_rules.slots(default)),
+                "team_size":len(season_rules.slots(default)),"seasons":season_rules.summary(),"duration":420,"engine":service.frame["engine"],
+                "simulation_hz":20,"policy_hz":10,"transport":"websocket","sandbox":sandbox}
 
     @app.get('/api/models')
     def models():
         from .models import model_catalog
-        return {'models':model_catalog(),'default_team_lineup':DEFAULT_TEAM_LINEUP,'slots':list(SLOT_IDS)}
+        default=season_rules.DEFAULT_SEASON
+        return {'models':model_catalog(),'default_team_lineup':season_rules.default_lineup(default),'slots':list(season_rules.slots(default)),
+                'default_season':default,'seasons':season_rules.summary()}
 
     @app.post('/api/team-briefing')
     def team_briefing(data:TeamBriefingRequest):
         from scripts.build_agent_guides import render,team_task_context
         try:
-            lineup=normalize_team_lineup(data.team_lineup)
+            season=data.season or season_rules.infer_season(data.team_lineup.keys())
+            lineup=normalize_team_lineup(data.team_lineup,season)
             rules=json.loads((ROOT/'config/rules.json').read_text(encoding="utf-8"))
-            return {'team_lineup':lineup,
-                'task':{lang:team_task_context(lang,rules,lineup) for lang in ('zh','en')},
-                'guides':{lang:render(lang,team_lineup=lineup) for lang in ('zh','en')}}
+            return {'team_lineup':lineup,'season':season,
+                'task':{lang:team_task_context(lang,rules,lineup,season) for lang in ('zh','en')},
+                'guides':{lang:render(lang,team_lineup=lineup,season=season) for lang in ('zh','en')}}
         except ValueError as exc:
             raise HTTPException(400,str(exc)) from exc
 
@@ -459,11 +493,12 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     def team_workspace(data:TeamWorkspaceRequest,request:Request):
         from .submissions import scaffold,start_training
         try:
-            lineup=normalize_team_lineup(data.team_lineup)
+            season=data.season or season_rules.infer_season(data.team_lineup.keys())
+            lineup=normalize_team_lineup(data.team_lineup,season)
             root=service.store.directory/'workspaces' if service.test_mode else data_path('workspaces')
-            path=scaffold(root/data.name,mode='team',minutes=data.minutes,registry=service.workspace_registry,team_lineup=lineup,training_url=str(request.base_url).rstrip('/'))
+            path=scaffold(root/data.name,mode='team',minutes=data.minutes,registry=service.workspace_registry,team_lineup=lineup,training_url=str(request.base_url).rstrip('/'),season=season)
             clock=start_training(path,service.workspace_registry)
-            return {'workspace':str(path),'task_file':str(path/'AGENT_TASK.md'),'team_lineup':lineup,**clock}
+            return {'workspace':str(path),'task_file':str(path/'AGENT_TASK.md'),'team_lineup':lineup,'season':season,**clock}
         except (ValueError,OSError) as exc:
             raise HTTPException(400,str(exc)) from exc
 
@@ -472,11 +507,12 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         from .submissions import scaffold,start_training
         try:
             root=service.store.directory/'workspaces' if service.test_mode else data_path('workspaces')
+            season=season_rules.request_season(data.season,data.mode,data.robot,data.team_lineup)
             path=scaffold(root/data.name,mode=data.mode,robot=data.robot,minutes=data.minutes,
                 registry=service.workspace_registry,team_lineup=data.team_lineup,
-                training_url=str(request.base_url).rstrip('/'))
+                training_url=str(request.base_url).rstrip('/'),season=season)
             clock=start_training(path,service.workspace_registry)
-            return {'workspace':str(path),'task_file':str(path/'AGENT_TASK.md'),'mode':data.mode,**clock}
+            return {'workspace':str(path),'task_file':str(path/'AGENT_TASK.md'),'mode':data.mode,'season':season,**clock}
         except (ValueError,OSError) as exc:
             raise HTTPException(400,str(exc)) from exc
 
@@ -485,20 +521,20 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return FileResponse(ROOT/"docs/STRATEGY_SHOWCASE.md",media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/agent-guide")
-    def agent_guide(mode:Literal["team","robot","distributed","adaptive"]="team",robot:int|None=None,lang:Literal["zh","en"]="zh"):
+    def agent_guide(mode:Literal["team","robot","distributed","adaptive"]="team",robot:int|None=None,lang:Literal["zh","en"]="zh",season:Literal["2026","2027"]|None=None):
         try:
-            path=guide_path(mode,robot,lang)
+            path=guide_path(mode,robot,lang,season_rules.request_season(season,mode,robot))
         except ValueError as error:
             raise HTTPException(404,str(error)) from error
         return FileResponse(path,media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/catalog")
-    def catalog():
-        return {key:{k:v for k,v in value.items() if k!="path"} for key,value in service.catalog().items()}
+    def catalog(season:Literal["2026","2027"]|None=None):
+        return {key:{k:v for k,v in value.items() if k!="path"} for key,value in service.catalog(season=season).items()}
 
     @app.get("/api/robot-catalog")
-    def robot_catalog():
-        return {key:{k:v for k,v in value.items() if k!="path"} for key,value in service.catalog(("adaptive",)).items()}
+    def robot_catalog(season:Literal["2026","2027"]|None=None):
+        return {key:{k:v for k,v in value.items() if k!="path"} for key,value in service.catalog(("adaptive",),season).items()}
 
     @app.get("/api/deck-presets")
     def deck_presets():
@@ -518,15 +554,17 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
                 red_control=controllers['red']['mode'],blue_control=controllers['blue']['mode'],
                 red_team_strategy=controllers['red']['strategy'] if controllers['red']['mode']=='team' else None,
                 blue_team_strategy=controllers['blue']['strategy'] if controllers['blue']['mode']=='team' else None)
-            cards=service.catalog(("adaptive",))
-            if any(key not in cards for team in data.decks.values() for key in team):raise ValueError("卡组含有不可用的单机策略")
+            if data.map:args.map=data.map
+            args,season=service.resolve_season(args)
+            cards=service.catalog(("adaptive",),season)
+            if any(key not in cards for team in data.decks.values() for key in team):raise ValueError(f"卡组含有不可用于 {season} 赛季的单机策略")
             decks={team:[cards[key]['path'] for key in keys] for team,keys in data.decks.items()}
-            prepare_decks(decks,args.seed,service.free_controllers(args))
+            prepare_decks(decks,args.seed,service.free_controllers(args),season)
             path=service.store.directory/'deck-presets.json'
             with service.lock:
                 presets=json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
                 if name in presets and not data.replace:raise HTTPException(409,"同名卡组已存在，请选择更新卡组或换一个名称")
-                preset={'name':name,'decks':data.decks,'controllers':controllers,'updated_at':time.time()}
+                preset={'name':name,'map':args.map,'season':season,'decks':data.decks,'controllers':controllers,'updated_at':time.time()}
                 presets[name]=preset;write_json(path,presets)
                 return preset
         except (ValueError,OSError) as exc:
@@ -591,7 +629,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.get("/api/maps")
     def maps():
-        return {"rmuc2026":arena_map()}
+        return {name:arena_map(name) for name in (season_rules.map_of(s) for s in season_rules.seasons())}
 
     @app.get("/api/state")
     def state(since:int=-1):
@@ -717,7 +755,11 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     def upload(data:SubmissionRequest):
         if data.name.startswith("entry-"):
             raise HTTPException(400,"This name prefix is reserved for timed competition entries")
-        expected={"team"} if data.mode=="team" else {str(data.robot)} if data.mode in ("robot","adaptive") else {str(i) for i in SLOT_IDS}
+        try:
+            season=season_rules.request_season(data.season,data.mode,data.robot,data.team_lineup if data.mode=="team" else None,data.entries.keys())
+        except ValueError as exc:
+            raise HTTPException(400,"Entries do not match the selected control mode") from exc
+        expected={"team"} if data.mode=="team" else {str(data.robot)} if data.mode in ("robot","adaptive") else {str(i) for i in season_rules.slots(season)}
         if set(data.entries)!=expected or (data.mode in ("robot","adaptive") and data.robot is None):
             raise HTTPException(400,"Entries do not match the selected control mode")
         if any(len(code.encode())>SOURCE_LIMIT for code in data.entries.values()):
@@ -731,7 +773,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
                     files[key]=path
                 profile={**(data.profile or {}),"created_at":time.time()}
                 manifest=save_submission(service.submission_root/data.name,data.mode,files,data.robot,team_lineup=data.team_lineup,
-                                         showcase=data.showcase,profile=profile)
+                                         showcase=data.showcase,profile=profile,season=season)
             return {"ok":True,"name":data.name,"manifest":manifest}
         except (ValueError,SyntaxError) as exc:
             raise HTTPException(400,str(exc)) from exc

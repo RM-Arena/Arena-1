@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 mod official;
 mod penalties;
+mod season2027;
 mod physics;
 mod pickup;
 mod structures;
@@ -11,6 +12,12 @@ mod vision;
 
 pub const DT: f64 = 0.05;
 pub const SLOT_IDS: [u32; 6] = [1, 2, 3, 4, 6, 7];
+pub const SLOT_IDS_2027: [u32; 5] = [1, 3, 4, 6, 7];
+const ROLES_2027: [&str; 5] = ["heavy", "infantry", "infantry", "aerial", "sentry"];
+/// 42 mm launchers: the 2026 hero and the 2027 heavy robot's modular launcher.
+pub fn is_42(role: &str) -> bool {
+    role == "hero" || role == "heavy"
+}
 const ROLES: [&str; 6] = [
     "hero", "engineer", "infantry", "infantry", "aerial", "infantry",
 ];
@@ -95,6 +102,9 @@ pub struct Zone {
     pub group: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order: Option<u32>,
+    /// Crossing kind when it differs from `kind` (the 2027 central card is also the highland's high card).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crossing: Option<String>,
     pub source: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub polygon: Vec<[f64; 2]>,
@@ -128,6 +138,18 @@ pub struct Arena {
     pub charging_docks: Value,
     #[serde(default)]
     pub assembly_frames: Value,
+    /// Rules season of this field ("2026" or "2027").
+    #[serde(default = "season_2026")]
+    pub season: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub ruleset: String,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub hangars: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub positions: Value,
+}
+fn season_2026() -> String {
+    "2026".into()
 }
 #[derive(Clone, Deserialize)]
 pub struct Config {
@@ -136,6 +158,10 @@ pub struct Config {
     pub official: Value,
     pub simulation_assumptions: Value,
     pub robot_designs: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub official_2027: Value,
+    #[serde(default)]
+    pub seasons: BTreeMap<String, Value>,
 }
 pub fn config() -> Config {
     serde_json::from_str(include_str!("../../config/rules.json")).expect("valid embedded config")
@@ -327,6 +353,33 @@ pub struct Robot {
     /// A serial-leg robot is swinging its legs round to flip itself back upright.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub self_righting: bool,
+    /// 2027 heavy robot's modular 42 mm launcher: locked, unlocked, installing, fitted
+    /// (on the robot, waiting for its first detected shot) or installed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub launcher: String,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub launcher_progress: f64,
+    /// 2027 sentry posture (attack, defense, move) and its cumulative timers.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub posture: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub posture_enhanced: bool,
+    #[serde(default, skip_serializing_if = "zeros")]
+    pub posture_time: [f64; 3],
+    #[serde(default, skip_serializing_if = "zeros")]
+    pub posture_enhanced_time: [f64; 3],
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub posture_ready_at: f64,
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub supply_grants_taken: u32,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub respawned_at: f64,
+    /// 2027 terrain-crossing buffs held, by kind, until the given time.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub crossing_buffs: BTreeMap<String, f64>,
+    /// Aerial robots carried by a 2027 aerial system's hangar.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub drones: Vec<season2027::Drone>,
 }
 impl Robot {
     pub fn design_slot(&self) -> u32 {
@@ -336,6 +389,12 @@ impl Robot {
 
 fn powered_default() -> bool {
     true
+}
+fn is_zero(v: &f64) -> bool {
+    *v == 0.0
+}
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
 }
 fn zeros<const N: usize>(v: &[f64; N]) -> bool {
     v.iter().all(|x| *x == 0.0)
@@ -358,6 +417,9 @@ pub struct Base {
     pub rotation_stop_at: f64,
     pub rotation_stop_angle: f64,
     pub armor_hit_times: Vec<f64>,
+    /// 2027: current owner of an outpost (control can hand it to the other team).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Team {
@@ -378,6 +440,19 @@ pub struct Team {
     pub fortress_capacity: u32,
     pub small_bonus_xp: f64,
     pub next_tech_income: f64,
+    /// 2027 control degree (5.6.2) and the inputs of the heavy launcher's unlock time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_lowest_hp: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_base_gap: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_control_gap: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy_units_left: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launcher_unlock_s: Option<f64>,
 }
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct ZoneState {
@@ -459,6 +534,12 @@ pub struct Engine {
     physics: Option<physics::PhysicsWorld>,
     micro_time: f64,
     micro_dt: f64,
+    /// Rules season: 2026 or 2027.
+    pub season: u32,
+    /// 2027 control positions (outpost and base position of each team).
+    pub positions: BTreeMap<String, season2027::PositionState>,
+    /// 2027 large rune activations per team (each shrinks the detecting rings).
+    rune_large_count: BTreeMap<String, u32>,
 }
 fn dist(x: f64, y: f64, a: f64, b: f64) -> f64 {
     (x - a).hypot(y - b)
@@ -548,6 +629,7 @@ pub fn fly_slope_progress(arena: &Arena, x: f64, y: f64) -> Option<f64> {
 /// R58: ground robots stay out of the highway no-go area unless they flew the slope in.
 pub fn forbidden_for(zone: &Value, team: &str, fly_pass: u8) -> bool {
     zone["kind"] == "base"
+        || zone["kind"] == "dart_station"
         || zone["kind"] == "pad"
         || (zone["kind"] == "highway" && fly_pass < 2)
         || zone["owner"].as_str().map(|t| t != team).unwrap_or(false)
@@ -723,21 +805,55 @@ impl Engine {
             return Err("duration must be in [1,420]; official matches use 420".into());
         }
         let arena = conf.maps.get(map).ok_or("Unknown map")?.clone();
+        let season_key = arena.season.clone();
+        let season: u32 = season_key.parse().map_err(|_| "Unknown rules season")?;
+        let season_conf = conf.seasons.get(&season_key).cloned().unwrap_or(Value::Null);
+        // Every deployed model must pass this season's construction inspection.
+        if let Some(ref teams) = lineups {
+            for list in teams.values() {
+                if let Some(d) = list.iter().find(|d| {
+                    conf.robot_designs[&d.model.to_string()]["seasons"][&season_key]["legal"].as_bool() == Some(false)
+                }) {
+                    return Err(format!("Model {} does not pass the {} construction rules", d.model, season_key));
+                }
+                if season == 2027
+                    && list.iter().filter(|d| conf.robot_designs[&d.model.to_string()]["role"] == "aerial").count() > 1
+                {
+                    return Err("A 2027 team has one hangar platform and at most one aerial system".into());
+                }
+            }
+        }
+        let (slot_ids, roles): (Vec<u32>, Vec<&str>) = if season == 2027 {
+            (SLOT_IDS_2027.to_vec(), ROLES_2027.to_vec())
+        } else {
+            (SLOT_IDS.to_vec(), ROLES.to_vec())
+        };
+        let rules = if season == 2027 { conf.official_2027.clone() } else { conf.official.clone() };
+        let specs: BTreeMap<String, Spec> = match season_conf.get("specs") {
+            Some(v) => serde_json::from_value(v.clone()).map_err(|e| e.to_string())?,
+            None => conf.specs.clone(),
+        };
+        let mut sim = conf.simulation_assumptions.clone();
+        if let Some(overrides) = season_conf["simulation_overrides"].as_object() {
+            for (key, value) in overrides {
+                sim[key] = value.clone();
+            }
+        }
         let mut robots = Vec::new();
         let fixed_slots = lineups.as_ref().map(|teams| teams.values().all(|items| {
-            items.len()==6 && SLOT_IDS.iter().all(|slot| items.iter().any(|item| item.slot==*slot &&
-                conf.robot_designs[&item.model.to_string()]["role"]==ROLES[SLOT_IDS.iter().position(|s|s==slot).unwrap()]))
+            items.len()==slot_ids.len() && slot_ids.iter().all(|slot| items.iter().any(|item| item.slot==*slot &&
+                conf.robot_designs[&item.model.to_string()]["role"]==roles[slot_ids.iter().position(|s|s==slot).unwrap()]))
         })).unwrap_or(true);
         for team in ["red", "blue"] {
             let deployments: Vec<Deployment> = lineups
                 .as_ref()
                 .map(|l| l[team].clone())
                 .unwrap_or_else(|| {
-                    SLOT_IDS
+                    slot_ids
                         .iter()
                         .map(|s| Deployment {
                             slot: *s,
-                            model: *s,
+                            model: season_conf["default_lineup"][s.to_string()].as_u64().map(|m| m as u32).unwrap_or(*s),
                         })
                         .collect()
                 });
@@ -748,9 +864,12 @@ impl Engine {
                 let slot = deployment.slot;
                 let d = &conf.robot_designs[&deployment.model.to_string()];
                 let role = d["role"].as_str().ok_or("Model role missing")?;
-                let spec = &conf.specs[role];
+                let spec = specs.get(role).ok_or("Role has no spec in this season")?;
                 let pos = if fixed_slots {
                     arena.spawn_points[team][&slot.to_string()]
+                } else if role == "aerial" && season == 2027 {
+                    let h = &arena.hangars[team];
+                    [h["x"].as_f64().unwrap_or(14.0), h["y"].as_f64().unwrap_or(7.5)]
                 } else if role == "aerial" {
                     let columns=(air_count as f64).sqrt().ceil().max(1.0) as usize;
                     let x = 1.4 + (air%columns) as f64 * (0.9f64).min((arena.width/2.0-2.5)/columns as f64);
@@ -780,18 +899,22 @@ impl Engine {
                 robots.push(Robot {
                     id: format!("{team}-{slot}"),
                     slot,
-                    model_slot: lineups.as_ref().map(|_| deployment.model),
+                    model_slot: (lineups.is_some() || deployment.model != slot).then_some(deployment.model),
                     team: team.into(),
                     role: role.into(),
                     x: pos[0],
                     y: pos[1],
-                    z: height_at(&arena, pos[0], pos[1]),
+                    z: if season == 2027 && role == "aerial" {
+                        arena.hangars[team]["z"].as_f64().unwrap_or(1.6)
+                    } else {
+                        height_at(&arena, pos[0], pos[1])
+                    },
                     vx: 0.0,
                     vy: 0.0,
                     vz: 0.0,
                     hp: spec.hp,
                     max_hp: spec.hp,
-                    ammo: spec.ammo,
+                    ammo: if season == 2027 { rules["initial_ammo"][role].as_u64().unwrap_or(0) as u32 } else { spec.ammo },
                     aim: if team == "red" {
                         0.0
                     } else {
@@ -807,7 +930,7 @@ impl Engine {
                     cooldown: 0.0,
                     skill_cooldown: 0.0,
                     shield: 0.0,
-                    energy: if ["hero", "infantry"].contains(&role) {
+                    energy: if season == 2026 && ["hero", "infantry"].contains(&role) {
                         20000.0
                     } else {
                         0.0
@@ -819,16 +942,18 @@ impl Engine {
                     level: 1,
                     kills: 0,
                     damage: 0.0,
-                    alive: role != "aerial",
+                    alive: role != "aerial" || season == 2027,
                     upgrades: BTreeMap::new(),
                     experience: 0.0,
                     profile: d["hero_profile"].as_str().unwrap().into(),
                     chassis_profile: d["chassis_profile"].as_str().unwrap().into(),
                     weapon_profile: d["weapon_profile"].as_str().unwrap().into(),
                     profile_locked: false,
-                    power_limit: conf.official["profiles"]["engineer"]["power_w"]
-                        .as_f64()
-                        .unwrap_or(120.0),
+                    power_limit: if season == 2027 {
+                        50.0
+                    } else {
+                        conf.official["profiles"]["engineer"]["power_w"].as_f64().unwrap_or(120.0)
+                    },
                     power_w: 0.0,
                     buffer_energy_j: 60.0,
                     power_cutoff_until: 0.0,
@@ -911,20 +1036,20 @@ impl Engine {
                     armor_mount_offset_m: d["armor_mount_offset_m"].as_f64().unwrap_or(0.0),
                     armor_hit_face_offset_m: d["armor_hit_face_offset_m"].as_f64().unwrap_or(0.0),
                     speed_reference_mps: d["speed_reference_mps"].as_f64().unwrap(),
-                    arm_joints: if role == "engineer" {
+                    arm_joints: if d["arm"].is_object() {
                         physics::arm_stowed(&d["arm"])
                     } else {
                         [0.0; 7]
                     },
                     arm_tip: [0.0; 3],
-                    arm_mode: if role == "engineer" {
+                    arm_mode: if d["arm"].is_object() {
                         "stow".into()
                     } else {
                         String::new()
                     },
                     arm2_joints: if d["arm_count"].as_u64().unwrap_or(0)==2 {physics::arm_stowed(&d["arm2"])} else {[0.0;7]},
                     arm2_tip:[0.0;3], arm2_mode: if d["arm_count"]==2 {"stow".into()} else {String::new()},
-                    arm_count:d["arm_count"].as_u64().unwrap_or(if role=="engineer" {1} else {0}) as u32,
+                    arm_count:d["arm_count"].as_u64().unwrap_or(if d["arm"].is_object() {1} else {0}) as u32,
                     deploy_allowed:d["deploy_allowed"].as_bool().unwrap_or(role=="hero"),
                     transform_allowed:d["transform_allowed"].as_bool().unwrap_or(false),
                     transform_progress:0.0,steering_angles:[0.0;4],chassis_type:d["chassis_type"].as_str().unwrap_or("mecanum").into(),
@@ -940,11 +1065,28 @@ impl Engine {
                     },
                     hip_angle: (d["leg_type"] == "serial").then_some(0.0),
                     self_righting: false,
+                    launcher: if season == 2027 && role == "heavy" { "locked".into() } else { String::new() },
+                    launcher_progress: 0.0,
+                    posture: if season == 2027 && role == "sentry" { "move".into() } else { String::new() },
+                    posture_enhanced: false,
+                    posture_time: [0.0; 3],
+                    posture_enhanced_time: [0.0; 3],
+                    posture_ready_at: 0.0,
+                    supply_grants_taken: 0,
+                    respawned_at: 0.0,
+                    crossing_buffs: BTreeMap::new(),
+                    drones: if season == 2027 && role == "aerial" {
+                        season2027::make_drones(team, slot, d, &arena)
+                    } else {
+                        Vec::new()
+                    },
                 });
             }
         }
         let mut bases = BTreeMap::new();
         let mut outposts = BTreeMap::new();
+        let base_hp = rules["structures"]["base_hp"].as_f64().unwrap_or(5000.0);
+        let outpost_hp = rules["structures"]["outpost_hp"].as_f64().unwrap_or(1500.0);
         for team in ["red", "blue"] {
             let b = arena.bases[team];
             let o = arena.outposts[team];
@@ -954,8 +1096,8 @@ impl Engine {
                     x: b[0],
                     y: b[1],
                     z: height_at(&arena, b[0], b[1]),
-                    hp: 5000.0,
-                    max_hp: 5000.0,
+                    hp: base_hp,
+                    max_hp: base_hp,
                     radius: 0.49,
                     shield_hp: 0.0,
                     armor_open: false,
@@ -966,6 +1108,7 @@ impl Engine {
                     rotation_stop_at: -1000.0,
                     rotation_stop_angle: 0.0,
                     armor_hit_times: vec![-1000.0; 6],
+                    owner: None,
                 },
             );
             outposts.insert(
@@ -974,8 +1117,8 @@ impl Engine {
                     x: o[0],
                     y: o[1],
                     z: height_at(&arena, o[0], o[1]),
-                    hp: 1500.0,
-                    max_hp: 1500.0,
+                    hp: outpost_hp,
+                    max_hp: outpost_hp,
                     radius: 0.30,
                     shield_hp: 0.0,
                     armor_open: true,
@@ -986,6 +1129,7 @@ impl Engine {
                     rotation_stop_at: -1000.0,
                     rotation_stop_angle: 0.0,
                     armor_hit_times: vec![-1000.0; 6],
+                    owner: (season == 2027).then(|| team.to_string()),
                 },
             );
         }
@@ -1028,11 +1172,11 @@ impl Engine {
             events: Vec::new(),
             referee_recent_events: Vec::new(),
             robot_models,
-            specs: conf.specs,
+            specs,
             rng: seed as u64 ^ 0x9e3779b97f4a7c15,
             next_projectile: 1,
-            rules: conf.official,
-            sim: conf.simulation_assumptions,
+            rules,
+            sim,
             runes: [
                 ("red".into(), official::RuneState::new()),
                 ("blue".into(), official::RuneState::new()),
@@ -1051,7 +1195,13 @@ impl Engine {
             physics: None,
             micro_time: 0.0,
             micro_dt: DT,
+            season,
+            positions: BTreeMap::new(),
+            rune_large_count: BTreeMap::new(),
         };
+        if season == 2027 {
+            engine.init_2027();
+        }
         // One seeded motor drives both faces for the entire match, independently of
         // activation requests. Shooting or starting the other face cannot reset it.
         engine.rune_a = 0.780 + engine.random() * (1.045 - 0.780);
@@ -1061,9 +1211,17 @@ impl Engine {
             engine.random() * std::f64::consts::TAU,
         ];
         for i in 0..engine.robots.len() {
-            engine.apply_performance(i, false);
+            if season == 2027 {
+                engine.apply_performance_2027(i, false);
+            } else {
+                engine.apply_performance(i, false);
+            }
         }
-        engine.update_official_buffs();
+        if season == 2027 {
+            engine.update_buffs_2027();
+        } else {
+            engine.update_official_buffs();
+        }
         engine.physics = Some(physics::PhysicsWorld::new(
             &engine.arena,
             &engine.robots,
@@ -1078,8 +1236,17 @@ impl Engine {
         if self.robots.iter().any(|r| r.model_slot.is_some()) {
             json!({"red":self.robots.iter().filter(|r|r.team=="red").map(|r|r.slot).collect::<Vec<_>>(),
                    "blue":self.robots.iter().filter(|r|r.team=="blue").map(|r|r.slot).collect::<Vec<_>>()})
+        } else if self.season == 2027 {
+            json!(SLOT_IDS_2027)
         } else {
             json!(SLOT_IDS)
+        }
+    }
+    pub fn rules_profile(&self) -> &'static str {
+        if self.season == 2027 {
+            "rmuc-2027-v1.0.0-arena-v1"
+        } else {
+            "rmuc-2026-v1.0.0-arena-v3"
         }
     }
     pub fn snapshot(&self) -> Value {
@@ -1102,12 +1269,17 @@ impl Engine {
     pub fn dynamic_snapshot(&self) -> Value {
         static RULES_HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
         let roster = self.roster();
-        json!({"api_version":3,"engine":"rust","rules":"rmuc-2026-v1.0.0-arena-v3","tick":self.tick,
+        let mut frame = json!({"api_version":3,"engine":"rust","rules":self.rules_profile(),"tick":self.tick,
         "rules_hash":RULES_HASH.get_or_init(|| format!("{:x}",Sha256::digest(include_bytes!("../../config/rules.json")))),
         "engine_hash":self.engine_hash(),
         "time":self.time(),"dt":DT,"remaining":(self.duration-self.time()).max(0.0),"duration":self.duration,"seed":self.seed,
         "status":self.status,"winner":self.winner,"reason":self.reason,"robots":self.robots,
-        "bases":self.base_snapshots(),"outposts":self.outpost_snapshots(),"runes":self.rune_snapshots(),"assemblies":self.assembly_snapshots(),"roster":roster,"teams":self.teams,"zones":self.zones,"projectiles":self.projectiles,"events":self.events})
+        "bases":self.base_snapshots(),"outposts":self.outpost_snapshots(),"runes":self.rune_snapshots(),"assemblies":self.assembly_snapshots(),"roster":roster,"teams":self.teams,"zones":self.zones,"projectiles":self.projectiles,"events":self.events});
+        if self.season == 2027 {
+            frame["season"] = json!("2027");
+            frame["positions"] = self.position_snapshots();
+        }
+        frame
     }
     pub fn digest(&self) -> String {
         format!(
@@ -1152,6 +1324,10 @@ impl Engine {
             "penalty_damage",
             "forfeit",
             "base_armor_opened",
+            "control_changed",
+            "outpost_destroyed",
+            "launcher_installed",
+            "drone_strike",
         ];
         let own_kinds = [
             "income",
@@ -1168,6 +1344,10 @@ impl Engine {
             "jump",
             "overspeed",
             "launcher_speed_rejected",
+            "launcher_unlocked",
+            "launcher_fitted",
+            "posture",
+            "drone_hit",
         ];
         let events: Vec<Value> = self
             .referee_recent_events
@@ -1201,6 +1381,14 @@ impl Engine {
                     "card_count",
                     "fpv_blocked_until",
                     "damage",
+                    "position",
+                    "control",
+                    "previous",
+                    "drone",
+                    "posture",
+                    "enhanced",
+                    "valid",
+                    "kind",
                 ] {
                     if let Some(v) = e.get(key) {
                         safe.insert(key.into(), v.clone());
@@ -1209,9 +1397,16 @@ impl Engine {
                 Some(Value::Object(safe))
             })
             .collect();
-        json!({"api_version":1,"tick":self.tick,"time":self.time(),"remaining":(self.duration-self.time()).max(0.0),
+        let mut info = json!({"api_version":1,"tick":self.tick,"time":self.time(),"remaining":(self.duration-self.time()).max(0.0),
             "status":self.status,"winner":self.winner,"reason":self.reason,"robots":health,
-            "bases":self.base_snapshots(),"outposts":self.outposts,"economy":self.teams[team],"events":events})
+            "bases":self.base_snapshots(),"outposts":self.outposts,"economy":self.teams[team],"events":events});
+        if self.season == 2027 {
+            // Control is shown to both teams on the referee client (5.6.2).
+            info["positions"] = self.position_snapshots();
+            info["control"] = json!({"red":self.teams["red"].control,"blue":self.teams["blue"].control});
+            info["logistics"] = json!(self.logistics(team));
+        }
+        info
     }
     /// Points a camera can see on a robot: body centre, gimbal top and the four armor
     /// faces, in the robot's current pose. Any clear sight line makes it visible.
@@ -1305,6 +1500,8 @@ impl Engine {
                     && !r.deployed
                     && self.time() >= r.fpv_blocked_until
                     && slots.map(|s| s.contains(&r.slot)).unwrap_or(true)
+                    // A 2027 hangar has no camera, and its automatic aerial robots report nothing.
+                    && !(self.season == 2027 && r.role == "aerial")
             })
             .collect();
         // Every robot (either team, alive or wrecked) that an own camera can see, with
@@ -1378,11 +1575,28 @@ impl Engine {
         let observed_models:BTreeMap<String,Value>=self.robots.iter()
             .filter(|r|r.team==team||seen.contains_key(&r.id))
             .map(|r|{let key=r.design_slot().to_string();(key.clone(),self.robot_models[&key].clone())}).collect();
-        json!({"api_version":3,"seed":self.seed,"tick":self.tick,"time":self.time(),"dt":DT,"policy_dt":0.1,
+        let enemy_drones: Vec<Value> = if self.season == 2027 {
+            self.robots.iter().filter(|r| r.team != team).flat_map(|r| r.drones.iter())
+                .filter(|d| d.state == "flying" || d.state == "down")
+                .filter(|d| observers.iter().any(|a| dist(a.x, a.y, d.x, d.y) < self.effective_vision(a)
+                    && self.point_in_camera(a, [d.x, d.y, d.z])
+                    && self.physics.as_ref().unwrap().visible_point(self.robots.iter().position(|r| r.id == a.id).unwrap(), Self::eye(a), [d.x, d.y, d.z])))
+                .map(|d| json!({"id":d.id,"x":d.x,"y":d.y,"z":d.z,"vx":d.vx,"vy":d.vy,"vz":d.vz,"state":d.state}))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mut observation = json!({"api_version":3,"seed":self.seed,"tick":self.tick,"time":self.time(),"dt":DT,"policy_dt":0.1,
             "remaining":(self.duration-self.time()).max(0.0),"team":team,
             "controlled_ids":friends.iter().filter(|r|slots.map(|s|s.contains(&r.slot)).unwrap_or(true)).map(|r|r.slot.to_string()).collect::<Vec<_>>(),
             "robots":friends,"robot_models":observed_models,"enemies":enemies,"bases":self.base_snapshots(),"outposts":self.outpost_snapshots(),"runes":self.observed_runes(team,&observers),"assemblies":self.assembly_snapshots(),"official_rules":self.public_rule_summary(),"simulation_assumptions":self.sim,"roster":self.roster(),"teams":self.observed_teams(team),"zones":self.zones,
-            "projectiles":bullets,"vision":vision,"specs":self.specs,"referee":self.referee_telemetry(team)})
+            "projectiles":bullets,"vision":vision,"specs":self.specs,"referee":self.referee_telemetry(team)});
+        if self.season == 2027 {
+            observation["season"] = json!("2027");
+            observation["positions"] = self.position_snapshots();
+            observation["enemy_drones"] = json!(enemy_drones);
+        }
+        observation
     }
     #[cfg(test)]
     fn blocked(&self, x: f64, y: f64, radius: f64) -> bool {
@@ -1556,7 +1770,7 @@ impl Engine {
         for team in ["red", "blue"] {
             if let Some(obj) = commands.get(team).and_then(Value::as_object) {
                 for key in obj.keys() {
-                    if !["1", "2", "3", "4", "6", "7"].contains(&key.as_str()) {
+                    if !self.robots.iter().any(|r| r.team == team && r.slot.to_string() == *key) {
                         self.event(
                             "invalid_action",
                             json!({"team":team,"reason":"uncontrolled slot"}),
@@ -1567,7 +1781,11 @@ impl Engine {
         }
         if self.tick == 0 && commands.get("referee").is_some() {
             for i in 0..self.robots.len() {
-                self.select_profile(i, &actions[i].rpc);
+                if self.season == 2027 {
+                    self.select_profile_2027(i, &actions[i].rpc);
+                } else {
+                    self.select_profile(i, &actions[i].rpc);
+                }
                 self.robots[i].profile_locked = true;
             }
         }
@@ -1575,7 +1793,11 @@ impl Engine {
         if self.status == "finished" {
             return;
         }
-        self.official_before_step(&actions);
+        if self.season == 2027 {
+            self.before_step_2027(&actions);
+        } else {
+            self.official_before_step(&actions);
+        }
         for base in self.bases.values_mut() {
             base.armor_open_progress = approach(base.armor_open_progress, if base.armor_open {1.0} else {0.0}, DT / 1.5);
         }
@@ -1588,7 +1810,12 @@ impl Engine {
             let now = self.time();
             world.step(&self.arena, &mut self.robots, &actions, &goals, now);
             self.physics = Some(world);
-            self.official_fire(&actions);
+            if self.season == 2027 {
+                self.fire_2027(&actions);
+                self.drone_strikes();
+            } else {
+                self.official_fire(&actions);
+            }
             self.fly_projectiles();
             world = self.physics.take().unwrap();
         }
@@ -1608,6 +1835,15 @@ impl Engine {
         // Publish buffs and protection at the completed frame's time, not its start.
         self.micro_time = DT;
         self.micro_dt = DT;
+        if self.season == 2027 {
+            self.update_buffs_2027();
+            self.advance_pickups();
+            self.after_step_2027();
+            self.micro_time = 0.0;
+            self.tick += 1;
+            self.check_winner_2027();
+            return;
+        }
         self.update_official_buffs();
         self.advance_pickups();
         self.official_after_step();
@@ -1629,7 +1865,7 @@ impl Engine {
             } else {
                 self.micro_dt
             };
-            let mass = if p.role == "hero" { 0.0445 } else { 0.0032 };
+            let mass = if is_42(&p.role) { 0.0445 } else { 0.0032 };
             let drag = 0.5 * 1.225 * 0.47 * std::f64::consts::PI * p.radius * p.radius / mass;
             let velocity = p.vx.hypot(p.vy).hypot(p.vz);
             let (ax, ay, az) = (
@@ -1665,8 +1901,22 @@ impl Engine {
                 }
             }
             let enemy = if p.team == "red" { "blue" } else { "red" };
+            // 2027: flying aerial robots stop projectiles and are pushed by them.
+            if self.season == 2027 {
+                for (ri, r) in self.robots.iter().enumerate() {
+                    for (k, d) in r.drones.iter().enumerate() {
+                        if (d.state == "flying" || d.state == "down") && r.id != p.source {
+                            let radius = self.robot_models[&r.design_slot().to_string()]["drone"]["radius_m"].as_f64().unwrap_or(0.07);
+                            let probe = Projectile { x: p.x - d.x, y: p.y - d.y, z: p.z - d.z, ..p.clone() };
+                            if let Some(t) = segment_cylinder(&probe, dx, dy, dz, 0.0, 0.0, radius + p.radius, -radius * 0.5, radius * 0.5) {
+                                hits.push((t, 6, ri * 8 + k));
+                            }
+                        }
+                    }
+                }
+            }
             // Finite armor is distinct from solid covers, supports and friendly structures.
-            for team in ["red", "blue"] {
+            for (ti, team) in ["red", "blue"].into_iter().enumerate() {
                 for (outpost, b) in [(false, &self.bases[team]), (true, &self.outposts[team])] {
                     if !outpost {
                         for cover in structures::covers(b) {
@@ -1679,6 +1929,15 @@ impl Engine {
                     }
                     if let Some(t) = segment_cylinder(&p, dx, dy, dz, b.x, b.y, 0.065, b.z, b.z + if outpost {1.38} else {1.181}) {
                         hits.push((t, 5, 0));
+                    }
+                    if self.season == 2027 {
+                        let hostile = b.hp > 0.0 && b.owner.as_deref().unwrap_or(team) != p.team;
+                        for plate in Self::structure_plates_2027(b, outpost) {
+                            if let Some(t) = structures::intersection(&plate, [p.x,p.y,p.z], [dx,dy,dz]) {
+                                hits.push((t, if hostile {if outpost {3} else {2}} else {5}, ti));
+                            }
+                        }
+                        continue;
                     }
                     for plate in structures::plates(b, outpost) {
                         if let Some(t) = structures::intersection(&plate, [p.x,p.y,p.z], [dx,dy,dz]) {
@@ -1702,7 +1961,17 @@ impl Engine {
             hits.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
             if let Some(&(t, kind, index)) = hits.first() {
                 let (x, y, z) = (p.x + dx * t, p.y + dy * t, (p.z + dz * t).max(0.03));
-                if kind == 1 {
+                if self.season == 2027 {
+                    let owner = ["red", "blue"][index.min(1)];
+                    match kind {
+                        1 => self.robot_hit_2027(index, &p, x, y, z),
+                        2 => self.structure_hit_2027(owner, false, &p, x, y, z),
+                        3 => self.structure_hit_2027(owner, true, &p, x, y, z),
+                        4 => self.rune_hit_2027(&p, index, x, y, z),
+                        6 => self.drone_hit(index / 8, index % 8, &p),
+                        _ => {}
+                    }
+                } else if kind == 1 {
                     self.official_robot_hit(index, &p, t, x, y, z);
                 } else if kind == 2 {
                     self.official_structure_hit(enemy, false, &p, t, x, y, z);
@@ -1747,3 +2016,5 @@ mod tests;
 
 #[cfg(test)]
 mod vision_tests;
+#[cfg(test)]
+mod season2027_tests;

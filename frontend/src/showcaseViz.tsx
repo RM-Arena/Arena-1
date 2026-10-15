@@ -69,11 +69,12 @@ export function PhaseTimeline({phases,total=420}:{phases:Showcase['phases'];tota
 // ---------------------------------------------------------------- tactical map
 // /api/maps returns the engine arena, which also carries base/outpost points; the spec landmarks are the fallback.
 export type MapData=Arena&{bases?:Record<TeamId,number[]>;outposts?:Record<TeamId,number[]>};
-let arenaRequest:Promise<MapData|null>|null=null;
-export function useArena(){
+let arenaRequest:Promise<Record<string,MapData>|null>|null=null;
+// Routes are drawn on the field of the strategy's season (RMUC 2027 by default).
+export function useArena(season:'2026'|'2027'='2027'){
   const [arena,setArena]=useState<MapData|null>(null);
-  useEffect(()=>{let live=true;arenaRequest??=fetch('/api/maps').then(r=>r.ok?r.json():null).then(v=>(v?.rmuc2026??null) as MapData|null).catch(()=>null);
-    const request=arenaRequest;request.then(a=>{if(!a&&arenaRequest===request)arenaRequest=null;if(live)setArena(a);});return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;arenaRequest??=fetch('/api/maps').then(r=>r.ok?r.json():null).catch(()=>null);
+    const request=arenaRequest;request.then(maps=>{if(!maps&&arenaRequest===request)arenaRequest=null;if(live)setArena((maps?.[season==='2026'?'rmuc2026':'rmuc2027']??null) as MapData|null);});return()=>{live=false;};},[season]);
   return arena;
 }
 const S=40,FIELD_W=28,FIELD_H=15;

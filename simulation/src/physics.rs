@@ -74,6 +74,10 @@ pub struct PhysicsWorld {
     /// +1 rolls the body the short way back into the legs' plane; a failed attempt (body
     /// braced against a step, say) flips it so the next one rolls over the other side.
     roll_sign: Vec<f64>,
+    /// Rules season of the field (2027 drops chassis energy and adds aerial systems).
+    season: u32,
+    /// 2027 aerial robots, per robot index (empty unless that robot is a hangar).
+    drone_bodies: Vec<Vec<RigidBodyHandle>>,
 }
 
 /// What an engineer's arm is doing this tick; the engine derives it from rules state.
@@ -223,6 +227,8 @@ impl PhysicsWorld {
             righting_since: Vec::new(),
             right_goal: Vec::new(),
             roll_sign: Vec::new(),
+            season: arena.season.parse().unwrap_or(2026),
+            drone_bodies: Vec::new(),
         };
         for (a, b) in [(0.0, 7.5), (7.5, 15.0)] {
             world.prism(
@@ -335,6 +341,44 @@ impl PhysicsWorld {
             let mass = n(&d, "mass_kg");
             let com = p3(&d["com_m"]);
             let inertia = p3(&d["inertia_kgm2"]);
+            if d["chassis_type"] == "hangar" {
+                // A 2027 hangar sits fixed on its platform; its aerial robots fly as their own bodies.
+                let handle = world.bodies.insert(RigidBodyBuilder::fixed().translation(vector![r.x, r.y, r.z]).rotation(vector![0.0, 0.0, r.heading]).build());
+                let size = p3(&d["chassis_size_m"]);
+                let hull = world.colliders.insert_with_parent(
+                    ColliderBuilder::cuboid(size.x / 2.0, size.y / 2.0, size.z / 2.0).translation(vector![0.0, 0.0, size.z / 2.0]).friction(0.6).build(),
+                    handle, &mut world.bodies);
+                let drone = &d["drone"];
+                let bodies = r.drones.iter().map(|dr| {
+                    let body = world.bodies.insert(RigidBodyBuilder::kinematic_position_based()
+                        .translation(vector![dr.x, dr.y, dr.z]).lock_rotations().ccd_enabled(true).can_sleep(false).linear_damping(0.05)
+                        .additional_mass_properties(MassProperties::new(point![0.0, 0.0, 0.0], n(drone, "mass_kg"), vector![1e-4, 1e-4, 1e-4]))
+                        .build());
+                    world.colliders.insert_with_parent(ColliderBuilder::ball(n(drone, "radius_m")).density(0.0).friction(0.4).restitution(0.35).build(), body, &mut world.bodies);
+                    body
+                }).collect();
+                world.handles.push(handle);
+                world.hulls.push(hull);
+                world.carriers.push(None);
+                world.designs.push(d);
+                world.last.push([r.x, r.y, r.z]);
+                world.last_alive.push(r.alive);
+                world.grasps.push(None);
+                world.rescuing.push(None);
+                world.leg_cmd.push(0.0);
+                world.jump_until.push(-1.0);
+                world.jump_ready.push(0.0);
+                world.jump_strength.push(0.0);
+                world.tuck_until.push(-1.0);
+                world.hip_angle.push(0.0);
+                world.upset_since.push(-1.0);
+                world.righting.push(false);
+                world.righting_since.push(0.0);
+                world.right_goal.push(None);
+                world.roll_sign.push(1.0);
+                world.drone_bodies.push(bodies);
+                continue;
+            }
             let body = RigidBodyBuilder::dynamic()
                 .translation(vector![r.x, r.y, r.z])
                 .rotation(vector![0.0, 0.0, r.heading])
@@ -348,7 +392,7 @@ impl PhysicsWorld {
                 .angular_damping(0.8)
                 .build();
             let handle = world.bodies.insert(body);
-            let stowed = (d["role"] == "engineer").then(|| arm_stowed(&d["arm"]));
+            let stowed = d["arm"].is_object().then(|| arm_stowed(&d["arm"]));
             let legs = (d["chassis_type"] == "wheel_legged").then(|| [n(&d, "leg_nominal_m"); 2]);
             let hull = world.colliders.insert_with_parent(
                 Self::hull(&d, false, stowed, true, legs)
@@ -395,6 +439,7 @@ impl PhysicsWorld {
             world.righting_since.push(0.0);
             world.right_goal.push(None);
             world.roll_sign.push(1.0);
+            world.drone_bodies.push(Vec::new());
         }
         world.queries.update(&world.colliders);
         world
@@ -638,6 +683,10 @@ impl PhysicsWorld {
         let mut rescue_forces: Vec<(usize, usize, Point<f64>, Point<f64>)> = Vec::new();
         let ids: Vec<String> = robots.iter().map(|r| r.id.clone()).collect();
         for i in 0..robots.len() {
+            if self.designs[i]["chassis_type"] == "hangar" {
+                self.drive_drones(i, arena, &mut robots[i], &actions[i], now);
+                continue;
+            }
             let r = &mut robots[i];
             let d = &self.designs[i];
             let h = self.handles[i];
@@ -693,7 +742,7 @@ impl PhysicsWorld {
                 n(d, "turret_pitch_rate_rad_s") * PHYSICS_DT,
             );
             r.cooldown = (r.cooldown - PHYSICS_DT).max(0.0);
-            if r.role == "engineer" {
+            if r.arm_count > 0 && d["arm"].is_object() {
                 let arm = &d["arm"];
                 let goal = &goals[i];
                 if self.rescuing[i] != goal.target {
@@ -789,7 +838,9 @@ impl PhysicsWorld {
                 r.arm_extension = ((r.arm_joints[2] - lo) / (hi - lo)).clamp(0.0, 1.0);
                 // About 2.4 kg of boom and wrist hang off the mast; carried units sit aft.
                 let held_unit = r.unit_pickup.as_ref().is_some_and(|s| s.held);
-                let payload = 0.45 * (r.carried_units as f64 + if held_unit {1.0} else {0.0});
+                // A fitted modular 42 mm launcher adds its own mass to the heavy robot.
+                let module = if ["fitted", "installed"].contains(&r.launcher.as_str()) { n(d, "launcher_module_kg") } else { 0.0 };
+                let payload = 0.45 * (r.carried_units as f64 + if held_unit {1.0} else {0.0}) + module;
                 let mass = n(d, "mass_kg") + payload;
                 let mut com = p3(&d["com_m"]);
                 let lever = (points[1].coords + points[2].coords) * 0.5;
@@ -807,7 +858,7 @@ impl PhysicsWorld {
                         .clone(),
                 );
             }
-            if r.role=="engineer" && r.arm_count==2 {
+            if r.arm_count==2 && d["arm2"].is_object() {
                 let arm=&d["arm2"];let goal=goals[i].secondary.as_deref();
                 let mut target=arm_stowed(arm);
                 if r.alive {if let Some(goal)=goal {
@@ -822,7 +873,8 @@ impl PhysicsWorld {
                 let second=arm_points(arm,&r.arm2_joints);let first=arm_points(&d["arm"],&r.arm_joints);
                 let tip=pose*second[3];r.arm2_tip=[tip.x,tip.y,tip.z];r.arm2_mode=if r.alive {goal.map(|g|g.mode.clone()).unwrap_or_else(||"stow".into())} else {"stow".into()};
                 let held=r.unit_pickup.as_ref().filter(|s|s.held);
-                let payload=0.45*(r.carried_units as f64+if held.is_some(){1.0}else{0.0});let mass=n(d,"mass_kg")+payload;
+                let module=if ["fitted","installed"].contains(&r.launcher.as_str()) {n(d,"launcher_module_kg")} else {0.0};
+                let payload=0.45*(r.carried_units as f64+if held.is_some(){1.0}else{0.0})+module;let mass=n(d,"mass_kg")+payload;
                 let held_tip=if held.is_some_and(|s|s.arm==1){second[3]}else{first[3]};
                 let lever=(first[1].coords+first[2].coords+second[1].coords+second[2].coords)*0.5*1.8;
                 let mut com=p3(&d["com_m"]);com.x=(0.45*r.carried_units as f64*-0.17+if held.is_some(){0.45*held_tip.x}else{0.0}+lever.x)/mass;
@@ -1134,14 +1186,15 @@ impl PhysicsWorld {
                 );
             }
             let mut limit = r.power_limit;
-            if r.role == "hero" || r.role == "infantry" {
+            // 2026 chassis energy; 2027 robots carry their full effective limit (engine-set).
+            if self.season == 2026 && (r.role == "hero" || r.role == "infantry") {
                 if r.energy <= 0.0 {
                     limit = 35.0;
                 } else if r.energy >= 25000.0 {
                     limit = (limit * 1.25).min(200.0);
                 }
             }
-            if now < r.power_boost_until {
+            if self.season == 2026 && now < r.power_boost_until {
                 limit = (limit * 2.0).min(200.0);
             }
             // Without an explicit budget the chassis keeps to its limit, except that the
@@ -1604,12 +1657,26 @@ impl PhysicsWorld {
                 *hip = self.hip_angle[i];
             }
             r.self_righting = self.righting[i];
-            if r.role == "engineer" {
+            if r.arm_count > 0 && self.designs[i]["arm"].is_object() {
                 let tip = body.position() * arm_points(&self.designs[i]["arm"], &r.arm_joints)[3];
                 r.arm_tip = [tip.x, tip.y, tip.z];
                 if r.arm_count==2 {let tip=body.position()*arm_points(&self.designs[i]["arm2"],&r.arm2_joints)[3];r.arm2_tip=[tip.x,tip.y,tip.z];}
             }
             self.last[i] = [r.x, r.y, r.z];
+        }
+        // 2027 aerial robots: read their bodies back.
+        for (i, r) in robots.iter_mut().enumerate() {
+            for (k, handle) in self.drone_bodies[i].iter().enumerate() {
+                let body = &self.bodies[*handle];
+                let (p, v) = (body.translation(), body.linvel());
+                let d = &mut r.drones[k];
+                d.x = p.x;
+                d.y = p.y;
+                d.z = p.z;
+                d.vx = v.x;
+                d.vy = v.y;
+                d.vz = v.z;
+            }
         }
         for i in 0..robots.len() {
             let Some(j) = self.rescuing[i] else { continue };
@@ -1664,6 +1731,161 @@ impl PhysicsWorld {
 
     pub fn design(&self, i: usize) -> &Value {
         &self.designs[i]
+    }
+    /// Developer fixtures and tests: put a flying aerial robot at a point with a velocity.
+    pub fn place_drone(&mut self, robot: usize, drone: usize, at: [f64; 3], v: [f64; 3]) {
+        let handle = self.drone_bodies[robot][drone];
+        let body = &mut self.bodies[handle];
+        body.set_body_type(RigidBodyType::Dynamic, true);
+        body.set_translation(vector![at[0], at[1], at[2]], true);
+        body.set_linvel(vector![v[0], v[1], v[2]], true);
+    }
+    pub fn set_drone_velocity(&mut self, robot: usize, drone: usize, v: [f64; 3]) {
+        if let Some(handle) = self.drone_bodies.get(robot).and_then(|b| b.get(drone)) {
+            self.bodies[*handle].set_linvel(vector![v[0], v[1], v[2]], true);
+        }
+    }
+    /// Flight control of a hangar's aerial robots for one physics substep (S75-S80 hardware,
+    /// rules 3.2.1). Commands come from the aerial system's action: `drones` maps the robot's
+    /// index (1..4) to {"launch":true} / {"move":[x,y,z]} / {"goto":[x,y,z]} / {"dock":true} /
+    /// {"land":true}. Thrust is limited by the motors and a tilt limit, power drains the 4 Wh
+    /// battery, and a robot without battery or guard integrity falls and stays down.
+    fn drive_drones(&mut self, i: usize, arena: &Arena, r: &mut Robot, action: &Action, now: f64) {
+        let d = self.designs[i]["drone"].clone();
+        let (mass, radius, speed, climb) = (n(&d, "mass_kg"), n(&d, "radius_m"), n(&d, "speed_reference_mps"), n(&d, "climb_mps"));
+        let (thrust_max, tilt) = (n(&d, "thrust_max_n"), n(&d, "tilt_limit_rad"));
+        let disc = n(&d, "rotor_count") * std::f64::consts::PI * n(&d, "rotor_radius_m").powi(2);
+        for k in 0..r.drones.len() {
+            let handle = self.drone_bodies[i][k];
+            let dr = r.drones[k].clone();
+            let cmd = &action.rpc["drones"][(k + 1).to_string()];
+            let body = &mut self.bodies[handle];
+            body.reset_forces(true);
+            let p = *body.translation();
+            let v = *body.linvel();
+            let usable = dr.battery_wh > 0.0 && dr.integrity > 1e-9 && r.alive && !r.red_card;
+            match dr.state.as_str() {
+                "docked" => {
+                    body.set_body_type(RigidBodyType::KinematicPositionBased, true);
+                    body.set_next_kinematic_translation(vector![dr.dock[0], dr.dock[1], dr.dock[2]]);
+                    body.set_linvel(Vector::zeros(), true);
+                    if usable && (cmd["launch"] == true || cmd.get("move").is_some() || cmd.get("goto").is_some()) {
+                        body.set_body_type(RigidBodyType::Dynamic, true);
+                        r.drones[k].state = "flying".into();
+                        r.drones[k].launch_until = now + 0.6;
+                    }
+                    r.drones[k].power_w = 0.0;
+                    continue;
+                }
+                "disabled" => {
+                    body.set_body_type(RigidBodyType::Dynamic, true);
+                    r.drones[k].power_w = 0.0;
+                    continue;
+                }
+                "down" => {
+                    body.set_body_type(RigidBodyType::Dynamic, true);
+                    r.drones[k].power_w = 0.0;
+                    if !usable || !(cmd["launch"] == true || cmd.get("move").is_some() || cmd.get("goto").is_some()) {
+                        continue;
+                    }
+                    r.drones[k].state = "flying".into();
+                    r.drones[k].launch_until = now + 0.4;
+                }
+                _ => {
+                    if body.body_type() != RigidBodyType::Dynamic {
+                        body.set_body_type(RigidBodyType::Dynamic, true);
+                    }
+                }
+            }
+            if !usable {
+                r.drones[k].state = if dr.integrity <= 1e-9 { "disabled".into() } else { "down".into() };
+                r.drones[k].power_w = 0.0;
+                continue;
+            }
+            let ground = field_height(arena, p.x, p.y, true);
+            let ceiling = 2.35;
+            let dock = vector![dr.dock[0], dr.dock[1], dr.dock[2]];
+            let mut wanted = Vector::zeros();
+            if now < dr.launch_until {
+                wanted.z = climb;
+            } else if cmd["land"] == true {
+                wanted = vector![0.0, 0.0, -0.6];
+                if p.z - ground < radius + 0.04 && v.norm() < 0.3 {
+                    r.drones[k].state = "down".into();
+                    continue;
+                }
+            } else if cmd["dock"] == true {
+                let above = dock + vector![0.0, 0.0, 0.3];
+                let flat = vector![dock.x - p.x, dock.y - p.y, 0.0];
+                if flat.norm() > 0.08 {
+                    wanted = (above - p) * 2.0;
+                } else {
+                    wanted = (dock - p) * 1.5;
+                    if (dock - p).norm() < 0.05 && v.norm() < 0.4 {
+                        r.drones[k].state = "docked".into();
+                        body.set_body_type(RigidBodyType::KinematicPositionBased, true);
+                        body.set_next_kinematic_translation(dock);
+                        continue;
+                    }
+                }
+            } else if let Some(g) = cmd["goto"].as_array().filter(|g| g.len() == 3) {
+                let target = vector![g[0].as_f64().unwrap_or(p.x), g[1].as_f64().unwrap_or(p.y), g[2].as_f64().unwrap_or(p.z)];
+                wanted = (target - p) * 2.2;
+            } else if let Some(m) = cmd["move"].as_array().filter(|m| m.len() == 3) {
+                let c = |j: usize| m[j].as_f64().filter(|x| x.is_finite()).unwrap_or(0.0).clamp(-1.0, 1.0);
+                wanted = vector![c(0) * speed, c(1) * speed, c(2) * climb];
+            }
+            // Speed limits, the field ceiling (2.4 m fence) and ground clearance.
+            let flat = vector![wanted.x, wanted.y, 0.0];
+            if flat.norm() > speed {
+                let scale = speed / flat.norm();
+                wanted.x *= scale;
+                wanted.y *= scale;
+            }
+            wanted.z = wanted.z.clamp(-climb, climb);
+            if p.z > ceiling - 0.1 {
+                wanted.z = wanted.z.min(-(p.z - ceiling + 0.1) * 3.0);
+            }
+            if p.z < ground + radius + 0.12 {
+                wanted.z = wanted.z.max((ground + radius + 0.12 - p.z) * 4.0);
+            }
+            let recovering = now < dr.recover_until;
+            let gain = if recovering { 1.2 } else { 4.0 };
+            let mut force = (wanted - v) * mass * gain + vector![0.0, 0.0, mass * 9.81];
+            // Body drag of the guarded frame.
+            let area = (2.0 * radius).powi(2) * 0.6;
+            force += v * (0.5 * 1.225 * 1.1 * area * v.norm());
+            force.z = force.z.max(0.0);
+            let horizontal = force.x.hypot(force.y);
+            let maximum = force.z * tilt.tan();
+            if horizontal > maximum && horizontal > 0.0 {
+                force.x *= maximum / horizontal;
+                force.y *= maximum / horizontal;
+            }
+            let total = force.norm();
+            if total > thrust_max {
+                force *= thrust_max / total;
+            }
+            let thrust = force.norm();
+            body.add_force(force - vector![0.0, 0.0, 0.0], true);
+            // Drag acts on the body itself.
+            body.add_force(-v * (0.5 * 1.225 * 1.1 * area * v.norm()), true);
+            let power = thrust.powf(1.5) / (2.0 * 1.225 * disc.max(1e-6)).sqrt() / n(&d, "hover_efficiency").max(0.1) + n(&d, "avionics_w");
+            let drone = &mut r.drones[k];
+            drone.power_w = power;
+            drone.battery_wh = (drone.battery_wh - power * PHYSICS_DT / 3600.0).max(0.0);
+            // Attitude for display: the frame tilts with its thrust vector.
+            let up = if thrust > 1e-6 { force / thrust } else { Vector::z() };
+            let axis = Vector::z().cross(&up);
+            let q = if axis.norm() > 1e-9 {
+                UnitQuaternion::from_axis_angle(&nalgebra::Unit::new_normalize(axis), Vector::z().dot(&up).clamp(-1.0, 1.0).acos())
+            } else {
+                UnitQuaternion::identity()
+            };
+            drone.quaternion = [q.i, q.j, q.k, q.w];
+        }
+        r.motor_power_w = r.drones.iter().map(|d| d.power_w).sum();
+        r.power_w = 0.0;
     }
     pub fn take_arm_events(&mut self) -> Vec<Value> {
         std::mem::take(&mut self.arm_events)
@@ -1864,6 +2086,9 @@ impl PhysicsWorld {
         self.queries.update(&self.colliders);
     }
     pub fn solid_hit(&self, source: usize, origin: [f64; 3], delta: [f64; 3]) -> Option<f64> {
+        // Aerial robots are resolved by the engine (they are pushed, not walls).
+        let drones: Vec<RigidBodyHandle> = self.drone_bodies.iter().flatten().copied().collect();
+        let predicate = |_: ColliderHandle, c: &Collider| c.parent().map(|p| !drones.contains(&p)).unwrap_or(true);
         self.queries
             .cast_ray(
                 &self.bodies,
@@ -1874,7 +2099,7 @@ impl PhysicsWorld {
                 ),
                 1.0,
                 true,
-                QueryFilter::default().exclude_rigid_body(self.handles[source]),
+                QueryFilter::default().exclude_rigid_body(self.handles[source]).predicate(&predicate),
             )
             .map(|(_, t)| t)
     }

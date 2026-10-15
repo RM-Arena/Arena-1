@@ -21,8 +21,9 @@ def validate_messages(messages, sender, dynamic=False):
 
 
 class TeamCommunication:
-    def __init__(self, rosters=None):
-        self.rosters = rosters or {team: SLOTS for team in ("red", "blue")}
+    def __init__(self, rosters=None, slots=SLOTS):
+        self.slots = tuple(str(slot) for slot in slots)
+        self.rosters = rosters or {team: self.slots for team in ("red", "blue")}
         self.inboxes = self.empty_inboxes()
 
     def empty_inboxes(self):

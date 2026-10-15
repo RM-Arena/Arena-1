@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties} from 'react';
 import type {Frame,Metadata,Robot,RobotHardware,Standing,TeamId} from './types';
-import {MODE_LABELS,ROLE_NAMES} from './types';
+import {MODE_LABELS,ROLE_NAMES,frameSeason} from './types';
 import {TEAM_LABEL,TEAMS,robotName} from './matchStats';
 import {Stage,TeamCrest,teamName} from './broadcast';
 import {AgentBadge,AgentLogo} from './agentLogos';
@@ -80,7 +80,7 @@ function Opening({frame,metadata,standings,free}:{frame:Frame;metadata:Metadata|
   return <div className="li-open">
     <div className="li-open-bg red"/><div className="li-open-bg blue"/><div className="li-open-grid"/>
     <svg className="li-open-bolt" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden><polyline points="960,0 900,300 1010,420 930,640 1040,760 960,1080"/></svg>
-    <div className="li-open-title"><span>RMUC 2026 · ROBOT STRATEGY LEAGUE</span><h1>{free?'自由对战':'RM 对战'}</h1><small>{free?`${count('red')} V ${count('blue')} · 阵容由 Agent 决定`:'标准 6 V 6 · 镜像阵容'}</small></div>
+    <div className="li-open-title"><span>RMUC {frameSeason(frame)} · ROBOT STRATEGY LEAGUE</span><h1>{free?'自由对战':'RM 对战'}</h1><small>{free?`${count('red')} V ${count('blue')} · 阵容由 Agent 决定`:`标准 ${count('red')} V ${count('blue')} · 镜像阵容`}</small></div>
     {TEAMS.map(team=>{const s=record(standings,metadata,team),agents=teamAgents(metadata,team);return <div key={team} className={`li-open-team ${team}`}>
       <TeamCrest metadata={metadata} team={team} size={210}/>
       <h2>{shownName(metadata,team)}</h2>

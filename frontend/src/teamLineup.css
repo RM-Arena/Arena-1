@@ -50,3 +50,9 @@
 @media(max-width:800px){.hangar-body{grid-template-rows:auto minmax(0,1fr)}.hangar-roster{overflow:visible}.hangar-roster>button{min-height:70px}.hangar-preview{min-height:260px}}
 @media(max-width:600px){.hangar-body{overflow:auto}.hangar-roster,.hangar-details{flex-shrink:0}.hangar-center{min-height:590px;flex-shrink:0}.hangar-preview{min-height:350px}.hangar-candidates{max-height:none}.hangar-footer{min-height:102px}.hangar-stat-grid>div:last-child strong{font-size:15px}}
 .hangar-candidates>div:first-child{position:sticky;top:-17px;z-index:3;background:#0e1923;padding:12px 0;margin-top:-12px}
+/* Season construction legality: models that fail the selected season's rules stay visible but cannot be picked. */
+.hangar-model-grid button.illegal{border-style:dashed;border-color:#8a4b4b70;background:repeating-linear-gradient(135deg,#1a1f25 0 6px,#161b21 6px 12px);color:#6f7d87;cursor:not-allowed}
+.hangar-model-grid button.illegal>span{color:#b97a6f}
+.hangar-model-grid button.illegal small{color:#c98d80}
+.hangar-tags span.legal{color:#9fd3a8;border-color:#9fd3a855}
+.hangar-tags span.illegal{color:#d79a8c;border-color:#d79a8c55;text-decoration:line-through}

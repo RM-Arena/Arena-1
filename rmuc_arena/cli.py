@@ -54,7 +54,7 @@ def verify_replay(path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="RMUC Arena · RMUC 2026 V1.0.0 6v6 strategy game")
+    parser = argparse.ArgumentParser(description="RMUC Arena · RMUC 2027 V1.0.0 (default) and RMUC 2026 V1.0.0 strategy game")
     sub = parser.add_subparsers(dest="command", required=True)
     server = sub.add_parser("serve", help="Start the local 3D spectator")
     server.add_argument("--port", type=int, default=8765)
@@ -62,11 +62,12 @@ def main():
     server.add_argument("--trusted-local", action="store_true", help="Run trusted developer strategies without container isolation")
     for name in ("match", "batch"):
         p = sub.add_parser(name)
-        p.add_argument("--red", default=str(ROOT / "examples" / "official_team"))
-        p.add_argument("--blue", default=str(ROOT / "examples" / "official_hold"))
+        p.add_argument("--red", default=str(ROOT / "examples" / "official_2027_team"))
+        p.add_argument("--blue", default=str(ROOT / "examples" / "official_2027_hold"))
         p.add_argument("--seed", type=int, default=42)
         p.add_argument("--duration", type=int, default=420, help="Official matches are 420s; shorter runs are unranked test matches")
-        p.add_argument("--map", choices=["rmuc2026"], default="rmuc2026")
+        p.add_argument("--map", choices=["rmuc2027", "rmuc2026"], default=None,
+                       help="field and rules season; defaults to the strategies' season (RMUC 2027 for new strategies)")
         p.add_argument("--trusted-local", action="store_true")
         p.add_argument("--timeout", type=float, default=0.2)
         p.add_argument("--output", default="replays/match.json" if name == "match" else "replays/batch")
@@ -78,6 +79,7 @@ def main():
     p.add_argument("--mode", choices=["team", "robot", "distributed", "adaptive"], default="team")
     p.add_argument("--robot", type=int)
     p.add_argument("--lineup",help="Team slot-to-model JSON, fixed before development")
+    p.add_argument("--season",choices=["2027","2026"],help="Rules season (default: from the lineup, else 2027)")
     p.add_argument("--minutes",type=int,default=90,help="Total development time, started separately by the organizer")
     p.add_argument("--training-url",default="http://127.0.0.1:8765")
     p = sub.add_parser("start-training",help="Start the host-controlled development clock once")
@@ -89,7 +91,7 @@ def main():
     p.add_argument("output")
     p = sub.add_parser("assemble")
     p.add_argument("output")
-    p.add_argument("robots", nargs=6, help="Robot submissions in order 1,2,3,4,6,7")
+    p.add_argument("robots", nargs="+", help="Robot submissions in slot order (2027: 1,3,4,6,7; 2026: 1,2,3,4,6,7)")
     p = sub.add_parser("verify-replay")
     p.add_argument("replay")
     args = parser.parse_args()
@@ -97,7 +99,9 @@ def main():
         if args.command == "serve":
             serve(args.port, "trusted-local" if args.trusted_local else "docker", args.submissions)
         elif args.command == "new-agent":
-            print(scaffold(args.output,args.mode,args.robot,minutes=args.minutes,training_url=args.training_url,team_lineup=json.loads(args.lineup) if args.lineup else None))
+            lineup=json.loads(args.lineup) if args.lineup else None
+            season=args.season or (None if lineup else "2027")
+            print(scaffold(args.output,args.mode,args.robot,minutes=args.minutes,training_url=args.training_url,team_lineup=lineup,season=season))
         elif args.command == "start-training":
             print(json.dumps(start_training(args.workspace),ensure_ascii=False,indent=2))
         elif args.command == "refresh-agent":
@@ -105,7 +109,7 @@ def main():
         elif args.command == "submit":
             print(json.dumps(submit(args.workspace, args.output), indent=2))
         elif args.command == "assemble":
-            print(json.dumps(assemble(args.robots, args.output), indent=2))
+            print(json.dumps(assemble(args.robots, args.output, "2026" if len(args.robots) == 6 else "2027"), indent=2))
         elif args.command == "verify-replay":
             print(json.dumps(verify_replay(args.replay), indent=2))
         elif args.command in ("match", "batch"):

@@ -1,7 +1,10 @@
-"""Public hardware catalog and immutable, mirrored team lineups."""
+"""Public hardware catalog and immutable, mirrored team lineups for each rules season."""
 import json
 from pathlib import Path
 
+from . import seasons as season_rules
+
+# 2026 names kept for existing callers; season-aware callers pass `season`.
 SLOTS=(1,2,3,4,6,7)
 ROLES={1:'hero',2:'engineer',3:'infantry',4:'infantry',6:'aerial',7:'infantry'}
 DEFAULT_TEAM_LINEUP={str(s):s for s in SLOTS}
@@ -13,9 +16,24 @@ def robot_models():
 def model_ids():
     return tuple(sorted(int(k) for k in robot_models()))
 
-def initial_model_stats(design,rules):
+def default_team_lineup(season=season_rules.LEGACY_SEASON):
+    return season_rules.default_lineup(season)
+
+def initial_model_stats(design,rules,season=None):
     """Level-one preselected referee performance, using the engine's public tables."""
-    role=design['role'];profiles=rules['official']['profiles'];stats=dict(rules['specs'][role])
+    role=design['role']
+    season=season or design.get('season',season_rules.LEGACY_SEASON)
+    if season=='2027':
+        official=rules[rules['seasons']['2027']['rules_key']];specs=rules['seasons']['2027']['specs']
+        stats=dict(specs[role])
+        if role=='heavy':stats.update(official['heavy']['stages'][0])
+        elif role=='infantry':
+            stats.update(official['profiles']['infantry_chassis'][design['chassis_profile']][0])
+            stats.update(official['profiles']['infantry_weapon'][design['weapon_profile']][0])
+        elif role=='sentry':stats.update(official['sentry']['automatic']);stats['ammo']=official['initial_ammo']['sentry']
+        stats.setdefault('max_heat',0);stats.setdefault('cooling',0);stats.setdefault('power_w',0)
+        return {key:stats.get(key,0) for key in ('hp','power_w','max_heat','cooling','damage','ammo')}
+    profiles=rules['official']['profiles'];stats=dict(rules['specs'][role])
     if role=='hero':stats.update(profiles['hero'][design['hero_profile']][0])
     elif role=='infantry':
         stats.update(profiles['infantry_chassis'][design['chassis_profile']][0])
@@ -26,21 +44,35 @@ def initial_model_stats(design,rules):
 
 def model_catalog():
     rules=json.loads((ROOT/'config/rules.json').read_text(encoding="utf-8"))
-    return {key:{**d,'initial_stats':initial_model_stats(d,rules)} for key,d in rules['robot_designs'].items()}
+    catalog={}
+    for key,d in rules['robot_designs'].items():
+        legal=[s for s,v in d.get('seasons',{}).items() if v.get('legal')]
+        catalog[key]={**d,'initial_stats':initial_model_stats(d,rules),
+            'initial_stats_by_season':{s:initial_model_stats(d,rules,s) for s in legal}}
+    return catalog
 
-def normalize_team_lineup(lineup=None):
-    value=dict(DEFAULT_TEAM_LINEUP if lineup is None else lineup)
+def normalize_team_lineup(lineup=None,season=None):
+    """Validate a lineup for its season; without a season the slots decide (2026 by default)."""
+    if season is None:
+        season=season_rules.infer_season(lineup.keys()) if lineup else season_rules.LEGACY_SEASON
+    slots=season_rules.slots(season);roles=season_rules.roles(season)
+    value=dict(season_rules.default_lineup(season) if lineup is None else lineup)
     value={str(k):v for k,v in value.items()}
-    if set(value)!=set(DEFAULT_TEAM_LINEUP):
-        raise ValueError('Team lineup must select exactly slots 1,2,3,4,6,7')
+    if set(value)!={str(s) for s in slots}:
+        raise ValueError(f"Team lineup must select exactly slots {','.join(map(str,slots))}")
     models=robot_models()
     for slot,model in value.items():
         if isinstance(model,bool) or not isinstance(model,int) or str(model) not in models:
             raise ValueError(f'Unknown robot model for slot {slot}')
-        if models[str(model)]['role']!=ROLES[int(slot)]:
-            raise ValueError(f'Slot {slot} requires a {ROLES[int(slot)]} model')
-    return {str(s):value[str(s)] for s in SLOTS}
+        if models[str(model)]['role']!=roles[int(slot)]:
+            raise ValueError(f'Slot {slot} requires a {roles[int(slot)]} model')
+        if not season_rules.legal(model,season):
+            raise ValueError(f'Model {model} does not pass the {season} construction rules')
+    return {str(s):value[str(s)] for s in slots}
 
-def mirrored_lineups(lineup):
-    value=normalize_team_lineup(lineup)
-    return {team:[{'slot':s,'model':value[str(s)]} for s in SLOTS] for team in ('red','blue')}
+def lineup_season(lineup):
+    return season_rules.infer_season(lineup.keys())
+
+def mirrored_lineups(lineup,season=None):
+    value=normalize_team_lineup(lineup,season)
+    return {team:[{'slot':int(s),'model':value[s]} for s in value] for team in ('red','blue')}
