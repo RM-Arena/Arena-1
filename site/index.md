@@ -28,6 +28,23 @@ features:
     details: 暂停、换镜头、跟随机器人，结合血量、弹药、热量与控制度，理解一次丢点或进攻为何发生。
 ---
 
+<script setup>
+import {withBase} from 'vitepress';
+</script>
+
+<section id="wechat-community" class="wechat-community" aria-labelledby="wechat-community-title">
+  <div class="wechat-community-copy">
+    <h2 id="wechat-community-title">加入 RM-Arena 微信交流群</h2>
+    <p>交流机器人策略、RoboMaster 规则和 Arena-1 使用经验，也欢迎分享你的打法与对局。</p>
+    <p>使用微信扫一扫，或打开原图保存后在微信中识别二维码。</p>
+    <p class="wechat-community-expiry">二维码有效期至 <time datetime="2026-10-22">2026 年 10 月 22 日</time>。</p>
+    <a :href="withBase('/media/wechat-group.png')" target="_blank" rel="noreferrer">打开二维码原图 →</a>
+  </div>
+  <a class="wechat-community-image" :href="withBase('/media/wechat-group.png')" target="_blank" rel="noreferrer" aria-label="查看 RM-Arena 微信交流群二维码原图">
+    <img :src="withBase('/media/wechat-group.png')" width="720" height="1094" alt="RM-Arena 微信交流群二维码，有效期至 2026 年 10 月 22 日" />
+  </a>
+</section>
+
 ## 第一次来，先知道这是什么
 
 Arena-1 是一个机器人团队对抗仿真应用。红蓝两队保护自己的基地，争夺场上目标，管理弹药和资源。你可以只当观众，也可以为机器人编写策略；所有上场行动由程序完成，物理与裁判规则由引擎执行。
@@ -62,3 +79,13 @@ Arena-1 是一个机器人团队对抗仿真应用。红蓝两队保护自己的
 ::: warning 使用许可
 本项目公开源码，**禁止商用，仅供非商业学习与教学使用**。请先阅读[许可证与素材说明](/license)。
 :::
+
+<style scoped>
+.wechat-community { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 40px; align-items: center; margin: 32px 0; padding: 28px; border: 1px solid var(--vp-c-divider); border-radius: 16px; background: var(--vp-c-bg-soft); scroll-margin-top: 88px; }
+.wechat-community-copy h2 { margin: 0 0 16px; padding: 0; border: 0; font-size: 25px; line-height: 1.4; }
+.wechat-community-copy p { margin: 12px 0; }
+.wechat-community-expiry { color: var(--vp-c-text-2); font-size: 14px; }
+.wechat-community-image { display: block; width: 100%; max-width: 300px; justify-self: center; }
+.wechat-community-image img { display: block; width: 100%; height: auto; border-radius: 12px; }
+@media (max-width: 640px) { .wechat-community { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px; } .wechat-community-copy h2 { font-size: 22px; } }
+</style>

@@ -6,7 +6,8 @@
 <p align="center">
   <a href="https://github.com/RM-Arena/Arena-1/releases/latest">下载桌面 App</a> ·
   <a href="https://rm-arena.github.io/Arena-1/">项目文档</a> ·
-  <a href="https://rm-arena.github.io/Arena-1/demo">观看演示</a>
+  <a href="https://rm-arena.github.io/Arena-1/demo">观看演示</a> ·
+  <a href="#微信交流群">微信交流群</a>
 </p>
 
 Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选的规则与场地：
@@ -36,6 +37,16 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 | 查术语 | [术语速查](https://rm-arena.github.io/Arena-1/guide/glossary) |
 
 ![2027 控制点结构与控制度条件](docs/media/control-2027.svg)
+
+## 微信交流群
+
+欢迎加入 **RM-Arena 交流群**，交流机器人策略、RoboMaster 规则与 Arena-1 使用经验，分享打法和对局。
+
+使用微信扫一扫，或点击原图保存后在微信中识别。二维码有效期至 **2026 年 10 月 22 日**。
+
+<p align="center">
+  <a href="docs/media/wechat-group.png"><img src="docs/media/wechat-group.png" width="300" alt="RM-Arena 微信交流群二维码，有效期至 2026 年 10 月 22 日" /></a>
+</p>
 
 ## 为什么做 Arena-1
 
