@@ -1,0 +1,325 @@
+"""Build the participant guides from shared Markdown fragments.
+
+The team competition and the single-robot competition are separate events, so
+every participant receives exactly one self-contained guide: ``team.md`` or
+``robot-<slot>.md``. Shared rules live once in docs/agent_guides/source/<lang>/;
+level tables and robot hardware are read from config/rules.json so they cannot
+drift from the engine.
+
+Fragment syntax:
+    {{name}}             variable
+    {{> path}}           include source/<lang>/<path>.md (variables expand first)
+    {{#flag}}..{{/flag}}  keep only when flag is true; {{^flag}} inverts
+
+    python scripts/build_agent_guides.py          # rewrite docs/agent_guides/<lang>/
+    python scripts/build_agent_guides.py --check  # exit 1 when outputs are stale
+"""
+import argparse
+import json
+import copy
+from pathlib import Path
+import re
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+GUIDES = ROOT / "docs/agent_guides"
+SLOTS = (1, 2, 3, 4, 6, 7)
+LANGS = ("zh", "en")
+if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
+from rmuc_arena.models import initial_model_stats
+ROLES = {1: "hero", 2: "engineer", 3: "infantry", 4: "infantry", 6: "aerial", 7: "infantry"}
+
+VARIABLE = re.compile(r"\{\{(\w+)\}\}")
+INCLUDE = re.compile(r"\{\{>\s*([\w/-]+)\s*\}\}")
+SECTION = re.compile(r"\{\{([#^])(\w+)\}\}(.*?)\{\{/\2\}\}", re.S)
+MARK = "\x00"
+
+TEXT = {
+    "zh": {
+        "level": "等级", "xp": "累计经验", "hp": "血量", "power": "功率 W", "heat": "热量上限", "cooling": "冷却 /s",
+        "ranged": "远程型", "melee": "近战型", "chassis_hp": "血量优先底盘", "chassis_power": "功率优先底盘",
+        "weapon_cooling": "冷却优先发射机构", "weapon_burst": "爆发优先发射机构",
+        "slot": "编号", "design": "设计", "mass": "质量 kg", "size": "底盘 m", "speed": "参考速度 m/s",
+        "vision": "视距 m", "yaw": "云台水平转速 rad/s", "armor": "装甲中心高 m", "muzzle": "炮口高 m",
+        "item": "项目", "value": "数值", "focus": "定位", "pitch": "俯仰范围（相对底盘）",
+        "weapon": "发射机构", "none": "—", "times": " × ",
+        "roles": {"hero": "英雄", "engineer": "工程", "infantry": "步兵", "aerial": "空中机器人"},
+        "weapons": {"hero": "42mm", "engineer": "无", "infantry": "17mm", "aerial": "17mm"},
+        "titles": {1: "1 号英雄", 2: "2 号工程", 3: "3 号步兵 · 双轮足", 4: "4 号步兵 · 爆发型",
+                   6: "6 号空中机器人", 7: "7 号步兵 · 稳健型"},
+        "designs": {1: ("H42 重型英雄", "重型平台，42mm 远程支援"), 2: ("E35 搬运工程", "载重、升降伸缩机械臂与扶正"),
+                    3: ("W3 双轮足步兵", "主动平衡、可调腿长、跳跃越障与飞坡，不能横移"), 4: ("I4 突击步兵", "较大弹仓，短时火力爆发"),
+                    7: ("I7 稳健步兵", "低重心、低装甲、抓地好，可降低云台"), 6: ("A13 护罩四旋翼", "电动飞行，17mm 空中支援")},
+    },
+    "en": {
+        "level": "Level", "xp": "Total XP", "hp": "HP", "power": "Power W", "heat": "Heat cap", "cooling": "Cooling /s",
+        "ranged": "Ranged", "melee": "Melee", "chassis_hp": "HP chassis", "chassis_power": "Power chassis",
+        "weapon_cooling": "Cooling launcher", "weapon_burst": "Burst launcher",
+        "slot": "Slot", "design": "Design", "mass": "Mass kg", "size": "Chassis m", "speed": "Ref. speed m/s",
+        "vision": "Vision m", "yaw": "Turret yaw rad/s", "armor": "Armor center height m", "muzzle": "Muzzle height m",
+        "item": "Item", "value": "Value", "focus": "Role", "pitch": "Pitch range (relative to chassis)",
+        "weapon": "Launcher", "none": "—", "times": " × ",
+        "roles": {"hero": "hero", "engineer": "engineer", "infantry": "infantry", "aerial": "aerial robot"},
+        "weapons": {"hero": "42mm", "engineer": "none", "infantry": "17mm", "aerial": "17mm"},
+        "titles": {1: "Slot 1 Hero", 2: "Slot 2 Engineer", 3: "Slot 3 Infantry · Wheel-Legged",
+                   4: "Slot 4 Infantry · Burst", 6: "Slot 6 Aerial Robot", 7: "Slot 7 Infantry · Steady"},
+        "designs": {1: ("H42 Heavy Hero", "heavy platform, 42mm long-range support"),
+                    2: ("E35 Carrier Engineer", "payload, lift-and-boom manipulator arm, righting tipped robots"),
+                    3: ("W3 Wheel-Legged Infantry", "self-balancing, adjustable legs, jumps steps and fly-slopes, cannot strafe"),
+                    4: ("I4 Assault Infantry", "large magazine, short bursts of fire"),
+                    7: ("I7 Steady Infantry", "low center of mass, low armor, strong grip, lowerable turret"),
+                    6: ("A13 Guarded Quadrotor", "electric flight, 17mm air support")},
+    },
+}
+
+
+def number(value, digits=2):
+    text = f"{value:.{digits}f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def numeric(cell):
+    try:
+        float(str(cell))
+        return True
+    except ValueError:
+        return str(cell) == "—"
+
+
+def table(header, rows):
+    # Right-align purely numeric columns after the first; text columns stay left.
+    align = ["---:" if i and all(numeric(row[i]) for row in rows) else "---" for i in range(len(header))]
+    lines = ["| " + " | ".join(header) + " |", "| " + " | ".join(align) + " |"]
+    lines += ["| " + " | ".join(str(cell) for cell in row) + " |" for row in rows]
+    return "\n".join(lines)
+
+
+def shared_variables(lang, rules):
+    t, official = TEXT[lang], rules["official"]
+    profiles, designs = official["profiles"], rules["robot_designs"]
+    vision = rules["simulation_assumptions"]["vision_range_m"]
+    levels = range(10)
+    thresholds = official["experience"]["thresholds"]
+    hero, chassis, weapon = profiles["hero"], profiles["infantry_chassis"], profiles["infantry_weapon"]
+    hardware = []
+    roster=[]
+    for slot in SLOTS:
+        d, role = designs[str(slot)], ROLES[slot]
+        stats=initial_model_stats(d,rules)
+        name=d['name'] if lang=='zh' else d.get('name_en',t['designs'][slot][0])
+        focus=d['focus'] if lang=='zh' else d.get('focus_en',t['designs'][slot][1])
+        roster.append([slot,t['roles'][role],name+' · '+focus,t['weapons'][role],t['none'] if role=='aerial' else stats['hp'],stats['ammo']])
+        hardware.append([slot, (d["name"] if lang=="zh" else d.get("name_en",t["designs"][slot][0])), number(d["mass_kg"]),
+            number(d["chassis_size_m"][0]) + t["times"] + number(d["chassis_size_m"][1]), number(d["speed_reference_mps"], 1),
+            number(vision[role], 0), t["none"] if role == "engineer" else number(d["turret_yaw_rate_rad_s"], 1),
+            t["none"] if role == "aerial" else number(d["armor_center_z_m"], 3), t["none"] if role == "engineer" else number(d["muzzle_z_m"], 3)])
+    return {
+        'roster_table':table(['编号','兵种','所选构型与定位','弹丸','初始血量','初始弹量'] if lang=='zh' else ['Slot','Role','Selected model and focus','Projectile','Initial HP','Initial ammo'],roster),
+        "xp_table": table([t["level"]] + [str(i + 1) for i in levels], [[t["xp"]] + [number(v, 0) for v in thresholds]]),
+        "hero_levels": table([t["level"], f"{t['ranged']} {t['hp']}", t["power"], t["heat"], t["cooling"],
+                              f"{t['melee']} {t['hp']}", t["power"], t["heat"], t["cooling"]],
+            [[i + 1] + [number(hero[p][i][k], 0) for p in ("ranged", "melee") for k in ("hp", "power_w", "max_heat", "cooling")] for i in levels]),
+        "infantry_chassis_levels": table([t["level"], f"{t['chassis_hp']} {t['hp']}", t["power"], f"{t['chassis_power']} {t['hp']}", t["power"]],
+            [[i + 1] + [number(chassis[p][i][k], 0) for p in ("hp", "power") for k in ("hp", "power_w")] for i in levels]),
+        "infantry_weapon_levels": table([t["level"], f"{t['weapon_cooling']} {t['heat']}", t["cooling"], f"{t['weapon_burst']} {t['heat']}", t["cooling"]],
+            [[i + 1] + [number(weapon[p][i][k], 0) for p in ("cooling", "burst") for k in ("max_heat", "cooling")] for i in levels]),
+        "aerial_levels": table([t["level"], t["heat"], t["cooling"]],
+            [[i + 1, number(profiles["aerial"][i]["max_heat"], 0), number(profiles["aerial"][i]["cooling"], 0)] for i in levels]),
+        "ground_fov_horizontal":number(rules["simulation_assumptions"]["ground_camera_fov_deg"]["horizontal"],0),
+        "ground_fov_vertical":number(rules["simulation_assumptions"]["ground_camera_fov_deg"]["vertical"],0),
+        "hardware_table": table([t["slot"], t["design"], t["mass"], t["size"], t["speed"], t["vision"], t["yaw"], t["armor"], t["muzzle"]], hardware),
+    }
+
+
+def robot_variables(lang, rules, slot):
+    t, d = TEXT[lang], rules["robot_designs"][str(slot)]
+    role=d["role"];base=d.get("base_model",slot)
+    pitch = [round(v * 180 / 3.141592653589793) for v in d["pitch_limits_rad"]]
+    rows = [[t["design"], (d["name"] if lang=="zh" else d.get("name_en",t["designs"][base][0]))], [t["focus"], d["focus"] if lang=="zh" else d.get("focus_en",t["designs"][base][1])],
+            [t["mass"], number(d["mass_kg"])], [t["size"], number(d["chassis_size_m"][0]) + t["times"] + number(d["chassis_size_m"][1])],
+            [t["speed"], number(d["speed_reference_mps"], 1)], [t["vision"], number(rules["simulation_assumptions"]["vision_range_m"][role], 0)],
+            [t["weapon"], t["weapons"][role]]]
+    if role != "engineer":
+        rows += [[t["yaw"], number(d["turret_yaw_rate_rad_s"], 1)], [t["pitch"], f"{pitch[0]}° ~ +{pitch[1]}°"], [t["muzzle"], number(d["muzzle_z_m"], 3)]]
+    if role != "aerial":
+        rows.append([t["armor"], number(d["armor_center_z_m"], 3)])
+    return {"slot": str(slot), "role": role, "role_name": t["roles"][role], "robot_title": t["titles"][base],
+            "vision": number(rules["simulation_assumptions"]["vision_range_m"][role], 0),
+            "own_hardware": table([t["item"], t["value"]], rows),
+            "profile_code": json.dumps({"chassis": d["chassis_profile"], "weapon": d["weapon_profile"]})}
+
+
+def flags_for(slot=None, distributed=False, adaptive=False, role=None, base=None):
+    role = role or ROLES.get(slot)
+    base=slot if base is None else base
+    flags = {"team": slot is None, "robot": slot is not None}
+    flags["adaptive"] = adaptive
+    flags["distributed"] = distributed
+    flags["independent"] = slot is not None or distributed
+    for name in ("hero", "engineer", "infantry", "aerial"):
+        flags[name] = role == name
+        flags["c_" + name] = slot is None or role == name
+    for s in SLOTS:
+        flags[f"s{s}"] = base == s
+    flags["c_s7"] = base in (None, 7)
+    flags["c_s3"] = base in (None, 3)
+    flags["c_17mm"] = slot is None or role in ("infantry", "aerial")
+    flags["c_shooter"] = role != "engineer"
+    flags["c_ground"] = role != "aerial"
+    flags["c_buyer"] = slot is None or role in ("hero", "infantry")
+    return flags
+
+
+def expand(name, lang, variables, depth=0):
+    if depth > 8:
+        raise ValueError(f"Include depth exceeded at {name}")
+    path = GUIDES / "source" / lang / f"{name}.md"
+    text = path.read_text(encoding="utf-8")
+
+    # Unknown names stay put: they may sit in a section dropped for this guide,
+    # and resolve_sections rejects any tag that survives.
+    text = VARIABLE.sub(lambda m: variables.get(m.group(1), m.group(0)), text)
+    return INCLUDE.sub(lambda m: expand(m.group(1), lang, variables, depth + 1).rstrip("\n"), text)
+
+
+def resolve_sections(text, flags):
+    def section(match):
+        if match.group(2) not in flags:
+            raise KeyError(f"Unknown section flag {match.group(2)}")
+        keep = flags[match.group(2)] == (match.group(1) == "#")
+        return MARK + match.group(3) + MARK if keep else MARK
+
+    while True:
+        updated = SECTION.sub(section, text)
+        if updated == text:
+            break
+        text = updated
+    if "{{" in text:
+        raise ValueError("Unresolved template tag: " + text[text.index("{{"):][:60])
+    text = re.sub(r"(?m)^\x00+\n", "", text).replace(MARK, "")
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def number_headings(text):
+    lines, chapter, section, numbered, fenced = [], 0, 0, False, False
+    for line in text.split("\n"):
+        if line.startswith("```"):
+            fenced = not fenced
+        elif not fenced and line.startswith("## "):
+            title = line[3:]
+            numbered = not title.startswith(("速览", "附录", "At a Glance", "Appendix"))
+            if numbered:
+                chapter, section = chapter + 1, 0
+                line = f"## {chapter}. {title}"
+        elif not fenced and numbered and line.startswith("### "):
+            section += 1
+            line = f"### {chapter}.{section} {line[4:]}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def model_controls(lang,d):
+    if lang=="zh":
+        text=f"### 本型号的机构能力\n\n驱动：`{d['chassis_type']}`；机械臂：{d.get('arm_count',0)}只；部署：{'支持' if d.get('deploy_allowed') else '不支持'}。\n"
+        if d.get('transform_allowed'):text+="使用 `transform=True` 折叠炮塔，`transform_progress` 到1后才可穿越250mm隧道；`transform=False` 展开，顶上有障碍时会停止展开。变形中不能射击；折叠状态的仰角限制为8°。\n"
+        if d.get('arm_count')==2:text+="`arm` 和 `arm2` 分别控制两只真实机械臂；`pickup_arm=0/1`选择夹取手臂，可一手救援、另一手夹取。使用 `sdk.resource_pickup_point(robot, arena)` 获得适合其伸展范围的资源区接近点。\n"
+        if d['chassis_type']=="wheel_legged":text+="支持 `leg_height`、`jump`、`lean`；双轮足不能直接横移。无部署机构的英雄即使选择ranged性能也无法部署。\n"
+        if d.get('leg_type')=="serial":text+="串联腿的髋关节可整周旋转：通电时翻倒、侧躺或车身倒扣会自动翻身（约1–2秒，`self_righting` 为真时不响应移动，`hip_angle` 为当前髋角），无需工程救援。侧装甲中心高见 `armor_side_center_z_m`。\n"
+    else:
+        text=f"### Model capabilities\n\nDrive: `{d['chassis_type']}`; arms: {d.get('arm_count',0)}; deployment: {'supported' if d.get('deploy_allowed') else 'unavailable'}.\n"
+        if d.get('transform_allowed'):text+="Use `transform=True` to fold; wait for `transform_progress==1` before entering the 250mm tunnel. `transform=False` unfolds unless a ceiling blocks it. Transformation disables firing; folded pitch is capped at8 degrees.\n"
+        if d.get('arm_count')==2:text+="`arm` and `arm2` independently control two physical manipulators; `pickup_arm=0/1` selects a gripper. One can rescue while the other picks up. `sdk.resource_pickup_point(robot, arena)` returns a reachable resource approach point.\n"
+        if d['chassis_type']=="wheel_legged":text+="Supports `leg_height`, `jump` and `lean`, without direct strafing. Heroes without deployment hardware cannot deploy even with the ranged performance profile.\n"
+        if d.get('leg_type')=="serial":text+="Serial legs have full-turn hip joints: a powered robot that lands on its side, nose or roof flips itself back upright in about 1-2 s (`self_righting` is true and movement is ignored meanwhile; `hip_angle` reports the hips), with no engineer rescue. Side plates sit at `armor_side_center_z_m`.\n"
+    return text
+
+
+def selected_team_hardware(lang,rules,lineup):
+    header="# 已锁定的双方共同阵容" if lang=="zh" else "# Locked symmetric team lineup"
+    rows=[];sections=[]
+    for slot,model in lineup.items():
+        d=rules["robot_designs"].get(str(model),rules["robot_designs"][str(slot)])
+        rows.append([slot,model,d['name'] if lang=="zh" else d.get('name_en',d['name']),d['chassis_type'],d.get('arm_count',0),d.get('deploy_allowed',False)])
+        sections.append(model_controls(lang,d).replace("### 本型号的机构能力",f"### {slot} 号 · {d['name']}").replace("### Model capabilities",f"### Slot {slot} · {d.get('name_en',d['name'])}"))
+    note="用户已经确认下表阵容；这是你开发策略时已知的完整出战阵容，红蓝双方相同。开发、练习、提交后均不可换型。不同阵容需要新建开发工作区。`lineup.json`和这些硬件参考受保护。" if lang=="zh" else "The user has confirmed the complete lineup below before strategy development. You know all six deployed models, and both sides use the same lineup. Development, practice and submission preserve it; use a new workspace for another lineup. lineup.json and hardware references are protected."
+    return header+"\n\n"+note+"\n\n"+table(["编号","型号","名称","驱动","机械臂","部署"] if lang=="zh" else ["Slot","Model","Name","Drive","Arms","Deploy"],rows)+"\n\n"+"\n".join(sections)
+
+
+def team_task_context(lang,rules,lineup):
+    """Injected into the participant task only after a concrete lineup is selected."""
+    rows=[]
+    for slot,model in lineup.items():
+        d=rules['robot_designs'][str(model)];stats=initial_model_stats(d,rules)
+        rows.append([slot,model,d['name'] if lang=='zh' else d.get('name_en',d['name']),
+            '—' if d['role']=='aerial' else stats['hp'],stats['power_w'],d['battery_wh']])
+    if lang=='zh':
+        header='## 用户已确认的出战阵容'
+        note='开发开始前，用户已选定以下六台机器人。你可以确定完整上场阵容，并据此设计分工和协同；红蓝双方使用相同型号。比赛编号与型号分开：动作使用编号，硬件由 model_slot 指定。阵容在开发、练习和提交期间保持固定，lineup.json 是受保护的记录。'
+        columns=['比赛编号','型号','机器人','预选1级HP','底盘功率 W','电池 Wh']
+    else:
+        header='## User-confirmed competition lineup'
+        note='The user selected these six robots before development. You know the complete deployed lineup and can plan roles and coordination around it. Both teams use identical models. Actions address competition slots; model_slot identifies hardware. This lineup remains fixed throughout development, practice and submission; lineup.json is its protected record.'
+        columns=['Competition slot','Model','Robot','Preselected L1 HP','Chassis power W','Battery Wh']
+    return header+'\n\n'+note+'\n\n'+table(columns,rows)+'\n'
+
+
+def render(lang, slot=None, distributed=False, adaptive=False, team_lineup=None):
+    rules = json.loads((ROOT / "config/rules.json").read_text(encoding="utf-8"))
+    unselected_team=slot is None and not distributed and not adaptive and team_lineup is None
+    catalog_rules=rules
+    if team_lineup is not None:
+        original=rules["robot_designs"].copy();rules=copy.deepcopy(rules)
+        for number,model in team_lineup.items():rules["robot_designs"][str(number)]=copy.deepcopy(original[str(model)])
+    variables = shared_variables(lang, rules)
+    if unselected_team:
+        pending='用户确认阵容后，工作区会动态生成六个位置的型号、性能和机构能力。当前通用规则不指定出战型号。' if lang=='zh' else 'After the user confirms a lineup, the workspace dynamically receives the selected models, performance and capabilities. These general rules do not select deployed models.'
+        variables['roster_table']=pending
+        variables['hardware_table']=pending
+    variables["source_files"] = ", ".join(f"`robot_{s}.py`" for s in SLOTS) if distributed else "`strategy.py`"
+    variables["source_summary"] = ("六份策略源码" if lang == "zh" else "six strategy source files") if distributed else "strategy.py"
+    if slot is not None:
+        variables.update(robot_variables(lang, rules, slot))
+        if adaptive and slot not in SLOTS:
+            d=rules['robot_designs'][str(slot)]
+            variables['robot_title']=f"{slot} · "+(d['name'] if lang=='zh' else d.get('name_en',d['name']))
+    template = "adaptive" if adaptive else "distributed" if distributed else "team" if slot is None else "robot"
+    flags = flags_for(slot, distributed, adaptive, rules["robot_designs"][str(slot)]["role"] if slot is not None else None,rules["robot_designs"][str(slot)].get("base_model",slot) if slot is not None else None)
+    active=[] if unselected_team else [rules["robot_designs"][str(slot)]] if slot is not None else [rules["robot_designs"][str(s)] for s in SLOTS]
+    flags["c_s3"]=any(d["chassis_type"]=="wheel_legged" for d in active)
+    flags["c_s7"]=any(d["slot"]==7 for d in active)
+    text = resolve_sections(expand(template, lang, variables), flags)
+    result=number_headings(text).strip()+"\n"
+    if team_lineup is not None:result=selected_team_hardware(lang,catalog_rules,team_lineup)+"\n"+result
+    elif adaptive and slot is not None:result+="\n"+model_controls(lang,rules["robot_designs"][str(slot)])
+    return result
+
+
+def outputs():
+    for lang in LANGS:
+        yield GUIDES / lang / "team.md", render(lang)
+        yield GUIDES / lang / "distributed.md", render(lang, distributed=True)
+        for slot in SLOTS:
+            yield GUIDES / lang / f"robot-{slot}.md", render(lang, slot)
+        for model in sorted(int(v) for v in json.loads((ROOT/"config/rules.json").read_text())["robot_designs"]):
+            yield GUIDES / lang / f"adaptive-robot-{model}.md", render(lang, model, adaptive=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--check", action="store_true", help="Report stale guides without writing")
+    args = parser.parse_args()
+    stale = []
+    for path, text in outputs():
+        if path.is_file() and path.read_text(encoding="utf-8") == text:
+            continue
+        stale.append(path.relative_to(ROOT))
+        if not args.check:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+    if args.check and stale:
+        sys.exit("Stale agent guides (run scripts/build_agent_guides.py): " + ", ".join(map(str, stale)))
+    print("Wrote " + ", ".join(map(str, stale)) if stale else "Agent guides are current")
+
+
+if __name__ == "__main__":
+    main()

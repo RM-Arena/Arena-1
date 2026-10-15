@@ -1,0 +1,12 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "guard",
+  "tags": [
+    "aerial"
+  ],
+  "display_name": "A13 护罩四旋翼 · 后场掩护",
+  "description": "A13 护罩四旋翼（旋翼）：开启空中支援后停在己方航道后段、停机坪附近，以 1.9 m 高度悬停；只攻击 8 m 内的敌人，平时不开火。全程保持支援开启。"
+}

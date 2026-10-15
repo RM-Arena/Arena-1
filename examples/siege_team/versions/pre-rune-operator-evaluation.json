@@ -1,0 +1,124 @@
+{
+  "strategy_version": "a01c14f716a062cd",
+  "strategy_sha256": "cc57ce7ef5205aa820843241b661aa0905c224629e8e768301ed064c05b2d6fb",
+  "map_revision": "chapter4-2026-v2",
+  "sdk_sha256": "dd434f55ecc8de20976ad6f6f3a53322516d30a16d3ef1ba24ccb07cfd94809e",
+  "rules_sha256": "d74d5eaf4b13b9d5a0d8c9b737c9decd81cc47026e3661d9f31895cb336e0b00",
+  "engine_sha256": "7dc0a02afb1e80466ef29fe20bb3cc94cde64cb4d0b4af7ae130a93f4f42f8e8",
+  "python_tests_passed": 66,
+  "results": {
+    "trusted_local": {
+      "wins": 4,
+      "losses": 0,
+      "draws": 0
+    },
+    "docker": {
+      "wins": 1,
+      "losses": 1,
+      "draws": 0
+    }
+  },
+  "matches": [
+    {
+      "sandbox": "trusted-local",
+      "seed": 131,
+      "side": "red",
+      "outcome": "win",
+      "seconds": 203.05,
+      "candidate_version": "a01c14f716a062cd",
+      "opponent_version": "38e993e170727d49",
+      "max_decision_ms": 21.31,
+      "p99_decision_ms": 8.33,
+      "base_hp": 5000.0,
+      "opponent_base_hp": 0.0,
+      "policy_errors": 0
+    },
+    {
+      "sandbox": "trusted-local",
+      "seed": 43,
+      "side": "blue",
+      "outcome": "win",
+      "seconds": 217.35,
+      "candidate_version": "a01c14f716a062cd",
+      "opponent_version": "38e993e170727d49",
+      "max_decision_ms": 14.58,
+      "p99_decision_ms": 9.11,
+      "base_hp": 5000.0,
+      "opponent_base_hp": 0.0,
+      "policy_errors": 0
+    },
+    {
+      "sandbox": "trusted-local",
+      "seed": 43,
+      "side": "red",
+      "outcome": "win",
+      "seconds": 346.55,
+      "candidate_version": "a01c14f716a062cd",
+      "opponent_version": "38e993e170727d49",
+      "max_decision_ms": 188.66,
+      "p99_decision_ms": 11.35,
+      "base_hp": 5000.0,
+      "opponent_base_hp": 0.0,
+      "policy_errors": 0
+    },
+    {
+      "sandbox": "trusted-local",
+      "seed": 131,
+      "side": "blue",
+      "outcome": "win",
+      "seconds": 184.95,
+      "candidate_version": "a01c14f716a062cd",
+      "opponent_version": "38e993e170727d49",
+      "max_decision_ms": 87.41,
+      "p99_decision_ms": 14.05,
+      "base_hp": 5000.0,
+      "opponent_base_hp": 0.0,
+      "policy_errors": 0
+    },
+    {
+      "sandbox": "docker",
+      "seed": 43,
+      "side": "red",
+      "outcome": "loss",
+      "seconds": 334.45,
+      "candidate_version": "a01c14f716a062cd",
+      "opponent_version": "38e993e170727d49",
+      "max_decision_ms": 86.6,
+      "p99_decision_ms": 24.89,
+      "base_hp": 0.0,
+      "opponent_base_hp": 4375.0,
+      "policy_errors": 0
+    },
+    {
+      "sandbox": "docker",
+      "seed": 43,
+      "side": "blue",
+      "outcome": "win",
+      "seconds": 385.75,
+      "candidate_version": "a01c14f716a062cd",
+      "opponent_version": "38e993e170727d49",
+      "max_decision_ms": 56.78,
+      "p99_decision_ms": 24.13,
+      "base_hp": 5000.0,
+      "opponent_base_hp": 0.0,
+      "policy_errors": 0
+    }
+  ],
+  "limits": {
+    "decision_ms": 200,
+    "cpu_cores": 0.5,
+    "memory_mib": 256
+  },
+  "limitations": [
+    "Improvement is confirmed on the local runtime. Docker showed one win and one loss against the incumbent; a stable Docker win-rate improvement is not established."
+  ],
+  "changes": [
+    "Wheel-legged heading and low-leg posture with bounded acceleration",
+    "7-slot local ammo replenishment position fixed",
+    "Motion and angular-velocity aiming prediction",
+    "Do not fire at visibly invulnerable targets",
+    "Income-first bounded rescue handling",
+    "Paid hero revival preserves route progress",
+    "Bounded path search count, node budget and failed-path retry frequency"
+  ]
+}

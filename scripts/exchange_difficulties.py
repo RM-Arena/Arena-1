@@ -1,0 +1,23 @@
+"""Public simulator difficulty profiles, within the official core-pose envelope."""
+ASSEMBLY_DIFFICULTIES = [
+    {'name':'基础', 'tip_tolerance_m':.09, 'tool_tolerance_deg':12.,
+     'chassis_speed_mps':.2, 'chassis_angular_speed_rad_s':.5, 'min_upright':.96,
+     'confirm_hold_s':.4, 'rotation_tolerance_deg':5., 'attempt_timeout_s':30.,
+     'pose_ranges':{'x':[-.05,-.05], 'y':[0.,0.], 'z':[.8,.8], 'theta':[0.,0.], 'phi':[90.,90.], 'alpha':[0.,0.]},
+     'target_rotation_deg':[0.,0.]},
+    {'name':'精密', 'tip_tolerance_m':.04, 'tool_tolerance_deg':6.,
+     'chassis_speed_mps':.12, 'chassis_angular_speed_rad_s':.3, 'min_upright':.97,
+     'confirm_hold_s':.6, 'rotation_tolerance_deg':3., 'attempt_timeout_s':35.,
+     'pose_ranges':{'x':[-.075,-.025], 'y':[-.06,.06], 'z':[.7,.78], 'theta':[-25.,25.], 'phi':[70.,90.], 'alpha':[-10.,10.]},
+     'target_rotation_deg':[0.,0.]},
+    {'name':'专家', 'tip_tolerance_m':.015, 'tool_tolerance_deg':2.5,
+     'chassis_speed_mps':.05, 'chassis_angular_speed_rad_s':.12, 'min_upright':.985,
+     'confirm_hold_s':.8, 'rotation_tolerance_deg':1., 'attempt_timeout_s':40.,
+     'pose_ranges':{'x':[-.1,0.], 'y':[-.1,.1], 'z':[.7,.84], 'theta':[-60.,60.], 'phi':[35.,90.], 'alpha':[-30.,30.]},
+     'target_rotation_deg':[10.,70.]},
+    {'name':'极限', 'tip_tolerance_m':.004, 'tool_tolerance_deg':.75,
+     'chassis_speed_mps':.01, 'chassis_angular_speed_rad_s':.025, 'min_upright':.992,
+     'confirm_hold_s':1.2, 'rotation_tolerance_deg':.25, 'attempt_timeout_s':45.,
+     'pose_ranges':{'x':[-.1,0.], 'y':[-.1,.1], 'z':[.7,.9], 'theta':[-90.,90.], 'phi':[0.,90.], 'alpha':[-45.,45.]},
+     'target_rotation_deg':[0.,90.]},
+]

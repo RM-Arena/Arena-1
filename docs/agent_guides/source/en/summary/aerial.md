@@ -1,0 +1,1 @@
+- **Aerial robot (slot 6)**: cannot be attacked and acts only while air support is on, flying along a lane at the side of your half with 24 m vision and 750 non-refillable 17mm rounds. Once its free support time is used up, it costs 1 team coin per second.

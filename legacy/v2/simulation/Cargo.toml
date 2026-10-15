@@ -1,0 +1,13 @@
+[package]
+name = "rmuc-sim"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["arbitrary_precision", "float_roundtrip"] }
+sha2 = "0.10"
+
+[profile.release]
+lto = true
+codegen-units = 1

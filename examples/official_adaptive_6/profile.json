@@ -1,0 +1,12 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "balanced",
+  "tags": [
+    "aerial"
+  ],
+  "display_name": "A13 护罩四旋翼 · 前线支援",
+  "description": "A13 护罩四旋翼（旋翼）：从停机坪起飞，沿己方航道飞到前端，以 1.9 m 高度悬停并全程开启空中支援，对最近的可见敌人按提前量射击。不打能量机关，也不会为节省金币关闭支援。"
+}

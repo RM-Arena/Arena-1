@@ -1,0 +1,222 @@
+/* Broadcast overlay, laid out on a 1920-wide canvas (Stage) and scaled into the viewport. */
+.bc-stage.cer-intro,.bc-stage.cer-countdown,.bc-stage.cer-start,.bc-stage.cer-victory,.bc-stage.cer-results,.bc-stage.cer-mvp{z-index:6}
+.bc-stage{--r:#ec3239;--r2:#8e0f17;--b:#2296f3;--b2:#0b3f86;--panel:rgba(8,12,18,.86);--edge:rgba(255,255,255,.16);--gold:#f2c35b;position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none;z-index:4;color:#f3f6f9;font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;overflow:hidden;--num:"DIN Alternate","Bahnschrift","Barlow Condensed","SF Pro Display",system-ui,sans-serif}
+.bc-stage button{pointer-events:auto}
+.bc-stage b,.bc-stage strong,.bc-stage em{font-family:var(--num)}
+/* ---- top scoreboard */
+.bc-top{position:absolute;inset:0 0 auto 0;height:120px}
+.bc-side{position:absolute;top:10px;display:flex;align-items:flex-start;gap:14px}
+.bc-side.red{right:calc(50% + 154px)}.bc-side.blue{left:calc(50% + 154px);flex-direction:row-reverse}
+.bc-outpost{width:118px;display:flex;flex-direction:column;gap:2px;margin-top:22px}
+.bc-side.red .bc-outpost{align-items:flex-end}.bc-side.blue .bc-outpost{align-items:flex-start}
+.bc-outpost>span{font-size:17px;color:#d6dde3;display:flex;align-items:center;gap:6px;text-shadow:0 1px 3px #000}
+.bc-tower{display:inline-block;width:12px;height:18px;clip-path:polygon(30% 0,70% 0,100% 100%,0 100%);background:var(--r)}.blue .bc-tower{background:var(--b)}
+.bc-outpost>b{font-size:30px;min-width:86px;text-align:center;padding:1px 10px;background:linear-gradient(90deg,rgba(130,14,22,.9),rgba(40,8,12,.6));clip-path:polygon(10% 0,100% 0,90% 100%,0 100%)}
+.blue .bc-outpost>b{background:linear-gradient(270deg,rgba(10,60,130,.9),rgba(6,18,40,.6))}
+.bc-outpost>b.down{color:#8a949c;background:rgba(30,34,40,.85)}
+.bc-outpost>small{font-size:16px;color:#c2ccd4;padding:0 10px}
+.bc-team-main{width:440px;display:flex;flex-direction:column;gap:4px}
+.bc-team-name{display:flex;align-items:baseline;gap:12px;font-size:26px;font-weight:700;text-shadow:0 2px 6px #000;letter-spacing:.5px}
+.red .bc-team-name{justify-content:flex-end}.bc-team-name>span{max-width:330px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-team-name small{font-size:14px;color:#c4cdd5;font-weight:500}
+.blue .bc-team-name{flex-direction:row-reverse;justify-content:flex-end}
+.bc-basebar{position:relative;height:38px;background:rgba(14,16,20,.9);border:2px solid rgba(255,255,255,.25);clip-path:polygon(3% 0,100% 0,97% 100%,0 100%);overflow:hidden}
+.blue .bc-basebar{clip-path:polygon(0 0,97% 0,100% 100%,3% 100%)}
+.bc-basebar>.fill{position:absolute;top:0;bottom:0;right:0;background:linear-gradient(180deg,#ff5a52,var(--r) 55%,#a5121b);transition:width .25s}
+.blue .bc-basebar>.fill{right:auto;left:0;background:linear-gradient(180deg,#5bb4ff,var(--b) 55%,#0e56b5)}
+.bc-basebar-hex{position:absolute;inset:0;opacity:.28;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='34'%3E%3Cpath d='M10 0 20 6v11L10 23 0 17V6Zm0 23 10 6v5M10 23 0 29v5' fill='none' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E")}
+.bc-basebar>b{position:absolute;left:28px;top:0;line-height:38px;font-size:30px;font-weight:700;text-shadow:0 1px 4px #000}
+.blue .bc-basebar>b{left:auto;right:28px}
+.bc-base-icon{position:absolute;left:108px;top:9px;width:22px;height:20px;background:#fff;clip-path:polygon(50% 0,100% 100%,70% 100%,50% 55%,30% 100%,0 100%)}
+.blue .bc-base-icon{left:auto;right:108px}
+.bc-team-sub{display:flex;gap:12px;font-size:16px;color:#d9e0e6;text-shadow:0 1px 3px #000;padding:0 18px}
+.red .bc-team-sub{justify-content:flex-start}.blue .bc-team-sub{justify-content:flex-end}
+.bc-invuln{color:#ffe08a}.bc-armor{color:#ff9d8e}.blue .bc-armor{color:#9fd0ff}
+.bc-emblem{flex-shrink:0;filter:drop-shadow(0 3px 8px rgba(0,0,0,.6))}
+.bc-clock{position:absolute;left:50%;top:0;transform:translateX(-50%);width:300px;display:flex;flex-direction:column;align-items:center}
+.bc-clock>small{font-size:16px;color:#e8edf1;letter-spacing:1px;padding:1px 22px;background:rgba(10,14,20,.8);clip-path:polygon(8% 0,92% 0,100% 100%,0 100%)}
+.bc-clock-row{display:flex;align-items:center;gap:8px;height:74px;padding:0 10px;background:linear-gradient(180deg,rgba(28,36,46,.95),rgba(8,11,16,.95));clip-path:polygon(0 0,100% 0,88% 100%,12% 100%);border-top:2px solid rgba(255,255,255,.3);width:300px;justify-content:center}
+.bc-clock-row strong{font-size:50px;font-weight:700;letter-spacing:1px;min-width:120px;text-align:center;text-shadow:0 0 14px rgba(170,210,255,.35)}
+.bc-wins{font-family:var(--num);font-weight:700;font-size:34px;width:46px;text-align:center;border:2px solid rgba(255,255,255,.35);clip-path:polygon(18% 0,100% 0,82% 100%,0 100%);background:rgba(0,0,0,.4)}
+.bc-adv{position:relative;width:236px;height:5px;margin-top:6px;background:var(--b)}.bc-adv>i{position:absolute;inset:0 auto 0 0;background:var(--r)}.bc-adv>em{position:absolute;top:-5px;width:3px;height:15px;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.bc-coins{display:flex;align-items:center;gap:10px;margin-top:7px;padding:4px 10px;background:rgba(8,12,18,.85);border:1px solid var(--edge);clip-path:polygon(4% 0,96% 0,100% 100%,0 100%)}
+.bc-coins>span{font-family:var(--num);font-size:22px;font-weight:700;min-width:88px}.bc-coins>span small{font-size:14px;color:#a9b5bf;font-weight:500}
+.bc-coins .red{text-align:right;border-right:3px solid var(--r);padding-right:8px}.bc-coins .blue{border-left:3px solid var(--b);padding-left:8px}
+.bc-coins>b{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#5b3d00;background:radial-gradient(circle at 35% 30%,#fff3c4,#f2c35b 55%,#b9821e);font-style:italic}
+.bc-dmg{display:flex;align-items:center;gap:14px;margin-top:3px;font-size:16px}.bc-dmg span{font-family:var(--num);font-weight:700;width:70px}.bc-dmg span:first-child{text-align:right}.bc-dmg small{font-size:10px;letter-spacing:2px;color:#9aa6b0}
+/* ---- robot cards */
+.bc-cards{position:absolute;top:136px;display:flex;gap:6px}.bc-cards.red{right:calc(50% + 190px)}.bc-cards.blue{left:calc(50% + 190px)}
+.bc-card{position:relative;width:114px;height:96px;padding:0;border:0;border-radius:0;background:none;display:block;text-align:left;color:inherit}
+.bc-card:hover{background:none}
+.bc-card-art{position:absolute;inset:0 0 26px 0;background:linear-gradient(180deg,rgba(40,48,58,.55),rgba(8,10,14,.85));border:1px solid var(--edge);overflow:hidden;clip-path:polygon(10% 0,100% 0,100% 100%,0 100%,0 14%)}
+.bc-card-art img{position:absolute;left:50%;top:50%;width:110%;transform:translate(-46%,-52%);filter:saturate(.75) brightness(1.08)}
+.bc-card-ph{position:absolute;inset:18px 26px;background:#2a3038;clip-path:polygon(20% 30%,80% 30%,100% 80%,0 80%)}
+.bc-card-id{position:absolute;left:0;right:0;top:44px;display:flex;align-items:flex-end;gap:4px;padding:0 4px;height:26px;background:linear-gradient(90deg,rgba(0,0,0,.75),rgba(0,0,0,.2))}
+.bc-card-id em{font-size:30px;font-weight:700;line-height:26px;font-style:italic;text-shadow:0 1px 3px #000}
+.bc-card-id>span{font-size:15px;font-weight:700;line-height:24px;flex:1;white-space:nowrap;overflow:hidden}
+.bc-card-hp{position:absolute;left:0;right:0;top:72px;height:8px;background:#1a1d22;border:1px solid rgba(255,255,255,.25);overflow:hidden}
+.bc-card-hp>i{position:absolute;inset:0 auto 0 0;background:linear-gradient(180deg,#ff6b63,var(--r));transition:width .2s}.blue .bc-card-hp>i{background:linear-gradient(180deg,#6dbaff,var(--b))}
+.bc-card-hp>s{position:absolute;top:0;bottom:0;width:2px;background:rgba(0,0,0,.55)}
+.bc-card-meta{position:absolute;left:0;right:0;top:82px;display:flex;justify-content:space-between;font-size:14px;color:#dfe5ea;font-family:var(--num);text-shadow:0 1px 2px #000;padding:0 2px}
+.bc-card-meta small{font-size:11px;color:#9fb0bc;font-family:"PingFang SC",system-ui}
+.bc-stars i{font-style:normal;color:#4b525a;font-size:13px}.bc-stars i.on{color:var(--gold)}
+.bc-chev{display:flex;flex-direction:column-reverse;gap:1px;margin-bottom:4px}.bc-chev i{display:block;width:13px;height:5px;background:var(--gold);clip-path:polygon(0 100%,50% 0,100% 100%,80% 100%,50% 40%,20% 100%)}.bc-chev.max i{background:#ffe9a6;filter:drop-shadow(0 0 3px #ffd56a)}
+.bc-card.dead .bc-card-art img{filter:grayscale(1) brightness(.45)}.bc-card.dead .bc-card-id{opacity:.6}
+.bc-mode{position:absolute;right:4px;top:3px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-style:normal;font-weight:700;background:#f4f6f8;color:#c4161d;border:2px solid var(--r)}.blue .bc-mode{color:#0b5bc4;border-color:var(--b)}
+.bc-respawn{position:absolute;left:0;right:0;top:6px;text-align:center;font-size:26px;font-weight:700;text-shadow:0 0 6px #000}
+.bc-card.selected .bc-card-art{border-color:var(--gold);box-shadow:inset 0 0 0 2px var(--gold)}
+/* ---- tickers, banners, kill feed, toast */
+.bc-tickers{position:absolute;top:232px;display:flex;flex-direction:column;gap:6px}.bc-tickers.red{left:12px}.bc-tickers.blue{right:12px;align-items:flex-end}
+.bc-ticker{display:flex;align-items:center;gap:10px;min-width:380px;height:32px;padding:0 14px;font-size:17px;background:linear-gradient(90deg,rgba(150,20,28,.85),rgba(20,8,10,.55));clip-path:polygon(0 0,97% 0,100% 100%,0 100%);animation:bc-slide-l .35s ease-out}
+.blue .bc-ticker{flex-direction:row-reverse;background:linear-gradient(270deg,rgba(14,70,150,.85),rgba(6,14,30,.55));clip-path:polygon(3% 0,100% 0,100% 100%,0 100%);animation-name:bc-slide-r}
+.bc-ticker>span:nth-child(2){flex:1}.bc-ticker b{font-size:20px}.bc-ticker-icon{color:var(--gold);font-size:20px}
+.bc-banner{position:absolute;top:236px;left:50%;transform:translateX(-50%);padding:6px 120px;font-size:30px;font-weight:800;letter-spacing:2px;white-space:nowrap;background:radial-gradient(ellipse at center,rgba(220,30,40,.75),rgba(120,10,16,.35) 55%,transparent 72%);text-shadow:0 0 12px rgba(255,90,80,.85),0 2px 3px #000;animation:bc-banner 2.6s ease-out both}
+.bc-banner.blue{background:radial-gradient(ellipse at center,rgba(30,120,240,.75),rgba(10,50,120,.35) 55%,transparent 72%);text-shadow:0 0 12px rgba(90,170,255,.85),0 2px 3px #000}
+.bc-killfeed{position:absolute;right:16px;top:330px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.bc-kill{display:flex;align-items:center;gap:8px;padding:4px 10px;background:linear-gradient(270deg,rgba(8,12,18,.9),rgba(8,12,18,.4));animation:bc-slide-r .3s ease-out}
+.bc-kill>b{font-size:16px;font-family:"PingFang SC",system-ui;color:#ffd36b}
+.bc-kill-bot{position:relative;width:64px;height:40px;border:2px solid var(--r);background:#11151b;overflow:hidden}.bc-kill-bot.blue{border-color:var(--b)}
+.bc-kill-bot img{position:absolute;left:50%;top:50%;width:120%;transform:translate(-48%,-50%)}.bc-kill-bot em{position:absolute;left:3px;bottom:-2px;font-size:20px;font-style:italic;font-weight:700;text-shadow:0 1px 3px #000}
+.bc-toast{position:absolute;bottom:108px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:18px;min-width:620px;padding:12px 26px 12px 16px;background:linear-gradient(90deg,rgba(10,14,20,.95),rgba(16,20,28,.86));border:1px solid var(--edge);border-left:5px solid var(--r);animation:bc-toast 4.2s ease-out both}
+.bc-toast.blue{border-left-color:var(--b)}
+.bc-toast-icon{width:62px;height:62px;display:grid;place-items:center;background:radial-gradient(circle,rgba(255,80,70,.35),transparent 70%)}.blue .bc-toast-icon{background:radial-gradient(circle,rgba(60,150,255,.35),transparent 70%)}
+.bc-toast-icon svg{width:52px;height:52px;fill:#fff;filter:drop-shadow(0 0 6px rgba(255,255,255,.6))}
+.bc-toast strong{display:block;font-size:26px;font-family:"PingFang SC",system-ui;font-weight:800;letter-spacing:1px}
+.bc-chips{display:flex;gap:14px;margin-top:5px}.bc-chips span{font-family:var(--num);font-size:19px;color:#ffd36b}
+.bc-mini{position:absolute;right:30px;bottom:34px;width:420px;height:225px;border:2px solid rgba(255,255,255,.22);background:rgba(6,9,13,.85);box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.bc-minimap{display:block;width:100%;height:100%}
+.mm-base{stroke:#fff;stroke-width:1.2}.mm-base.red{fill:rgba(236,50,57,.55)}.mm-base.blue{fill:rgba(34,150,243,.55)}
+.mm-outpost{stroke:#fff;stroke-width:1}.mm-outpost.red{fill:var(--r)}.mm-outpost.blue{fill:var(--b)}.mm-outpost.down{fill:#3b4048}
+.mm-bot circle{stroke:#fff;stroke-width:1.2}.mm-bot.red circle{fill:var(--r)}.mm-bot.blue circle{fill:var(--b)}.mm-bot.sel circle{stroke:var(--gold);stroke-width:2.4}
+.mm-bot text{font:700 10px var(--num);fill:#fff}
+.bc-plate{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:440px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:linear-gradient(180deg,rgba(40,48,58,.92),rgba(10,13,18,.95));clip-path:polygon(9% 0,91% 0,100% 100%,0 100%);border-top:2px solid rgba(255,255,255,.25)}
+.bc-plate span{font-size:22px;font-weight:700;letter-spacing:2px}.bc-plate b{font-size:30px;font-style:italic;letter-spacing:5px}
+.compact .bc-cards,.compact .bc-outpost{display:none}.compact .bc-team-main{width:360px}.compact .bc-side.red{right:calc(50% + 152px)}.compact .bc-side.blue{left:calc(50% + 152px)}
+.compact .bc-tickers{top:200px}.compact .bc-killfeed{top:280px}.compact .bc-mini{width:260px;height:140px;right:18px;bottom:18px}.compact .bc-plate{display:none}.compact .bc-toast{bottom:40px}
+@keyframes bc-slide-l{from{transform:translateX(-40px);opacity:0}}@keyframes bc-slide-r{from{transform:translateX(40px);opacity:0}}
+@keyframes bc-banner{0%{opacity:0;letter-spacing:22px}12%{opacity:1;letter-spacing:2px}85%{opacity:1}100%{opacity:0}}
+@keyframes bc-toast{0%{opacity:0;transform:translate(-50%,30px)}8%{opacity:1;transform:translate(-50%,0)}90%{opacity:1}100%{opacity:0}}
+/* ---- in-world rune overlays (drei Html) */
+.rune-board{display:flex;gap:4px;font-family:"DIN Alternate","Bahnschrift",system-ui;pointer-events:none;transform:translateY(-40px)}
+.rune-board-side{display:flex;align-items:baseline;gap:6px;padding:2px 9px;background:rgba(8,12,18,.88);border:1px solid rgba(255,255,255,.18);color:#fff;white-space:nowrap}
+.rune-board-side.red{border-left:4px solid #ec3239}.rune-board-side.blue{border-right:4px solid #2296f3;flex-direction:row-reverse}
+.rune-board-side b{font-size:16px}.rune-board-side small{font-size:11px;color:#c9d2d9}.rune-board-side i{font-style:normal;font-size:12px;color:#ffd36b}
+.rune-burst{display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;animation:rune-burst 3.2s ease-out both;transform:translateY(-60px)}
+.rune-burst svg{width:190px;height:190px;filter:drop-shadow(0 0 16px currentColor)}.rune-burst.red{color:#ff4b40}.rune-burst.blue{color:#3aa2ff}
+.rune-burst .arm{fill:rgba(255,255,255,.92);stroke:currentColor;stroke-width:5}.rune-burst .lamp{fill:currentColor}.rune-burst .hub{fill:#fff;stroke:currentColor;stroke-width:6}.rune-burst .core{fill:currentColor}
+.rune-burst svg>g{animation:rune-spin 3.2s ease-out both;transform-origin:center}
+.rune-burst b{font:700 30px "DIN Alternate","Bahnschrift",system-ui;color:#fff;text-shadow:0 0 8px currentColor}
+.rune-burst span{font:800 30px "PingFang SC",system-ui;color:#fff;white-space:nowrap;text-shadow:0 0 10px currentColor,0 2px 3px #000}
+@keyframes rune-burst{0%{opacity:0;transform:translateY(-60px) scale(.3)}12%{opacity:1;transform:translateY(-60px) scale(1.15)}22%{transform:translateY(-60px) scale(1)}85%{opacity:1}100%{opacity:0;transform:translateY(-80px) scale(.95)}}
+@keyframes rune-spin{from{transform:rotate(-90deg)}to{transform:rotate(36deg)}}
+
+/* ---- ceremonies */
+.cer-skip{position:absolute;right:36px;bottom:30px;font-size:18px;padding:10px 22px;background:rgba(10,14,20,.7);border:1px solid rgba(255,255,255,.3);color:#e8edf1;border-radius:4px}
+.cer-intro{pointer-events:auto;background:#05070b}
+.intro-bg{position:absolute;top:0;bottom:0;width:58%}.intro-bg.red{left:0;background:linear-gradient(110deg,#5a0910 0%,#2a0508 45%,transparent 100%);clip-path:polygon(0 0,100% 0,82% 100%,0 100%)}
+.intro-bg.blue{right:0;background:linear-gradient(250deg,#08306a 0%,#04152f 45%,transparent 100%);clip-path:polygon(18% 0,100% 0,100% 100%,0 100%)}
+.intro-team{position:absolute;top:110px;width:720px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:intro-in .8s ease-out both}.intro-team.red{left:90px}.intro-team.blue{right:90px;animation-name:intro-in-r}
+.intro-team h2{font-size:56px;font-weight:800;margin-top:18px;letter-spacing:1px;max-width:700px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.intro-team>p{font-size:20px;color:#aeb9c2;margin-top:6px}
+.intro-rate{display:flex;flex-direction:column;align-items:center;margin-top:26px}.intro-rate small{font-size:20px;color:#c0c9d0}
+.intro-rate b{font-size:150px;font-weight:800;font-style:italic;line-height:1;background:linear-gradient(180deg,#fff,#ff8a80);-webkit-background-clip:text;background-clip:text;color:transparent}.blue .intro-rate b{background:linear-gradient(180deg,#fff,#8cc8ff);-webkit-background-clip:text;background-clip:text}
+.intro-rate b i{font-size:60px;font-style:italic}.intro-rate span{font-size:20px;color:#d7dee4;margin-top:4px}
+.intro-roster{display:flex;gap:10px;margin-top:34px}.intro-roster>div{width:108px;display:flex;flex-direction:column;align-items:center}
+.intro-roster>div>span{width:108px;height:80px;position:relative;overflow:hidden;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)}
+.intro-roster img{position:absolute;left:50%;top:50%;width:118%;transform:translate(-48%,-50%)}
+.intro-roster b{font-size:28px;font-style:italic;margin-top:4px}.intro-roster small{font-size:16px;color:#c8d0d6}
+.intro-vs{position:absolute;left:50%;top:330px;transform:translateX(-50%);font:italic 900 170px "DIN Alternate","Bahnschrift",system-ui;color:#fff;text-shadow:0 0 30px rgba(180,200,255,.5);animation:intro-vs 1s ease-out both}
+.intro-check{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);width:820px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.intro-check>span{font-size:22px;letter-spacing:3px;color:#dfe7ee}
+.intro-check>div{width:100%;height:10px;background:rgba(255,255,255,.12);overflow:hidden;clip-path:polygon(1% 0,100% 0,99% 100%,0 100%)}.intro-check>div i{display:block;height:100%;background:linear-gradient(90deg,#33e1ff,#9bf6ff);box-shadow:0 0 12px #33e1ff;transition:width .2s linear}
+.intro-check ul{display:flex;gap:30px;list-style:none;margin:0;padding:0;font-size:17px;color:#7d8a95}.intro-check li:before{content:'○ '}.intro-check li.ok{color:#9bf6ff}.intro-check li.ok:before{content:'✓ '}
+.intro-check small{font-size:16px;color:#9aa8b4}
+.cer-countdown .cd-shade{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.15),rgba(0,0,0,.6))}
+.cd-number{position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);font:italic 900 440px/1 "DIN Alternate","Bahnschrift",system-ui;color:#fff;text-shadow:0 0 40px rgba(200,220,255,.85),0 0 90px rgba(140,90,255,.6);animation:cd-pop 1s ease-out both}
+.cd-caption{position:absolute;left:50%;bottom:140px;transform:translateX(-50%);font-size:30px;letter-spacing:8px;color:#e5ecf2;text-shadow:0 2px 6px #000}
+.cd-bolt{position:absolute;inset:0;width:100%;height:100%}.cd-bolt polyline{fill:none;stroke:#b04bff;stroke-width:14;stroke-linejoin:round;opacity:.7;filter:drop-shadow(0 0 14px #b04bff);stroke-dasharray:3000;animation:cd-bolt .9s ease-out both}
+.cd-bolt.k1 polyline{stroke:#ff9a2a;filter:drop-shadow(0 0 14px #ff9a2a)}.cd-bolt polyline.core{stroke:#fff;stroke-width:3;opacity:1}
+@keyframes cd-pop{0%{transform:translate(-50%,-55%) scale(1.8);opacity:0;filter:blur(12px)}18%{transform:translate(-50%,-55%) scale(.94);opacity:1;filter:blur(0)}30%{transform:translate(-50%,-55%) scale(1)}80%{opacity:1}100%{opacity:.15;transform:translate(-50%,-55%) scale(.96)}}
+@keyframes cd-bolt{0%{stroke-dashoffset:3000}35%{stroke-dashoffset:0;opacity:1}100%{opacity:0}}
+@keyframes intro-in{from{opacity:0;transform:translateX(-80px)}}@keyframes intro-in-r{from{opacity:0;transform:translateX(80px)}}@keyframes intro-vs{from{opacity:0;transform:translateX(-50%) scale(2.2)}}
+.start-flash{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(255,255,255,.85),rgba(160,200,255,.2) 50%,transparent 75%);animation:start-flash 1.3s ease-out both}
+.start-text{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font:italic 900 150px "PingFang SC",system-ui;letter-spacing:16px;color:#fff;text-shadow:0 0 30px #8ec5ff,0 4px 8px #000;animation:start-text 1.3s ease-out both;white-space:nowrap}
+@keyframes start-flash{0%{opacity:1}100%{opacity:0}}@keyframes start-text{0%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.05)}}
+/* victory */
+.cer-victory{--c1:#ff3b30;--c2:#7a0910;--c3:#ffb3a8}.cer-victory.blue{--c1:#2f8cff;--c2:#062f6e;--c3:#a8d4ff}.cer-victory.draw{--c1:#f2c35b;--c2:#5b4310;--c3:#fff0c4}
+.vic-tint{position:absolute;inset:0;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--c1) 55%,transparent),color-mix(in srgb,var(--c2) 85%,transparent) 70%);mix-blend-mode:screen;animation:vic-tint 6s ease-out both}
+.vic-flash{position:absolute;inset:0;background:#fff;animation:vic-flash .5s ease-out both}
+.vic-bolts{position:absolute;inset:0;width:100%;height:100%}.vic-bolts polyline{fill:none;stroke-width:10;stroke-linejoin:round;stroke-dasharray:1800;animation:vic-bolt 1.2s ease-out .15s both}
+.vic-bolts .b1{stroke:#ff4a3c;filter:drop-shadow(0 0 12px #ff4a3c)}.vic-bolts .b2{stroke:#3aa2ff;filter:drop-shadow(0 0 12px #3aa2ff)}
+.vic-shards{position:absolute;left:50%;top:46%}.vic-shards i{position:absolute;width:var(--s);height:calc(var(--s)*1.4);margin:calc(var(--s)*-.7) 0 0 calc(var(--s)*-.5);background:linear-gradient(135deg,var(--c3),var(--c1) 55%,var(--c2));clip-path:polygon(50% 0,100% 100%,0 70%);opacity:0;animation:vic-shard 1.5s cubic-bezier(.2,.8,.3,1) var(--delay) both}
+@keyframes vic-shard{0%{opacity:0;transform:rotate(var(--a)) translateX(calc(var(--d)*1.4)) rotate(var(--r))}35%{opacity:1;transform:rotate(var(--a)) translateX(40px) rotate(calc(var(--r) + 180deg))}55%{opacity:1;transform:rotate(var(--a)) translateX(10px) scale(.6)}100%{opacity:0;transform:rotate(var(--a)) translateX(var(--d)) rotate(var(--r)) scale(.4)}}
+.vic-emblem{position:absolute;left:50%;top:46%;width:1040px;height:640px;transform:translate(-50%,-50%);animation:vic-emblem 6s ease-out both}
+.vic-emblem svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 26px var(--c1))}
+.vic-emblem .s0{stop-color:var(--c3)}.vic-emblem .s1{stop-color:var(--c1)}.vic-emblem .w0{stop-color:var(--c1)}.vic-emblem .w1{stop-color:var(--c3)}
+.hex-edge{fill:var(--c2);stroke:var(--c3);stroke-width:5}.hex-hi{fill:rgba(255,255,255,.22)}.hex-r{fill:#fff;opacity:.92}
+.vic-hex{transform-origin:0 0;animation:vic-hex 1s cubic-bezier(.2,1.4,.4,1) .45s both}
+.vic-wings .wing{fill:url(#vic-wing);stroke:var(--c3);stroke-width:3}.wing.l{transform-origin:-70px -14px;animation:vic-wing 1s cubic-bezier(.2,1.2,.4,1) 1.1s both}.wing.r{transform-origin:70px -14px;animation:vic-wing 1s cubic-bezier(.2,1.2,.4,1) 1.1s both}
+.vic-title{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);font:italic 900 168px "PingFang SC",system-ui;letter-spacing:10px;white-space:nowrap;color:#fff;text-shadow:0 0 30px var(--c1),0 6px 0 var(--c2),0 10px 20px rgba(0,0,0,.6);animation:vic-title 6s ease-out both}
+.vic-reason{position:absolute;left:50%;top:66%;transform:translateX(-50%);font-size:40px;font-weight:700;letter-spacing:6px;padding:8px 60px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.55),transparent);text-shadow:0 2px 4px #000;animation:vic-reason 6s ease-out both}
+@keyframes vic-tint{0%,20%{opacity:0}35%{opacity:.75}100%{opacity:.55}}@keyframes vic-flash{from{opacity:.8}to{opacity:0}}
+@keyframes vic-bolt{0%{stroke-dashoffset:1800;opacity:1}60%{stroke-dashoffset:0;opacity:1}100%{opacity:0}}
+@keyframes vic-emblem{0%,8%{opacity:0}12%{opacity:1}62%{opacity:1;transform:translate(-50%,-50%) scale(1)}75%{opacity:.35;transform:translate(-50%,-58%) scale(.9)}100%{opacity:.3;transform:translate(-50%,-58%) scale(.9)}}
+@keyframes vic-hex{from{transform:scale(0) rotate(-30deg)}to{transform:scale(1) rotate(0)}}
+@keyframes vic-wing{from{transform:scaleX(0);opacity:0}to{transform:scaleX(1);opacity:1}}
+@keyframes vic-title{0%,30%{opacity:0;clip-path:inset(0 100% 0 0);transform:translate(-50%,-50%) scale(1.25)}40%{opacity:1;clip-path:inset(0 0 0 0);transform:translate(-50%,-50%) scale(1)}100%{opacity:1}}
+@keyframes vic-reason{0%,42%{opacity:0;transform:translate(-50%,20px)}52%{opacity:1;transform:translate(-50%,0)}100%{opacity:1}}
+/* results */
+.cer-results{pointer-events:auto;background:linear-gradient(90deg,#3d0a10 0%,#10141b 38%,#10141b 62%,#082a5c 100%);animation:res-in .6s ease-out both}
+.res-bg{position:absolute;top:0;bottom:0;width:40%;opacity:.6}.res-bg.red{left:0;background:radial-gradient(ellipse at 20% 40%,rgba(236,50,57,.45),transparent 65%)}.res-bg.blue{right:0;background:radial-gradient(ellipse at 80% 40%,rgba(34,150,243,.45),transparent 65%)}
+.res-robot{position:absolute;top:300px;width:820px;opacity:.28;filter:saturate(.6)}.res-robot.red{left:-120px}.res-robot.blue{right:-120px;transform:scaleX(-1)}
+.res-win{position:absolute;top:20px;font:italic 900 220px/1 "DIN Alternate","Bahnschrift",system-ui;letter-spacing:10px;color:transparent;-webkit-text-stroke:3px rgba(255,190,90,.55);background:linear-gradient(180deg,rgba(255,170,60,.45),rgba(255,90,40,.05));-webkit-background-clip:text;background-clip:text}.res-win.red{left:40px}.res-win.blue{right:40px}
+.res-head{position:absolute;top:56px;left:0;right:0;height:200px}
+.res-team{position:absolute;top:0;display:flex;align-items:center;gap:40px}.res-team.red{right:calc(50% + 200px)}.res-team.blue{left:calc(50% + 200px);flex-direction:row-reverse}
+.res-team h2{font-size:58px;font-weight:800;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.res-team small{font-size:24px;color:#b9c4cc}.res-team.red>div{text-align:right}
+.res-score{position:absolute;left:50%;top:30px;transform:translateX(-50%);display:flex;align-items:center;gap:30px;font:italic 900 110px "DIN Alternate","Bahnschrift",system-ui}.res-score .red{color:#ff5a52}.res-score .blue{color:#3aa2ff}.res-score span{font-size:96px;color:#fff;text-shadow:0 0 20px rgba(255,190,90,.5)}
+.res-verdict,.res-detail{position:absolute;left:50%;transform:translateX(-50%);width:1080px}.res-verdict{top:290px}.res-detail{top:520px}
+.res-verdict h3,.res-detail h3{text-align:center;font-size:24px;font-weight:600;color:#b3bfc8;letter-spacing:4px;padding:6px 0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);margin-bottom:18px}
+.res-structures{display:grid;grid-template-columns:1fr 360px 1fr;align-items:center}.res-struct{display:flex;align-items:flex-end;gap:10px}.res-struct.red{grid-column:1;justify-content:flex-end}.res-struct.blue{grid-column:3;flex-direction:row-reverse;justify-content:flex-end}.res-reason{grid-column:2;grid-row:1;text-align:center;display:flex;flex-direction:column;gap:8px}
+.res-reason b{font:800 36px "PingFang SC",system-ui;color:#ffd36b}.res-reason span{font-size:18px;color:#c6d0d8}
+.res-base,.res-outpost{position:relative;display:flex;flex-direction:column;gap:4px;padding:6px 18px 12px;background:rgba(14,18,24,.85);border:1px solid rgba(255,255,255,.18);overflow:hidden}
+.res-base{width:250px}.res-outpost{width:150px}.res-base small,.res-outpost small{font-size:20px;color:#dfe5ea}.res-base b{font-size:58px;font-weight:700}.res-outpost b{font-size:34px;font-weight:700}
+.res-base i,.res-outpost i{position:absolute;left:0;bottom:0;height:6px;background:#ec3239}.blue .res-base i,.blue .res-outpost i{background:#2296f3}
+.res-row{display:grid;grid-template-columns:200px 1fr 200px;align-items:center;gap:18px;margin:12px 0}
+.res-row>b{font-size:42px;font-weight:700}.res-row>b.red{text-align:right}.res-bar>span{display:block;text-align:center;font:italic 700 24px "PingFang SC",system-ui;margin-bottom:6px}
+.res-bar>div{position:relative;height:8px;background:rgba(255,255,255,.1)}.res-bar i{position:absolute;top:0;bottom:0}.res-bar i.red{right:50%;background:linear-gradient(270deg,#ff5a52,#8e0f17)}.res-bar i.blue{left:50%;background:linear-gradient(90deg,#3aa2ff,#0b3f86)}
+.res-tiles{position:absolute;top:520px;display:grid;grid-template-columns:1fr 1fr;gap:10px;width:330px}.res-tiles.red{left:70px}.res-tiles.blue{right:70px}
+.res-tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 8px;background:rgba(14,18,24,.82);border:1px solid rgba(255,255,255,.14)}.res-tile>span{font-size:34px;color:#ff6b63}.blue .res-tile>span{color:#5bb4ff}
+.res-tile b{font-size:26px;font-style:italic}.res-tile small{font-size:16px;color:#aab6bf}
+.res-actions{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);display:flex;gap:20px}.res-actions button{font-size:22px;padding:14px 34px;border-radius:4px;background:rgba(14,18,24,.9);border:1px solid rgba(255,255,255,.3);color:#eef2f5}.res-actions button:first-child{background:linear-gradient(90deg,#f2c35b,#e39b2d);color:#2a1a00;border:0;font-weight:700}
+@keyframes res-in{from{opacity:0}}
+/* mvp */
+.cer-mvp{--c1:#ec3239;--c2:#5a0a10;pointer-events:auto;background:#07080b;animation:res-in .5s ease-out both}.cer-mvp.blue{--c1:#2296f3;--c2:#06264f}
+.mvp-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 28% 55%,color-mix(in srgb,var(--c1) 45%,transparent),transparent 60%),linear-gradient(115deg,transparent 55%,rgba(255,255,255,.04) 55%,rgba(255,255,255,.04) 58%,transparent 58%)}
+.mvp-streak{position:absolute;left:-10%;right:-10%;top:52%;height:120px;background:linear-gradient(90deg,transparent,var(--c1),transparent);filter:blur(30px);opacity:.55;transform:rotate(-4deg);animation:mvp-streak 1.6s ease-out both}
+.mvp-word{position:absolute;left:60px;top:40px;font:italic 900 380px/1 "DIN Alternate","Bahnschrift",system-ui;letter-spacing:-6px;color:transparent;-webkit-text-stroke:5px var(--c1);filter:drop-shadow(0 0 22px var(--c1));opacity:.85;animation:mvp-word 1.2s ease-out both}
+.mvp-team{position:absolute;left:90px;top:440px;display:flex;flex-direction:column;align-items:center;gap:14px;width:380px;animation:intro-in .8s ease-out .3s both}.mvp-team h2{font-size:44px;font-weight:800;text-align:center}.mvp-team small{font-size:20px;color:#b9c4cc}
+.mvp-robot{position:absolute;left:470px;top:250px;width:820px;height:670px;animation:mvp-robot 1.1s cubic-bezier(.2,1,.3,1) .2s both}.mvp-robot img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 30px 40px rgba(0,0,0,.7))}
+.mvp-panel{position:absolute;right:70px;top:150px;width:640px;display:flex;flex-direction:column;gap:14px;animation:intro-in-r .8s ease-out .4s both}
+.mvp-id{display:flex;align-items:center;gap:20px;padding:14px 28px;background:linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.02));clip-path:polygon(4% 0,100% 0,96% 100%,0 100%)}
+.mvp-id em{font:italic 900 120px/1 "DIN Alternate","Bahnschrift",system-ui;color:var(--c1);text-shadow:0 0 18px var(--c1)}.mvp-id span{display:inline-block;font:italic 800 28px "PingFang SC",system-ui;padding:2px 12px;background:var(--c1);color:#fff}
+.mvp-id b{display:block;font:italic 900 60px "PingFang SC",system-ui;letter-spacing:12px;margin-top:6px}.mvp-id small{margin-left:auto;font-size:22px;color:#9aa6b0;font-family:"DIN Alternate",system-ui}
+.mvp-line{display:flex;align-items:center;justify-content:space-between;padding:16px 34px;background:linear-gradient(90deg,rgba(255,255,255,.07),rgba(255,255,255,.02));clip-path:polygon(3% 0,100% 0,97% 100%,0 100%)}
+.mvp-line span{font-size:28px;color:#d8dfe5}.mvp-line b{font-size:56px;font-style:italic;font-weight:800}.mvp-line b small{font-size:30px;margin-left:4px}
+.mvp-panel p{font-size:18px;color:#9aa6b0;margin-top:6px}
+@keyframes mvp-word{from{opacity:0;transform:translateX(-120px)}}@keyframes mvp-streak{from{opacity:0;transform:rotate(-4deg) scaleX(.2)}}@keyframes mvp-robot{from{opacity:0;transform:translateY(60px) scale(.9)}}
+/* ---- fullscreen controls (outside the scaled stage) */
+.fullscreen-toggle{position:absolute;top:10px;right:10px;z-index:8;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;color:#e8eef3;background:rgba(8,12,18,.72);border:1px solid rgba(255,255,255,.28);border-radius:4px;backdrop-filter:blur(4px)}
+.fullscreen-toggle:hover{background:rgba(20,28,38,.9);border-color:rgba(255,255,255,.5)}
+.viewport:fullscreen .fullscreen-toggle{top:14px;right:14px;font-size:13px;padding:8px 12px}
+.fullscreen-controls{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(8,12,18,.82);border:1px solid rgba(255,255,255,.22);border-radius:8px;color:#e8eef3;font:600 13px "DIN Alternate","Bahnschrift",system-ui;transition:opacity .3s}
+.fullscreen-controls.idle{opacity:0;pointer-events:none}
+.fullscreen-controls button{padding:6px;border:0;background:transparent;color:inherit}.fullscreen-controls button:hover{background:rgba(255,255,255,.12)}
+.fullscreen-controls input[type=range]{width:min(40vw,520px);accent-color:#f2c35b}
+.fullscreen-controls select{padding:4px 6px;font-size:12px;background:#151e25;color:#e8eef3;border:1px solid #33424d;border-radius:4px}
+.viewport:fullscreen .viewport-bottom,.viewport.page-fullscreen .viewport-bottom{display:none}
+.viewport.page-fullscreen{position:fixed;inset:0;z-index:1000;width:100vw;height:100vh;height:100dvh;margin:0;border-radius:0;background:#05080c}
+.viewport.page-fullscreen .fullscreen-toggle{top:14px;right:14px;font-size:13px;padding:8px 12px}
+/* The agent behind each robot's strategy, pinned above its card. */
+.bc-card-agent{position:absolute;left:50%;top:-15px;transform:translateX(-50%);z-index:2;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1b222c,#07090d);border:2px solid var(--r);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.7)}
+.bc-card.blue .bc-card-agent{border-color:var(--b)}
+.bc-card.dead .bc-card-agent{filter:grayscale(1) brightness(.6)}

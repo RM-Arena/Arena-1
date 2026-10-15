@@ -1,0 +1,7954 @@
+{
+  "version": "rmuc-2026-v1.0.0-arena-v3",
+  "dt": 0.05,
+  "policy_interval": 2,
+  "official": {
+    "source": {
+      "title": "RoboMaster 2026 机甲大师超级对抗赛比赛规则手册",
+      "version": "1.0.0",
+      "date": "2025-10-21",
+      "sha256": "17ac87f8c67ee3f8e7fa9a0731515b0f8c4cc2cbfd5730db858b71fdbeb7bf33"
+    },
+    "terrain_geometry": {
+      "central_ramp_deg": 10.5,
+      "assembly_ramp_deg": 10,
+      "road_ramp_deg": 11,
+      "fly_ramp_deg": 17,
+      "fortress_ramp_deg": 20,
+      "trapezoid_ramps_deg": [
+        43,
+        23
+      ],
+      "trapezoid_height_m_range": [
+        0.2,
+        0.4
+      ],
+      "source_pages": [
+        52,
+        53,
+        54,
+        55,
+        60,
+        61
+      ],
+      "chapter4_dimensions": {
+        "base_x_m": 2.407,
+        "fortress_x_m": 6.6,
+        "outpost_x_blue_m": 17.008,
+        "outpost_y_blue_m": 3.643,
+        "central_width_m": 7.7,
+        "central_depth_m": 10.82,
+        "fortress_width_m": 2.24,
+        "fortress_depth_m": 1.939,
+        "fortress_height_m": 0.15,
+        "helipad_width_m": 2.2,
+        "helipad_height_m": 0.9,
+        "trapezoid_segments_m": [
+          6.707,
+          3.798
+        ],
+        "trapezoid_depth_m": 4.38,
+        "highway_width_segments_m": [
+          1.561,
+          2.09
+        ],
+        "tunnel_width_m": 0.8,
+        "tunnel_clearance_m": 0.25,
+        "fly_gap_m": 0.65,
+        "fly_run_m": 1.145,
+        "fly_width_m": 1.143,
+        "road_bump_height_m": 0.07,
+        "road_bump_pitch_m": 0.24,
+        "assembly_plinth_height_m": 0.1,
+        "source_pages": [
+          35,
+          43,
+          52,
+          53,
+          54,
+          55,
+          59,
+          60,
+          61
+        ]
+      }
+    },
+    "match": {
+      "duration_s": 420,
+      "field_length_m": 28,
+      "field_width_m": 15,
+      "fence_height_m": 2.4,
+      "prep_s": 180,
+      "self_check_s": 15,
+      "countdown_s": 5,
+      "source_pages": [
+        22,
+        32,
+        113,
+        119
+      ]
+    },
+    "adaptations": {
+      "excluded_systems": [
+        "dart",
+        "radar"
+      ],
+      "sentry_uses_infantry_rules": true,
+      "team_size": 6,
+      "slots": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+      ],
+      "former_sentry_ammo_bonus_removed": true,
+      "radar_debuff_and_aircraft_laser_removed": true,
+      "all_runes_variable_speed": true
+    },
+    "damage": {
+      "17mm": 20,
+      "42mm": 200,
+      "collision_sensor": 2,
+      "normal_speed_min_17_mps": 12,
+      "normal_speed_min_42_mps": 10,
+      "armor_interval_s": 0.05,
+      "armor_interval_42_max_s": 0.2,
+      "weakspot_width_m": 0.01,
+      "weakspot_height_m": 0.01,
+      "weakspot_attack_multiplier": 1.5,
+      "hero_idle_42_mask_s": 4,
+      "hero_dead_42_mask_s": 3,
+      "rounding": "half_up_integer",
+      "source_pages": [
+        66,
+        67,
+        92
+      ]
+    },
+    "projectiles": {
+      "17mm": {
+        "diameter_m": 0.0168,
+        "diameter_tolerance_m": 0.0002,
+        "mass_kg": 0.0032,
+        "mass_tolerance_kg": 0.0001,
+        "muzzle_limit_mps": 25,
+        "heat_per_shot": 10
+      },
+      "42mm": {
+        "diameter_m": 0.0425,
+        "diameter_tolerance_m": 0.0005,
+        "mass_kg": 0.0445,
+        "mass_tolerance_kg": 0.0005,
+        "muzzle_limit_mps": 12,
+        "deployed_muzzle_limit_mps": 16.5,
+        "heat_per_shot": 100
+      },
+      "source_pages": [
+        24,
+        26,
+        28,
+        64,
+        68
+      ]
+    },
+    "heat": {
+      "settlement_hz": 10,
+      "lock_when_above_limit": true,
+      "unlock_heat": 0,
+      "permanent_extra_17": 100,
+      "permanent_extra_42": 200,
+      "permanent_boundary": "at_or_above_Q2_per_figure_5_1",
+      "source_pages": [
+        68,
+        69
+      ]
+    },
+    "overspeed": {
+      "17mm": [
+        {
+          "excess_from": 0,
+          "excess_to": 5,
+          "lock_s": 15
+        },
+        {
+          "excess_from": 5,
+          "excess_to": 10,
+          "lock_s": 20
+        },
+        {
+          "excess_from": 10,
+          "permanent": true
+        }
+      ],
+      "42mm": [
+        {
+          "ratio_from": 1,
+          "ratio_to": 1.1,
+          "lock_s": 15
+        },
+        {
+          "ratio_from": 1.1,
+          "ratio_to": 1.2,
+          "lock_s": 20
+        },
+        {
+          "speed_above_mps": 18,
+          "permanent": true
+        }
+      ],
+      "source_page": 67,
+      "ambiguous_42_gap_policy": "reject_invalid_speed_requests; do_not_invent_gap_penalty"
+    },
+    "power": {
+      "settlement_hz": 10,
+      "buffer_capacity_j": 60,
+      "cutoff_s": 5,
+      "initial_energy_j": 20000,
+      "max_energy_j": 40000,
+      "energy_saving_power_w": 35,
+      "enhanced_threshold_j": 25000,
+      "enhanced_multiplier": 1.25,
+      "absolute_cap_w": 200,
+      "charge_energy_multiplier": 8,
+      "wireless_supply_max_w": 200,
+      "source_pages": [
+        50,
+        69,
+        70,
+        112
+      ],
+      "wireless_transfer_max_w": 120
+    },
+    "heal": {
+      "disengage_s": 6,
+      "supply_ratio_per_s": 0.1,
+      "late_start_s": 240,
+      "late_disengaged_supply_ratio_per_s": 0.25,
+      "remote_delay_s": 6,
+      "remote_ratio": 0.6,
+      "source_pages": [
+        18,
+        74
+      ]
+    },
+    "respawn": {
+      "progress_base": 10,
+      "elapsed_divisor": 10,
+      "instant_purchase_progress_penalty": 20,
+      "normal_progress_per_s": 1,
+      "supply_or_base_below_2000_progress_per_s": 4,
+      "base_low_hp_strict_threshold": 2000,
+      "normal_hp_ratio": 0.1,
+      "normal_invulnerability_s": 30,
+      "instant_hp_ratio": 1,
+      "instant_invulnerability_s": 3,
+      "instant_power_multiplier": 2,
+      "instant_power_cap_w": 200,
+      "instant_power_duration_s": 4,
+      "weak_blocks_fire_and_buffs": true,
+      "source_page": 75
+    },
+    "economy": {
+      "initial_coins": 400,
+      "initial_coin_time_s": 1,
+      "periodic_schedule": [
+        {
+          "elapsed_s": 61,
+          "coins": 50
+        },
+        {
+          "elapsed_s": 121,
+          "coins": 50
+        },
+        {
+          "elapsed_s": 181,
+          "coins": 50
+        },
+        {
+          "elapsed_s": 241,
+          "coins": 50
+        },
+        {
+          "elapsed_s": 301,
+          "coins": 50
+        },
+        {
+          "elapsed_s": 361,
+          "coins": 150
+        }
+      ],
+      "document_rating_bonus": {
+        "S": 50,
+        "A": 25,
+        "B": 0,
+        "C": -25,
+        "D": -50
+      },
+      "technical_rating_bonus": {
+        "S": 150,
+        "A": 75,
+        "B": 0,
+        "C": -25,
+        "D": -50
+      },
+      "ammo": {
+        "17mm": {
+          "local_batch": 10,
+          "local_cost": 10,
+          "remote_batch": 100,
+          "remote_cost": 150,
+          "team_purchase_cap": 1000
+        },
+        "42mm": {
+          "local_batch": 1,
+          "local_cost": 10,
+          "remote_batch": 10,
+          "remote_cost": 150,
+          "team_purchase_cap": 100
+        }
+      },
+      "remote_delay_s": 6,
+      "remote_heal_cost": "50 + ceil(elapsed_seconds/60*20)",
+      "instant_respawn_cost": "ceil(elapsed_seconds/60)*80 + robot_level*20",
+      "air_support_coin_per_s": 1,
+      "source_pages": [
+        76,
+        77,
+        78,
+        79
+      ]
+    },
+    "initial_ammo": {
+      "hero": 0,
+      "engineer": 0,
+      "infantry": 0,
+      "aerial": 750,
+      "source_pages": [
+        24,
+        26,
+        28,
+        78
+      ]
+    },
+    "experience": {
+      "thresholds": [
+        0,
+        550,
+        1100,
+        1650,
+        2200,
+        2750,
+        3300,
+        3850,
+        4400,
+        5000
+      ],
+      "initial_cap": 5,
+      "cap_after_assembly_2": 7,
+      "cap_after_assembly_3": 10,
+      "shot_xp_17": 1,
+      "shot_xp_42": 10,
+      "robot_damage_xp_per_hp": 4,
+      "outpost_damage_xp_per_hp": 2,
+      "base_damage_xp_per_hp": 0.5,
+      "kill_base_xp": 50,
+      "kill_level_gap_factor": 0.2,
+      "terrain_first_xp": 300,
+      "deployed_damage_extra_xp": 100,
+      "stop_gain_at_cap": true,
+      "source_pages": [
+        83,
+        84,
+        85,
+        86,
+        87
+      ]
+    },
+    "profiles": {
+      "defaults": {
+        "hero": "ranged",
+        "infantry_chassis": "hp",
+        "infantry_weapon": "cooling"
+      },
+      "hero": {
+        "melee": [
+          {
+            "level": 1,
+            "hp": 200,
+            "power_w": 70,
+            "max_heat": 140,
+            "cooling": 12
+          },
+          {
+            "level": 2,
+            "hp": 225,
+            "power_w": 75,
+            "max_heat": 150,
+            "cooling": 14
+          },
+          {
+            "level": 3,
+            "hp": 250,
+            "power_w": 80,
+            "max_heat": 160,
+            "cooling": 16
+          },
+          {
+            "level": 4,
+            "hp": 275,
+            "power_w": 85,
+            "max_heat": 170,
+            "cooling": 18
+          },
+          {
+            "level": 5,
+            "hp": 300,
+            "power_w": 90,
+            "max_heat": 180,
+            "cooling": 20
+          },
+          {
+            "level": 6,
+            "hp": 325,
+            "power_w": 95,
+            "max_heat": 190,
+            "cooling": 22
+          },
+          {
+            "level": 7,
+            "hp": 350,
+            "power_w": 100,
+            "max_heat": 200,
+            "cooling": 24
+          },
+          {
+            "level": 8,
+            "hp": 375,
+            "power_w": 105,
+            "max_heat": 210,
+            "cooling": 26
+          },
+          {
+            "level": 9,
+            "hp": 400,
+            "power_w": 110,
+            "max_heat": 220,
+            "cooling": 28
+          },
+          {
+            "level": 10,
+            "hp": 450,
+            "power_w": 120,
+            "max_heat": 240,
+            "cooling": 30
+          }
+        ],
+        "ranged": [
+          {
+            "level": 1,
+            "hp": 150,
+            "power_w": 50,
+            "max_heat": 100,
+            "cooling": 20
+          },
+          {
+            "level": 2,
+            "hp": 165,
+            "power_w": 55,
+            "max_heat": 102,
+            "cooling": 23
+          },
+          {
+            "level": 3,
+            "hp": 180,
+            "power_w": 60,
+            "max_heat": 104,
+            "cooling": 26
+          },
+          {
+            "level": 4,
+            "hp": 195,
+            "power_w": 65,
+            "max_heat": 106,
+            "cooling": 29
+          },
+          {
+            "level": 5,
+            "hp": 210,
+            "power_w": 70,
+            "max_heat": 108,
+            "cooling": 32
+          },
+          {
+            "level": 6,
+            "hp": 225,
+            "power_w": 75,
+            "max_heat": 110,
+            "cooling": 35
+          },
+          {
+            "level": 7,
+            "hp": 240,
+            "power_w": 80,
+            "max_heat": 115,
+            "cooling": 38
+          },
+          {
+            "level": 8,
+            "hp": 255,
+            "power_w": 85,
+            "max_heat": 120,
+            "cooling": 41
+          },
+          {
+            "level": 9,
+            "hp": 270,
+            "power_w": 90,
+            "max_heat": 125,
+            "cooling": 44
+          },
+          {
+            "level": 10,
+            "hp": 300,
+            "power_w": 100,
+            "max_heat": 130,
+            "cooling": 50
+          }
+        ]
+      },
+      "infantry_chassis": {
+        "power": [
+          {
+            "level": 1,
+            "hp": 150,
+            "power_w": 60
+          },
+          {
+            "level": 2,
+            "hp": 175,
+            "power_w": 65
+          },
+          {
+            "level": 3,
+            "hp": 200,
+            "power_w": 70
+          },
+          {
+            "level": 4,
+            "hp": 225,
+            "power_w": 75
+          },
+          {
+            "level": 5,
+            "hp": 250,
+            "power_w": 80
+          },
+          {
+            "level": 6,
+            "hp": 275,
+            "power_w": 85
+          },
+          {
+            "level": 7,
+            "hp": 300,
+            "power_w": 90
+          },
+          {
+            "level": 8,
+            "hp": 325,
+            "power_w": 95
+          },
+          {
+            "level": 9,
+            "hp": 350,
+            "power_w": 100
+          },
+          {
+            "level": 10,
+            "hp": 400,
+            "power_w": 100
+          }
+        ],
+        "hp": [
+          {
+            "level": 1,
+            "hp": 200,
+            "power_w": 45
+          },
+          {
+            "level": 2,
+            "hp": 225,
+            "power_w": 50
+          },
+          {
+            "level": 3,
+            "hp": 250,
+            "power_w": 55
+          },
+          {
+            "level": 4,
+            "hp": 275,
+            "power_w": 60
+          },
+          {
+            "level": 5,
+            "hp": 300,
+            "power_w": 65
+          },
+          {
+            "level": 6,
+            "hp": 325,
+            "power_w": 70
+          },
+          {
+            "level": 7,
+            "hp": 350,
+            "power_w": 75
+          },
+          {
+            "level": 8,
+            "hp": 375,
+            "power_w": 80
+          },
+          {
+            "level": 9,
+            "hp": 400,
+            "power_w": 90
+          },
+          {
+            "level": 10,
+            "hp": 400,
+            "power_w": 100
+          }
+        ]
+      },
+      "infantry_weapon": {
+        "burst": [
+          {
+            "level": 1,
+            "max_heat": 170,
+            "cooling": 5
+          },
+          {
+            "level": 2,
+            "max_heat": 180,
+            "cooling": 7
+          },
+          {
+            "level": 3,
+            "max_heat": 190,
+            "cooling": 9
+          },
+          {
+            "level": 4,
+            "max_heat": 200,
+            "cooling": 11
+          },
+          {
+            "level": 5,
+            "max_heat": 210,
+            "cooling": 12
+          },
+          {
+            "level": 6,
+            "max_heat": 220,
+            "cooling": 13
+          },
+          {
+            "level": 7,
+            "max_heat": 230,
+            "cooling": 14
+          },
+          {
+            "level": 8,
+            "max_heat": 240,
+            "cooling": 16
+          },
+          {
+            "level": 9,
+            "max_heat": 250,
+            "cooling": 18
+          },
+          {
+            "level": 10,
+            "max_heat": 260,
+            "cooling": 20
+          }
+        ],
+        "cooling": [
+          {
+            "level": 1,
+            "max_heat": 40,
+            "cooling": 12
+          },
+          {
+            "level": 2,
+            "max_heat": 48,
+            "cooling": 14
+          },
+          {
+            "level": 3,
+            "max_heat": 56,
+            "cooling": 16
+          },
+          {
+            "level": 4,
+            "max_heat": 64,
+            "cooling": 18
+          },
+          {
+            "level": 5,
+            "max_heat": 72,
+            "cooling": 20
+          },
+          {
+            "level": 6,
+            "max_heat": 80,
+            "cooling": 22
+          },
+          {
+            "level": 7,
+            "max_heat": 88,
+            "cooling": 24
+          },
+          {
+            "level": 8,
+            "max_heat": 96,
+            "cooling": 26
+          },
+          {
+            "level": 9,
+            "max_heat": 114,
+            "cooling": 28
+          },
+          {
+            "level": 10,
+            "max_heat": 120,
+            "cooling": 30
+          }
+        ]
+      },
+      "aerial": [
+        {
+          "level": 1,
+          "max_heat": 100,
+          "cooling": 20
+        },
+        {
+          "level": 2,
+          "max_heat": 110,
+          "cooling": 30
+        },
+        {
+          "level": 3,
+          "max_heat": 120,
+          "cooling": 40
+        },
+        {
+          "level": 4,
+          "max_heat": 130,
+          "cooling": 50
+        },
+        {
+          "level": 5,
+          "max_heat": 140,
+          "cooling": 60
+        },
+        {
+          "level": 6,
+          "max_heat": 150,
+          "cooling": 70
+        },
+        {
+          "level": 7,
+          "max_heat": 160,
+          "cooling": 80
+        },
+        {
+          "level": 8,
+          "max_heat": 170,
+          "cooling": 90
+        },
+        {
+          "level": 9,
+          "max_heat": 180,
+          "cooling": 100
+        },
+        {
+          "level": 10,
+          "max_heat": 200,
+          "cooling": 120
+        }
+      ],
+      "engineer": {
+        "hp": 250,
+        "power_w": 120,
+        "can_fire": false,
+        "uses_experience": false
+      },
+      "locked_after_start": true,
+      "level_up_adds_hp_delta": true,
+      "source_pages": [
+        25,
+        26,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92
+      ]
+    },
+    "structures": {
+      "base_hp": 5000,
+      "outpost_hp": 1500,
+      "base_invulnerable_while_outpost_alive": true,
+      "base_opens_at_hp_lte": 2000,
+      "rebuild_loss_step_hp": 1000,
+      "rebuild_hp": 750,
+      "rebuild_hold_hero_infantry_s": 10,
+      "rebuild_hold_engineer_s": 5,
+      "rebuild_disabled_at_s": 300,
+      "outpost_rotor_speed_rad_s": 2.5132741228718345,
+      "outpost_acceleration_s": 5,
+      "outpost_stop_after_s": 180,
+      "outpost_return_initial_s": 10,
+      "source_pages": [
+        92,
+        93,
+        94
+      ]
+    },
+    "buffs": {
+      "release_delay_s": 2,
+      "same_kind_combine": "maximum",
+      "base_defense": 0.5,
+      "central_defense": 0.25,
+      "trapezoid_defense": 0.5,
+      "outpost_defense": 0.25,
+      "engineer_initial_defense": 0.5,
+      "engineer_initial_defense_until_s": 180,
+      "assembly_invulnerability_budget_s": 180,
+      "resource_engineer_invulnerable": true,
+      "crossings": {
+        "road": {
+          "window_s": 3,
+          "defense": 0.25,
+          "duration_s": 5,
+          "cooldown_s": 15,
+          "low_to_high": true
+        },
+        "highland": {
+          "window_s": 5,
+          "defense": 0.5,
+          "duration_s": 30,
+          "low_to_high": true
+        },
+        "fly": {
+          "window_s": 10,
+          "defense": 0.25,
+          "duration_s": 30
+        },
+        "tunnel": {
+          "window_s": 3,
+          "cooling_multiplier": 2,
+          "duration_s": 120
+        }
+      },
+      "repeat_defensive_crossing_defense": 0.5,
+      "fortress": {
+        "active_after_own_outpost_first_death": true,
+        "own_defense": 0.5,
+        "cooling_bonus": "min(75,floor(base_missing_hp/40))",
+        "reserve_ammo": "min(500,100+2*floor(base_missing_hp/15))",
+        "enemy_activation_after_s": 180,
+        "enemy_requires_own_outpost_destroyed": true,
+        "enemy_vulnerability": 1,
+        "enemy_occupation_to_open_base_s": 20,
+        "enemy_timer_retention_s": 3
+      },
+      "source_pages": [
+        99,
+        101,
+        102,
+        103,
+        104,
+        106
+      ]
+    },
+    "aerial": {
+      "initial_support_s": 30,
+      "support_increment_s": 20,
+      "support_schedule_s": [
+        60,
+        120,
+        180,
+        240,
+        300,
+        360
+      ],
+      "initial_allowed_ammo": 750,
+      "can_receive_ammo": false,
+      "damageable": false,
+      "alive_iff_support_active": true,
+      "tether_length_m": 2.4,
+      "wire_stop_from_own_edge_m": 14,
+      "lowest_point_min_altitude_m": 1.5,
+      "speed_module_max_altitude_m": 2.4,
+      "cannot_fire_on_pad": true,
+      "source_pages": [
+        28,
+        61,
+        62,
+        106,
+        129
+      ]
+    },
+    "deployment": {
+      "profile": "ranged",
+      "transition_s": 2,
+      "own_half_only": true,
+      "chassis_disabled": true,
+      "own_fpv_disabled": true,
+      "defense": 0.25,
+      "muzzle_limit_mps": 16.5,
+      "base_attack_multiplier": 1.5,
+      "source_pages": [
+        105,
+        106
+      ]
+    },
+    "assembly": {
+      "unlock_times_s": [
+        0,
+        60,
+        120,
+        180
+      ],
+      "required_previous_difficulty": true,
+      "income_period_s": 10,
+      "first_income_per_period": [
+        50,
+        25,
+        25,
+        50
+      ],
+      "repeat_income_per_period": [
+        5,
+        10,
+        15,
+        0
+      ],
+      "team_defense_after_3": 0.25,
+      "team_defense_after_4": 0.5,
+      "base_heal_after_4": 2000,
+      "overflow_as_virtual_shield": true,
+      "difficulty_4_once": true,
+      "difficulty_4_time_limit_s": 45,
+      "difficulty_4_retry_lock_s": 90,
+      "difficulty_4_secondary_insert_window_s": 3,
+      "other_active_core_buffer_s": 15,
+      "interrupted_level_4_failure_permanent_lock": true,
+      "interrupted_level_4_failure_income_penalty": 25,
+      "insert_depth_m": 0.1,
+      "translation_m": 0.1,
+      "allowed_rotation_deg": 90,
+      "rotation_tolerance_deg": 5,
+      "initial_core_pose": [
+        -0.2,
+        0.2,
+        0.8,
+        0,
+        90,
+        0
+      ],
+      "pose_ranges": {
+        "1": {
+          "x": [
+            -0.1,
+            0
+          ],
+          "y": [
+            -0.1,
+            0.1
+          ],
+          "z": [
+            0.8,
+            0.8
+          ],
+          "theta": [
+            0,
+            0
+          ],
+          "phi": [
+            90,
+            90
+          ],
+          "alpha": [
+            0,
+            0
+          ]
+        },
+        "2-4": {
+          "x": [
+            -0.1,
+            0
+          ],
+          "y": [
+            -0.1,
+            0.1
+          ],
+          "z": [
+            0.7,
+            0.9
+          ],
+          "theta": [
+            -90,
+            90
+          ],
+          "phi": [
+            0,
+            90
+          ],
+          "alpha": [
+            -45,
+            45
+          ]
+        }
+      },
+      "source_pages": [
+        79,
+        80,
+        82,
+        83,
+        84,
+        85
+      ]
+    },
+    "rune": {
+      "arms": 5,
+      "arm_radius_m": 0.7,
+      "target_radius_m": 0.15,
+      "center_above_mount_m": 2.3,
+      "small_until_s": 180,
+      "small_chances_s": [
+        0,
+        90
+      ],
+      "large_chances_s": [
+        180,
+        255,
+        330
+      ],
+      "activation_timeout_s": 20,
+      "hit_timeout_s": 2.5,
+      "large_secondary_hit_s": 1,
+      "small_speed_rad_s": 1.0471975511965976,
+      "large_a": [
+        0.78,
+        1.045
+      ],
+      "large_omega": [
+        1.884,
+        2
+      ],
+      "large_b": "2.090-a",
+      "small_defense": 0.25,
+      "small_duration_s": 45,
+      "small_xp_multiplier": 2,
+      "small_team_extra_xp_cap": 1200,
+      "large_shared_xp": 750,
+      "large_bands": [
+        {
+          "min": 1,
+          "max": 3,
+          "attack": 1.5,
+          "defense": 0.25,
+          "cooling": 1
+        },
+        {
+          "min": 3,
+          "max": 7,
+          "attack": 1.5,
+          "defense": 0.25,
+          "cooling": 2
+        },
+        {
+          "min": 7,
+          "max": 8,
+          "attack": 2,
+          "defense": 0.25,
+          "cooling": 2
+        },
+        {
+          "min": 8,
+          "max": 9,
+          "attack": 2,
+          "defense": 0.25,
+          "cooling": 3
+        },
+        {
+          "min": 9,
+          "max": 10,
+          "attack": 3,
+          "defense": 0.5,
+          "cooling": 5
+        }
+      ],
+      "duration_by_hits": {
+        "5": 30,
+        "6": 35,
+        "7": 40,
+        "8": 45,
+        "9": 50,
+        "10": 60
+      },
+      "source_pages": [
+        56,
+        57,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99
+      ]
+    },
+    "winner": {
+      "early_finish": "base_destroyed_only",
+      "timeout_order": [
+        "base_hp",
+        "outpost_never_destroyed",
+        "outpost_hp_if_both_never_destroyed",
+        "team_attack_damage",
+        "alive_ground_robot_hp_sum"
+      ],
+      "all_robots_dead_is_not_victory": true,
+      "source_page": 113
+    },
+    "hardware_fault_rules": {
+      "main_ground_offline_hp_fraction_per_s": 0.05,
+      "armor_capacitor_offline_hp_per_module_per_500ms": 4,
+      "module_check_hz": 2,
+      "muzzle_sensor_offline_locks_weapon": true,
+      "default_virtual_hardware_online": true,
+      "source_pages": [
+        70,
+        71,
+        72,
+        73
+      ]
+    },
+    "document_ambiguities": [
+      {
+        "pages": [
+          67
+        ],
+        "issue": "42mm overspeed final row contains a 17mm label and leaves an interval ambiguous",
+        "resolution": "public actions enforce legal muzzle speed; retain verbatim numeric boundaries in config; no invented sanction"
+      },
+      {
+        "pages": [
+          68
+        ],
+        "issue": "text uses Q1>Q2 while flowchart uses Q1>=Q2",
+        "resolution": "use figure 5-1 >= boundary"
+      },
+      {
+        "pages": [
+          104
+        ],
+        "issue": "fortress example 150 cooling contradicts stated cap75",
+        "resolution": "use normative min(75,floor(delta/40))"
+      }
+    ],
+    "penalties": {
+      "offender_hp_ratio": 0.15,
+      "teammate_hp_ratio": 0.05,
+      "repeat_window_s": 30,
+      "offender_fpv_s": 5,
+      "teammate_fpv_s": 2,
+      "engineer_yellow_limit": 2,
+      "other_yellow_limit": 3,
+      "yellow_min_hp": 1,
+      "source_pages": [
+        122,
+        123
+      ],
+      "card_authority": "trusted_referee_only; subjective intent is not randomly judged"
+    },
+    "construction": {
+      "source": {
+        "title": "RoboMaster 2026 机甲大师高校系列赛机器人制作规范手册",
+        "version": "1.0.0",
+        "date": "2025-10-21",
+        "sha256": "6ed0048ad741cd069983658e8dfe57ab68c137a00ecf629863ba93bc9c6fad87"
+      },
+      "envelope": {
+        "hero": {
+          "mass_excluding_referee_kg": 35,
+          "referee_kg": 4.21,
+          "battery_wh": 300,
+          "voltage_v": 30,
+          "stowed_m": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "extended_m": [
+            1.2,
+            1.2,
+            1.2
+          ],
+          "launcher": "one_42mm",
+          "pages": [
+            29,
+            30
+          ]
+        },
+        "engineer": {
+          "mass_excluding_referee_kg": 35,
+          "referee_kg": 3.04,
+          "battery_wh": 300,
+          "voltage_v": 30,
+          "stowed_m": [
+            0.6,
+            0.6,
+            0.6
+          ],
+          "extended_m": [
+            1.2,
+            1.2,
+            1.1
+          ],
+          "launcher": "none",
+          "pages": [
+            30,
+            31,
+            32
+          ]
+        },
+        "infantry": {
+          "mass_excluding_referee_kg": 25,
+          "referee_kg": 3.25,
+          "battery_wh": 300,
+          "voltage_v": 30,
+          "stowed_m": [
+            0.6,
+            0.6,
+            0.6
+          ],
+          "extended_m": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "launcher": "one_17mm",
+          "pages": [
+            32,
+            33,
+            34
+          ]
+        },
+        "aerial": {
+          "mass_excluding_referee_kg": 13,
+          "referee_kg": 0.66,
+          "battery_wh": 900,
+          "voltage_v": 52,
+          "stowed_m": [
+            1.4,
+            1.4,
+            1.1
+          ],
+          "extended_m": [
+            1.7,
+            1.7,
+            0.8
+          ],
+          "mast_excluded_from_envelope": true,
+          "launcher": "one_17mm",
+          "laser_module_removed_by_user": true,
+          "pages": [
+            34,
+            35
+          ]
+        }
+      },
+      "energy": {
+        "electric_ground_drive": true,
+        "supercap_allowed": [
+          "hero",
+          "infantry"
+        ],
+        "supercap_groups_max": 1,
+        "supercap_nominal_max_j": 2000,
+        "supercap_measured_max_j": 2200,
+        "supercap_module_current_max_a": 15,
+        "other_chassis_capacitance_max_f": 0.01,
+        "pages": [
+          12,
+          13,
+          95
+        ]
+      },
+      "armor": {
+        "count": 4,
+        "normal_to_up_deg": 75,
+        "axis_alignment_tolerance_deg": 5,
+        "xy_center_offset_max_m": 0.05,
+        "lower_edge_height_max_m": 0.4,
+        "lower_edge_height_difference_max_m": 0.1,
+        "rigid_mount_test_force_n": 60,
+        "rigid_mount_deflection_max_deg": 2.5,
+        "bumper_required": true,
+        "unobstructed_cone_deg": {
+          "lower": 105,
+          "upper": 120,
+          "left_right": 145
+        },
+        "pages": [
+          68,
+          69,
+          72,
+          73
+        ]
+      },
+      "charging": {
+        "max_transfer_w": 120,
+        "max_face_area_m2": 0.01,
+        "max_gap_m": 0.03,
+        "transmitter_max_size_m": [
+          0.5,
+          0.5,
+          0.3
+        ],
+        "receivers_allowed": [
+          "hero",
+          "infantry"
+        ],
+        "receiver_max_count": 1,
+        "frequency_hz": [
+          100000,
+          148500
+        ],
+        "pages": [
+          24,
+          25
+        ]
+      },
+      "aerial": {
+        "full_rotor_enclosure": true,
+        "guard_test_force_n": 20,
+        "guard_collision_test_mps": [
+          1.1,
+          1.3
+        ],
+        "guard_blocks_42mm": true,
+        "recommended_max_mesh_area_m2": 0.0009,
+        "mast_above_rotor_plane_m": [
+          0.3,
+          0.4
+        ],
+        "backup_safety_rope": true,
+        "nav_light_length_min_m": 1.5,
+        "nav_lights_upward_only": true,
+        "flight_test_min_s": 10,
+        "indicator_count_max": 6,
+        "pages": [
+          34,
+          35,
+          36,
+          37
+        ]
+      },
+      "weapon": {
+        "friction_wheel_electric": true,
+        "min_17mm_hardware_rate_hz": 10,
+        "min_17mm_test_speed_mps": 20,
+        "one_launcher_per_robot": true,
+        "engineer_has_no_launcher": true,
+        "muzzle_sensor_after_acceleration": true,
+        "pages": [
+          19,
+          23,
+          30,
+          31,
+          33,
+          34,
+          81,
+          82
+        ]
+      },
+      "appearance": {
+        "gloss_max_gs": 30,
+        "protected_wiring": true,
+        "no_sharp_edges": true,
+        "armor_unmodified": true,
+        "team_color_on_shell_or_official_modules_only": true,
+        "pages": [
+          17,
+          18,
+          19,
+          66
+        ]
+      }
+    }
+  },
+  "simulation_assumptions": {
+    "note": "Only these robot hardware, sensor and geometric assumptions are not specified by this PDF.",
+    "aerial_initial_altitude_m": 0,
+    "aerial_flight_altitude_m": 1.9,
+    "gravity_mps2": 9.81,
+    "tether_wire_height_m": 3.9,
+    "vision_range_m": {
+      "hero": 18,
+      "engineer": 15,
+      "infantry": 18,
+      "aerial": 24
+    },
+    "infantry_trigger_interval_s": 0.05,
+    "hero_trigger_interval_s": 0.2,
+    "wireless_input_w": 100,
+    "max_carried_units": 2,
+    "resource_stock": "unlimited_virtual_dispenser",
+    "arm_insert_speed_mps": 0.1,
+    "arm_translate_speed_mps": 0.15,
+    "arm_rotate_speed_deg_s": 120,
+    "manual_judging": "Illegal target and zone commands prevented; subjective human penalties and real hardware failures are not randomly simulated.",
+    "map_fidelity": "Chapter 4 dimensioned module footprints and figure4-5 placement; unlabelled joints reconstructed from the plan, not official CAD.",
+    "central_elevation_m": 0.4,
+    "core_move_delay_s": 2.0,
+    "floor_slope_deg": 1.5,
+    "armor_model": "finite rectangular robot/base/outpost armor planes with separate solid body and opening-cover occlusion; approximate structure geometry is public",
+    "assembly_repeat_reset_s": 20,
+    "projectile_spread_half_angle_deg": {
+      "17mm": 1.8,
+      "42mm": 1.3
+    },
+    "projectile_color": "#66ee55",
+    "rune_motor": {
+      "profile": "seeded_smooth_aperiodic",
+      "small_amplitude_rad_s": 0.32,
+      "secondary_weight": 0.28,
+      "secondary_frequency_ratio": 0.6180339887498948,
+      "mode_transition_s": 3.0,
+      "note": "Both small and large runes use smoothly varying shaft speed throughout the match; both faces share the same motor. This overrides the manual's constant small-rune speed."
+    },
+    "structure_geometry": {
+      "base_lower_center_above_pedestal_m": 0.287,
+      "base_lower_radius_m": 0.34,
+      "base_lower_width_m": 0.23,
+      "base_top_center_above_pedestal_m": 1.043,
+      "outpost_middle_center_m": [
+        1.116,
+        1.216,
+        1.316
+      ],
+      "outpost_top_center_m": 1.5,
+      "armor_height_m": 0.125,
+      "base_open_duration_s": 1.5,
+      "note": "Finite proxies reconstructed from manual figures 4-10/11/32; unlabelled armor centers and motion are simulation assumptions, not official CAD."
+    },
+    "pickup_phases": {
+      "approach_hold_s": 0.2,
+      "grip_hold_s": 0.35,
+      "lift_hold_s": 0.3,
+      "stow_hold_s": 0.4,
+      "position_tolerance_m": 0.045,
+      "note": "Requires actual arm contact, closing, lift and storage. Keep pick_unit true; leaving, destruction, weakness or manual arm control cancels."
+    },
+    "central_cover_height_above_deck_m": 0.15,
+    "overheat_vision_range_multiplier": 0.35,
+    "trapezoid_elevations_m": [
+      0.2,
+      0.4
+    ],
+    "physics_engine": "rapier3d-f64 0.26.1 enhanced-determinism; 120Hz rigid bodies and ray suspension",
+    "physics_dt_s": 0.008333333333333333,
+    "robot_hardware": "19 selectable symmetric hardware designs; default six-model lineup preserved; construction bounds enforced",
+    "hardware_authority": "robot_designs is authoritative; family specs speed/acceleration are retained only for old SDK compatibility",
+    "air_density_kgpm3": 1.225,
+    "sphere_drag_coefficient": 0.47,
+    "ground_camera_fov_deg": {
+      "horizontal": 100.0,
+      "vertical": 70.0,
+      "note": "Ground FPV follows the physical muzzle direction and chassis pose. Own robot state and referee telemetry remain unrestricted; aerial vision keeps its existing coverage."
+    },
+    "assembly_difficulties": [
+      {
+        "name": "基础",
+        "tip_tolerance_m": 0.09,
+        "tool_tolerance_deg": 12.0,
+        "chassis_speed_mps": 0.2,
+        "chassis_angular_speed_rad_s": 0.5,
+        "min_upright": 0.96,
+        "confirm_hold_s": 0.4,
+        "rotation_tolerance_deg": 5.0,
+        "attempt_timeout_s": 30.0,
+        "pose_ranges": {
+          "x": [
+            -0.05,
+            -0.05
+          ],
+          "y": [
+            0.0,
+            0.0
+          ],
+          "z": [
+            0.8,
+            0.8
+          ],
+          "theta": [
+            0.0,
+            0.0
+          ],
+          "phi": [
+            90.0,
+            90.0
+          ],
+          "alpha": [
+            0.0,
+            0.0
+          ]
+        },
+        "target_rotation_deg": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "精密",
+        "tip_tolerance_m": 0.04,
+        "tool_tolerance_deg": 6.0,
+        "chassis_speed_mps": 0.12,
+        "chassis_angular_speed_rad_s": 0.3,
+        "min_upright": 0.97,
+        "confirm_hold_s": 0.6,
+        "rotation_tolerance_deg": 3.0,
+        "attempt_timeout_s": 35.0,
+        "pose_ranges": {
+          "x": [
+            -0.075,
+            -0.025
+          ],
+          "y": [
+            -0.06,
+            0.06
+          ],
+          "z": [
+            0.7,
+            0.78
+          ],
+          "theta": [
+            -25.0,
+            25.0
+          ],
+          "phi": [
+            70.0,
+            90.0
+          ],
+          "alpha": [
+            -10.0,
+            10.0
+          ]
+        },
+        "target_rotation_deg": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "专家",
+        "tip_tolerance_m": 0.015,
+        "tool_tolerance_deg": 2.5,
+        "chassis_speed_mps": 0.05,
+        "chassis_angular_speed_rad_s": 0.12,
+        "min_upright": 0.985,
+        "confirm_hold_s": 0.8,
+        "rotation_tolerance_deg": 1.0,
+        "attempt_timeout_s": 40.0,
+        "pose_ranges": {
+          "x": [
+            -0.1,
+            0.0
+          ],
+          "y": [
+            -0.1,
+            0.1
+          ],
+          "z": [
+            0.7,
+            0.84
+          ],
+          "theta": [
+            -60.0,
+            60.0
+          ],
+          "phi": [
+            35.0,
+            90.0
+          ],
+          "alpha": [
+            -30.0,
+            30.0
+          ]
+        },
+        "target_rotation_deg": [
+          10.0,
+          70.0
+        ]
+      },
+      {
+        "name": "极限",
+        "tip_tolerance_m": 0.004,
+        "tool_tolerance_deg": 0.75,
+        "chassis_speed_mps": 0.01,
+        "chassis_angular_speed_rad_s": 0.025,
+        "min_upright": 0.992,
+        "confirm_hold_s": 1.2,
+        "rotation_tolerance_deg": 0.25,
+        "attempt_timeout_s": 45.0,
+        "pose_ranges": {
+          "x": [
+            -0.1,
+            0.0
+          ],
+          "y": [
+            -0.1,
+            0.1
+          ],
+          "z": [
+            0.7,
+            0.9
+          ],
+          "theta": [
+            -90.0,
+            90.0
+          ],
+          "phi": [
+            0.0,
+            90.0
+          ],
+          "alpha": [
+            -45.0,
+            45.0
+          ]
+        },
+        "target_rotation_deg": [
+          0.0,
+          90.0
+        ]
+      }
+    ]
+  },
+  "robot_designs": {
+    "1": {
+      "slot": 1,
+      "role": "hero",
+      "name": "H42 重型英雄",
+      "focus": "远程支援",
+      "revision": "construction-2026-v3",
+      "asset": "/assets/robot-1-spec2026v4.glb",
+      "bare_mass_kg": 29.8,
+      "referee_mass_kg": 4.21,
+      "mass_kg": 34.01,
+      "battery_wh": 240,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.8,
+        0.7,
+        0.76
+      ],
+      "extended_m": [
+        1.08,
+        1.08,
+        1.12
+      ],
+      "chassis_size_m": [
+        0.64,
+        0.6,
+        0.145
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.235
+      ],
+      "wheelbase_m": 0.6,
+      "track_m": 0.53,
+      "wheel_radius_m": 0.09,
+      "wheel_width_m": 0.055,
+      "chassis_type": "mecanum",
+      "speed_reference_mps": 3.6,
+      "tire_friction": 1.1,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 110,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 7,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2383.129,
+      "suspension_damping_nspm": 113.877,
+      "inertia_kgm2": [
+        1.07989,
+        1.22046,
+        2.18117
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.32,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.23,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.32,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.0,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.6,
+      "muzzle_reach_m": 0.38,
+      "trigger_interval_s": 0.2,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "deploy_allowed": true,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": true,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "mecanum"
+      }
+    },
+    "2": {
+      "slot": 2,
+      "role": "engineer",
+      "name": "E35 搬运工程",
+      "focus": "载重与机械臂",
+      "revision": "construction-2026-v3",
+      "asset": "/assets/robot-2-spec2026v4.glb",
+      "bare_mass_kg": 31.6,
+      "referee_mass_kg": 3.04,
+      "mass_kg": 34.64,
+      "battery_wh": 280,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.59
+      ],
+      "extended_m": [
+        1.18,
+        1.18,
+        1.06
+      ],
+      "chassis_size_m": [
+        0.55,
+        0.55,
+        0.115
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.205
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.44,
+      "wheel_radius_m": 0.085,
+      "wheel_width_m": 0.055,
+      "chassis_type": "mecanum",
+      "speed_reference_mps": 3.1,
+      "tire_friction": 1.05,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 125,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 7,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2427.274,
+      "suspension_damping_nspm": 115.987,
+      "inertia_kgm2": [
+        0.91139,
+        0.91139,
+        1.74643
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.275,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.275,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0,
+      "muzzle_reach_m": 0,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "arm": {
+        "joints": [
+          "slew",
+          "lift",
+          "reach",
+          "wrist_yaw",
+          "wrist_pitch",
+          "wrist_roll",
+          "grip"
+        ],
+        "base_m": [
+          0,
+          0,
+          0.245
+        ],
+        "shoulder_rest_z_m": 0.3,
+        "tool_length_m": 0.15,
+        "jaw_travel_m": 0.032,
+        "limits": [
+          [
+            -2.97,
+            2.97
+          ],
+          [
+            0,
+            0.5
+          ],
+          [
+            0.22,
+            0.7
+          ],
+          [
+            -1.75,
+            1.75
+          ],
+          [
+            -1.66,
+            1.75
+          ],
+          [
+            -3.14159,
+            3.14159
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rates": [
+          2.4,
+          0.6,
+          0.7,
+          3.0,
+          3.0,
+          4.0,
+          4.0
+        ],
+        "stowed": [
+          0,
+          0,
+          0.22,
+          0,
+          -1.5708,
+          0,
+          0
+        ],
+        "boom_tail_m": 0.12,
+        "mast_half_size_m": [
+          0.05,
+          0.05,
+          0.16
+        ],
+        "grip_force_max_n": 320,
+        "grasp_tolerance_m": 0.05,
+        "rescue_upright_cos": 0.93,
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes"
+      },
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 1,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 1,
+        "drive": "mecanum"
+      }
+    },
+    "3": {
+      "slot": 3,
+      "role": "infantry",
+      "name": "W3 双轮足步兵",
+      "focus": "越障与机动",
+      "revision": "construction-2026-v3",
+      "asset": "/assets/robot-3-spec2026v4.glb",
+      "bare_mass_kg": 18.4,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 21.65,
+      "battery_wh": 200,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.5,
+        0.52,
+        0.58
+      ],
+      "extended_m": [
+        0.56,
+        0.56,
+        0.76
+      ],
+      "chassis_size_m": [
+        0.42,
+        0.36,
+        0.12
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.28
+      ],
+      "wheelbase_m": 0,
+      "track_m": 0.44,
+      "wheel_radius_m": 0.1,
+      "wheel_width_m": 0.05,
+      "chassis_type": "wheel_legged",
+      "speed_reference_mps": 4.6,
+      "tire_friction": 1.0,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.8,
+      "rolling_resistance": 0.015,
+      "drag_area_m2": 0.12,
+      "motor_force_max_n": 170,
+      "brake_force_max_n": 120,
+      "yaw_torque_max_nm": 9,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.2,
+      "suspension_travel_m": 0.16,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 2949.812,
+      "suspension_damping_nspm": 157.945,
+      "inertia_kgm2": [
+        0.4,
+        0.46,
+        0.62
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.21,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "power",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.28,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.03,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 6.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.47,
+      "muzzle_reach_m": 0.22,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "leg_type": "five_bar",
+      "hip_height_m": 0.3,
+      "leg_min_m": 0.12,
+      "leg_max_m": 0.34,
+      "leg_nominal_m": 0.24500000000000002,
+      "leg_speed_mps": 1.2,
+      "leg_stiffness_npm": 1517.0,
+      "leg_damping_nspm": 220,
+      "leg_passive_ratio": 0.2,
+      "jump_duration_s": 0.16,
+      "jump_thrust_gain": 1.7,
+      "jump_cooldown_s": 0.8,
+      "jump_tuck_s": 0.35,
+      "balance_kp_nm_per_rad": 180,
+      "balance_kd_nms_per_rad": 19,
+      "balance_torque_max_nm": 45,
+      "air_torque_max_nm": 5,
+      "stand_torque_max_nm": 80,
+      "coast_friction": 0.1,
+      "leg_holding_power_w": 18,
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": true,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "wheel_legged"
+      }
+    },
+    "4": {
+      "slot": 4,
+      "role": "infantry",
+      "name": "I4 突击步兵",
+      "focus": "短时爆发",
+      "revision": "construction-2026-v3",
+      "asset": "/assets/robot-4-spec2026v4.glb",
+      "bare_mass_kg": 23.4,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 26.65,
+      "battery_wh": 240,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.59
+      ],
+      "extended_m": [
+        0.75,
+        0.75,
+        0.74
+      ],
+      "chassis_size_m": [
+        0.54,
+        0.54,
+        0.105
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.215
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.43,
+      "wheel_radius_m": 0.08,
+      "wheel_width_m": 0.055,
+      "chassis_type": "mecanum",
+      "speed_reference_mps": 4.2,
+      "tire_friction": 0.95,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 100,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 1867.404,
+      "suspension_damping_nspm": 89.233,
+      "inertia_kgm2": [
+        0.67208,
+        0.67208,
+        1.29519
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.27,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "power",
+      "weapon_profile": "burst",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.285,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.48,
+      "muzzle_reach_m": 0.28,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "mecanum"
+      }
+    },
+    "7": {
+      "slot": 7,
+      "role": "infantry",
+      "name": "I7 稳健步兵",
+      "focus": "生存与持续压制",
+      "revision": "construction-2026-v3",
+      "asset": "/assets/robot-7-spec2026v4.glb",
+      "bare_mass_kg": 24.1,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 27.35,
+      "battery_wh": 260,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.57
+      ],
+      "extended_m": [
+        0.74,
+        0.74,
+        0.7
+      ],
+      "chassis_size_m": [
+        0.55,
+        0.55,
+        0.04
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.175
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.45,
+      "wheel_radius_m": 0.085,
+      "wheel_width_m": 0.055,
+      "chassis_type": "mecanum",
+      "speed_reference_mps": 3.8,
+      "tire_friction": 1.22,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 95,
+      "brake_force_max_n": 130,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 1916.454,
+      "suspension_damping_nspm": 91.577,
+      "inertia_kgm2": [
+        0.69309,
+        0.69309,
+        1.3789
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.275,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.175,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.45,
+      "muzzle_reach_m": 0.28,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "mecanum"
+      }
+    },
+    "6": {
+      "slot": 6,
+      "role": "aerial",
+      "name": "A13 护罩四旋翼",
+      "focus": "空中支援",
+      "revision": "construction-2026-v2",
+      "asset": "/assets/robot-6-spec2026v2.glb",
+      "bare_mass_kg": 10.8,
+      "referee_mass_kg": 0.66,
+      "mass_kg": 11.46,
+      "battery_wh": 720,
+      "voltage_v": 44.4,
+      "stowed_m": [
+        1.22,
+        1.22,
+        0.52
+      ],
+      "extended_m": [
+        1.22,
+        1.22,
+        0.52
+      ],
+      "chassis_size_m": [
+        0.38,
+        0.3,
+        0.16
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.215
+      ],
+      "wheelbase_m": 0.66,
+      "track_m": 0.66,
+      "wheel_radius_m": 0.235,
+      "wheel_width_m": 0.055,
+      "chassis_type": "quadrotor",
+      "speed_reference_mps": 3.0,
+      "tire_friction": 0,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.76,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 100,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.045,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 1561.425,
+      "suspension_damping_nspm": 83.605,
+      "inertia_kgm2": [
+        0.32,
+        0.32,
+        0.48
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.19,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 0,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.14,
+      "muzzle_reach_m": 0.26,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "rotor_radius_m": 0.235,
+      "guard_radius_m": 0.275,
+      "guard_height_m": 0.16,
+      "guard_mesh_pitch_m": 0.025,
+      "rotor_plane_z_m": 0.3,
+      "mast_top_z_m": 0.65,
+      "mast_offset_above_rotor_m": 0.35,
+      "nav_light_length_m": 1.76,
+      "nav_light_lux_at_40mm": 500,
+      "backup_rope_diameter_m": 0.004,
+      "thrust_max_n": 230,
+      "flight_tilt_limit_rad": 0.261799,
+      "flight_power_max_w": 2600,
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 4,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "quadrotor"
+      }
+    },
+    "101": {
+      "slot": 101,
+      "role": "hero",
+      "name": "H-S 舵轮支援英雄",
+      "focus": "转向轮组、稳态精射",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-101-spec2026v4.glb",
+      "bare_mass_kg": 32.1,
+      "referee_mass_kg": 4.21,
+      "mass_kg": 36.31,
+      "battery_wh": 240,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.8,
+        0.7,
+        0.76
+      ],
+      "extended_m": [
+        1.08,
+        1.08,
+        1.12
+      ],
+      "chassis_size_m": [
+        0.64,
+        0.6,
+        0.145
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.235
+      ],
+      "wheelbase_m": 0.6,
+      "track_m": 0.53,
+      "wheel_radius_m": 0.09,
+      "wheel_width_m": 0.055,
+      "chassis_type": "swerve",
+      "speed_reference_mps": 3.8,
+      "tire_friction": 1.2,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.84,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 110,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 7,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2544.294,
+      "suspension_damping_nspm": 121.578,
+      "inertia_kgm2": [
+        1.15292,
+        1.303,
+        2.32868
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.32,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.23,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.32,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.0,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.6,
+      "muzzle_reach_m": 0.38,
+      "trigger_interval_s": 0.2,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "steer_rate_rad_s": 4.5,
+      "base_model": 1,
+      "name_en": "H-S Swerve Hero",
+      "focus_en": "High-traction swerve support platform",
+      "deploy_allowed": true,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": true,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "swerve"
+      }
+    },
+    "102": {
+      "slot": 102,
+      "role": "hero",
+      "name": "H-O 全向突击英雄",
+      "focus": "轻量全向底盘、近战火力",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-102-spec2026v4.glb",
+      "bare_mass_kg": 26.8,
+      "referee_mass_kg": 4.21,
+      "mass_kg": 31.01,
+      "battery_wh": 240,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.8,
+        0.7,
+        0.76
+      ],
+      "extended_m": [
+        1.08,
+        1.08,
+        1.12
+      ],
+      "chassis_size_m": [
+        0.64,
+        0.6,
+        0.145
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.235
+      ],
+      "wheelbase_m": 0.6,
+      "track_m": 0.53,
+      "wheel_radius_m": 0.09,
+      "wheel_width_m": 0.055,
+      "chassis_type": "omni",
+      "speed_reference_mps": 4.1,
+      "tire_friction": 0.9,
+      "lateral_friction_ratio": 0.72,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 110,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 10,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2172.915,
+      "suspension_damping_nspm": 103.832,
+      "inertia_kgm2": [
+        0.98463,
+        1.11281,
+        1.98877
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.32,
+        0,
+        0.16
+      ],
+      "hero_profile": "melee",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.23,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.32,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.0,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.6,
+      "muzzle_reach_m": 0.38,
+      "trigger_interval_s": 0.2,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "base_model": 1,
+      "name_en": "H-O Omni Assault Hero",
+      "focus_en": "Light omnidirectional chassis and melee firepower",
+      "deploy_allowed": true,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": true,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "omni"
+      }
+    },
+    "103": {
+      "slot": 103,
+      "role": "hero",
+      "name": "H-W 双轮足英雄",
+      "focus": "飞坡与跨越、无部署机构",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-103-spec2026v4.glb",
+      "bare_mass_kg": 28.9,
+      "referee_mass_kg": 4.21,
+      "mass_kg": 33.11,
+      "battery_wh": 240,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.74,
+        0.74,
+        0.78
+      ],
+      "extended_m": [
+        1.1,
+        1.1,
+        1.18
+      ],
+      "chassis_size_m": [
+        0.52,
+        0.46,
+        0.16
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.3
+      ],
+      "wheelbase_m": 0,
+      "track_m": 0.58,
+      "wheel_radius_m": 0.105,
+      "wheel_width_m": 0.055,
+      "chassis_type": "wheel_legged",
+      "speed_reference_mps": 4.4,
+      "tire_friction": 1.1,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.84,
+      "rolling_resistance": 0.015,
+      "drag_area_m2": 0.14,
+      "motor_force_max_n": 220,
+      "brake_force_max_n": 155,
+      "yaw_torque_max_nm": 12,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.23,
+      "suspension_travel_m": 0.18,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 4511.238,
+      "suspension_damping_nspm": 241.55,
+      "inertia_kgm2": [
+        0.66,
+        0.78,
+        1.02
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.32,
+        0,
+        0.16
+      ],
+      "hero_profile": "melee",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.23,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.3,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.03,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.0,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.54,
+      "muzzle_reach_m": 0.32,
+      "trigger_interval_s": 0.2,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.1,
+      "deploy_allowed": false,
+      "base_model": 1,
+      "leg_type": "five_bar",
+      "hip_height_m": 0.33,
+      "leg_min_m": 0.13,
+      "leg_max_m": 0.37,
+      "leg_nominal_m": 0.275,
+      "leg_speed_mps": 1.2,
+      "leg_stiffness_npm": 2320.0649999999996,
+      "leg_damping_nspm": 300,
+      "leg_passive_ratio": 0.2,
+      "jump_duration_s": 0.2,
+      "jump_thrust_gain": 2.4,
+      "jump_cooldown_s": 0.8,
+      "jump_tuck_s": 0.35,
+      "balance_kp_nm_per_rad": 260,
+      "balance_kd_nms_per_rad": 28,
+      "balance_torque_max_nm": 72,
+      "air_torque_max_nm": 8,
+      "stand_torque_max_nm": 115,
+      "leg_holding_power_w": 18,
+      "leg_upper_m": 0.15,
+      "leg_lower_m": 0.31,
+      "name_en": "H-W Wheel-legged Hero",
+      "focus_en": "Wheel-legged jumps and fly-slopes; no deployment hardware",
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": true,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "wheel_legged"
+      }
+    },
+    "201": {
+      "slot": 201,
+      "role": "engineer",
+      "name": "E-D 双臂工程",
+      "focus": "两只独立机械臂、持物与救援配合",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-201-spec2026v4.glb",
+      "bare_mass_kg": 33.5,
+      "referee_mass_kg": 3.04,
+      "mass_kg": 36.54,
+      "battery_wh": 280,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "extended_m": [
+        1.2,
+        1.2,
+        1.08
+      ],
+      "chassis_size_m": [
+        0.55,
+        0.55,
+        0.115
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.205
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.44,
+      "wheel_radius_m": 0.085,
+      "wheel_width_m": 0.055,
+      "chassis_type": "mecanum",
+      "speed_reference_mps": 2.6,
+      "tire_friction": 1.05,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 125,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 7,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2560.41,
+      "suspension_damping_nspm": 122.349,
+      "inertia_kgm2": [
+        0.96138,
+        0.96138,
+        1.84223
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.275,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.275,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0,
+      "muzzle_reach_m": 0,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "arm": {
+        "joints": [
+          "slew",
+          "lift",
+          "reach",
+          "wrist_yaw",
+          "wrist_pitch",
+          "wrist_roll",
+          "grip"
+        ],
+        "base_m": [
+          0,
+          -0.085,
+          0.245
+        ],
+        "shoulder_rest_z_m": 0.3,
+        "tool_length_m": 0.15,
+        "jaw_travel_m": 0.032,
+        "limits": [
+          [
+            -2.97,
+            2.97
+          ],
+          [
+            0,
+            0.5
+          ],
+          [
+            0.18,
+            0.62
+          ],
+          [
+            -1.75,
+            1.75
+          ],
+          [
+            -1.66,
+            1.75
+          ],
+          [
+            -3.14159,
+            3.14159
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rates": [
+          2.4,
+          0.6,
+          0.7,
+          3.0,
+          3.0,
+          4.0,
+          4.0
+        ],
+        "stowed": [
+          0,
+          0,
+          0.22,
+          0,
+          -1.5708,
+          0,
+          0
+        ],
+        "boom_tail_m": 0.12,
+        "mast_half_size_m": [
+          0.05,
+          0.05,
+          0.16
+        ],
+        "grip_force_max_n": 320,
+        "grasp_tolerance_m": 0.05,
+        "rescue_upright_cos": 0.93,
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes",
+        "workspace_half_m": 0.54,
+        "moving_mass_kg": 1.8
+      },
+      "arm_count": 2,
+      "base_model": 2,
+      "arm2": {
+        "joints": [
+          "slew",
+          "lift",
+          "reach",
+          "wrist_yaw",
+          "wrist_pitch",
+          "wrist_roll",
+          "grip"
+        ],
+        "base_m": [
+          0,
+          0.085,
+          0.245
+        ],
+        "shoulder_rest_z_m": 0.3,
+        "tool_length_m": 0.15,
+        "jaw_travel_m": 0.032,
+        "limits": [
+          [
+            -2.97,
+            2.97
+          ],
+          [
+            0,
+            0.5
+          ],
+          [
+            0.18,
+            0.62
+          ],
+          [
+            -1.75,
+            1.75
+          ],
+          [
+            -1.66,
+            1.75
+          ],
+          [
+            -3.14159,
+            3.14159
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rates": [
+          2.4,
+          0.6,
+          0.7,
+          3.0,
+          3.0,
+          4.0,
+          4.0
+        ],
+        "stowed": [
+          0,
+          0,
+          0.22,
+          0,
+          -1.5708,
+          0,
+          0
+        ],
+        "boom_tail_m": 0.12,
+        "mast_half_size_m": [
+          0.05,
+          0.05,
+          0.16
+        ],
+        "grip_force_max_n": 320,
+        "grasp_tolerance_m": 0.05,
+        "rescue_upright_cos": 0.93,
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes",
+        "workspace_half_m": 0.54,
+        "moving_mass_kg": 1.8
+      },
+      "name_en": "E-D Dual-arm Engineer",
+      "focus_en": "Two independent manipulators for pickup and rescue",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 2,
+        "drive": "mecanum"
+      }
+    },
+    "202": {
+      "slot": 202,
+      "role": "engineer",
+      "name": "E-S 舵轮救援工程",
+      "focus": "高牵引力、快速转向与扶正",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-202-spec2026v4.glb",
+      "bare_mass_kg": 29.4,
+      "referee_mass_kg": 3.04,
+      "mass_kg": 32.44,
+      "battery_wh": 280,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.59
+      ],
+      "extended_m": [
+        1.18,
+        1.18,
+        1.06
+      ],
+      "chassis_size_m": [
+        0.55,
+        0.55,
+        0.115
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.205
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.44,
+      "wheel_radius_m": 0.085,
+      "wheel_width_m": 0.055,
+      "chassis_type": "swerve",
+      "speed_reference_mps": 3.5,
+      "tire_friction": 1.35,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 150,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 7,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2273.117,
+      "suspension_damping_nspm": 108.62,
+      "inertia_kgm2": [
+        0.85351,
+        0.85351,
+        1.63552
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.275,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.275,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0,
+      "muzzle_reach_m": 0,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "arm": {
+        "joints": [
+          "slew",
+          "lift",
+          "reach",
+          "wrist_yaw",
+          "wrist_pitch",
+          "wrist_roll",
+          "grip"
+        ],
+        "base_m": [
+          0,
+          0,
+          0.245
+        ],
+        "shoulder_rest_z_m": 0.3,
+        "tool_length_m": 0.15,
+        "jaw_travel_m": 0.032,
+        "limits": [
+          [
+            -2.97,
+            2.97
+          ],
+          [
+            0,
+            0.5
+          ],
+          [
+            0.22,
+            0.7
+          ],
+          [
+            -1.75,
+            1.75
+          ],
+          [
+            -1.66,
+            1.75
+          ],
+          [
+            -3.14159,
+            3.14159
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rates": [
+          2.4,
+          0.6,
+          0.7,
+          3.0,
+          3.0,
+          4.0,
+          4.0
+        ],
+        "stowed": [
+          0,
+          0,
+          0.22,
+          0,
+          -1.5708,
+          0,
+          0
+        ],
+        "boom_tail_m": 0.12,
+        "mast_half_size_m": [
+          0.05,
+          0.05,
+          0.16
+        ],
+        "grip_force_max_n": 320,
+        "grasp_tolerance_m": 0.05,
+        "rescue_upright_cos": 0.93,
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes"
+      },
+      "steer_rate_rad_s": 5.5,
+      "base_model": 2,
+      "name_en": "E-S Swerve Rescue Engineer",
+      "focus_en": "High-traction swerve drive and single-arm rescue",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 1,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 1,
+        "drive": "swerve"
+      }
+    },
+    "203": {
+      "slot": 203,
+      "role": "engineer",
+      "name": "E-O 全向装配工程",
+      "focus": "轻量全向底盘、快速腕部",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-203-spec2026v4.glb",
+      "bare_mass_kg": 27.6,
+      "referee_mass_kg": 3.04,
+      "mass_kg": 30.64,
+      "battery_wh": 280,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.59
+      ],
+      "extended_m": [
+        1.18,
+        1.18,
+        1.06
+      ],
+      "chassis_size_m": [
+        0.55,
+        0.55,
+        0.115
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.205
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.44,
+      "wheel_radius_m": 0.085,
+      "wheel_width_m": 0.055,
+      "chassis_type": "omni",
+      "speed_reference_mps": 3.8,
+      "tire_friction": 0.95,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 125,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 10,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 2146.989,
+      "suspension_damping_nspm": 102.593,
+      "inertia_kgm2": [
+        0.80615,
+        0.80615,
+        1.54477
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.275,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.275,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0,
+      "muzzle_reach_m": 0,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "arm": {
+        "joints": [
+          "slew",
+          "lift",
+          "reach",
+          "wrist_yaw",
+          "wrist_pitch",
+          "wrist_roll",
+          "grip"
+        ],
+        "base_m": [
+          0,
+          0,
+          0.245
+        ],
+        "shoulder_rest_z_m": 0.3,
+        "tool_length_m": 0.15,
+        "jaw_travel_m": 0.032,
+        "limits": [
+          [
+            -2.97,
+            2.97
+          ],
+          [
+            0,
+            0.5
+          ],
+          [
+            0.22,
+            0.7
+          ],
+          [
+            -1.75,
+            1.75
+          ],
+          [
+            -1.66,
+            1.75
+          ],
+          [
+            -3.14159,
+            3.14159
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "rates": [
+          3.2,
+          0.75,
+          0.85,
+          4.0,
+          4.0,
+          5.0,
+          5.0
+        ],
+        "stowed": [
+          0,
+          0,
+          0.22,
+          0,
+          -1.5708,
+          0,
+          0
+        ],
+        "boom_tail_m": 0.12,
+        "mast_half_size_m": [
+          0.05,
+          0.05,
+          0.16
+        ],
+        "grip_force_max_n": 320,
+        "grasp_tolerance_m": 0.05,
+        "rescue_upright_cos": 0.93,
+        "source_status": "chosen lift/boom/wrist hardware inside the 600 mm stowed and 1200x1200x1100 mm extended envelopes"
+      },
+      "base_model": 2,
+      "name_en": "E-O Omni Assembly Engineer",
+      "focus_en": "Light omni drive and faster manipulator joints",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 1,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 1,
+        "drive": "omni"
+      }
+    },
+    "301": {
+      "slot": 301,
+      "role": "infantry",
+      "name": "I-T 变形隧道步兵",
+      "focus": "折叠炮塔、穿过两侧低矮隧道",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-301-spec2026v4.glb",
+      "bare_mass_kg": 20.6,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 23.85,
+      "battery_wh": 260,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.56,
+        0.55,
+        0.56
+      ],
+      "extended_m": [
+        0.7,
+        0.7,
+        0.68
+      ],
+      "chassis_size_m": [
+        0.46,
+        0.44,
+        0.025
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.13
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.36,
+      "wheel_radius_m": 0.076,
+      "wheel_width_m": 0.045,
+      "chassis_type": "mecanum",
+      "speed_reference_mps": 3.8,
+      "tire_friction": 1.22,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 95,
+      "brake_force_max_n": 130,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 1671.204,
+      "suspension_damping_nspm": 79.858,
+      "inertia_kgm2": [
+        0.38602,
+        0.4218,
+        0.80534
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.23,
+        0,
+        0.13
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.15,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.4,
+      "muzzle_reach_m": 0.23,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "transform_allowed": true,
+      "folded_muzzle_z_m": 0.145,
+      "folded_height_m": 0.235,
+      "transform_time_s": 0.8,
+      "base_model": 7,
+      "name_en": "I-T Transforming Tunnel Infantry",
+      "focus_en": "Telescoping turret for low side tunnels",
+      "deploy_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": true,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": true,
+        "arms": 0,
+        "drive": "mecanum"
+      }
+    },
+    "302": {
+      "slot": 302,
+      "role": "infantry",
+      "name": "I-S 舵轮重装步兵",
+      "focus": "高抓地力、定向加速与爆发",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-302-spec2026v4.glb",
+      "bare_mass_kg": 24.3,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 27.55,
+      "battery_wh": 240,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.59
+      ],
+      "extended_m": [
+        0.75,
+        0.75,
+        0.74
+      ],
+      "chassis_size_m": [
+        0.54,
+        0.54,
+        0.105
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.215
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.43,
+      "wheel_radius_m": 0.08,
+      "wheel_width_m": 0.055,
+      "chassis_type": "swerve",
+      "speed_reference_mps": 4.4,
+      "tire_friction": 1.25,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.84,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 100,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 1930.468,
+      "suspension_damping_nspm": 92.247,
+      "inertia_kgm2": [
+        0.69478,
+        0.69478,
+        1.33893
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.27,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "power",
+      "weapon_profile": "burst",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.285,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.48,
+      "muzzle_reach_m": 0.28,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "steer_rate_rad_s": 5,
+      "base_model": 4,
+      "name_en": "I-S Swerve Assault Infantry",
+      "focus_en": "High-traction swerve drive and burst launcher",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "swerve"
+      }
+    },
+    "303": {
+      "slot": 303,
+      "role": "infantry",
+      "name": "I-O 全向轻步兵",
+      "focus": "轻量全向、快速横移与持续射击",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-303-spec2026v4.glb",
+      "bare_mass_kg": 18.8,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 22.05,
+      "battery_wh": 220,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.59,
+        0.59,
+        0.57
+      ],
+      "extended_m": [
+        0.74,
+        0.74,
+        0.7
+      ],
+      "chassis_size_m": [
+        0.55,
+        0.55,
+        0.04
+      ],
+      "ground_clearance_m": 0.1,
+      "com_m": [
+        0,
+        0,
+        0.175
+      ],
+      "wheelbase_m": 0.36,
+      "track_m": 0.45,
+      "wheel_radius_m": 0.085,
+      "wheel_width_m": 0.055,
+      "chassis_type": "omni",
+      "speed_reference_mps": 5.1,
+      "tire_friction": 0.9,
+      "lateral_friction_ratio": 0.75,
+      "drive_efficiency": 0.85,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 105,
+      "brake_force_max_n": 130,
+      "yaw_torque_max_nm": 8,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.06,
+      "suspension_static_compression_m": 0.018,
+      "suspension_sag_m": 0.035,
+      "suspension_free_length_m": 0.107,
+      "suspension_stiffness_npm": 1545.075,
+      "suspension_damping_nspm": 73.831,
+      "inertia_kgm2": [
+        0.55878,
+        0.55878,
+        1.11169
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.275,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "power",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.175,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.45,
+      "muzzle_reach_m": 0.28,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "coast_friction": 0.22,
+      "base_model": 7,
+      "name_en": "I-O Light Omni Infantry",
+      "focus_en": "Light omni drive and sustained cooling",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "omni"
+      }
+    },
+    "304": {
+      "slot": 304,
+      "role": "infantry",
+      "name": "I-W 长行程轮足步兵",
+      "focus": "更高跃升、较慢转向与较小续航",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-304-spec2026v4.glb",
+      "bare_mass_kg": 20.9,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 24.15,
+      "battery_wh": 180,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.5,
+        0.52,
+        0.58
+      ],
+      "extended_m": [
+        0.64,
+        0.64,
+        0.8
+      ],
+      "chassis_size_m": [
+        0.42,
+        0.36,
+        0.12
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.28
+      ],
+      "wheelbase_m": 0,
+      "track_m": 0.44,
+      "wheel_radius_m": 0.1,
+      "wheel_width_m": 0.05,
+      "chassis_type": "wheel_legged",
+      "speed_reference_mps": 4.1,
+      "tire_friction": 1.0,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.8,
+      "rolling_resistance": 0.015,
+      "drag_area_m2": 0.12,
+      "motor_force_max_n": 170,
+      "brake_force_max_n": 120,
+      "yaw_torque_max_nm": 7,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.2,
+      "suspension_travel_m": 0.16,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 3290.438,
+      "suspension_damping_nspm": 176.184,
+      "inertia_kgm2": [
+        0.2898,
+        0.38398,
+        0.61582
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.21,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "power",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.28,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.03,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 6.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.435,
+      "muzzle_reach_m": 0.22,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "leg_type": "five_bar",
+      "hip_height_m": 0.3,
+      "leg_min_m": 0.12,
+      "leg_max_m": 0.38,
+      "leg_nominal_m": 0.24500000000000002,
+      "leg_speed_mps": 1.45,
+      "leg_stiffness_npm": 1692.2249999999997,
+      "leg_damping_nspm": 220,
+      "leg_passive_ratio": 0.2,
+      "jump_duration_s": 0.16,
+      "jump_thrust_gain": 1.9,
+      "jump_cooldown_s": 1.15,
+      "jump_tuck_s": 0.35,
+      "balance_kp_nm_per_rad": 180,
+      "balance_kd_nms_per_rad": 19,
+      "balance_torque_max_nm": 45,
+      "air_torque_max_nm": 5,
+      "stand_torque_max_nm": 80,
+      "coast_friction": 0.1,
+      "leg_holding_power_w": 18,
+      "leg_upper_m": 0.15,
+      "leg_lower_m": 0.33,
+      "base_model": 3,
+      "name_en": "I-W Long-stroke Wheel-legged Infantry",
+      "focus_en": "Longer legs and stronger jumps; smaller battery",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": true,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "wheel_legged"
+      }
+    },
+    "305": {
+      "slot": 305,
+      "role": "infantry",
+      "name": "I-L 串联腿步兵",
+      "focus": "髋关节整周旋转、翻倒后自行翻正",
+      "revision": "construction-2026-model-v2",
+      "asset": "/assets/robot-305-spec2026v4.glb",
+      "bare_mass_kg": 19.8,
+      "referee_mass_kg": 3.25,
+      "mass_kg": 23.05,
+      "battery_wh": 200,
+      "voltage_v": 24,
+      "stowed_m": [
+        0.5,
+        0.56,
+        0.58
+      ],
+      "extended_m": [
+        0.74,
+        0.6,
+        0.8
+      ],
+      "chassis_size_m": [
+        0.42,
+        0.36,
+        0.12
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.28
+      ],
+      "wheelbase_m": 0,
+      "track_m": 0.5,
+      "wheel_radius_m": 0.1,
+      "wheel_width_m": 0.05,
+      "chassis_type": "wheel_legged",
+      "speed_reference_mps": 4.4,
+      "tire_friction": 1.0,
+      "lateral_friction_ratio": 1.0,
+      "drive_efficiency": 0.8,
+      "rolling_resistance": 0.015,
+      "drag_area_m2": 0.12,
+      "motor_force_max_n": 170,
+      "brake_force_max_n": 120,
+      "yaw_torque_max_nm": 9,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.2,
+      "suspension_travel_m": 0.16,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 3140.563,
+      "suspension_damping_nspm": 168.159,
+      "inertia_kgm2": [
+        0.2766,
+        0.36649,
+        0.58777
+      ],
+      "supercap_nominal_j": 1800,
+      "supercap_max_current_a": 12,
+      "charge_receiver": true,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.21,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "power",
+      "weapon_profile": "cooling",
+      "armor_count": 4,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0.28,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.03,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 6.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.47,
+      "muzzle_reach_m": 0.22,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "leg_type": "serial",
+      "hip_height_m": 0.3,
+      "leg_min_m": 0.12,
+      "leg_max_m": 0.35,
+      "leg_nominal_m": 0.24500000000000002,
+      "leg_speed_mps": 1.3,
+      "leg_stiffness_npm": 1615.1464285714285,
+      "leg_damping_nspm": 220,
+      "leg_passive_ratio": 0.2,
+      "jump_duration_s": 0.16,
+      "jump_thrust_gain": 1.8,
+      "jump_cooldown_s": 0.95,
+      "jump_tuck_s": 0.35,
+      "balance_kp_nm_per_rad": 180,
+      "balance_kd_nms_per_rad": 19,
+      "balance_torque_max_nm": 45,
+      "air_torque_max_nm": 5,
+      "stand_torque_max_nm": 80,
+      "coast_friction": 0.1,
+      "leg_holding_power_w": 18,
+      "leg_upper_m": 0.17,
+      "leg_lower_m": 0.2,
+      "armor_side_center_z_m": 0.215,
+      "hip_speed_rad_s": 8.0,
+      "self_right_delay_s": 0.4,
+      "self_right_torque_max_nm": 70,
+      "self_right_roll_torque_max_nm": 60,
+      "base_model": 3,
+      "name_en": "I-L Serial-leg Self-righting Infantry",
+      "focus_en": "Full-turn hip joints flip it back upright after a fall",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "rotor_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": true,
+        "self_righting": true,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "wheel_legged"
+      }
+    },
+    "601": {
+      "slot": 601,
+      "role": "aerial",
+      "name": "A-Q 轻量四旋翼",
+      "focus": "紧凑护罩、高机动与较小电池",
+      "revision": "construction-2026-model-v1",
+      "asset": "/assets/robot-601-spec2026v3.glb",
+      "bare_mass_kg": 8.7,
+      "referee_mass_kg": 0.66,
+      "mass_kg": 9.36,
+      "battery_wh": 540,
+      "voltage_v": 44.4,
+      "stowed_m": [
+        1.18,
+        1.18,
+        0.66
+      ],
+      "extended_m": [
+        1.18,
+        1.18,
+        0.66
+      ],
+      "chassis_size_m": [
+        0.38,
+        0.3,
+        0.16
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.215
+      ],
+      "wheelbase_m": 0.66,
+      "track_m": 0.66,
+      "wheel_radius_m": 0.235,
+      "wheel_width_m": 0.055,
+      "chassis_type": "quadrotor",
+      "speed_reference_mps": 3.8,
+      "tire_friction": 0,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.76,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 100,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.045,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 1275.3,
+      "suspension_damping_nspm": 68.285,
+      "inertia_kgm2": [
+        0.24,
+        0.24,
+        0.36
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.19,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 0,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.14,
+      "muzzle_reach_m": 0.26,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "rotor_radius_m": 0.185,
+      "guard_radius_m": 0.23,
+      "guard_height_m": 0.16,
+      "guard_mesh_pitch_m": 0.025,
+      "rotor_plane_z_m": 0.3,
+      "mast_top_z_m": 0.65,
+      "mast_offset_above_rotor_m": 0.35,
+      "nav_light_length_m": 1.58,
+      "nav_light_lux_at_40mm": 500,
+      "backup_rope_diameter_m": 0.004,
+      "thrust_max_n": 205,
+      "flight_tilt_limit_rad": 0.261799,
+      "flight_power_max_w": 2250,
+      "rotor_count": 4,
+      "base_model": 6,
+      "name_en": "A-Q Compact Quadrotor",
+      "focus_en": "Compact guards, faster flight and smaller battery",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "quadrotor"
+      }
+    },
+    "602": {
+      "slot": 602,
+      "role": "aerial",
+      "name": "A-H 六旋翼支援机",
+      "focus": "六旋翼稳定平台、长续航与较慢机动",
+      "revision": "construction-2026-model-v1",
+      "asset": "/assets/robot-602-spec2026v3.glb",
+      "bare_mass_kg": 12.3,
+      "referee_mass_kg": 0.66,
+      "mass_kg": 12.96,
+      "battery_wh": 850,
+      "voltage_v": 44.4,
+      "stowed_m": [
+        1.38,
+        1.38,
+        0.66
+      ],
+      "extended_m": [
+        1.38,
+        1.38,
+        0.66
+      ],
+      "chassis_size_m": [
+        0.38,
+        0.3,
+        0.16
+      ],
+      "ground_clearance_m": 0.035,
+      "com_m": [
+        0,
+        0,
+        0.215
+      ],
+      "wheelbase_m": 0.66,
+      "track_m": 0.66,
+      "wheel_radius_m": 0.235,
+      "wheel_width_m": 0.055,
+      "chassis_type": "quadrotor",
+      "speed_reference_mps": 2.7,
+      "tire_friction": 0,
+      "lateral_friction_ratio": 0.82,
+      "drive_efficiency": 0.76,
+      "rolling_resistance": 0.025,
+      "drag_area_m2": 0.18,
+      "motor_force_max_n": 100,
+      "brake_force_max_n": 100,
+      "yaw_torque_max_nm": 5,
+      "velocity_gain_per_s": 4,
+      "yaw_gain_per_s": 5,
+      "suspension_rest_m": 0.09,
+      "suspension_travel_m": 0.045,
+      "suspension_static_compression_m": 0.018,
+      "suspension_stiffness_npm": 1765.8,
+      "suspension_damping_nspm": 94.548,
+      "inertia_kgm2": [
+        0.48,
+        0.48,
+        0.68
+      ],
+      "supercap_nominal_j": 0,
+      "supercap_max_current_a": 0,
+      "charge_receiver": false,
+      "coil_size_m": [
+        0.1,
+        0.1
+      ],
+      "coil_offset_m": [
+        0.19,
+        0,
+        0.16
+      ],
+      "hero_profile": "ranged",
+      "chassis_profile": "hp",
+      "weapon_profile": "cooling",
+      "armor_count": 0,
+      "armor_width_m": 0.135,
+      "armor_height_m": 0.125,
+      "armor_center_z_m": 0,
+      "armor_inset_m": 0.032,
+      "armor_normal_to_up_deg": 75,
+      "armor_mount_offset_m": 0.0,
+      "armor_hit_face_offset_m": 0.011,
+      "turret_yaw_rate_rad_s": 5.5,
+      "turret_pitch_rate_rad_s": 2.5,
+      "pitch_limits_rad": [
+        -0.2617993878,
+        0.7853981634
+      ],
+      "muzzle_z_m": 0.14,
+      "muzzle_reach_m": 0.26,
+      "trigger_interval_s": 0.05,
+      "finish_gloss_gs": 20,
+      "contact_restitution": 0.08,
+      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "rotor_radius_m": 0.16,
+      "guard_radius_m": 0.205,
+      "guard_height_m": 0.16,
+      "guard_mesh_pitch_m": 0.025,
+      "rotor_plane_z_m": 0.3,
+      "mast_top_z_m": 0.65,
+      "mast_offset_above_rotor_m": 0.35,
+      "nav_light_length_m": 1.86,
+      "nav_light_lux_at_40mm": 500,
+      "backup_rope_diameter_m": 0.004,
+      "thrust_max_n": 255,
+      "flight_tilt_limit_rad": 0.261799,
+      "flight_power_max_w": 2900,
+      "rotor_count": 6,
+      "base_model": 6,
+      "name_en": "A-H Endurance Hexarotor",
+      "focus_en": "Six enclosed rotors, larger battery and slower flight",
+      "deploy_allowed": false,
+      "transform_allowed": false,
+      "arm_count": 0,
+      "capabilities": {
+        "deployment": false,
+        "transformation": false,
+        "jump": false,
+        "self_righting": false,
+        "tunnel": false,
+        "arms": 0,
+        "drive": "quadrotor"
+      }
+    }
+  },
+  "roster": [
+    {
+      "slot": 1,
+      "role": "hero"
+    },
+    {
+      "slot": 2,
+      "role": "engineer"
+    },
+    {
+      "slot": 3,
+      "role": "infantry"
+    },
+    {
+      "slot": 4,
+      "role": "infantry"
+    },
+    {
+      "slot": 6,
+      "role": "aerial"
+    },
+    {
+      "slot": 7,
+      "role": "infantry"
+    }
+  ],
+  "maps": {
+    "rmuc2026": {
+      "name": "rmuc2026",
+      "layout_revision": "chapter4-2026-v3",
+      "width": 28,
+      "height": 15,
+      "floor_slope_deg": 1.5,
+      "terrain": [
+        {
+          "id": "central_highland",
+          "x": 10.15,
+          "y": 2.09,
+          "w": 7.700000000000001,
+          "h": 10.82,
+          "polygon": [
+            [
+              12.55,
+              2.09
+            ],
+            [
+              15.55,
+              2.09
+            ],
+            [
+              15.55,
+              3.169103
+            ],
+            [
+              16.65,
+              3.169103
+            ],
+            [
+              16.65,
+              2.09
+            ],
+            [
+              17.85,
+              2.09
+            ],
+            [
+              17.85,
+              9.17
+            ],
+            [
+              15.45,
+              12.91
+            ],
+            [
+              12.45,
+              12.91
+            ],
+            [
+              12.45,
+              11.830896565136172
+            ],
+            [
+              11.35,
+              11.830896565136172
+            ],
+            [
+              11.35,
+              12.91
+            ],
+            [
+              10.15,
+              12.91
+            ],
+            [
+              10.15,
+              5.83
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 54,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "central_red_end_slope",
+          "x": 11.349999999999998,
+          "y": 11.830896565136172,
+          "w": 1.1000000000000014,
+          "h": 1.0791034348638284,
+          "polygon": [
+            [
+              12.45,
+              12.91
+            ],
+            [
+              12.45,
+              11.830896565136172
+            ],
+            [
+              11.349999999999998,
+              11.830896565136172
+            ],
+            [
+              11.349999999999998,
+              12.91
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 54,
+          "base_elevation": 0.2,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 10.499999999999993,
+          "ramp_start": [
+            11.899999999999999,
+            12.91
+          ],
+          "ramp_end": [
+            11.899999999999999,
+            11.830896565136172
+          ]
+        },
+        {
+          "id": "central_blue_end_slope",
+          "x": 15.55,
+          "y": 2.09,
+          "w": 1.1000000000000014,
+          "h": 1.079103,
+          "polygon": [
+            [
+              15.55,
+              2.09
+            ],
+            [
+              15.55,
+              3.169103
+            ],
+            [
+              16.650000000000002,
+              3.169103
+            ],
+            [
+              16.650000000000002,
+              2.09
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 54,
+          "base_elevation": 0.2,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 10.50000413725393,
+          "ramp_start": [
+            16.1,
+            2.09
+          ],
+          "ramp_end": [
+            16.1,
+            3.169103
+          ]
+        },
+        {
+          "id": "central_west_step",
+          "x": 8.506,
+          "y": 6.014,
+          "w": 1.6440000000000001,
+          "h": 2.9720000000000004,
+          "polygon": [
+            [
+              8.506,
+              6.264
+            ],
+            [
+              8.756,
+              6.014
+            ],
+            [
+              10.15,
+              6.014
+            ],
+            [
+              10.15,
+              8.986
+            ],
+            [
+              8.756,
+              8.986
+            ],
+            [
+              8.506,
+              8.736
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 54,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "central_east_step",
+          "x": 17.85,
+          "y": 6.014,
+          "w": 1.6439999999999984,
+          "h": 2.9720000000000004,
+          "polygon": [
+            [
+              19.494,
+              8.736
+            ],
+            [
+              19.244,
+              8.986
+            ],
+            [
+              17.85,
+              8.986
+            ],
+            [
+              17.85,
+              6.014
+            ],
+            [
+              19.244,
+              6.014
+            ],
+            [
+              19.494,
+              6.264
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 54,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "assembly_plinth",
+          "x": 12.37365440327094,
+          "y": 5.87365440327094,
+          "w": 3.2526911934581193,
+          "h": 3.2526911934581193,
+          "polygon": [
+            [
+              13.85857864376269,
+              5.87365440327094
+            ],
+            [
+              14.353553390593273,
+              5.873654403270941
+            ],
+            [
+              15.62634559672906,
+              7.146446609406727
+            ],
+            [
+              15.62634559672906,
+              7.641421356237309
+            ],
+            [
+              14.14142135623731,
+              9.12634559672906
+            ],
+            [
+              13.646446609406727,
+              9.12634559672906
+            ],
+            [
+              12.37365440327094,
+              7.853553390593274
+            ],
+            [
+              12.37365440327094,
+              7.358578643762691
+            ]
+          ],
+          "kind": "bevel",
+          "elevation": 0.5,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 55,
+          "base_elevation": 0.4,
+          "edge_ramp_m": 0.567128181961771,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_trapezoid",
+          "x": 3.15,
+          "y": 0,
+          "w": 10.504999999999999,
+          "h": 4.38,
+          "polygon": [
+            [
+              3.15,
+              0
+            ],
+            [
+              13.655,
+              0
+            ],
+            [
+              13.655,
+              1.093
+            ],
+            [
+              9.857,
+              1.093
+            ],
+            [
+              7.59,
+              4.38
+            ],
+            [
+              5.001,
+              4.38
+            ],
+            [
+              5.776,
+              2.922
+            ],
+            [
+              3.15,
+              2.922
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_trapezoid_buff",
+          "x": 3.15,
+          "y": 3.172,
+          "w": 2.361,
+          "h": 1.2079999999999997,
+          "polygon": [
+            [
+              3.15,
+              3.172
+            ],
+            [
+              5.511,
+              3.172
+            ],
+            [
+              5.001,
+              4.38
+            ],
+            [
+              3.15,
+              4.38
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_trapezoid_43",
+          "x": 3.745,
+          "y": 4.38,
+          "w": 1.1500000000000004,
+          "h": 0.21447374200493652,
+          "polygon": [
+            [
+              4.8950000000000005,
+              4.594473742004936
+            ],
+            [
+              4.8950000000000005,
+              4.38
+            ],
+            [
+              3.745,
+              4.38
+            ],
+            [
+              3.745,
+              4.594473742004936
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0.2,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 43.0,
+          "ramp_start": [
+            4.32,
+            4.594473742004936
+          ],
+          "ramp_end": [
+            4.32,
+            4.38
+          ]
+        },
+        {
+          "id": "red_trapezoid_23",
+          "x": 7.59,
+          "y": 1.093,
+          "w": 2.6548678526629708,
+          "h": 3.5545072777569073,
+          "polygon": [
+            [
+              7.59,
+              4.38
+            ],
+            [
+              9.857,
+              1.093
+            ],
+            [
+              10.24486785266297,
+              1.3605072777569072
+            ],
+            [
+              7.97786785266297,
+              4.647507277756907
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 23,
+          "ramp_start": [
+            9.111367852662971,
+            3.0040072777569073
+          ],
+          "ramp_end": [
+            8.7235,
+            2.7365
+          ]
+        },
+        {
+          "id": "red_highway",
+          "x": 3.75,
+          "y": 11.349,
+          "w": 9.457089,
+          "h": 3.651,
+          "polygon": [
+            [
+              3.75,
+              11.349
+            ],
+            [
+              5.6080000000000005,
+              11.349
+            ],
+            [
+              6.384,
+              12.91
+            ],
+            [
+              13.207089,
+              12.91
+            ],
+            [
+              13.207089,
+              13.8285
+            ],
+            [
+              12.55,
+              13.8285
+            ],
+            [
+              12.55,
+              15
+            ],
+            [
+              3.75,
+              15
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_highway_slope",
+          "x": 5.6080000000000005,
+          "y": 11.349,
+          "w": 2.0429999999999993,
+          "h": 1.561,
+          "polygon": [
+            [
+              5.6080000000000005,
+              11.349
+            ],
+            [
+              6.875,
+              11.349
+            ],
+            [
+              7.651,
+              12.91
+            ],
+            [
+              6.384,
+              12.91
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 9.997511738702894,
+          "ramp_start": [
+            7.263,
+            12.1295
+          ],
+          "ramp_end": [
+            6.247063787946746,
+            12.634539398176377
+          ]
+        },
+        {
+          "id": "red_road_access",
+          "x": 13.207089,
+          "y": 12.91,
+          "w": 1.0289110000000008,
+          "h": 0.9185000000000016,
+          "polygon": [
+            [
+              14.236,
+              12.91
+            ],
+            [
+              13.207089,
+              12.91
+            ],
+            [
+              13.207089,
+              13.828500000000002
+            ],
+            [
+              14.236,
+              13.828500000000002
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 10.999997947285992,
+          "ramp_start": [
+            14.236,
+            13.369250000000001
+          ],
+          "ramp_end": [
+            13.207089,
+            13.369250000000001
+          ]
+        },
+        {
+          "id": "red_tunnel_a_floor",
+          "x": 8.89,
+          "y": 12.16,
+          "w": 1.0,
+          "h": 0.75,
+          "polygon": [
+            [
+              8.89,
+              12.16
+            ],
+            [
+              9.89,
+              12.16
+            ],
+            [
+              9.89,
+              12.91
+            ],
+            [
+              8.89,
+              12.91
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_fly_slope",
+          "x": 12.55,
+          "y": 13.8285,
+          "w": 1.1449999999999996,
+          "h": 1.1430000000000007,
+          "polygon": [
+            [
+              12.55,
+              14.9715
+            ],
+            [
+              13.695,
+              14.9715
+            ],
+            [
+              13.695,
+              13.8285
+            ],
+            [
+              12.55,
+              13.8285
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.553,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0.203,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 16.997179602090238,
+          "ramp_start": [
+            12.55,
+            14.4
+          ],
+          "ramp_end": [
+            13.695,
+            14.4
+          ]
+        },
+        {
+          "id": "red_fly_rail_0",
+          "x": 12.55,
+          "y": 13.8285,
+          "w": 1.1449999999999996,
+          "h": 0.14150000000000063,
+          "polygon": [
+            [
+              12.55,
+              13.97
+            ],
+            [
+              13.695,
+              13.97
+            ],
+            [
+              13.695,
+              13.8285
+            ],
+            [
+              12.55,
+              13.8285
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.7108994552295594,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0.36089945522955935,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 16.997179602090238,
+          "ramp_start": [
+            12.55,
+            13.89925
+          ],
+          "ramp_end": [
+            13.695,
+            13.89925
+          ]
+        },
+        {
+          "id": "red_fly_rail_1",
+          "x": 12.55,
+          "y": 14.83,
+          "w": 1.1449999999999996,
+          "h": 0.14150000000000063,
+          "polygon": [
+            [
+              12.55,
+              14.9715
+            ],
+            [
+              13.695,
+              14.9715
+            ],
+            [
+              13.695,
+              14.83
+            ],
+            [
+              12.55,
+              14.83
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.7108994552295594,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0.36089945522955935,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 16.997179602090238,
+          "ramp_start": [
+            12.55,
+            14.90075
+          ],
+          "ramp_end": [
+            13.695,
+            14.90075
+          ]
+        },
+        {
+          "id": "red_fly_landing",
+          "x": 14.345,
+          "y": 13.8285,
+          "w": 1.5,
+          "h": 1.1430000000000007,
+          "polygon": [
+            [
+              14.345,
+              13.8285
+            ],
+            [
+              15.845,
+              13.8285
+            ],
+            [
+              15.845,
+              14.9715
+            ],
+            [
+              14.345,
+              14.9715
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_road_bumps",
+          "x": 5.25,
+          "y": 12.91,
+          "w": 2.4000000000000004,
+          "h": 2.09,
+          "polygon": [
+            [
+              5.25,
+              12.91
+            ],
+            [
+              7.65,
+              12.91
+            ],
+            [
+              7.65,
+              15
+            ],
+            [
+              5.25,
+              15
+            ]
+          ],
+          "kind": "bumps",
+          "elevation": 0.2,
+          "speed_multiplier": 0.82,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 59,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0.24,
+          "bump_height": 0.07,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_fortress",
+          "x": 5.4799999999999995,
+          "y": 6.5300515477614285,
+          "w": 2.24,
+          "h": 1.9398969044771421,
+          "polygon": [
+            [
+              7.72,
+              7.5
+            ],
+            [
+              7.16,
+              8.46994845223857
+            ],
+            [
+              6.04,
+              8.46994845223857
+            ],
+            [
+              5.4799999999999995,
+              7.5
+            ],
+            [
+              6.039999999999999,
+              6.530051547761429
+            ],
+            [
+              7.16,
+              6.5300515477614285
+            ]
+          ],
+          "kind": "bevel",
+          "elevation": 0.15,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 52,
+          "base_elevation": 0,
+          "edge_ramp_m": 0.4121216129181933,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_base_pedestal",
+          "x": 1.4665,
+          "y": 6.736,
+          "w": 1.8810000000000002,
+          "h": 1.6090000000000009,
+          "polygon": [
+            [
+              1.4665,
+              7.5
+            ],
+            [
+              1.8625,
+              6.736
+            ],
+            [
+              2.9515000000000002,
+              6.736
+            ],
+            [
+              3.3475,
+              7.5
+            ],
+            [
+              2.787,
+              8.345
+            ],
+            [
+              2.027,
+              8.345
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 38,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "red_helipad",
+          "x": 0.3,
+          "y": 0.75,
+          "w": 2.2,
+          "h": 2.2,
+          "polygon": [
+            [
+              0.3,
+              0.75
+            ],
+            [
+              2.5,
+              0.75
+            ],
+            [
+              2.5,
+              2.95
+            ],
+            [
+              0.3,
+              2.95
+            ]
+          ],
+          "kind": "helipad",
+          "elevation": 0.9,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 43,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_trapezoid",
+          "x": 14.345,
+          "y": 10.62,
+          "w": 10.505,
+          "h": 4.380000000000001,
+          "polygon": [
+            [
+              24.85,
+              15
+            ],
+            [
+              14.345,
+              15
+            ],
+            [
+              14.345,
+              13.907
+            ],
+            [
+              18.143,
+              13.907
+            ],
+            [
+              20.41,
+              10.62
+            ],
+            [
+              22.999,
+              10.62
+            ],
+            [
+              22.224,
+              12.078
+            ],
+            [
+              24.85,
+              12.078
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_trapezoid_buff",
+          "x": 22.489,
+          "y": 10.62,
+          "w": 2.3610000000000007,
+          "h": 1.2080000000000002,
+          "polygon": [
+            [
+              24.85,
+              11.828
+            ],
+            [
+              22.489,
+              11.828
+            ],
+            [
+              22.999,
+              10.62
+            ],
+            [
+              24.85,
+              10.62
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_trapezoid_43",
+          "x": 23.105,
+          "y": 10.405526,
+          "w": 1.1499999999999986,
+          "h": 0.21447399999999917,
+          "polygon": [
+            [
+              23.105,
+              10.405526
+            ],
+            [
+              23.105,
+              10.62
+            ],
+            [
+              24.255,
+              10.62
+            ],
+            [
+              24.255,
+              10.405526
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.4,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0.2,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 42.99996562280697,
+          "ramp_start": [
+            23.68,
+            10.405526
+          ],
+          "ramp_end": [
+            23.68,
+            10.62
+          ]
+        },
+        {
+          "id": "blue_trapezoid_23",
+          "x": 17.755132,
+          "y": 10.352493,
+          "w": 2.6548680000000004,
+          "h": 3.554506999999999,
+          "polygon": [
+            [
+              20.41,
+              10.62
+            ],
+            [
+              18.143,
+              13.907
+            ],
+            [
+              17.755132,
+              13.639493
+            ],
+            [
+              20.022132,
+              10.352493
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 53,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 23,
+          "ramp_start": [
+            18.888632,
+            11.995993
+          ],
+          "ramp_end": [
+            19.2765,
+            12.2635
+          ]
+        },
+        {
+          "id": "blue_highway",
+          "x": 14.792911,
+          "y": 0,
+          "w": 9.457089,
+          "h": 3.651,
+          "polygon": [
+            [
+              24.25,
+              3.651
+            ],
+            [
+              22.392,
+              3.651
+            ],
+            [
+              21.616,
+              2.09
+            ],
+            [
+              14.792911,
+              2.09
+            ],
+            [
+              14.792911,
+              1.1715
+            ],
+            [
+              15.45,
+              1.1715
+            ],
+            [
+              15.45,
+              0
+            ],
+            [
+              24.25,
+              0
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_highway_slope",
+          "x": 20.349,
+          "y": 2.09,
+          "w": 2.0429999999999993,
+          "h": 1.561,
+          "polygon": [
+            [
+              22.392,
+              3.651
+            ],
+            [
+              21.125,
+              3.651
+            ],
+            [
+              20.349,
+              2.09
+            ],
+            [
+              21.616,
+              2.09
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 9.997511738702894,
+          "ramp_start": [
+            20.737,
+            2.8705
+          ],
+          "ramp_end": [
+            21.752936,
+            2.365461
+          ]
+        },
+        {
+          "id": "blue_road_access",
+          "x": 13.764,
+          "y": 1.1715,
+          "w": 1.0289110000000008,
+          "h": 0.9184999999999999,
+          "polygon": [
+            [
+              13.764,
+              2.09
+            ],
+            [
+              14.792911,
+              2.09
+            ],
+            [
+              14.792911,
+              1.1715
+            ],
+            [
+              13.764,
+              1.1715
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 10.999997947285992,
+          "ramp_start": [
+            13.764,
+            1.63075
+          ],
+          "ramp_end": [
+            14.792911,
+            1.63075
+          ]
+        },
+        {
+          "id": "blue_tunnel_a_floor",
+          "x": 18.11,
+          "y": 2.09,
+          "w": 1.0,
+          "h": 0.75,
+          "polygon": [
+            [
+              19.11,
+              2.84
+            ],
+            [
+              18.11,
+              2.84
+            ],
+            [
+              18.11,
+              2.09
+            ],
+            [
+              19.11,
+              2.09
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 60,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_fly_slope",
+          "x": 14.305,
+          "y": 0.02849999999999997,
+          "w": 1.1449999999999996,
+          "h": 1.143,
+          "polygon": [
+            [
+              15.45,
+              0.02849999999999997
+            ],
+            [
+              14.305,
+              0.02849999999999997
+            ],
+            [
+              14.305,
+              1.1715
+            ],
+            [
+              15.45,
+              1.1715
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.553,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0.203,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 16.997179602090238,
+          "ramp_start": [
+            15.45,
+            0.6
+          ],
+          "ramp_end": [
+            14.305,
+            0.6
+          ]
+        },
+        {
+          "id": "blue_fly_rail_0",
+          "x": 14.305,
+          "y": 1.0299999999999998,
+          "w": 1.1449999999999996,
+          "h": 0.14150000000000018,
+          "polygon": [
+            [
+              15.45,
+              1.0299999999999998
+            ],
+            [
+              14.305,
+              1.0299999999999998
+            ],
+            [
+              14.305,
+              1.1715
+            ],
+            [
+              15.45,
+              1.1715
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.7108994552295594,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0.36089945522955935,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 16.997179602090238,
+          "ramp_start": [
+            15.45,
+            1.10075
+          ],
+          "ramp_end": [
+            14.305,
+            1.10075
+          ]
+        },
+        {
+          "id": "blue_fly_rail_1",
+          "x": 14.305,
+          "y": 0.028499999999999998,
+          "w": 1.1449999999999996,
+          "h": 0.14150000000000001,
+          "polygon": [
+            [
+              15.45,
+              0.028499999999999998
+            ],
+            [
+              14.305,
+              0.028499999999999998
+            ],
+            [
+              14.305,
+              0.17
+            ],
+            [
+              15.45,
+              0.17
+            ]
+          ],
+          "kind": "ramp",
+          "elevation": 0.7108994552295594,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0.36089945522955935,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 16.997179602090238,
+          "ramp_start": [
+            15.45,
+            0.09925
+          ],
+          "ramp_end": [
+            14.305,
+            0.09925
+          ]
+        },
+        {
+          "id": "blue_fly_landing",
+          "x": 12.155,
+          "y": 0.0285,
+          "w": 1.5,
+          "h": 1.143,
+          "polygon": [
+            [
+              13.655,
+              1.1715
+            ],
+            [
+              12.155,
+              1.1715
+            ],
+            [
+              12.155,
+              0.0285
+            ],
+            [
+              13.655,
+              0.0285
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 61,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_road_bumps",
+          "x": 20.35,
+          "y": 0,
+          "w": 2.3999999999999986,
+          "h": 2.09,
+          "polygon": [
+            [
+              22.75,
+              2.09
+            ],
+            [
+              20.35,
+              2.09
+            ],
+            [
+              20.35,
+              0
+            ],
+            [
+              22.75,
+              0
+            ]
+          ],
+          "kind": "bumps",
+          "elevation": 0.2,
+          "speed_multiplier": 0.82,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 59,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0.24,
+          "bump_height": 0.07,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_fortress",
+          "x": 20.279999999999998,
+          "y": 6.5300515477614285,
+          "w": 2.240000000000002,
+          "h": 1.9398969044771421,
+          "polygon": [
+            [
+              22.52,
+              7.5
+            ],
+            [
+              21.959999999999997,
+              8.46994845223857
+            ],
+            [
+              20.84,
+              8.46994845223857
+            ],
+            [
+              20.279999999999998,
+              7.5
+            ],
+            [
+              20.839999999999996,
+              6.530051547761429
+            ],
+            [
+              21.959999999999997,
+              6.5300515477614285
+            ]
+          ],
+          "kind": "bevel",
+          "elevation": 0.15,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 52,
+          "base_elevation": 0,
+          "edge_ramp_m": 0.4121216129181933,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_base_pedestal",
+          "x": 24.6525,
+          "y": 6.655,
+          "w": 1.8810000000000002,
+          "h": 1.608999999999999,
+          "polygon": [
+            [
+              26.5335,
+              7.5
+            ],
+            [
+              26.1375,
+              8.264
+            ],
+            [
+              25.0485,
+              8.264
+            ],
+            [
+              24.6525,
+              7.5
+            ],
+            [
+              25.213,
+              6.655
+            ],
+            [
+              25.973,
+              6.655
+            ]
+          ],
+          "kind": "platform",
+          "elevation": 0.2,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 38,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        },
+        {
+          "id": "blue_helipad",
+          "x": 25.5,
+          "y": 12.05,
+          "w": 2.1999999999999993,
+          "h": 2.1999999999999993,
+          "polygon": [
+            [
+              27.7,
+              14.25
+            ],
+            [
+              25.5,
+              14.25
+            ],
+            [
+              25.5,
+              12.05
+            ],
+            [
+              27.7,
+              12.05
+            ]
+          ],
+          "kind": "helipad",
+          "elevation": 0.9,
+          "speed_multiplier": 1,
+          "direction": 0,
+          "axis": "x",
+          "source_page": 43,
+          "base_elevation": 0,
+          "edge_ramp_m": 0,
+          "bump_pitch": 0,
+          "bump_height": 0,
+          "slope_deg": 0
+        }
+      ],
+      "obstacles": [
+        {
+          "id": "central_kerb_0",
+          "x": 12.55,
+          "y": 2.0149999999999997,
+          "w": 3.0,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.15,
+          "bottom": 0.4547285760796007,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_1",
+          "x": 12.45,
+          "y": 12.835,
+          "w": 3.0,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.15,
+          "bottom": 0.4547285760796007,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_2",
+          "x": 9.12808641032105,
+          "y": 3.885,
+          "w": 4.443827179357902,
+          "h": 0.15,
+          "rotation": 2.1413225574825323,
+          "height": 0.15,
+          "bottom": 0.5036962494139803,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_3",
+          "x": 14.428086410321047,
+          "y": 10.965,
+          "w": 4.4438271793579025,
+          "h": 0.15,
+          "rotation": 2.1413225574825328,
+          "height": 0.15,
+          "bottom": 0.5036962494139803,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_4",
+          "x": 10.058,
+          "y": 5.847,
+          "w": 0.18400000000000016,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.15,
+          "bottom": 0.555073027532725,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_5",
+          "x": 8.188,
+          "y": 10.873000000000001,
+          "w": 3.9239999999999995,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.15,
+          "bottom": 0.5061053541983455,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_6",
+          "x": 15.888000000000002,
+          "y": 3.9769999999999994,
+          "w": 3.9240000000000004,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.15,
+          "bottom": 0.5061053541983455,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_7",
+          "x": 17.758000000000003,
+          "y": 9.003,
+          "w": 0.18399999999999928,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.15,
+          "bottom": 0.555073027532725,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_8",
+          "x": 16.65,
+          "y": 2.0149999999999997,
+          "w": 1.2000000000000028,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.15,
+          "bottom": 0.4547285760796007,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_kerb_9",
+          "x": 10.15,
+          "y": 12.835,
+          "w": 1.1999999999999993,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.15,
+          "bottom": 0.4547285760796007,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_red_slope_guard_0",
+          "x": 10.810448282568085,
+          "y": 12.295448282568087,
+          "w": 1.0791034348638284,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.35,
+          "bottom": 0.2688572350347929,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_blue_slope_guard_0",
+          "x": 16.110448499999997,
+          "y": 2.5545514999999996,
+          "w": 1.079103,
+          "h": 0.15,
+          "rotation": -1.5707963267948966,
+          "height": 0.35,
+          "bottom": 0.26885722934113787,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_red_slope_guard_1",
+          "x": 11.910448282568085,
+          "y": 12.295448282568087,
+          "w": 1.0791034348638284,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.35,
+          "bottom": 0.2688572350347929,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "central_blue_slope_guard_1",
+          "x": 15.0104485,
+          "y": 2.5545514999999996,
+          "w": 1.079103,
+          "h": 0.15,
+          "rotation": -1.5707963267948966,
+          "height": 0.35,
+          "bottom": 0.26885722934113787,
+          "kind": "barrier",
+          "source_page": 54
+        },
+        {
+          "id": "red_tunnel_a_roof",
+          "x": 9.015,
+          "y": 12.135,
+          "w": 0.75,
+          "h": 0.8,
+          "rotation": 1.5707963267948966,
+          "height": 0.06,
+          "bottom": 0.5145482966680458,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_tunnel_a_side",
+          "x": 8.64,
+          "y": 12.51,
+          "w": 0.75,
+          "h": 0.05,
+          "rotation": 1.5707963267948966,
+          "height": 0.51,
+          "bottom": 0.06454829666804578,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_tunnel_a_side",
+          "x": 9.39,
+          "y": 12.51,
+          "w": 0.75,
+          "h": 0.05,
+          "rotation": 1.5707963267948966,
+          "height": 0.51,
+          "bottom": 0.06454829666804578,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_tunnel_b_roof",
+          "x": 14.38675,
+          "y": 13.269250000000001,
+          "w": 0.9184999999999999,
+          "h": 0.2,
+          "rotation": 1.5707963267948966,
+          "height": 0.06,
+          "bottom": 0.29270269159895157,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_kerb_0",
+          "x": 3.1500000000000004,
+          "y": -0.024999999999999994,
+          "w": 10.504999999999999,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.6,
+          "bottom": 0.0013092960784593464,
+          "kind": "barrier",
+          "source_page": 53
+        },
+        {
+          "id": "red_kerb_1",
+          "x": 1.7139999999999997,
+          "y": 1.411,
+          "w": 2.8720000000000003,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.6,
+          "bottom": 0.038912279451811776,
+          "kind": "barrier",
+          "source_page": 53
+        },
+        {
+          "id": "red_kerb_2",
+          "x": 3.75,
+          "y": 11.274000000000001,
+          "w": 3.125,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.35,
+          "bottom": 0.09560479964910147,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_kerb_3",
+          "x": 1.9495000000000005,
+          "y": 13.0745,
+          "w": 3.600999999999999,
+          "h": 0.15,
+          "rotation": 1.5707963267948966,
+          "height": 0.35,
+          "bottom": 0.04845704786378042,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_kerb_4",
+          "x": 3.75,
+          "y": 14.875,
+          "w": 5.300000000000001,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.35,
+          "bottom": 0.001309296078459365,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_kerb_5",
+          "x": 5.25,
+          "y": 12.760000000000002,
+          "w": 2.401,
+          "h": 0.15,
+          "rotation": 0.0,
+          "height": 0.35,
+          "bottom": 0.056692520197289674,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "red_dart_station",
+          "x": 0.08000000000000007,
+          "y": 3.54,
+          "w": 1.04,
+          "h": 0.92,
+          "rotation": 0.0,
+          "height": 1.32,
+          "bottom": 0.10474368627674771,
+          "kind": "barrier",
+          "source_page": 41
+        },
+        {
+          "id": "red_resource_side_0.075",
+          "x": -0.6799999999999999,
+          "y": 14.200000000000001,
+          "w": 1.5099999999999998,
+          "h": 0.05,
+          "rotation": 1.5707963267948966,
+          "height": 1.53,
+          "bottom": 0.02029408921611983,
+          "kind": "barrier",
+          "source_page": 47
+        },
+        {
+          "id": "red_resource_side_1.885",
+          "x": 1.1300000000000001,
+          "y": 14.200000000000001,
+          "w": 1.5099999999999998,
+          "h": 0.05,
+          "rotation": 1.5707963267948966,
+          "height": 1.53,
+          "bottom": 0.02029408921611983,
+          "kind": "barrier",
+          "source_page": 47
+        },
+        {
+          "id": "red_resource_back",
+          "x": 0.07499999999999996,
+          "y": 14.955,
+          "w": 1.81,
+          "h": 0.05,
+          "rotation": 0.0,
+          "height": 1.53,
+          "bottom": 0.0005237184313837274,
+          "kind": "barrier",
+          "source_page": 47
+        },
+        {
+          "id": "blue_tunnel_a_roof",
+          "x": 18.235,
+          "y": 2.065,
+          "w": 0.75,
+          "h": 0.8,
+          "rotation": -1.5707963267948966,
+          "height": 0.06,
+          "bottom": 0.5145482966680458,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_tunnel_a_side",
+          "x": 18.61,
+          "y": 2.44,
+          "w": 0.75,
+          "h": 0.05,
+          "rotation": -1.5707963267948966,
+          "height": 0.51,
+          "bottom": 0.06454829666804578,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_tunnel_a_side",
+          "x": 17.86,
+          "y": 2.44,
+          "w": 0.75,
+          "h": 0.05,
+          "rotation": -1.5707963267948966,
+          "height": 0.51,
+          "bottom": 0.06454829666804578,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_tunnel_b_roof",
+          "x": 12.694749999999999,
+          "y": 1.5307499999999998,
+          "w": 0.9184999999999999,
+          "h": 0.2,
+          "rotation": -1.5707963267948966,
+          "height": 0.06,
+          "bottom": 0.29270269159895157,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_kerb_0",
+          "x": 14.344999999999999,
+          "y": 14.875,
+          "w": 10.505,
+          "h": 0.15,
+          "rotation": 3.141592653589793,
+          "height": 0.6,
+          "bottom": 0.001309296078459365,
+          "kind": "barrier",
+          "source_page": 53
+        },
+        {
+          "id": "blue_kerb_1",
+          "x": 23.414,
+          "y": 13.439,
+          "w": 2.872,
+          "h": 0.15,
+          "rotation": -1.5707963267948966,
+          "height": 0.6,
+          "bottom": 0.03891227945181179,
+          "kind": "barrier",
+          "source_page": 53
+        },
+        {
+          "id": "blue_kerb_2",
+          "x": 21.125,
+          "y": 3.5759999999999996,
+          "w": 3.125,
+          "h": 0.15,
+          "rotation": 3.141592653589793,
+          "height": 0.35,
+          "bottom": 0.09560479964910147,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_kerb_3",
+          "x": 22.4495,
+          "y": 1.7754999999999999,
+          "w": 3.601,
+          "h": 0.15,
+          "rotation": -1.5707963267948966,
+          "height": 0.35,
+          "bottom": 0.048457047863780404,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_kerb_4",
+          "x": 18.950000000000003,
+          "y": -0.024999999999999994,
+          "w": 5.300000000000001,
+          "h": 0.15,
+          "rotation": 3.141592653589793,
+          "height": 0.35,
+          "bottom": 0.0013092960784593464,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_kerb_5",
+          "x": 20.349000000000004,
+          "y": 2.09,
+          "w": 2.401,
+          "h": 0.15,
+          "rotation": 3.141592653589793,
+          "height": 0.35,
+          "bottom": 0.0566925201972897,
+          "kind": "barrier",
+          "source_page": 60
+        },
+        {
+          "id": "blue_dart_station",
+          "x": 26.879999999999995,
+          "y": 10.54,
+          "w": 1.0400000000000027,
+          "h": 0.92,
+          "rotation": 3.141592653589793,
+          "height": 1.32,
+          "bottom": 0.10474368627674771,
+          "kind": "barrier",
+          "source_page": 41
+        },
+        {
+          "id": "blue_resource_side_0.075",
+          "x": 27.17,
+          "y": 0.75,
+          "w": 1.51,
+          "h": 0.05,
+          "rotation": -1.5707963267948966,
+          "height": 1.53,
+          "bottom": 0.02029408921611987,
+          "kind": "barrier",
+          "source_page": 47
+        },
+        {
+          "id": "blue_resource_side_1.885",
+          "x": 25.36,
+          "y": 0.75,
+          "w": 1.51,
+          "h": 0.05,
+          "rotation": -1.5707963267948966,
+          "height": 1.53,
+          "bottom": 0.02029408921611987,
+          "kind": "barrier",
+          "source_page": 47
+        },
+        {
+          "id": "blue_resource_back",
+          "x": 26.115,
+          "y": -0.005000000000000001,
+          "w": 1.8100000000000023,
+          "h": 0.05,
+          "rotation": 3.141592653589793,
+          "height": 1.53,
+          "bottom": 0.0005237184313837386,
+          "kind": "barrier",
+          "source_page": 47
+        },
+        {
+          "id": "rune_pedestal",
+          "x": 13.049999999999999,
+          "y": 7.2,
+          "w": 1.9000000000000012,
+          "h": 0.6,
+          "rotation": 2.356194490192345,
+          "height": 0.3,
+          "bottom": 0.6963944117689019,
+          "kind": "barrier",
+          "source_page": 55
+        },
+        {
+          "id": "rune_post_foot",
+          "x": 14.61317279836453,
+          "y": 6.36682720163547,
+          "w": 0.3999999999999992,
+          "h": 0.64,
+          "rotation": -0.7853981633974483,
+          "height": 0.36,
+          "bottom": 0.6751007326487322,
+          "kind": "barrier",
+          "source_page": 55
+        },
+        {
+          "id": "rune_post",
+          "x": 14.709459594928934,
+          "y": 6.625540405071067,
+          "w": 0.16499999999999992,
+          "h": 0.165,
+          "rotation": -0.7853981633974483,
+          "height": 2.2,
+          "bottom": 1.0356562199301278,
+          "kind": "barrier",
+          "source_page": 56
+        },
+        {
+          "id": "rune_post_foot",
+          "x": 12.98682720163547,
+          "y": 7.9931727983645295,
+          "w": 0.3999999999999992,
+          "h": 0.64,
+          "rotation": 2.356194490192345,
+          "height": 0.36,
+          "bottom": 0.6751007326487322,
+          "kind": "barrier",
+          "source_page": 55
+        },
+        {
+          "id": "rune_post",
+          "x": 13.125540405071067,
+          "y": 8.209459594928934,
+          "w": 0.16499999999999992,
+          "h": 0.165,
+          "rotation": 2.356194490192345,
+          "height": 2.2,
+          "bottom": 1.0356562199301278,
+          "kind": "barrier",
+          "source_page": 56
+        },
+        {
+          "id": "rune_crossbeam_roof",
+          "x": 12.9625,
+          "y": 7.45,
+          "w": 2.0749999999999997,
+          "h": 0.1,
+          "rotation": 2.356194490192345,
+          "height": 0.14,
+          "bottom": 2.926394411768902,
+          "kind": "barrier",
+          "source_page": 56
+        },
+        {
+          "id": "rune_gearbox_roof",
+          "x": 13.87,
+          "y": 7.38,
+          "w": 0.2600000000000005,
+          "h": 0.24,
+          "rotation": 2.356194490192345,
+          "height": 0.26,
+          "bottom": 2.8663944117689018,
+          "kind": "barrier",
+          "source_page": 56
+        }
+      ],
+      "zones": [
+        {
+          "id": "red_base",
+          "kind": "base",
+          "x": 2.407,
+          "y": 7.5,
+          "radius": 1.8,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "polygon": [
+            [
+              4.3870000000000005,
+              7.5
+            ],
+            [
+              3.3970000000000002,
+              9.214730299493189
+            ],
+            [
+              1.4170000000000003,
+              9.214730299493189
+            ],
+            [
+              0.42700000000000005,
+              7.5
+            ],
+            [
+              1.4169999999999991,
+              5.785269700506812
+            ],
+            [
+              3.3970000000000002,
+              5.785269700506811
+            ]
+          ]
+        },
+        {
+          "id": "red_fortress",
+          "kind": "fortress",
+          "x": 6.6,
+          "y": 7.5,
+          "radius": 0.56,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "polygon": [
+            [
+              7.253,
+              7.5
+            ],
+            [
+              6.9265,
+              8.065514588671238
+            ],
+            [
+              6.273499999999999,
+              8.065514588671238
+            ],
+            [
+              5.946999999999999,
+              7.5
+            ],
+            [
+              6.273499999999999,
+              6.934485411328762
+            ],
+            [
+              6.9265,
+              6.934485411328762
+            ]
+          ]
+        },
+        {
+          "id": "red_outpost",
+          "kind": "outpost",
+          "x": 10.992,
+          "y": 11.357,
+          "radius": 0.85,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "red_trapezoid",
+          "kind": "trapezoid",
+          "x": 4.32,
+          "y": 3.7,
+          "radius": 0.58,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "red_supply",
+          "kind": "supply",
+          "x": 1.35,
+          "y": 12.28,
+          "radius": 0.87,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "polygon": [
+            [
+              0,
+              11.349
+            ],
+            [
+              2.56,
+              11.349
+            ],
+            [
+              2.56,
+              15
+            ],
+            [
+              0,
+              15
+            ]
+          ]
+        },
+        {
+          "id": "red_resource",
+          "kind": "resource",
+          "x": 0.98,
+          "y": 13.08,
+          "radius": 0.55,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "red_assembly",
+          "kind": "assembly",
+          "x": 13.335319625684646,
+          "y": 6.835319625684646,
+          "radius": 0.65,
+          "owner": "red",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "red_road_0",
+          "kind": "road",
+          "x": 8.235,
+          "y": 12.55,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_road",
+          "order": 0
+        },
+        {
+          "id": "red_road_1",
+          "kind": "road",
+          "x": 8.235,
+          "y": 13.3,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_road",
+          "order": 1
+        },
+        {
+          "id": "red_highland_0",
+          "kind": "highland",
+          "x": 9.15,
+          "y": 7.5,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_highland",
+          "order": 0
+        },
+        {
+          "id": "red_highland_1",
+          "kind": "highland",
+          "x": 10.8,
+          "y": 7.5,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_highland",
+          "order": 1
+        },
+        {
+          "id": "red_fly_0",
+          "kind": "fly",
+          "x": 10.6,
+          "y": 14.4,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_fly",
+          "order": 0
+        },
+        {
+          "id": "red_fly_1",
+          "kind": "fly",
+          "x": 16.27,
+          "y": 14.4,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_fly",
+          "order": 1
+        },
+        {
+          "id": "red_tunnel_0",
+          "kind": "tunnel",
+          "x": 9.39,
+          "y": 12.535,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_tunnel",
+          "order": 0
+        },
+        {
+          "id": "red_tunnel_1",
+          "kind": "tunnel",
+          "x": 9.39,
+          "y": 13.3,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_tunnel",
+          "order": 1
+        },
+        {
+          "id": "red_tunnel_b_0",
+          "kind": "tunnel",
+          "x": 14.566,
+          "y": 13.369250000000001,
+          "radius": 0.3,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_tunnel_b",
+          "order": 0
+        },
+        {
+          "id": "red_tunnel_b_1",
+          "kind": "tunnel",
+          "x": 15.196,
+          "y": 13.369250000000001,
+          "radius": 0.3,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "red_tunnel_b",
+          "order": 1
+        },
+        {
+          "id": "blue_base",
+          "kind": "base",
+          "x": 25.593,
+          "y": 7.5,
+          "radius": 1.8,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "polygon": [
+            [
+              27.573,
+              7.5
+            ],
+            [
+              26.583,
+              9.214730299493189
+            ],
+            [
+              24.603,
+              9.214730299493189
+            ],
+            [
+              23.613,
+              7.5
+            ],
+            [
+              24.602999999999998,
+              5.785269700506812
+            ],
+            [
+              26.583,
+              5.785269700506811
+            ]
+          ]
+        },
+        {
+          "id": "blue_fortress",
+          "kind": "fortress",
+          "x": 21.4,
+          "y": 7.5,
+          "radius": 0.56,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "polygon": [
+            [
+              22.052999999999997,
+              7.5
+            ],
+            [
+              21.726499999999998,
+              8.065514588671238
+            ],
+            [
+              21.0735,
+              8.065514588671238
+            ],
+            [
+              20.747,
+              7.5
+            ],
+            [
+              21.0735,
+              6.934485411328762
+            ],
+            [
+              21.726499999999998,
+              6.934485411328762
+            ]
+          ]
+        },
+        {
+          "id": "blue_outpost",
+          "kind": "outpost",
+          "x": 17.008,
+          "y": 3.643,
+          "radius": 0.85,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "blue_trapezoid",
+          "kind": "trapezoid",
+          "x": 23.68,
+          "y": 11.3,
+          "radius": 0.58,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "blue_supply",
+          "kind": "supply",
+          "x": 26.65,
+          "y": 2.72,
+          "radius": 0.87,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "polygon": [
+            [
+              28,
+              3.651
+            ],
+            [
+              25.44,
+              3.651
+            ],
+            [
+              25.44,
+              0
+            ],
+            [
+              28,
+              0
+            ]
+          ]
+        },
+        {
+          "id": "blue_resource",
+          "kind": "resource",
+          "x": 27.02,
+          "y": 1.92,
+          "radius": 0.55,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "blue_assembly",
+          "kind": "assembly",
+          "x": 14.664680374315354,
+          "y": 8.164680374315354,
+          "radius": 0.65,
+          "owner": "blue",
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "blue_road_0",
+          "kind": "road",
+          "x": 19.765,
+          "y": 2.45,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_road",
+          "order": 0
+        },
+        {
+          "id": "blue_road_1",
+          "kind": "road",
+          "x": 19.765,
+          "y": 1.7,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_road",
+          "order": 1
+        },
+        {
+          "id": "blue_highland_0",
+          "kind": "highland",
+          "x": 18.85,
+          "y": 7.5,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_highland",
+          "order": 0
+        },
+        {
+          "id": "blue_highland_1",
+          "kind": "highland",
+          "x": 17.2,
+          "y": 7.5,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_highland",
+          "order": 1
+        },
+        {
+          "id": "blue_fly_0",
+          "kind": "fly",
+          "x": 17.4,
+          "y": 0.6,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_fly",
+          "order": 0
+        },
+        {
+          "id": "blue_fly_1",
+          "kind": "fly",
+          "x": 11.73,
+          "y": 0.6,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_fly",
+          "order": 1
+        },
+        {
+          "id": "blue_tunnel_0",
+          "kind": "tunnel",
+          "x": 18.61,
+          "y": 2.465,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_tunnel",
+          "order": 0
+        },
+        {
+          "id": "blue_tunnel_1",
+          "kind": "tunnel",
+          "x": 18.61,
+          "y": 1.7,
+          "radius": 0.35,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_tunnel",
+          "order": 1
+        },
+        {
+          "id": "blue_tunnel_b_0",
+          "kind": "tunnel",
+          "x": 13.434,
+          "y": 1.63075,
+          "radius": 0.3,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_tunnel_b",
+          "order": 0
+        },
+        {
+          "id": "blue_tunnel_b_1",
+          "kind": "tunnel",
+          "x": 12.804,
+          "y": 1.63075,
+          "radius": 0.3,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline",
+          "group": "blue_tunnel_b",
+          "order": 1
+        },
+        {
+          "id": "central_north",
+          "kind": "central",
+          "x": 10.95,
+          "y": 6.55,
+          "radius": 0.55,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        },
+        {
+          "id": "central_south",
+          "kind": "central",
+          "x": 17.05,
+          "y": 8.45,
+          "radius": 0.55,
+          "owner": null,
+          "source": "chapter 4 placement + figure 5-17 buff-card outline"
+        }
+      ],
+      "forbidden": [
+        {
+          "kind": "base",
+          "owner": null,
+          "x": 1.4665,
+          "y": 6.655,
+          "w": 1.8810000000000002,
+          "h": 1.6900000000000004
+        },
+        {
+          "kind": "pad",
+          "owner": "red",
+          "x": 0.15,
+          "y": 0.45,
+          "w": 2.5,
+          "h": 2.6999999999999997
+        },
+        {
+          "kind": "supply",
+          "owner": "red",
+          "x": 0,
+          "y": 11.349,
+          "w": 2.56,
+          "h": 3.651
+        },
+        {
+          "kind": "assembly",
+          "owner": "red",
+          "x": 12.64,
+          "y": 6.14,
+          "w": 1.2799999999999994,
+          "h": 1.2800000000000002
+        },
+        {
+          "kind": "highway",
+          "owner": null,
+          "x": 13.695,
+          "y": 13.8285,
+          "w": 3.102999999999998,
+          "h": 1.1715
+        },
+        {
+          "kind": "base",
+          "owner": null,
+          "x": 24.6525,
+          "y": 6.655,
+          "w": 1.8810000000000002,
+          "h": 1.6900000000000004
+        },
+        {
+          "kind": "pad",
+          "owner": "blue",
+          "x": 25.35,
+          "y": 11.85,
+          "w": 2.5,
+          "h": 2.700000000000001
+        },
+        {
+          "kind": "supply",
+          "owner": "blue",
+          "x": 25.44,
+          "y": 0,
+          "w": 2.5599999999999987,
+          "h": 3.651
+        },
+        {
+          "kind": "assembly",
+          "owner": "blue",
+          "x": 14.08,
+          "y": 7.58,
+          "w": 1.2799999999999994,
+          "h": 1.2799999999999994
+        },
+        {
+          "kind": "highway",
+          "owner": null,
+          "x": 11.202,
+          "y": 0,
+          "w": 3.1029999999999998,
+          "h": 1.1715
+        }
+      ],
+      "spawn_points": {
+        "red": {
+          "1": [
+            1.6,
+            6.05
+          ],
+          "2": [
+            1.6,
+            8.95
+          ],
+          "3": [
+            3.15,
+            6.05
+          ],
+          "4": [
+            3.93,
+            7.5
+          ],
+          "6": [
+            1.4,
+            1.85
+          ],
+          "7": [
+            3.15,
+            8.95
+          ]
+        },
+        "blue": {
+          "1": [
+            26.4,
+            8.95
+          ],
+          "2": [
+            26.4,
+            6.05
+          ],
+          "3": [
+            24.85,
+            8.95
+          ],
+          "4": [
+            24.07,
+            7.5
+          ],
+          "6": [
+            26.6,
+            13.15
+          ],
+          "7": [
+            24.85,
+            6.05
+          ]
+        }
+      },
+      "bases": {
+        "red": [
+          2.407,
+          7.5
+        ],
+        "blue": [
+          25.593,
+          7.5
+        ]
+      },
+      "outposts": {
+        "red": [
+          10.992,
+          11.357
+        ],
+        "blue": [
+          17.008,
+          3.643
+        ]
+      },
+      "pads": {
+        "red": [
+          1.4,
+          1.85
+        ],
+        "blue": [
+          26.6,
+          13.15
+        ]
+      },
+      "flight_lanes": {
+        "red": {
+          "min_x": 0.3,
+          "max_x": 14,
+          "center_y": 1.85
+        },
+        "blue": {
+          "min_x": 14,
+          "max_x": 27.7,
+          "center_y": 13.15
+        }
+      },
+      "rune": {
+        "x": 14,
+        "y": 7.5,
+        "z": 2.9963944117689016,
+        "axis_yaw": 0.7853981633974483,
+        "face_offset_m": 0.35,
+        "arm_radius_m": 0.7,
+        "coaxial": true,
+        "red_face": "-axis",
+        "source": "figures 4-27..4-31; 5.5.2 coaxial red/blue faces"
+      },
+      "assembly_frames": {
+        "red": {
+          "origin": [
+            13.787867965644036,
+            7.287867965644036
+          ],
+          "x_axis": [
+            -0.7071067811865476,
+            -0.7071067811865475
+          ],
+          "y_axis": [
+            0.7071067811865475,
+            -0.7071067811865476
+          ],
+          "z0_m": 0.5,
+          "initial_pose": [
+            -0.2,
+            0.2,
+            0.8,
+            0,
+            90,
+            0
+          ],
+          "pose_units": "m,m,m,deg,deg,deg",
+          "source_pages": [
+            79,
+            82
+          ]
+        },
+        "blue": {
+          "origin": [
+            14.212132034355964,
+            7.712132034355964
+          ],
+          "x_axis": [
+            0.7071067811865476,
+            0.7071067811865475
+          ],
+          "y_axis": [
+            -0.7071067811865475,
+            0.7071067811865476
+          ],
+          "z0_m": 0.5,
+          "initial_pose": [
+            -0.2,
+            0.2,
+            0.8,
+            0,
+            90,
+            0
+          ],
+          "pose_units": "m,m,m,deg,deg,deg",
+          "source_pages": [
+            79,
+            82
+          ]
+        }
+      },
+      "asset": "/assets/map-rmuc2026-ch4v3.glb",
+      "structure_assets": {
+        "base": "/assets/base-ch4.glb",
+        "outpost": "/assets/outpost-ch4.glb",
+        "rune": "/assets/rune-ch4v2.glb",
+        "core": "/assets/tech-core-ch4v2.glb"
+      },
+      "field_geometry": {
+        "fixtures": [
+          {
+            "kind": "helipad",
+            "team": "red",
+            "point": [
+              1.4,
+              1.85
+            ],
+            "yaw": 0
+          },
+          {
+            "kind": "resource",
+            "team": "red",
+            "point": [
+              0.98,
+              14.235
+            ],
+            "yaw": 0,
+            "pick_point": [
+              0.98,
+              13.72,
+              0.6
+            ],
+            "pick_dir": [
+              0,
+              1,
+              0
+            ]
+          },
+          {
+            "kind": "charger",
+            "team": "red",
+            "point": [
+              0.94,
+              12.1
+            ],
+            "yaw": 0
+          },
+          {
+            "kind": "dart_station",
+            "team": "red",
+            "point": [
+              0.6,
+              4.0
+            ],
+            "yaw": 0
+          },
+          {
+            "kind": "helipad",
+            "team": "blue",
+            "point": [
+              26.6,
+              13.15
+            ],
+            "yaw": 3.141592653589793
+          },
+          {
+            "kind": "resource",
+            "team": "blue",
+            "point": [
+              27.02,
+              0.765
+            ],
+            "yaw": 3.141592653589793,
+            "pick_point": [
+              27.02,
+              1.28,
+              0.6
+            ],
+            "pick_dir": [
+              0,
+              -1,
+              0
+            ]
+          },
+          {
+            "kind": "charger",
+            "team": "blue",
+            "point": [
+              27.06,
+              2.9
+            ],
+            "yaw": 3.141592653589793
+          },
+          {
+            "kind": "dart_station",
+            "team": "blue",
+            "point": [
+              27.4,
+              11.0
+            ],
+            "yaw": 3.141592653589793
+          },
+          {
+            "kind": "rune_gantry",
+            "team": null,
+            "point": [
+              14,
+              7.5
+            ],
+            "yaw": 0.7853981633974483,
+            "plinth_top_m": 0.5,
+            "face_offset_m": 0.35,
+            "hub_height_m": 2.3,
+            "arm_radius_m": 0.7,
+            "post_center_m": 1.12,
+            "post_size_m": 0.165,
+            "post_top_m": 2.56,
+            "pedestal_half_length_m": 0.95,
+            "pedestal_half_depth_m": 0.3,
+            "pedestal_height_m": 0.3,
+            "foot_outer_m": 1.35,
+            "foot_half_depth_m": 0.32,
+            "foot_height_m": 0.36,
+            "crossbeam_depth_m": 0.1,
+            "crossbeam_height_m": 0.14,
+            "gearbox_m": [
+              0.26,
+              0.24,
+              0.26
+            ]
+          }
+        ],
+        "paint": [
+          {
+            "team": "red",
+            "kind": "edge",
+            "points": [
+              [
+                3.15,
+                0
+              ],
+              [
+                13.655,
+                0
+              ],
+              [
+                13.655,
+                1.093
+              ],
+              [
+                9.857,
+                1.093
+              ],
+              [
+                7.59,
+                4.38
+              ],
+              [
+                5.001,
+                4.38
+              ],
+              [
+                5.776,
+                2.922
+              ],
+              [
+                3.15,
+                2.922
+              ]
+            ],
+            "closed": true
+          },
+          {
+            "team": "red",
+            "kind": "edge",
+            "points": [
+              [
+                3.75,
+                11.349
+              ],
+              [
+                5.6080000000000005,
+                11.349
+              ],
+              [
+                6.384,
+                12.91
+              ],
+              [
+                13.207089,
+                12.91
+              ],
+              [
+                13.207089,
+                13.8285
+              ],
+              [
+                12.55,
+                13.8285
+              ],
+              [
+                12.55,
+                15
+              ],
+              [
+                3.75,
+                15
+              ]
+            ],
+            "closed": true
+          },
+          {
+            "team": "red",
+            "kind": "spawn",
+            "points": [
+              [
+                4.3870000000000005,
+                7.5
+              ],
+              [
+                3.3970000000000002,
+                9.214730299493189
+              ],
+              [
+                1.4170000000000003,
+                9.214730299493189
+              ],
+              [
+                0.42700000000000005,
+                7.5
+              ],
+              [
+                1.4169999999999991,
+                5.785269700506812
+              ],
+              [
+                3.3970000000000002,
+                5.785269700506811
+              ]
+            ],
+            "closed": true
+          },
+          {
+            "team": "blue",
+            "kind": "edge",
+            "points": [
+              [
+                24.85,
+                15
+              ],
+              [
+                14.345,
+                15
+              ],
+              [
+                14.345,
+                13.907
+              ],
+              [
+                18.143,
+                13.907
+              ],
+              [
+                20.41,
+                10.62
+              ],
+              [
+                22.999,
+                10.62
+              ],
+              [
+                22.224,
+                12.078
+              ],
+              [
+                24.85,
+                12.078
+              ]
+            ],
+            "closed": true
+          },
+          {
+            "team": "blue",
+            "kind": "edge",
+            "points": [
+              [
+                24.25,
+                3.651
+              ],
+              [
+                22.392,
+                3.651
+              ],
+              [
+                21.616,
+                2.09
+              ],
+              [
+                14.792911,
+                2.09
+              ],
+              [
+                14.792911,
+                1.1715
+              ],
+              [
+                15.45,
+                1.1715
+              ],
+              [
+                15.45,
+                0
+              ],
+              [
+                24.25,
+                0
+              ]
+            ],
+            "closed": true
+          },
+          {
+            "team": "blue",
+            "kind": "spawn",
+            "points": [
+              [
+                27.573,
+                7.5
+              ],
+              [
+                26.583,
+                9.214730299493189
+              ],
+              [
+                24.603,
+                9.214730299493189
+              ],
+              [
+                23.613,
+                7.5
+              ],
+              [
+                24.602999999999998,
+                5.785269700506812
+              ],
+              [
+                26.583,
+                5.785269700506811
+              ]
+            ],
+            "closed": true
+          }
+        ],
+        "source_pages": [
+          35,
+          38,
+          43,
+          47,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          63,
+          79,
+          80,
+          81,
+          82
+        ],
+        "dimension_note": "Labelled dimensions are normative; unlabelled joints and positioning are plan reconstructions."
+      },
+      "navigation": {
+        "nodes": [
+          [
+            1.1,
+            10.8
+          ],
+          [
+            3.9,
+            10.1
+          ],
+          [
+            7.4,
+            10.1
+          ],
+          [
+            8.2,
+            7.5
+          ],
+          [
+            10.5,
+            7.5
+          ],
+          [
+            12,
+            5.4
+          ],
+          [
+            12,
+            9.6
+          ],
+          [
+            13.1,
+            6.6
+          ],
+          [
+            14.9,
+            8.4
+          ],
+          [
+            16,
+            5.4
+          ],
+          [
+            16,
+            9.6
+          ],
+          [
+            17.5,
+            7.5
+          ],
+          [
+            19.8,
+            7.5
+          ],
+          [
+            20.6,
+            4.9
+          ],
+          [
+            24.1,
+            4.9
+          ],
+          [
+            26.9,
+            4.2
+          ],
+          [
+            4.3,
+            5.15
+          ],
+          [
+            23.7,
+            9.85
+          ],
+          [
+            7.75,
+            11.0
+          ],
+          [
+            7.6,
+            12.0
+          ],
+          [
+            6.2,
+            12.0
+          ],
+          [
+            4.7,
+            12.2
+          ],
+          [
+            4.7,
+            13.6
+          ],
+          [
+            10.3,
+            13.4
+          ],
+          [
+            11.9,
+            13.4
+          ],
+          [
+            11.9,
+            11.35
+          ],
+          [
+            20.25,
+            4.0
+          ],
+          [
+            20.4,
+            3.0
+          ],
+          [
+            21.8,
+            3.0
+          ],
+          [
+            23.3,
+            2.8
+          ],
+          [
+            23.3,
+            1.4
+          ],
+          [
+            17.7,
+            1.6
+          ],
+          [
+            16.1,
+            1.6
+          ],
+          [
+            16.1,
+            3.65
+          ]
+        ]
+      },
+      "charging_docks": {
+        "red": {
+          "transmitter": [
+            0.94,
+            12.1,
+            0.16
+          ],
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        "blue": {
+          "transmitter": [
+            27.06,
+            2.9,
+            0.16
+          ],
+          "normal": [
+            -1,
+            0,
+            0
+          ]
+        }
+      }
+    }
+  },
+  "specs": {
+    "hero": {
+      "hp": 150,
+      "power_w": 50,
+      "speed": 3.2,
+      "acceleration": 6,
+      "damage": 200,
+      "cooldown": 0.2,
+      "ammo": 0,
+      "vision": 18,
+      "range": 40,
+      "armor": 0,
+      "heat_per_shot": 100,
+      "max_heat": 100,
+      "cooling": 20,
+      "projectile_speed": 12,
+      "asset": "/assets/robot-hero.glb"
+    },
+    "engineer": {
+      "hp": 250,
+      "power_w": 120,
+      "speed": 3.0,
+      "acceleration": 6,
+      "damage": 0,
+      "cooldown": 0.05,
+      "ammo": 0,
+      "vision": 15,
+      "range": 40,
+      "armor": 0,
+      "heat_per_shot": 0,
+      "max_heat": 0,
+      "cooling": 0,
+      "projectile_speed": 0,
+      "asset": "/assets/robot-engineer.glb"
+    },
+    "infantry": {
+      "hp": 200,
+      "power_w": 45,
+      "speed": 4.0,
+      "acceleration": 8,
+      "damage": 20,
+      "cooldown": 0.05,
+      "ammo": 0,
+      "vision": 18,
+      "range": 40,
+      "armor": 0,
+      "heat_per_shot": 10,
+      "max_heat": 40,
+      "cooling": 12,
+      "projectile_speed": 25,
+      "asset": "/assets/robot-infantry.glb"
+    },
+    "aerial": {
+      "hp": 0,
+      "power_w": 0,
+      "speed": 3.0,
+      "acceleration": 5,
+      "damage": 20,
+      "cooldown": 0.05,
+      "ammo": 750,
+      "vision": 24,
+      "range": 40,
+      "armor": 0,
+      "heat_per_shot": 10,
+      "max_heat": 100,
+      "cooling": 20,
+      "projectile_speed": 25,
+      "asset": "/assets/robot-aerial.glb"
+    }
+  }
+}

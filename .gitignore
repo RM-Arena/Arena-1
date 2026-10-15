@@ -1,0 +1,33 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+replays/
+workspaces/
+submissions/
+.arena_host/
+*.webm
+.DS_Store
+simulation/target/
+**/target/
+frontend/dist/
+.arena_data/
+*.blend1
+*.egg-info/
+
+# Desktop builds, documentation, local credentials
+build/
+dist/
+site/.vitepress/cache/
+site/.vitepress/dist/
+.release-source/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.claude/
+coverage/
+
+# Documentation media copied from the versioned README gallery
+site/public/media/

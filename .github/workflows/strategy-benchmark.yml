@@ -1,0 +1,27 @@
+name: Strategy outcome benchmark
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        type: choice
+        description: Reference platform (trajectory outcome can differ between platforms)
+        default: macos-15
+        options: [macos-15, ubuntu-24.04, windows-latest]
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.1'
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: simulation
+      - run: uv sync --locked
+      - run: cargo build --locked --release --manifest-path simulation/Cargo.toml
+      - run: uv run --locked python scripts/benchmark_strategy.py

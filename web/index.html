@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RMUC Arena · 策略对战实验场</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css">
+  <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><span class="brand-mark">R</span><div>RMUC<span>ARENA</span></div></a>
+  <div class="header-caption">策略对战实验场 <span>7 × 7 / SIMPLIFIED RULES</span></div>
+  <div class="connection"><i id="connection-dot"></i><span id="connection">连接仿真引擎</span></div>
+</header>
+<main>
+  <aside class="setup">
+    <div class="eyebrow">MATCH CONTROL</div><h1>让策略上场。</h1>
+    <p class="intro">代码决定战术，赛场给出答案。</p>
+    <form id="setup-form">
+      <label><span class="team-dot red"></span> 红方策略<select id="red-select" aria-label="红方策略"></select></label>
+      <label><span class="team-dot blue"></span> 蓝方策略<select id="blue-select" aria-label="蓝方策略"></select></label>
+      <div class="form-row"><label>随机种子<input id="seed" type="number" value="42"></label><label>比赛时长<select id="duration"><option value="60">60 秒</option><option value="120" selected>120 秒</option><option value="180">180 秒</option></select></label></div>
+      <label>战场<select id="map-select"><option value="foundry">铸造工厂 / Foundry</option><option value="crossroads">交叉前线 / Crossroads</option></select></label>
+      <button class="primary" id="start" type="submit"><span>▶</span> 开始对战</button>
+    </form>
+    <div id="error" class="error" hidden></div>
+    <div class="control-pair"><button id="pause">Ⅱ 暂停</button><button id="stop">结束比赛</button></div>
+    <div class="divider"></div>
+    <div class="eyebrow">DIRECTOR</div>
+    <label>观战镜头<select id="camera-mode"><option value="orbit">自由镜头</option><option value="top">战术俯视</option><option value="cinematic">环绕镜头</option><option value="follow">跟随机器人</option></select></label>
+    <label>跟随目标<select id="follow-select"></select></label>
+    <button id="sound" class="wide">♫ 开启音效</button>
+    <button id="record" class="wide"><span class="rec-dot"></span> 开始录像</button>
+    <p class="record-hint" id="record-hint">1080p · WebM · 含比分与音轨</p>
+    <div class="setup-bottom"><span id="sandbox-label">Docker 隔离执行</span><span>v0.1 / 10 Hz 仿真</span></div>
+  </aside>
+  <section class="stage-column">
+    <div class="scoreboard">
+      <div class="team-score red-score"><span class="team-name" id="red-name">RUSH</span><strong id="red-score">0</strong><span id="red-base">基地 1500</span></div>
+      <div class="match-clock"><span id="match-state">等待策略入场</span><strong id="clock">02:00</strong><span id="match-tag">SEED 42 · FOUNDRY</span></div>
+      <div class="team-score blue-score"><span class="team-name" id="blue-name">BASTION</span><strong id="blue-score">0</strong><span id="blue-base">基地 1500</span></div>
+    </div>
+    <div id="viewport">
+      <div class="viewport-top"><span class="live-badge" id="mode-badge"><i></i> LIVE ARENA</span><span id="zone-summary">3 个可占领据点</span></div>
+      <div id="result" hidden><div class="eyebrow">MATCH COMPLETE</div><h2 id="result-title"></h2><p id="result-detail"></p><button id="result-close">继续查看战场</button></div>
+      <div class="viewport-bottom"><span>拖动旋转 · 滚轮缩放 · 点击机器人跟随</span><span id="fps">3D SPECTATOR</span></div>
+    </div>
+    <div class="transport">
+      <div class="transport-top"><div><span class="eyebrow">TIMELINE</span><span id="timeline-label">实时观战</span></div><div class="transport-actions"><select id="speed" aria-label="仿真或播放速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select><button id="download">导出回放</button><button id="load">载入回放</button><button id="live" hidden>返回实时</button><input id="replay-file" type="file" accept=".json" hidden></div></div>
+      <input id="timeline" type="range" min="0" max="1200" value="0" aria-label="比赛时间轴" disabled>
+      <div class="timeline-times"><span id="elapsed">00:00</span><span id="total">02:00</span></div>
+    </div>
+  </section>
+  <aside class="telemetry">
+    <div class="eyebrow">TEAM TELEMETRY</div><div class="telemetry-title"><h2>场上机器人</h2><span id="alive-count">14 / 14</span></div>
+    <div class="roster-heading"><span class="team-dot red"></span> 红方 <span id="red-resources">资源 0</span></div><div id="red-roster" class="roster"></div>
+    <div class="roster-heading"><span class="team-dot blue"></span> 蓝方 <span id="blue-resources">资源 0</span></div><div id="blue-roster" class="roster"></div>
+    <div class="event-heading"><span class="eyebrow">EVENT FEED</span><span id="event-count">0</span></div><div id="events" aria-live="polite"></div>
+  </aside>
+</main>
+<footer><span>RMUC 风格简化规则 · 固定步长仿真 / 独立策略进程 / 可验证回放</span><span>PYTHON STRATEGIES → SIMULATION → 3D BROADCAST</span></footer>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

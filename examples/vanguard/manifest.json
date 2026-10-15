@@ -1,0 +1,12 @@
+{
+  "api_version": 2,
+  "mode": "team",
+  "robot": null,
+  "entries": {
+    "team": "strategy.py"
+  },
+  "hashes": {
+    "strategy.py": "6b0f1be0c75995c8f93572c24cec5d9da1ccb98ff2c0d08188f141a4b9100bd7"
+  },
+  "version": "2fb236cbded91ced"
+}

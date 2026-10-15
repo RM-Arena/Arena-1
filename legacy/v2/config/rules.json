@@ -1,0 +1,303 @@
+{
+  "version": "rmuc-arena-v2",
+  "dt": 0.05,
+  "policy_interval": 2,
+  "maps": {
+    "foundry": {
+      "name": "foundry",
+      "width": 40,
+      "height": 24,
+      "obstacles": [
+        {
+          "x": 12,
+          "y": 5,
+          "w": 2,
+          "h": 5,
+          "height": 2.1,
+          "kind": "container"
+        },
+        {
+          "x": 26,
+          "y": 14,
+          "w": 2,
+          "h": 5,
+          "height": 2.1,
+          "kind": "container"
+        },
+        {
+          "x": 17,
+          "y": 14,
+          "w": 6,
+          "h": 1.8,
+          "height": 1.65,
+          "kind": "bunker"
+        },
+        {
+          "x": 17,
+          "y": 8.2,
+          "w": 6,
+          "h": 1.8,
+          "height": 1.65,
+          "kind": "bunker"
+        }
+      ],
+      "zones": [
+        {
+          "id": "center",
+          "x": 20,
+          "y": 12,
+          "radius": 2.5
+        },
+        {
+          "id": "north",
+          "x": 20,
+          "y": 4,
+          "radius": 2
+        },
+        {
+          "id": "south",
+          "x": 20,
+          "y": 20,
+          "radius": 2
+        }
+      ],
+      "terrain": [
+        {
+          "x": 6,
+          "y": 9,
+          "w": 3,
+          "h": 6,
+          "speed_multiplier": 0.65,
+          "kind": "mud",
+          "elevation": 0
+        },
+        {
+          "x": 31,
+          "y": 9,
+          "w": 3,
+          "h": 6,
+          "speed_multiplier": 0.65,
+          "kind": "mud",
+          "elevation": 0
+        },
+        {
+          "x": 15,
+          "y": 1.2,
+          "w": 2,
+          "h": 4.8,
+          "kind": "ramp",
+          "elevation": 1.2,
+          "direction": 1,
+          "axis": "x",
+          "speed_multiplier": 0.85
+        },
+        {
+          "x": 17,
+          "y": 1.2,
+          "w": 6,
+          "h": 4.8,
+          "kind": "platform",
+          "elevation": 1.2,
+          "speed_multiplier": 1
+        },
+        {
+          "x": 23,
+          "y": 1.2,
+          "w": 2,
+          "h": 4.8,
+          "kind": "ramp",
+          "elevation": 1.2,
+          "direction": -1,
+          "axis": "x",
+          "speed_multiplier": 0.85
+        }
+      ],
+      "asset": "/assets/map-foundry.glb"
+    },
+    "crossroads": {
+      "name": "crossroads",
+      "width": 40,
+      "height": 24,
+      "obstacles": [
+        {
+          "x": 11,
+          "y": 8,
+          "w": 3,
+          "h": 8,
+          "height": 2.1,
+          "kind": "container"
+        },
+        {
+          "x": 26,
+          "y": 8,
+          "w": 3,
+          "h": 8,
+          "height": 2.1,
+          "kind": "container"
+        },
+        {
+          "x": 18,
+          "y": 18,
+          "w": 4,
+          "h": 3,
+          "height": 2.1,
+          "kind": "container"
+        }
+      ],
+      "zones": [
+        {
+          "id": "center",
+          "x": 20,
+          "y": 12,
+          "radius": 2.5
+        },
+        {
+          "id": "north",
+          "x": 20,
+          "y": 4,
+          "radius": 2
+        },
+        {
+          "id": "south",
+          "x": 20,
+          "y": 20,
+          "radius": 2
+        }
+      ],
+      "terrain": [
+        {
+          "x": 6,
+          "y": 9,
+          "w": 3,
+          "h": 6,
+          "speed_multiplier": 0.65,
+          "kind": "mud",
+          "elevation": 0
+        },
+        {
+          "x": 31,
+          "y": 9,
+          "w": 3,
+          "h": 6,
+          "speed_multiplier": 0.65,
+          "kind": "mud",
+          "elevation": 0
+        },
+        {
+          "x": 15,
+          "y": 1.2,
+          "w": 2,
+          "h": 4.8,
+          "kind": "ramp",
+          "elevation": 1.2,
+          "direction": 1,
+          "axis": "x",
+          "speed_multiplier": 0.85
+        },
+        {
+          "x": 17,
+          "y": 1.2,
+          "w": 6,
+          "h": 4.8,
+          "kind": "platform",
+          "elevation": 1.2,
+          "speed_multiplier": 1
+        },
+        {
+          "x": 23,
+          "y": 1.2,
+          "w": 2,
+          "h": 4.8,
+          "kind": "ramp",
+          "elevation": 1.2,
+          "direction": -1,
+          "axis": "x",
+          "speed_multiplier": 0.85
+        }
+      ],
+      "asset": "/assets/map-crossroads.glb"
+    }
+  },
+  "specs": {
+    "hero": {
+      "hp": 420,
+      "speed": 2.8,
+      "damage": 60,
+      "cooldown": 0.9,
+      "ammo": 36,
+      "vision": 14,
+      "range": 18,
+      "acceleration": 7,
+      "armor": 0,
+      "heat_per_shot": 16,
+      "max_heat": 100,
+      "cooling": 18,
+      "projectile_speed": 35,
+      "asset": "/assets/robot-hero.glb"
+    },
+    "engineer": {
+      "hp": 380,
+      "speed": 3.2,
+      "damage": 12,
+      "cooldown": 0.5,
+      "ammo": 90,
+      "vision": 11,
+      "range": 12,
+      "acceleration": 7,
+      "armor": 0,
+      "heat_per_shot": 9,
+      "max_heat": 100,
+      "cooling": 18,
+      "projectile_speed": 30,
+      "asset": "/assets/robot-engineer.glb"
+    },
+    "infantry": {
+      "hp": 260,
+      "speed": 3.8,
+      "damage": 22,
+      "cooldown": 0.3,
+      "ammo": 120,
+      "vision": 13,
+      "range": 15,
+      "acceleration": 7,
+      "armor": 0,
+      "heat_per_shot": 9,
+      "max_heat": 100,
+      "cooling": 18,
+      "projectile_speed": 30,
+      "asset": "/assets/robot-infantry.glb"
+    },
+    "sentry": {
+      "hp": 480,
+      "speed": 2.6,
+      "damage": 18,
+      "cooldown": 0.2,
+      "ammo": 180,
+      "vision": 16,
+      "range": 17,
+      "acceleration": 7,
+      "armor": 0.12,
+      "heat_per_shot": 9,
+      "max_heat": 100,
+      "cooling": 18,
+      "projectile_speed": 30,
+      "asset": "/assets/robot-sentry.glb"
+    },
+    "scout": {
+      "hp": 190,
+      "speed": 4.8,
+      "damage": 14,
+      "cooldown": 0.25,
+      "ammo": 120,
+      "vision": 16,
+      "range": 13,
+      "acceleration": 9,
+      "armor": 0,
+      "heat_per_shot": 9,
+      "max_heat": 100,
+      "cooling": 18,
+      "projectile_speed": 30,
+      "asset": "/assets/robot-scout.glb"
+    }
+  }
+}

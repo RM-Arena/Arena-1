@@ -1,0 +1,3 @@
+# Native packaging tools use Node; frontend tests still run explicitly with Bun.
+[run]
+bun = false

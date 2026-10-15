@@ -1,0 +1,13 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "balanced",
+  "tags": [
+    "aerial",
+    "outpost_rush"
+  ],
+  "display_name": "官方分机",
+  "description": "官方基线拆成六个独立进程：英雄和步兵直扑敌方前哨站，前哨倒下后推进基地，空中机器人全程支援。工程程序缺少装配点函数的导入，取件后会报错停机。"
+}

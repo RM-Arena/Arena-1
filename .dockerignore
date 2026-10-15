@@ -1,0 +1,16 @@
+node_modules
+.git
+.arena_host
+workspaces
+submissions
+replays
+tests
+web
+__pycache__
+*.webm
+.venv
+.arena_data
+assets
+frontend
+simulation
+legacy

@@ -1,0 +1,123 @@
+{
+  "name": "arena-1",
+  "private": true,
+  "version": "0.4.3",
+  "scripts": {
+    "dev": "vite --config frontend/vite.config.ts",
+    "build": "tsc -p frontend/tsconfig.json && vite build --config frontend/vite.config.ts",
+    "start": "uv run --locked python -m rmuc_arena serve",
+    "test": "uv run --locked python -m unittest discover -s tests",
+    "test:rust": "cargo test --manifest-path simulation/Cargo.toml",
+    "test:rune-lights": "bun test ./scripts/rune_lights.test.cjs",
+    "test:mechanisms": "bun test ./scripts/mechanism_progress.test.cjs ./scripts/rune_lights.test.cjs",
+    "test:audio": "bun test ./scripts/audio.test.cjs",
+    "test:js": "bun test ./scripts/*.test.cjs",
+    "setup": "python3 scripts/project.py setup",
+    "desktop:dev": "node desktop/launch.cjs",
+    "desktop:prepare": "uv run --locked python scripts/desktop/prepare.py",
+    "desktop:pack": "electron-builder --dir --publish never",
+    "desktop:dist": "electron-builder --publish never",
+    "test:desktop": "node --test desktop/*.test.cjs",
+    "docs:dev": "node scripts/prepare-site.cjs && vitepress dev site",
+    "docs:build": "node scripts/prepare-site.cjs && vitepress build site",
+    "docs:preview": "vitepress preview site",
+    "check:release": "uv run --locked python scripts/check_release.py"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.6",
+    "@react-three/fiber": "9.3.0",
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@types/three": "0.180.0",
+    "@vitejs/plugin-react": "5.0.4",
+    "typescript": "5.9.3",
+    "vite": "^7.3.7",
+    "electron": "^42.0.0",
+    "electron-builder": "^26.0.0",
+    "vitepress": "^1.6.4",
+    "playwright": "^1.58.0"
+  },
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "bun": ">=1.3.14"
+  },
+  "description": "Cross-platform robot strategy arena with deterministic Rust simulation and a 3D spectator",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "RM-Arena",
+  "homepage": "https://rm-arena.github.io/Arena-1/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RM-Arena/Arena-1.git"
+  },
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "io.github.rm-arena.arena-1",
+    "productName": "Arena-1",
+    "asar": true,
+    "directories": {
+      "output": "dist/desktop",
+      "buildResources": "desktop/resources"
+    },
+    "files": [
+      "desktop/main.cjs",
+      "desktop/backend.cjs",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "!node_modules{,/**/*}"
+    ],
+    "extraResources": [
+      {
+        "from": "build/desktop-runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "artifactName": "Arena-1-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "category": "public.app-category.simulation-games",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": false,
+      "identity": null
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "maintainer": "RM-Arena",
+      "executableName": "arena-1"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "RM-Arena",
+      "repo": "Arena-1"
+    }
+  },
+  "trustedDependencies": [
+    "electron"
+  ]
+}

@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.rs text eol=lf
+*.cjs text eol=lf
+*.glb binary
+*.blend binary
+*.m4a binary
+*.mp3 binary

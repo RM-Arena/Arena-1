@@ -1,0 +1,146 @@
+/* Pre-match lineup intro: overlays on a 1920-wide broadcast stage while the 3D camera visits each robot. */
+.bc-stage.cer-lineup{z-index:6;pointer-events:auto;overflow:hidden;--tc:#ff4b4b;--tc2:#7a0d14}
+/* Pausing freezes the continuous motion; entrance animations always finish so nothing stays hidden. */
+.cer-lineup.paused :is(.li-reticle b,.li-agent-ring i,.li-number,.li-team-word,.li-open-bolt polyline,.li-bug i){animation-play-state:paused}
+.li-cut{position:absolute;inset:0}
+.li-cut .red,.li-cut.red{--tc:#ff4b4b;--tc2:#7a0d14}
+.li-cut .blue,.li-cut.blue{--tc:#3aa0ff;--tc2:#0a3a7e}
+.li-bar{position:absolute;left:0;right:0;height:84px;background:#020305;z-index:3;animation:li-bar .45s cubic-bezier(.2,.8,.2,1) both}
+.li-bar.top{top:0;box-shadow:0 1px 0 rgba(255,255,255,.08)}.li-bar.bottom{bottom:0;box-shadow:0 -1px 0 rgba(255,255,255,.08);animation-name:li-bar-b}
+.li-bug{position:absolute;left:44px;top:26px;z-index:5;display:flex;align-items:center;gap:12px;font-size:19px;letter-spacing:3px;color:#e9eef2;font-weight:700}
+.li-bug i{width:12px;height:12px;border-radius:50%;background:#ff3b30;box-shadow:0 0 12px #ff3b30;animation:li-blink 1s steps(2) infinite}
+.li-bug b{font-size:19px;color:#9fb0bd;font-weight:600;letter-spacing:1px}
+.li-progress{position:absolute;left:44px;right:44px;bottom:30px;height:5px;display:flex;gap:4px;z-index:5}
+.li-progress i{display:block;height:100%;background:rgba(255,255,255,.16);border-radius:2px}
+.li-progress i.done{background:rgba(255,255,255,.62)}.li-progress i.now{background:#fff;box-shadow:0 0 10px #fff}
+.li-progress i.red.done,.li-progress i.red.now{background:#ff6a5f}.li-progress i.blue.done,.li-progress i.blue.now{background:#59b4ff}
+.cer-lineup .cer-skip{z-index:7}
+
+/* ---------------------------------------------------------------- robot shot */
+.li-shot{position:absolute;inset:0}
+.li-flash{position:absolute;inset:0;background:#fff;mix-blend-mode:screen;animation:li-flash .42s ease-out both;z-index:4}
+.li-sweep{position:absolute;top:-10%;bottom:-10%;width:340px;left:-30%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),var(--tc),rgba(255,255,255,.18),transparent);opacity:.55;transform:skewX(-18deg);animation:li-sweep .9s cubic-bezier(.3,.6,.2,1) .05s both;z-index:2;mix-blend-mode:screen}
+.li-reticle{position:absolute;left:50%;top:52%;width:420px;height:420px;margin:-210px 0 0 -210px;z-index:1;animation:li-lock .7s cubic-bezier(.2,.9,.2,1) both}
+.li-reticle i{position:absolute;width:62px;height:62px;border:4px solid var(--tc);filter:drop-shadow(0 0 8px var(--tc))}
+.li-reticle i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}.li-reticle i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+.li-reticle i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}.li-reticle i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+.li-reticle b{position:absolute;inset:70px;border-radius:50%;border:2px dashed rgba(255,255,255,.35);animation:li-spin calc(var(--len) * 2) linear infinite}
+.li-spec{position:absolute;top:150px;bottom:150px;width:700px;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:0 70px}
+.red .li-spec,.li-shot.red .li-spec{left:0;background:linear-gradient(90deg,rgba(4,6,10,.88) 0%,rgba(4,6,10,.72) 70%,transparent);animation:li-in-l .55s cubic-bezier(.2,.8,.2,1) .08s both}
+.li-shot.blue .li-spec{right:0;background:linear-gradient(270deg,rgba(4,6,10,.88) 0%,rgba(4,6,10,.72) 70%,transparent);animation:li-in-r .55s cubic-bezier(.2,.8,.2,1) .08s both}
+.li-number{position:absolute;top:-30px;left:40px;font:italic 900 300px/1 "DIN Alternate","Bahnschrift",system-ui;color:transparent;-webkit-text-stroke:3px var(--tc);opacity:.36;letter-spacing:-8px;animation:li-number var(--len) linear both}
+.li-shot.blue .li-number{left:auto;right:40px}
+.li-id{position:relative}
+.li-id span{display:inline-block;font-size:21px;letter-spacing:4px;font-weight:800;color:#fff;background:var(--tc);padding:4px 14px;clip-path:polygon(0 0,100% 0,94% 100%,0 100%);animation:li-pop .4s .18s both}
+.li-id h3{margin:14px 0 4px;font-size:52px;line-height:1.08;font-weight:900;letter-spacing:1px;text-shadow:0 4px 18px rgba(0,0,0,.6);animation:li-glitch .5s steps(4) .22s both}
+.li-id small{display:block;font-size:20px;color:#b9c6d0;animation:li-fade .5s .35s both}
+.li-stats{display:flex;flex-direction:column;gap:13px;margin-top:30px}
+.li-stat{display:grid;grid-template-columns:120px 1fr 150px;align-items:center;gap:16px;animation:li-row .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(.25s + var(--i) * .07s)}
+.li-stat>span{font-size:19px;color:#c9d3db;letter-spacing:2px}
+.li-stat>div{height:12px;background:rgba(255,255,255,.1);position:relative;overflow:hidden;clip-path:polygon(0 0,100% 0,98.5% 100%,0 100%)}
+.li-stat>div i{position:absolute;left:0;top:0;bottom:0;width:var(--fill);background:linear-gradient(90deg,var(--tc2),var(--tc) 70%,#fff);box-shadow:0 0 14px var(--tc);animation:li-fill .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(.3s + var(--i) * .09s)}
+.li-stat>b{font-size:30px;font-weight:800;text-align:right;white-space:nowrap}.li-stat>b small{font-size:16px;color:#9fb0bd;margin-left:2px}
+.li-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.li-chips span{font-size:17px;padding:5px 14px;border:1px solid var(--tc);color:#fff;background:rgba(0,0,0,.35);animation:li-pop .35s both;animation-delay:calc(.7s + var(--i) * .08s)}
+.li-agent{position:absolute;top:50%;width:520px;margin-top:-250px;z-index:3;display:flex;flex-direction:column;align-items:center;text-align:center;--brand:#fff}
+.li-shot.red .li-agent{right:90px;animation:li-in-r .6s cubic-bezier(.2,.8,.2,1) .3s both}.li-shot.blue .li-agent{left:90px;animation:li-in-l .6s cubic-bezier(.2,.8,.2,1) .3s both}
+.li-agent-ring{position:relative;width:260px;height:260px;display:grid;place-items:center}
+.li-agent-ring>:first-child{position:relative;z-index:1;filter:drop-shadow(0 0 28px var(--brand));animation:li-badge .7s cubic-bezier(.2,1.4,.3,1) .35s both}
+.li-agent-ring i{position:absolute;inset:0;border-radius:50%;border:3px solid transparent;border-top-color:var(--brand);border-right-color:var(--brand);animation:li-spin 1.6s linear infinite;opacity:.85}
+.li-agent-ring i+i{inset:18px;border-top-color:transparent;border-right-color:transparent;border-bottom-color:#fff;border-left-color:#fff;animation-duration:2.4s;animation-direction:reverse;opacity:.45}
+.li-agent-label{margin-top:18px;font-size:18px;letter-spacing:5px;color:#9fb0bd;animation:li-fade .4s .5s both}
+.li-agent strong{margin-top:6px;font-size:46px;font-weight:900;line-height:1.1;text-shadow:0 0 24px var(--brand);max-width:520px;animation:li-glitch .5s steps(4) .55s both}
+.li-agent small{margin-top:6px;font-size:20px;color:#c6d0d8;animation:li-fade .4s .65s both}
+.li-agent em{margin-top:16px;font-style:normal;font-size:19px;padding:6px 16px;background:rgba(0,0,0,.55);border-left:4px solid var(--brand);color:#e9eef2;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;animation:li-fade .4s .75s both}
+.li-pips{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:4;font-size:18px;letter-spacing:3px;animation:li-fade .4s .2s both}
+.li-pips i{width:34px;height:7px;background:rgba(255,255,255,.2);transform:skewX(-20deg)}.li-pips i.done{background:rgba(255,255,255,.6)}.li-pips i.now{background:var(--tc);box-shadow:0 0 10px var(--tc)}
+.li-pips b{font-size:26px;margin-left:8px}.li-pips b small{font-size:16px;color:#9fb0bd}
+
+/* ---------------------------------------------------------------- team title card */
+.li-team{position:absolute;inset:0}
+.li-slash{position:absolute;top:-20%;bottom:-20%;left:-10%;width:120%;background:linear-gradient(100deg,var(--tc2) 0%,var(--tc) 48%,rgba(0,0,0,0) 80%);opacity:.86;transform:skewX(-14deg);animation:li-slash .55s cubic-bezier(.2,.8,.2,1) both}
+.li-team.blue .li-slash{background:linear-gradient(260deg,var(--tc2) 0%,var(--tc) 48%,rgba(0,0,0,0) 80%);animation-name:li-slash-r}
+.li-slash.two{opacity:.5;width:30%;left:58%;background:#fff;mix-blend-mode:overlay;animation-delay:.12s}
+.li-team.blue .li-slash.two{left:12%}
+.li-team-word{position:absolute;top:50%;left:50%;font:italic 900 520px/1 "DIN Alternate","Bahnschrift",system-ui;color:transparent;-webkit-text-stroke:4px rgba(255,255,255,.22);transform:translate(-50%,-55%);white-space:nowrap;animation:li-drift var(--len) linear both}
+.li-team-body{position:absolute;left:150px;right:150px;top:50%;transform:translateY(-62%);display:flex;align-items:center;gap:60px}
+.li-team.blue .li-team-body{flex-direction:row-reverse;text-align:right}
+.li-team-crest{animation:li-badge .6s cubic-bezier(.2,1.4,.3,1) .12s both;filter:drop-shadow(0 0 40px rgba(255,255,255,.35))}
+.li-kicker{font-size:24px;letter-spacing:4px;font-weight:700;color:#fff;opacity:.92;animation:li-fade .4s .2s both}
+.li-team-body h2{margin:10px 0 18px;font-size:96px;line-height:1;font-weight:900;text-shadow:0 8px 30px rgba(0,0,0,.45);max-width:1150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;animation:li-glitch .55s steps(5) .2s both}
+.li-team-agents{display:flex;flex-wrap:wrap;gap:14px}.li-team.blue .li-team-agents{justify-content:flex-end}
+.li-team-agents span{display:flex;align-items:center;gap:10px;padding:8px 18px 8px 10px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);border-left:4px solid var(--brand,#fff);animation:li-pop .4s both;animation-delay:calc(.35s + var(--i) * .08s)}
+.li-team-agents b{font-size:24px;font-weight:800}.li-team-agents small{font-size:18px;color:#c6d0d8}
+.li-team-strip{position:absolute;left:0;right:0;bottom:120px;display:flex;justify-content:center;gap:16px}
+.li-team-strip span{position:relative;width:150px;height:100px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);overflow:hidden;animation:li-rise .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(.3s + var(--i) * .05s)}
+.li-team-strip img{position:absolute;left:50%;top:50%;width:120%;transform:translate(-48%,-50%)}
+.li-team-strip b{position:absolute;left:8px;bottom:2px;font:italic 800 30px "DIN Alternate",system-ui;text-shadow:0 2px 6px #000}
+
+/* ---------------------------------------------------------------- opening */
+.li-open{position:absolute;inset:0}
+.li-open-bg{position:absolute;top:0;bottom:0;width:62%}
+.li-open-bg.red{left:0;background:linear-gradient(105deg,rgba(110,8,16,.94),rgba(40,4,8,.82) 55%,rgba(0,0,0,0));clip-path:polygon(0 0,100% 0,78% 100%,0 100%);animation:li-in-l .8s cubic-bezier(.2,.8,.2,1) .2s both}
+.li-open-bg.blue{right:0;background:linear-gradient(255deg,rgba(8,50,120,.94),rgba(4,18,46,.82) 55%,rgba(0,0,0,0));clip-path:polygon(22% 0,100% 0,100% 100%,0 100%);animation:li-in-r .8s cubic-bezier(.2,.8,.2,1) .2s both}
+.li-open-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(circle at 50% 50%,#000,transparent 70%);animation:li-fade 1s .3s both}
+.li-open-bolt{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+.li-open-bolt polyline{fill:none;stroke:#e9f4ff;stroke-width:5;filter:drop-shadow(0 0 12px #9fd4ff) drop-shadow(0 0 30px #5aa8ff);stroke-dasharray:1400;stroke-dashoffset:1400;animation:li-bolt .5s ease-out 1.05s forwards,li-flicker 1.4s 1.6s infinite}
+.li-open-title{position:absolute;top:70px;left:0;right:0;text-align:center;z-index:3}
+.li-open-title span{font-size:20px;letter-spacing:8px;color:#c8d4de;animation:li-fade .5s .1s both}
+.li-open-title h1{margin:6px 0 0;font-size:118px;font-weight:900;letter-spacing:22px;line-height:1.1;background:linear-gradient(180deg,#fff 30%,#ffd98a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 24px rgba(255,200,90,.35));animation:li-zoom .9s cubic-bezier(.2,.9,.2,1) .15s both}
+.li-open-title small{display:block;margin-top:6px;font-size:24px;letter-spacing:5px;color:#dfe7ee;animation:li-fade .5s .7s both}
+.li-open-team{position:absolute;top:360px;width:640px;display:flex;flex-direction:column;align-items:center;text-align:center;z-index:3}
+.li-open-team.red{left:110px;animation:li-in-l .7s cubic-bezier(.2,.8,.2,1) 1.2s both}.li-open-team.blue{right:110px;animation:li-in-r .7s cubic-bezier(.2,.8,.2,1) 1.3s both}
+.li-open-team>:first-child{filter:drop-shadow(0 0 30px rgba(255,255,255,.3))}
+.li-open-team h2{margin-top:20px;font-size:54px;font-weight:900;max-width:620px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li-open-team p{margin:6px 0 0;font-size:24px;color:#d4dde4}
+.li-open-rate{display:flex;flex-direction:column;align-items:center;margin-top:16px}
+.li-open-rate b{font:italic 900 96px/1 "DIN Alternate","Bahnschrift",system-ui;background:linear-gradient(180deg,#fff,#ff8a80);-webkit-background-clip:text;background-clip:text;color:transparent}
+.li-open-team.blue .li-open-rate b{background:linear-gradient(180deg,#fff,#8cc8ff);-webkit-background-clip:text;background-clip:text}
+.li-open-rate b i{font-size:46px}.li-open-rate span{font-size:19px;color:#cbd5dc}
+.li-open-vs{position:absolute;left:50%;top:430px;transform:translateX(-50%);z-index:4;font:italic 900 210px/1 "DIN Alternate","Bahnschrift",system-ui;color:#fff;text-shadow:0 0 40px rgba(170,210,255,.7),0 0 4px #fff;animation:li-vs .6s cubic-bezier(.2,1.5,.3,1) 1.45s both}
+
+/* ---------------------------------------------------------------- face-off */
+.li-face{position:absolute;inset:0}
+.li-face-shade{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 55%,rgba(5,7,11,.55),rgba(5,7,11,.92));animation:li-fade .5s both}
+.li-face-team{position:absolute;top:130px;width:760px;display:flex;flex-direction:column;gap:22px;z-index:2}
+.li-face-team.red{left:70px;animation:li-in-l .6s cubic-bezier(.2,.8,.2,1) both}.li-face-team.blue{right:70px;animation:li-in-r .6s cubic-bezier(.2,.8,.2,1) both}
+.li-face-head{display:flex;align-items:center;gap:20px}.li-face-team.blue .li-face-head{flex-direction:row-reverse;text-align:right}
+.li-face-head span{font-size:20px;letter-spacing:4px;color:var(--tc);font-weight:800}.li-face-head h3{margin:2px 0 0;font-size:44px;font-weight:900;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li-face-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.li-face-grid.n2,.li-face-grid.n3,.li-face-grid.n4{grid-template-columns:repeat(4,1fr)}
+.li-face-bot{position:relative;height:170px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.35));border:1px solid rgba(255,255,255,.14);border-bottom:3px solid var(--tc);overflow:hidden;animation:li-rise .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(.2s + var(--i) * .06s)}
+.li-face-grid.n2 .li-face-bot,.li-face-grid.n3 .li-face-bot,.li-face-grid.n4 .li-face-bot{height:120px}
+.li-face-art img{position:absolute;left:50%;top:46%;width:112%;transform:translate(-48%,-50%)}
+.li-face-agent{position:absolute;right:8px;top:8px;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:rgba(5,8,12,.82);border:1px solid rgba(255,255,255,.3)}
+.li-face-bot b{position:absolute;left:10px;bottom:2px;font:italic 800 36px "DIN Alternate",system-ui;text-shadow:0 2px 6px #000}
+.li-face-bot small{position:absolute;right:10px;bottom:8px;font-size:16px;color:#d4dde4}
+.li-face-vs{position:absolute;left:50%;top:330px;transform:translateX(-50%);font:italic 900 150px/1 "DIN Alternate","Bahnschrift",system-ui;text-shadow:0 0 36px rgba(170,210,255,.6);z-index:2;animation:li-vs .55s cubic-bezier(.2,1.5,.3,1) .35s both}
+.li-face-check{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px;z-index:2}
+.li-face-check ul{display:flex;gap:34px;list-style:none;margin:0;padding:0;font-size:20px;color:#7d8a95}
+.li-face-check li:before{content:'○ '}.li-face-check li.ok{color:#9bf6ff}.li-face-check li.ok:before{content:'✓ '}
+.li-face-check strong{font-size:30px;letter-spacing:6px;color:#c9d3db}
+.li-face-check strong.ready{color:#7dffb2;text-shadow:0 0 18px rgba(125,255,178,.6);animation:li-stamp .45s cubic-bezier(.2,1.6,.3,1) both}
+
+@keyframes li-bar{from{transform:translateY(-100%)}}@keyframes li-bar-b{from{transform:translateY(100%)}}
+@keyframes li-blink{50%{opacity:.25}}
+@keyframes li-flash{from{opacity:.75}to{opacity:0}}
+@keyframes li-sweep{from{left:-30%}to{left:115%}}
+@keyframes li-lock{from{transform:scale(1.9) rotate(-12deg);opacity:0}60%{opacity:1}to{transform:scale(1) rotate(0)}}
+@keyframes li-spin{to{transform:rotate(360deg)}}
+@keyframes li-in-l{from{opacity:0;transform:translateX(-140px)}}@keyframes li-in-r{from{opacity:0;transform:translateX(140px)}}
+@keyframes li-number{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+@keyframes li-pop{from{opacity:0;transform:scale(.6)}70%{transform:scale(1.08)}}
+@keyframes li-glitch{0%{opacity:0;transform:translateX(-14px);clip-path:inset(0 0 60% 0)}25%{opacity:1;transform:translateX(10px);clip-path:inset(40% 0 0 0)}50%{transform:translateX(-6px);clip-path:inset(0 0 20% 0)}75%{transform:translateX(3px);clip-path:inset(10% 0 0 0)}100%{transform:none;clip-path:inset(0)}}
+@keyframes li-fade{from{opacity:0}}
+@keyframes li-row{from{opacity:0;transform:translateX(-40px)}}
+@keyframes li-fill{from{width:0}}
+@keyframes li-badge{from{opacity:0;transform:scale(.3) rotate(-40deg)}}
+@keyframes li-slash{from{transform:skewX(-14deg) translateX(-120%)}}@keyframes li-slash-r{from{transform:skewX(-14deg) translateX(120%)}}
+@keyframes li-drift{from{transform:translate(-46%,-55%)}to{transform:translate(-54%,-55%)}}
+@keyframes li-rise{from{opacity:0;transform:translateY(50px)}}
+@keyframes li-bolt{to{stroke-dashoffset:0}}@keyframes li-flicker{0%,100%{opacity:1}45%{opacity:.55}50%{opacity:1}53%{opacity:.4}}
+@keyframes li-zoom{from{opacity:0;transform:scale(1.8);letter-spacing:60px}}
+@keyframes li-vs{from{opacity:0;transform:translateX(-50%) scale(3)}}
+@keyframes li-stamp{from{opacity:0;transform:scale(2.2)}}
+@media (prefers-reduced-motion:reduce){.cer-lineup *,.cer-lineup *:before,.cer-lineup *:after{animation-duration:.01s!important;animation-delay:0s!important;animation-iteration-count:1!important}}
+.viewport.intro-active .viewport-camera,.viewport.intro-active .viewport-bottom{opacity:0;pointer-events:none}
+.li-agent:before{content:'';position:absolute;left:-60px;right:-60px;top:-40px;bottom:-50px;z-index:-1;background:radial-gradient(ellipse at 50% 45%,rgba(4,6,10,.82),rgba(4,6,10,.55) 50%,transparent 72%);animation:li-fade .5s .25s both}

@@ -1,0 +1,10 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "guard",
+  "tags": [],
+  "display_name": "据点防守（旧版）",
+  "description": "为旧版接口与 40×24 演示场地编写的示例，不能参加现行 2026 规则的比赛。按编号分守三个控制点，敌人 5 m 内就后撤射击，残血退回基地。"
+}

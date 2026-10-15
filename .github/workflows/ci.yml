@@ -1,0 +1,64 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    name: Native tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.1'
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: simulation
+      - run: uv sync --locked
+      - run: bun install --frozen-lockfile
+      - run: cargo build --locked --release --manifest-path simulation/Cargo.toml
+      - run: cargo test --locked --release --manifest-path simulation/Cargo.toml
+      - run: uv run --locked python -m unittest discover -s tests
+      - run: bun run test:js
+      - run: bun run test:desktop
+      - run: uv run --locked python scripts/build_agent_guides.py --check
+      - run: bun run build
+      - run: bun run docs:build
+      - run: uv run --locked python scripts/check_release.py
+  docker:
+    name: Container isolation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.1'
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: uv sync --locked
+      - run: cargo build --locked --release --manifest-path simulation/Cargo.toml
+      - run: docker build -t rmuc-arena-policy:0.4 -f sandbox/Dockerfile .
+      - run: uv run --locked python -m unittest discover -s tests -p test_runner.py
+        env:
+          RMUC_DOCKER_TESTS: '1'

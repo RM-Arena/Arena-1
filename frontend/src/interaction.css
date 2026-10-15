@@ -1,0 +1,48 @@
+/* Shared tactile feedback, with no animation work in the WebGL render loop. */
+button,a,input,select,summary{transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s}
+button:not(:disabled):active{scale:.97}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #edc77f;outline-offset:3px;box-shadow:0 0 18px #edc77f26}
+input:focus-visible,select:focus-visible{border-color:#edc77f;box-shadow:0 0 0 3px #edc77f1c;outline:none}
+.interface-ripple{position:fixed;z-index:3000;pointer-events:none;width:22px;height:22px;border:1px solid #ffda90;border-radius:50%;background:radial-gradient(circle,#ffda902e,transparent 65%);box-shadow:0 0 12px #ffcf6740}
+.app-header nav button{position:relative}
+.app-header nav button:after{content:'';position:absolute;bottom:0;left:14px;right:14px;height:2px;background:#e8c083;transform:scaleX(0);transition:transform .23s;box-shadow:0 0 12px #e8c08355}
+.app-header nav button.active:after{transform:scaleX(1)}
+.training-page,.archive-page,.page-heading{animation:interface-page-in .38s cubic-bezier(.2,.7,.2,1) both}
+.training-options>button,.archive-stats>div{animation:interface-card-in .45s cubic-bezier(.2,.7,.2,1) both}
+.training-options>button:nth-child(2),.archive-stats>div:nth-child(2){animation-delay:.04s}
+.training-options>button:nth-child(3),.archive-stats>div:nth-child(3){animation-delay:.08s}
+.training-options>button:nth-child(4),.archive-stats>div:nth-child(4){animation-delay:.12s}
+.training-options>button:hover{border-color:#80c4d0;box-shadow:0 8px 25px #0003,inset 0 0 22px #70c7d00b}
+.training-options>button.active{box-shadow:0 0 22px #d2b57014,inset 0 0 40px #d2b57009}
+.training-workspace{animation:interface-page-in .45s ease-out both}
+.modal-backdrop{animation:interface-fade-in .18s ease-out both;backdrop-filter:blur(5px)}
+.submission-dialog,.team-lineup-dialog,.delete-match-dialog,.deck-builder,.free-builder,.hangar{animation:interface-dialog-in .3s cubic-bezier(.18,.8,.25,1) both}
+.home-logo{animation:interface-page-in .6s cubic-bezier(.2,.7,.2,1) both}
+.home-menu-item{animation:interface-card-in .5s cubic-bezier(.2,.7,.2,1) both}
+.home-menu-item:nth-child(2){animation-delay:.05s}.home-menu-item:nth-child(3){animation-delay:.1s}.home-menu-item:nth-child(4){animation-delay:.15s}.home-menu-item:nth-child(5){animation-delay:.2s}
+.home-showcase{animation:interface-page-in .65s .1s cubic-bezier(.2,.7,.2,1) both}
+.home-unit{animation:interface-page-in .3s ease-out both}
+.home-stat-bar i.on{animation:interface-stat-in .4s ease-out both;transform-origin:left}
+.home-stat:nth-child(2) i.on{animation-delay:.035s}.home-stat:nth-child(3) i.on{animation-delay:.07s}.home-stat:nth-child(4) i.on{animation-delay:.105s}
+.home-unit-nav:hover svg{filter:drop-shadow(0 0 5px #e8c08380);scale:1.13}.home-unit-nav svg{transition:scale .18s,filter .18s}
+.primary:not(:disabled):hover{box-shadow:0 0 24px #d8b87335,inset 0 0 15px #ffe5ae12}
+.table-shell tbody tr{transition:background-color .18s}.table-shell tbody tr:hover{background:#6a9bb70d}
+.error,.training-success,.deck-preset-success{animation:interface-page-in .25s ease-out both}
+
+.viewport-camera{position:absolute;left:14px;bottom:48px;z-index:8;display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:calc(100% - 28px);pointer-events:none}
+.viewport-camera .camera-buttons{pointer-events:auto;display:flex;gap:3px;width:auto;margin:0;padding:4px;border:1px solid #b1c6d53b;border-radius:8px;background:#08121ddd;backdrop-filter:blur(8px);box-shadow:0 4px 18px #0004}
+.camera-compact button{display:flex;align-items:center;gap:5px;width:auto;padding:7px 9px;font-size:11px;background:transparent;border:1px solid transparent;border-radius:5px;color:#b7c8d4}
+.camera-compact button.active{color:#ffe0a2;background:#a482402c;border-color:#e8c08377;box-shadow:0 0 12px #e8c08315}
+.camera-compact kbd{font:10px monospace;color:#8194a4;border:1px solid #9fbbcc33;border-radius:3px;padding:1px 3px;margin-left:3px}
+.camera-target{padding:4px 7px;border-radius:4px;background:#08121dc9;color:#efcf98;font-size:10px;white-space:normal}
+.viewport:fullscreen .viewport-camera,.viewport.page-fullscreen .viewport-camera{bottom:86px;left:22px}
+.viewport:fullscreen .camera-compact button,.viewport.page-fullscreen .camera-compact button{font-size:13px;padding:8px 12px}
+.fullscreen-controls{max-width:calc(100vw - 32px);flex-wrap:wrap;justify-content:center;white-space:nowrap}
+.fullscreen-controls.idle:focus-within,.fullscreen-controls.idle:hover{opacity:1;pointer-events:auto}
+@media(max-width:680px){.viewport-camera{bottom:44px;left:10px;max-width:calc(100% - 20px)}.camera-compact kbd{display:none}.camera-compact button{padding:6px 8px}.viewport:fullscreen .viewport-camera,.viewport.page-fullscreen .viewport-camera{left:10px;bottom:112px}.fullscreen-controls{bottom:12px;gap:8px;width:max-content;padding:7px 10px}.fullscreen-controls input[type=range]{width:100%}.fullscreen-controls .audio-controls label{width:72px}}
+@keyframes interface-page-in{from{opacity:0;translate:0 10px}to{opacity:1;translate:0 0}}
+@keyframes interface-card-in{from{opacity:0;translate:-8px 5px}to{opacity:1;translate:0 0}}
+@keyframes interface-dialog-in{from{opacity:0;scale:.96;translate:0 14px}to{opacity:1;scale:1;translate:0 0}}
+@keyframes interface-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes interface-stat-in{from{opacity:.25;scale:.25 1}to{opacity:1;scale:1 1}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}button:not(:disabled):active{scale:1}.interface-ripple{display:none}}

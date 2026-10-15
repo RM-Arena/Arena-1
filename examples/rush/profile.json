@@ -1,0 +1,12 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "assault",
+  "tags": [
+    "base_rush"
+  ],
+  "display_name": "全员冲锋（旧版）",
+  "description": "为旧版接口与 40×24 演示场地编写的示例，不能参加现行 2026 规则的比赛。见敌就追到 6 m 内射击，没有敌人时分路冲向敌方基地，残血退回己方基地前。"
+}

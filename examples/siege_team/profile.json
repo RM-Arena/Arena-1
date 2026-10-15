@@ -1,0 +1,19 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5"
+  },
+  "tactic": "siege",
+  "tags": [
+    "rune",
+    "assembly",
+    "rescue",
+    "aerial",
+    "sniping",
+    "mobility",
+    "focus_fire"
+  ],
+  "display_name": "围城攻坚",
+  "description": "英雄远程拆前哨后转到隐蔽狙击点打基地，空中机器人在线拟合转速专打能量机关，工程按节奏升科技并救援。两台串联腿步兵跳台阶、走飞坡突入敌方半场猎杀英雄，180 秒后占领敌方堡垒打开基地护甲，再全队集火基地下部装甲；隧道步兵折叠拿冷却增益后守家。"
+}

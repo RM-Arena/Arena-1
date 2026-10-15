@@ -1,0 +1,21 @@
+name: Bug report
+description: Report a reproducible Arena-1 problem
+body:
+  - type: input
+    id: environment
+    attributes:
+      label: Version, OS and architecture
+      placeholder: Arena-1 0.4.0, Windows 11 x64
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps and expected / actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove tokens and private strategy code before posting.

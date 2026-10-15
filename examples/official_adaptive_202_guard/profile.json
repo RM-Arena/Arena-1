@@ -1,0 +1,12 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "official"
+  },
+  "tactic": "guard",
+  "tags": [
+    "rescue"
+  ],
+  "display_name": "E-S 舵轮救援工程 · 救援优先",
+  "description": "E-S 舵轮救援工程（舵轮底盘）：场上有翻倒的队友（能自行翻身的串联腿除外）就赶去用机械臂扶正，不限距离；没人需要救援时跟在最靠前的英雄或步兵身后约 1.5 m，前线没人时停在己方堡垒旁。这一套路完全不做科技装配。阵亡后金币够且未到 300 秒就立即买活。"
+}
