@@ -17,6 +17,32 @@ from rmuc_arena.submissions import scaffold, start_training, validate_workspace
 
 
 class PlatformSupportTests(unittest.TestCase):
+    def test_generated_submissions_keep_lf_when_text_writes_default_to_crlf(self):
+        from rmuc_arena.submissions import write_json
+        from scripts import build_examples_2027, build_robot_presets
+
+        original_open = Path.open
+        def windows_text_open(path, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
+            if "b" not in mode and any(flag in mode for flag in "wax") and newline is None:
+                newline = "\r\n"
+            return original_open(path, mode, buffering, encoding, errors, newline)
+
+        with tempfile.TemporaryDirectory() as temporary, patch.object(Path, "open", windows_text_open):
+            root = Path(temporary)
+            probe = root / "probe.txt"
+            probe.write_text("line\n", encoding="utf-8")
+            self.assertEqual(probe.read_bytes(), b"line\r\n")
+            output = root / "record.json"
+            write_json(output, {"名称": "策略"})
+            self.assertNotIn(b"\r\n", output.read_bytes())
+            self.assertEqual(json.loads(output.read_bytes()), {"名称": "策略"})
+            for path, data in build_examples_2027.outputs().items():
+                with self.subTest(path=str(path.relative_to(ROOT))):
+                    self.assertEqual(data, path.read_bytes())
+            build_robot_presets.materialize(root / "preset", build_examples_2027.POLICY.read_text(encoding="utf-8"), 2711, False, "2027")
+            for name in ("strategy.py", "manifest.json"):
+                self.assertEqual((root / "preset" / name).read_bytes(), (ROOT / "examples/official_2027_adaptive_2711" / name).read_bytes())
+
     def test_restarting_desktop_updates_practice_url_without_resetting_clock_or_code(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary).resolve()

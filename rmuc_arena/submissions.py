@@ -71,7 +71,7 @@ def write_json(path, value):
     path = Path(path)
     temporary = path.with_name(path.name + "." + secrets.token_hex(6) + ".tmp")
     try:
-        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.write_bytes((json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)

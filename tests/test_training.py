@@ -29,13 +29,16 @@ class TrainingTests(unittest.TestCase):
         self.addCleanup(self.app.state.arena.shutdown)
         self.addCleanup(self.app.state.training.shutdown)
 
-    def wait_job(self, job_id):
-        deadline=time.monotonic()+15
+    def wait_job(self, job_id, base=None, headers=None):
+        base = base or self.base
+        headers = headers or self.headers
+        # Includes policy initialization, simulation, replay writing and cleanup.
+        deadline=time.monotonic()+60
         while time.monotonic()<deadline:
-            job=self.client.get(self.base+'/tests/'+job_id,headers=self.headers).json()
+            job=self.client.get(base+'/tests/'+job_id,headers=headers).json()
             if job['status'] not in ('queued','running'):return job
             time.sleep(.02)
-        self.fail('Practice did not finish')
+        self.fail(f'Practice did not finish within 60 seconds: {job}')
 
     def test_host_starts_once_and_expiry_blocks_test_and_submission(self):
         status=self.client.get(self.base,headers=self.headers).json()
@@ -97,11 +100,7 @@ class TrainingTests(unittest.TestCase):
         self.assertEqual(self.client.get(base,headers=headers).json()['last_submission'],second['version'])
         response=self.client.post(base+'/tests',json={'duration':1,'opponent':first.json()['version']},headers=headers)
         self.assertEqual(response.status_code,200,response.text)
-        deadline=time.monotonic()+15
-        while time.monotonic()<deadline:
-            job=self.client.get(base+'/tests/'+response.json()['job_id'],headers=headers).json()
-            if job['status'] not in ('queued','running'):break
-            time.sleep(.02)
+        job=self.wait_job(response.json()['job_id'],base=base,headers=headers)
         self.assertEqual(job['status'],'finished',job)
         self.assertEqual(job['results'][0]['policy_errors'],0)
 

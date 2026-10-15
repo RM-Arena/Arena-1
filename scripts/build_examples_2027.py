@@ -121,7 +121,7 @@ def submission(name, mode, sources, team_lineup=None):
         entries = {}
         for key, text in sources.items():
             path = Path(temporary) / f"{key}.py"
-            path.write_text(text, encoding="utf-8")
+            path.write_bytes(text.encode("utf-8"))
             entries[key] = path
         output = Path(temporary) / "submission"
         save_submission(output, mode, entries, team_lineup=team_lineup, season=SEASON)

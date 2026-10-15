@@ -302,7 +302,7 @@ def materialize(destination, source_text, model, check, season):
     """strategy.py and manifest.json of one preset, built through the normal submission path."""
     with tempfile.TemporaryDirectory() as temporary:
         source = Path(temporary) / 'source.py'
-        source.write_text(source_text)
+        source.write_bytes(source_text.encode("utf-8"))
         output = Path(temporary) / 'submission'
         save_submission(output, 'adaptive', {str(model): source}, model, season=season)
         for name in ('strategy.py', 'manifest.json'):

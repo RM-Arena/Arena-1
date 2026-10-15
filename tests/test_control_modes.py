@@ -218,7 +218,9 @@ def act(obs, state):
         self.assertEqual(client.get("/api/catalog").json()[submitted.json()["entry"]]["mode"], "distributed")
         response = client.post(base + "/tests", json={"duration": 1, "opponent": submitted.json()["version"]}, headers=headers)
         self.assertEqual(response.status_code, 200, response.text)
-        deadline = time.monotonic() + 15
+        # A practice job starts up to twelve policy processes before simulating.
+        # The per-policy startup budget is 15 s; the entire job needs its own wait.
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             job = client.get(base + "/tests/" + response.json()["job_id"], headers=headers).json()
             if job["status"] not in ("queued", "running"):
