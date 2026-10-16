@@ -42,6 +42,12 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run desktop:prepare
       - run: bun run desktop:dist
+      - name: Verify macOS code signature
+        if: runner.os == 'macOS'
+        run: |
+          app_path=$(find dist/desktop -maxdepth 3 -name '*.app' -print -quit)
+          test -n "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
       - name: Collect installers and checksums
         run: uv run --locked python scripts/desktop/collect.py
       - uses: actions/upload-artifact@v4

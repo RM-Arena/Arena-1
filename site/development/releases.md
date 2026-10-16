@@ -23,8 +23,14 @@ Python 依赖按 `uv.lock` 的版本与哈希安装。运行时保存在 `build/
 - 标签构建全部成功后，创建 GitHub Release 并附上安装包。
 - `Documentation`：main 分支相关文档改动后构建 VitePress，部署到 GitHub Pages。
 
-默认安装包为未签名开发构建。正式面向公众分发前，维护者可以配置平台签名与 macOS 公证；
-私钥和账户凭据仅通过 CI secrets 提供，不能放入仓库。当前配置不承诺已有签名或公证。
+macOS 开发构建使用 ad-hoc 签名（`mac.identity: "-"`），封装应用及内嵌二进制的完整性；
+CI 在收集安装包前执行 `codesign --verify --deep --strict`，校验失败即停止发布。
+ad-hoc 签名不提供 Apple 开发者身份认证，也不等同于公证，浏览器下载后仍可能被 Gatekeeper 拦截。
+旧版安装包提示“已损坏”时，参见[macOS 启动问题](../guide/faq#macos-damaged)。
+
+正式面向公众分发且希望免去手动放行时，需要配置 Developer ID Application 签名与 macOS 公证，
+并启用相应的 hardened runtime 和 entitlements。私钥和账户凭据仅通过 CI secrets 提供，不能放入仓库。
+当前配置未提供 Developer ID 签名或公证。
 
 ## 发布核对
 

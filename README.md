@@ -120,6 +120,21 @@ def act(obs, state):
   </tr>
 </table>
 
+## macOS 安装后提示“已损坏，无法打开”
+
+v0.5.0 的 macOS 发布包跳过了应用签名，遗留的 Electron 签名无法通过完整性校验，浏览器下载后可能出现此提示。它不一定表示 DMG 下载损坏。当前源码已改用 ad-hoc 签名，并在 CI 中校验签名；修正需要重新构建发布才会反映到 GitHub 安装包中。
+
+确认安装包来自本项目 [GitHub Releases](https://github.com/RM-Arena/Arena-1/releases)、并核对发布的 SHA256 后，将 Arena-1 拖入“应用程序”目录，关闭报错窗口，在“终端”依次执行前两条命令；确认没有报错后，再执行后两条：
+
+```sh
+codesign --force --deep --sign - "/Applications/Arena-1.app"
+codesign --verify --deep --strict "/Applications/Arena-1.app"
+xattr -rd com.apple.quarantine "/Applications/Arena-1.app"
+open "/Applications/Arena-1.app"
+```
+
+以上只处理 Arena-1，不需要全局关闭 Gatekeeper。ad-hoc 签名不能证明发布者身份，也不等同于 Apple 公证；正式免去手动放行仍需 Developer ID 签名和公证。详见[常见问题](site/guide/faq.md)。
+
 ## 源码安装与开发 Quick Start
 
 普通使用直接下载[桌面 App](https://github.com/RM-Arena/Arena-1/releases/latest) 即可。从源码运行和开发需要：

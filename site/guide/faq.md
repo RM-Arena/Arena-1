@@ -76,6 +76,32 @@
 
 两者使用相同前端与素材，不以降低模型、阴影或像素比来封装桌面版。实际帧率和显示仍受显卡、驱动与系统缩放影响；模型资产和历史场景并不意味着任意硬件都有相同帧率。
 
+## macOS 提示 Arena-1“已损坏，无法打开”怎么办？ {#macos-damaged}
+
+v0.5.0 的 macOS 发布包跳过了应用签名，遗留的 Electron 签名无法通过完整性校验，
+浏览器下载后会触发系统拦截。这种情况不代表 DMG 下载文件本身损坏。
+当前源码已改用 ad-hoc 签名并增加 CI 签名校验，但仍未经过 Apple 公证；
+修正需要重新构建发布才会反映到 GitHub 安装包中。
+
+仅在确认安装包来自本项目 [GitHub Releases](https://github.com/RM-Arena/Arena-1/releases)、
+并核对发布的 SHA256 后，才按以下方式处理。先将应用拖入“应用程序”目录，退出 Arena-1，
+再打开“终端”。旧版签名损坏时先重新生成本地签名：
+
+```sh
+codesign --force --deep --sign - "/Applications/Arena-1.app"
+codesign --verify --deep --strict --verbose=2 "/Applications/Arena-1.app"
+```
+
+校验成功后，如果仍被下载隔离拦截，可仅移除这个应用的下载隔离标记并打开：
+
+```sh
+xattr -rd com.apple.quarantine "/Applications/Arena-1.app"
+open "/Applications/Arena-1.app"
+```
+
+这只处理 Arena-1，不需要全局关闭 Gatekeeper。ad-hoc 签名仅用于本地完整性校验，
+不能证明发布者身份；如果重新签名失败或下载校验不符，应重新下载安装包。
+
 ## Ubuntu 出现 chrome-sandbox 错误怎么办？
 
 优先使用 DEB 包。安装器配置 Electron 沙箱辅助程序与适用的 AppArmor 规则；AppImage 是否能启动取决于发行版的用户命名空间策略，不需要全局关闭 AppArmor 或使用 `--no-sandbox`。

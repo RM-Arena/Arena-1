@@ -89,7 +89,7 @@
         "zip"
       ],
       "hardenedRuntime": false,
-      "identity": null
+      "identity": "-"
     },
     "win": {
       "target": [
