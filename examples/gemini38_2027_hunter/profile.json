@@ -1,0 +1,18 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "google",
+    "model": "gemini-3.8-flash"
+  },
+  "tactic": "assault",
+  "tags": [
+    "assembly",
+    "aerial",
+    "mobility",
+    "focus_fire",
+    "outpost_rush"
+  ],
+  "display_name": "Gemini · 游猎突袭 2027",
+  "author": "gemini-3.8-flash",
+  "description": "Gemini 3.8 Flash 开发的 2027 赛季游猎突袭策略。集火敌方残血与虚弱目标，侧翼迂回压制敌方补给线；动态脱战回血，保持全队健康存活。"
+}
