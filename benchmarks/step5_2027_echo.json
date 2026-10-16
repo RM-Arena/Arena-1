@@ -1,0 +1,636 @@
+{
+  "format": "rmuc-step5-echo-evaluation-v1",
+  "created_at_utc": "2026-10-16T05:55:54.040964+00:00",
+  "agent": {
+    "provider": "unknown",
+    "model": "Step 5 Preview"
+  },
+  "season": "2027",
+  "submission": "step5_2027_echo",
+  "version": "dc15a6e165040c63",
+  "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+  },
+  "protocol": {
+    "duration_s": 420,
+    "decision_deadline_s": 0.2,
+    "sandbox": "trusted-local",
+    "identical_hardware": true,
+    "paired_sides": true,
+    "ranked": false,
+    "note": "Fixed-seed local development comparisons; not an Elo ranking. Only this exact source version is included.",
+    "lineup_note": "All comparisons use the default 2027 lineup for both teams. The trident opponent is rebound to default hardware rather than its native triple serial-leg lineup."
+  },
+  "summary": {
+    "wins": 10,
+    "draws": 0,
+    "losses": 2,
+    "games": 12,
+    "valid_games": 12,
+    "invalid_games": 0,
+    "policy_errors": 0
+  },
+  "by_opponent": {
+    "Claude Opus 5.5 · official_2027_team-7d49466f50b14961": {
+      "wins": 4,
+      "draws": 0,
+      "losses": 0
+    },
+    "Claude Opus 5.5 · official_2027_hold-ddaadf86433536d9": {
+      "wins": 2,
+      "draws": 0,
+      "losses": 2
+    },
+    "gpt-6.1-sol-xhigh · gpt61_2027_trident-6ff3dd843d31ab06": {
+      "wins": 4,
+      "draws": 0,
+      "losses": 0
+    }
+  },
+  "reproduce": [
+    ".venv/bin/python scripts/evaluate_2027.py examples/step5_2027_echo examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_trident --seeds 991 43 --sides red blue --duration 420 --jobs 4 --output build/step5/release-echo.json"
+  ],
+  "development": {
+    "versions_tested": {
+      "lock": "double-point chain; dev 120s W3-D0-L3 vs the same three opponents",
+      "rush": "early double-press; dev 120s W10-D0-L2, but split vs GPT trident",
+      "anchor": "permanent home anchor; dev 120s W7-D0-L5, lone striker could not take the enemy card",
+      "echo2": "echo with a 20s opening anchor; dev 120s W5-D0-L7, rejected",
+      "echo": "selected: adaptive card assignment by public occupancy info; dev 120s W10-D0-L2"
+    },
+    "note": "Development used 120 s paired-side matches (seeds 42/43). The anchor experiment showed a single striker cannot reliably take a defended enemy outpost card; the opening-anchor variant cost too much early pressure against non-pressing opponents. The selected controller keeps double-press pressure with a reactive, occupancy-driven defender. This is a development selection set, not a held-out generalization estimate."
+  },
+  "matches": [
+    {
+      "opponent": "official_2027_team-7d49466f50b14961",
+      "seed": 991,
+      "side": "red",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "dc15a6e165040c63",
+        "blue": "7d49466f50b14961"
+      },
+      "agents": {
+        "red": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 84.65666696429253,
+        "p99": 14.135333010926843
+      },
+      "digest": "f120d6cbc3109846b7cb01865ca495e8fd4e94ad02e3f2faa77b94f9a12a5c86",
+      "control": {
+        "red": 337.4,
+        "blue": 0.3
+      },
+      "candidate_damage": 6433,
+      "opponent_damage": 4863
+    },
+    {
+      "opponent": "official_2027_team-7d49466f50b14961",
+      "seed": 43,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "7d49466f50b14961",
+        "blue": "dc15a6e165040c63"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 39.433125173673034,
+        "p99": 14.295707922428846
+      },
+      "digest": "fc9428cd7f18af3bcbd69a3853ffb58850f8b5f7656242c26d91443accf3811c",
+      "control": {
+        "blue": 387.4,
+        "red": 0.0
+      },
+      "candidate_damage": 5639,
+      "opponent_damage": 4084
+    },
+    {
+      "opponent": "official_2027_team-7d49466f50b14961",
+      "seed": 43,
+      "side": "red",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "dc15a6e165040c63",
+        "blue": "7d49466f50b14961"
+      },
+      "agents": {
+        "red": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 54.57437480799854,
+        "p99": 13.803457841277122
+      },
+      "digest": "70f67d73912f8d138a79dd4ba0b96ae7dd8dca464e798502c3c27ab4f076adb4",
+      "control": {
+        "red": 269.2,
+        "blue": 0.3
+      },
+      "candidate_damage": 6170,
+      "opponent_damage": 5173
+    },
+    {
+      "opponent": "official_2027_team-7d49466f50b14961",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "7d49466f50b14961",
+        "blue": "dc15a6e165040c63"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 104.12587504833937,
+        "p99": 19.421624951064587
+      },
+      "digest": "ad67ef9383ceb467795f2ac706369dcf0db3d503b2978d5de6e7212df6985649",
+      "control": {
+        "blue": 72.6,
+        "red": 52.8
+      },
+      "candidate_damage": 5669,
+      "opponent_damage": 6511
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "ddaadf86433536d9",
+        "blue": "dc15a6e165040c63"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 29.538125032559037,
+        "p99": 11.452500009909272
+      },
+      "digest": "d4c9abca3e92b0c58d6af0197d0aa78662c97ec619e2b9d50c7fe1be8f5d8f35",
+      "control": {
+        "blue": 58.3,
+        "red": 0.0
+      },
+      "candidate_damage": 5211,
+      "opponent_damage": 5985
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 991,
+      "side": "red",
+      "outcome": "loss",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "dc15a6e165040c63",
+        "blue": "ddaadf86433536d9"
+      },
+      "agents": {
+        "red": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 57.96154192648828,
+        "p99": 11.210165917873383
+      },
+      "digest": "1ea0566cc009fe398fd3db7fa85f9a79289961d97705b4373307bf4df90309be",
+      "control": {
+        "red": 10.0,
+        "blue": 108.6
+      },
+      "candidate_damage": 4782,
+      "opponent_damage": 6407
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 43,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "ddaadf86433536d9",
+        "blue": "dc15a6e165040c63"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 55.56975002400577,
+        "p99": 11.8106659501791
+      },
+      "digest": "c02333b7eb827900037b6540596dbf1c7cf02c8227a1dfc5490e4ae1cd849a57",
+      "control": {
+        "blue": 9.4,
+        "red": 0.0
+      },
+      "candidate_damage": 4701,
+      "opponent_damage": 6020
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 43,
+      "side": "red",
+      "outcome": "loss",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "dc15a6e165040c63",
+        "blue": "ddaadf86433536d9"
+      },
+      "agents": {
+        "red": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 37.19845809973776,
+        "p99": 12.960708001628518
+      },
+      "digest": "6818cdfdcdfaf0d6fcea004941bd679b506108edbf28bc94a511d14b6aa2070c",
+      "control": {
+        "red": 9.9,
+        "blue": 145.7
+      },
+      "candidate_damage": 4427,
+      "opponent_damage": 6262
+    },
+    {
+      "opponent": "gpt61_2027_trident-6ff3dd843d31ab06",
+      "seed": 991,
+      "side": "red",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "dc15a6e165040c63",
+        "blue": "6ff3dd843d31ab06"
+      },
+      "agents": {
+        "red": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 58.76491591334343,
+        "p99": 10.323207825422287
+      },
+      "digest": "7b032678af11d983f30b3501a38ebbb27df3ab6efa3c1171bf1f6722f0251b18",
+      "control": {
+        "red": 115.0,
+        "blue": 0.0
+      },
+      "candidate_damage": 7595,
+      "opponent_damage": 3870
+    },
+    {
+      "opponent": "gpt61_2027_trident-6ff3dd843d31ab06",
+      "seed": 43,
+      "side": "red",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "dc15a6e165040c63",
+        "blue": "6ff3dd843d31ab06"
+      },
+      "agents": {
+        "red": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 58.396499836817384,
+        "p99": 10.165665997192264
+      },
+      "digest": "d6be9ee787520ef6308a54192ce74fbc589ab580182da465ebc04b0b714dfa26",
+      "control": {
+        "red": 133.3,
+        "blue": 5.3
+      },
+      "candidate_damage": 9081,
+      "opponent_damage": 4065
+    },
+    {
+      "opponent": "gpt61_2027_trident-6ff3dd843d31ab06",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "6ff3dd843d31ab06",
+        "blue": "dc15a6e165040c63"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 76.31775015033782,
+        "p99": 18.373999977484345
+      },
+      "digest": "d00b86db8c357fe15e0c6253ad8d49be632b173152fe938999c8afbb07c55398",
+      "control": {
+        "blue": 124.4,
+        "red": 27.6
+      },
+      "candidate_damage": 7660,
+      "opponent_damage": 4446
+    },
+    {
+      "opponent": "gpt61_2027_trident-6ff3dd843d31ab06",
+      "seed": 43,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      },
+      "versions": {
+        "red": "6ff3dd843d31ab06",
+        "blue": "dc15a6e165040c63"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "unknown",
+          "model": "Step 5 Preview"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 70.49520802684128,
+        "p99": 12.361707864329219
+      },
+      "digest": "13ffe933ea39147befcf82823890a481111b9b586c1fc62945df9a34b168ac63",
+      "control": {
+        "blue": 147.9,
+        "red": 87.2
+      },
+      "candidate_damage": 6706,
+      "opponent_damage": 4620
+    }
+  ],
+  "validation": {
+    "runtime_smoke": {
+      "duration_s": 20,
+      "seed": 43,
+      "sides": [
+        "red",
+        "blue"
+      ],
+      "version": "dc15a6e165040c63",
+      "policy_errors": 0,
+      "worker_logs": false,
+      "scope": "Compatibility only; excluded from full-game win totals."
+    },
+    "development_cli": "step5_eval.py --jobs 1 passed a one-second paired-side real-engine run."
+  }
+}

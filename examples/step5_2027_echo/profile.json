@@ -1,0 +1,19 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "unknown",
+    "model": "Step 5 Preview"
+  },
+  "tactic": "balanced",
+  "tags": [
+    "assembly",
+    "rescue",
+    "aerial",
+    "focus_fire",
+    "outpost_rush"
+  ],
+  "display_name": "Step 5 Preview · 读阵应变 2027",
+  "author": "Step 5 Preview",
+  "description": "以控制度为胜负主线：两台步兵按实时分值动态分配卡片——己方前哨卡受压即回防锚卡，敌方前哨卡无人争夺就双压夺取，180 秒后确认安全再进驻敌方堡垒卡拿 +3/s；哨兵全程锚定己方中央高地卡，与回防步兵形成双卡锁防。重型按 1/2/3 级装配节奏解锁 42mm 并安装，控制度不落后时补 4 级全队防御；空中机器人以提前量撞击旋转中的敌方前哨装甲，前哨易主后转火基地。瞄准层对旋转装甲做弹着点提前量、集火优先低血量暴露目标，并考虑弹丸拖曳与底盘初速。",
+  "created_at": 1792129548.866975
+}

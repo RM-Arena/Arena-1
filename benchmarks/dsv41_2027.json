@@ -1,0 +1,108 @@
+{
+  "format": "rmuc-dsv41-evaluation-v1",
+  "agent": {
+    "provider": "deepseek",
+    "model": "deepseek-v4.1-flash-max"
+  },
+  "season": "2027",
+  "submission": "dsv41_2027_control",
+  "version": "35402ed4916fe83e",
+  "source_hashes": {
+    "strategy.py": "f6283a0046ee5872d38a800501c70c81fa3958a91cbab09da156bd47bddb0118"
+  },
+  "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+  },
+  "protocol": {
+    "sandbox": "trusted-local",
+    "duration_s": 420,
+    "decision_deadline_s": 0.2,
+    "paired_sides": true,
+    "seeds": [
+      991
+    ],
+    "jobs": 2,
+    "hardware": "identical for both teams, default 2027 lineup",
+    "note": "Fixed-seed development comparison with the production runner through scripts/evaluate_2027.py. Not an Elo rating."
+  },
+  "summary": {
+    "win": 0,
+    "draw": 0,
+    "loss": 4,
+    "valid_games": 4,
+    "invalid_games": 0,
+    "policy_errors": 0
+  },
+  "result": "This controller loses all four paired games to the Claude Opus 5.5 official baseline and the official hold variant, 0-4 with 0.0 control degree in every game. Both opponents hold both outpost positions for most of the match and reach 395-408 control degree by the timeout, while this controller never holds the enemy outpost position at all. Attack damage is roughly half the opponent figure. The submission is published with the negative result rather than a claim of parity.",
+  "diagnosis": [
+    "The enemy outpost card is reached by one infantry almost every game, but the robot is killed or tipped before the five second capture completes, so the position is never taken.",
+    "The own outpost card is entered from behind, and a robot parked on it does recover the position (observed at t=39.8 s in the trace), but the enemy re-takes it because the forward card is never held: control degree needs both positions at once.",
+    "The central highland is enclosed by 0.2-0.4 m kerbs. Only a model whose design has jumping legs crosses them, and the two infantry on the default lineup are 2731 (jump, no self-righting) and 2732 (no jump), so the 2732 cannot reach any highland card and the 2731 is stranded once tipped.",
+    "The heavy robot completes levels 1-3 and installs the 42 mm, but its route to the assembly plinth is a 40 m detour through the north tunnel, so the gun arrives after 180 s.",
+    "The aerial system is the one subsystem at parity: four drones ram the rotating outpost armor from t=5.6 s and land 14 valid strikes for 2800 damage in the first two minutes."
+  ],
+  "matches": [
+    {
+      "opponent": "official_2027_team",
+      "seed": 991,
+      "side": "red",
+      "outcome": "loss",
+      "control": "0.0/724.4",
+      "damage": "1490/3140",
+      "policy_errors": 0
+    },
+    {
+      "opponent": "official_2027_team",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "loss",
+      "control": "0.0/43.3",
+      "damage": "1873/2730",
+      "policy_errors": 0
+    },
+    {
+      "opponent": "official_2027_hold",
+      "seed": 991,
+      "side": "red",
+      "outcome": "loss",
+      "control": "0.0/408.3",
+      "damage": "1545/2020",
+      "policy_errors": 0
+    },
+    {
+      "opponent": "official_2027_hold",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "loss",
+      "control": "0.0/394.7",
+      "damage": "1510/2885",
+      "policy_errors": 0
+    }
+  ],
+  "artifacts": {
+    "trace": "scripts/trace_2027.py",
+    "command_probe": "scripts/dump_commands_2027.py",
+    "raw_run_log": "build/dsv41/chain-v3.log",
+    "full_report": "build/dsv41/chain-v3.json"
+  },
+  "validation": {
+    "runtime_smoke": {
+      "duration_s": 20,
+      "seed": 43,
+      "sides": [
+        "red",
+        "blue"
+      ],
+      "version": "35402ed4916fe83e",
+      "policy_errors": 0,
+      "worker_logs": false,
+      "scope": "Compatibility only; excluded from full-game win totals."
+    },
+    "generation_check": ".venv/bin/python scripts/build_dsv41_strategies_2027.py --check",
+    "diagnostic_tools": "trace_2027.py and dump_commands_2027.py passed one-second real-engine CLI checks."
+  }
+}
