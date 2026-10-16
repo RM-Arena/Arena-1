@@ -1,0 +1,5549 @@
+{
+  "format": "rmuc-gpt61-trident-evaluation-v1",
+  "created_at_utc": "2026-10-16T04:20:17.951358+00:00",
+  "agent": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol-xhigh"
+  },
+  "season": "2027",
+  "submission": "gpt61_2027_trident",
+  "version": "6ff3dd843d31ab06",
+  "lineup": {
+    "1": 2712,
+    "3": 305,
+    "4": 305,
+    "6": 2763,
+    "7": 2772
+  },
+  "protocol": {
+    "duration_s": 420,
+    "decision_deadline_s": 0.2,
+    "sandbox": "trusted-local",
+    "identical_hardware": true,
+    "paired_sides": true,
+    "ranked": false,
+    "note": "Fixed-seed local development comparisons; not an Elo ranking. Only this exact source version is included.",
+    "activity_definition": {
+      "dt_s": 0.05,
+      "healthy_min_hp_fraction": 0.55,
+      "enemy_half_x_m": 14,
+      "aerial_excluded": true
+    }
+  },
+  "summary": {
+    "wins": 5,
+    "draws": 0,
+    "losses": 3,
+    "games": 8,
+    "valid_games": 8,
+    "invalid_games": 0,
+    "policy_errors": 0
+  },
+  "mobility": {
+    "serial_unit_games": 24,
+    "jumps": 138,
+    "highland_buffs": 30,
+    "self_righted": 10,
+    "enemy_half_seconds": 4747.450000000352,
+    "healthy_enemy_half_seconds": 3885.0500000001857,
+    "healthy_seconds": 7807.100000000953,
+    "ground_distance_m": 4194.3015322152705,
+    "all_three_opening_highland_crossings": 8,
+    "healthy_enemy_half_fraction": 0.49763036210625095
+  },
+  "reproduce": [
+    ".venv/bin/python scripts/build_gpt61_trident_2027.py --check",
+    ".venv/bin/python scripts/evaluate_2027.py examples/gpt61_2027_trident examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_lineup_serial --seeds 991 --jobs 2 --output build/gpt61-trident/release-991.json",
+    ".venv/bin/python scripts/evaluate_2027.py examples/gpt61_2027_trident examples/official_2027_hold --seeds 43 --jobs 2 --output build/gpt61-trident/release-43.json"
+  ],
+  "development": {
+    "earlier_versions_excluded": true,
+    "note": "Development exposed slow exit commands on road bumps and a missing held heading; both have regression coverage. A heavy-to-fortress experiment lost both baseline games. A base-ammunition gate scored 3/8 on the same eight-game comparison, versus 5/8 for the selected controller, and was rejected. Base ammunition discipline and late home-base defense remain limitations. This is a development selection set, not a held-out generalization estimate."
+  },
+  "matches": [
+    {
+      "opponent": "official_2027_team-7d49466f50b14961",
+      "seed": 991,
+      "side": "red",
+      "outcome": "loss",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "6ff3dd843d31ab06",
+        "blue": "7d49466f50b14961"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 54.25625015050173,
+        "p99": 9.105375036597252
+      },
+      "digest": "2444cd9d0b1256a4482adc095cd3aed8810a5c6c97a26f35fcf555dedea048a1",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 0.0,
+          "empty_s": 420.0000000000612,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 335.70000000004205,
+          "distance_m": 150.45592363330195,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 4.449999999999992,
+          "dead_s": 0.0,
+          "empty_s": 175.05000000000555,
+          "enemy_half_s": 70.14999999999816,
+          "healthy_enemy_half_s": 37.99999999999998,
+          "healthy_s": 376.65000000005136,
+          "distance_m": 256.56776333853793,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "4": {
+          "tipped_s": 0.3,
+          "dead_s": 27.00000000000025,
+          "empty_s": 254.8500000000237,
+          "enemy_half_s": 147.0499999999992,
+          "healthy_enemy_half_s": 134.94999999999644,
+          "healthy_s": 365.0500000000487,
+          "distance_m": 156.77748389407216,
+          "jumps": 4,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "7": {
+          "tipped_s": 7.399999999999982,
+          "dead_s": 0.0,
+          "empty_s": 242.40000000002087,
+          "enemy_half_s": 124.69999999999506,
+          "healthy_enemy_half_s": 95.39999999999672,
+          "healthy_s": 363.00000000004826,
+          "distance_m": 189.20265226456607,
+          "jumps": 6,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        }
+      },
+      "control": {
+        "red": 142.39999999999813,
+        "blue": 207.1500000000053
+      },
+      "candidate_damage": 4686.0,
+      "opponent_damage": 4205.0,
+      "opening_crossings": [
+        {
+          "id": "179:5",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:3",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [
+              "red"
+            ],
+            "control": "full",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 7.099999999999983,
+            "attack_damage": 2500.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 0.0,
+            "attack_damage": 1835.0,
+            "resources": 500.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 12.07604256291593,
+            "y": 12.544517053484107,
+            "z": 0.31585151722267046,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -1.4958728362266445,
+            "vx": -0.16523050152944152,
+            "vy": -0.47292322781017554
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 16.99290418493396,
+            "y": 4.284718777186181,
+            "z": 0.3679252888880234,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 35.59999999999995,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -0.5366077768191646,
+            "vx": -0.0011632681162410535,
+            "vy": 0.0007010200416808026
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 17.265309777139684,
+            "y": 7.4339796683605455,
+            "z": 0.40811548995230296,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 35.599999999999966,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 40.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.238970024878519,
+            "vx": -0.0004623243425369544,
+            "vy": 0.001209788339054441
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.7547563080154593,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 12.416666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.010407226632770149,
+                  -0.29533689606782126,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 13.216666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -4.0368186215908724e-18,
+                "vy": 1.4860480811763805e-17,
+                "vz": 0.0,
+                "x": 25.896709093569612,
+                "y": 7.609048284971978,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.705955583999142,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": -0.5,
+                "last_strike": 16.708333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.0009074534143518904,
+                  -0.2955188134001988,
+                  0.0,
+                  0.9553364891256061
+                ],
+                "recover_until": 17.508333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.0,
+                "vy": 0.0,
+                "vz": 0.0,
+                "x": 25.90958874187608,
+                "y": 7.470057095761838,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.7242819257892834,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": 0.0,
+                "last_strike": 15.008333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.2557842864677725,
+                  0.14800875427262164,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 15.808333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.1197293969133809e-17,
+                "vy": 2.4890690903166972e-17,
+                "vz": 0.0,
+                "x": 25.394750510047263,
+                "y": 7.761088781792923,
+                "z": 0.4340517376410666
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 16.386621454444658,
+            "y": 2.7504148787400147,
+            "z": 0.3470430464499787,
+            "hp": 400.0,
+            "ammo": 122,
+            "heat": 241.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 60.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -0.9273501780964354,
+            "vx": -8.024861846636579e-07,
+            "vy": 1.075030191430242e-06
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 23.90885458404713,
+            "y": 4.71028782325267,
+            "z": 0.10442035624748672,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 2.2535300538724683,
+            "vx": -1.1025550690516959,
+            "vy": 0.28625495492079933
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 22.492378034459335,
+            "y": 0.5148543222842421,
+            "z": 0.1696422519675072,
+            "hp": 70.0,
+            "ammo": 82,
+            "heat": 27.59999999999995,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -1.2379910576664845,
+            "vx": 0.03664646940232021,
+            "vy": 0.4143539715768655
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 23.133919204166315,
+            "y": 0.7332354011810446,
+            "z": 0.1987333903053876,
+            "hp": 150.0,
+            "ammo": 124,
+            "heat": 36.79999999999994,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 15.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 2.9629442129888117,
+            "vx": -0.7204254813174421,
+            "vy": 0.12845297095715333
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.662901559055334,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 0.75,
+                "last_strike": 12.875,
+                "launch_until": 0.608333333,
+                "power_w": 48.95038588737023,
+                "quaternion": [
+                  -0.003544193045091856,
+                  -0.29549895302829743,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 13.675,
+                "state": "flying",
+                "strikes": 3,
+                "vx": -2.2434381401803907,
+                "vy": -0.0377731546235753,
+                "vz": 0.001423897575195786,
+                "x": 17.455927343976676,
+                "y": 3.581983418131822,
+                "z": 1.610282786605867
+              },
+              {
+                "battery_wh": 3.66942534358349,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": 0.75,
+                "last_strike": 17.95,
+                "launch_until": 0.608333333,
+                "power_w": 48.977556081031715,
+                "quaternion": [
+                  0.2566157557317536,
+                  0.1465624319373209,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.75,
+                "state": "flying",
+                "strikes": 3,
+                "vx": 0.48240732545685466,
+                "vy": -0.7943701063251573,
+                "vz": 0.000487841575970962,
+                "x": 16.671990440982366,
+                "y": 4.2156796481963035,
+                "z": 1.709984607285296
+              },
+              {
+                "battery_wh": 3.6705391943127537,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": 1.0,
+                "last_strike": 18.233333333,
+                "launch_until": 0.608333333,
+                "power_w": 37.401917272254515,
+                "quaternion": [
+                  0.03631775912028261,
+                  -0.02407665890862412,
+                  0.0,
+                  0.9990502163896863
+                ],
+                "recover_until": 19.033333333,
+                "state": "flying",
+                "strikes": 3,
+                "vx": 0.21284515672910545,
+                "vy": 0.3332205455335693,
+                "vz": -0.0005851202424942232,
+                "x": 16.608367018238926,
+                "y": 2.8842810628079074,
+                "z": 1.8100481657007725
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 22.553266189168856,
+            "y": 0.5798365605763625,
+            "z": 0.28612153497853643,
+            "hp": 400.0,
+            "ammo": 256,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.38549697898765223,
+            "vx": 0.12047168977040548,
+            "vy": 0.30347618649541364
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 500.0,
+            "owner": "blue"
+          },
+          "blue": {
+            "hp": 100.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "179:5",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:3",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "6382:6",
+          "robot": "red-7",
+          "tick": 6382,
+          "time": 319.15,
+          "type": "self_righted"
+        }
+      ]
+    },
+    {
+      "opponent": "official_2027_team-7d49466f50b14961",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "loss",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "7d49466f50b14961",
+        "blue": "6ff3dd843d31ab06"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 33.05900003761053,
+        "p99": 7.71541683934629
+      },
+      "digest": "581e6f107b8d71a7877635f15e45bd1859d893aa5336f4ec4fd06785e7679cc5",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 34.000000000000206,
+          "empty_s": 386.0000000000535,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 316.30000000003764,
+          "distance_m": 150.04677468663752,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 0.15000000000000002,
+          "dead_s": 34.000000000000206,
+          "empty_s": 244.7500000000214,
+          "enemy_half_s": 210.60000000001364,
+          "healthy_enemy_half_s": 205.1500000000124,
+          "healthy_s": 362.3500000000481,
+          "distance_m": 156.57684965062603,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "4": {
+          "tipped_s": 1.3000000000000005,
+          "dead_s": 36.00000000000009,
+          "empty_s": 296.95000000003324,
+          "enemy_half_s": 215.50000000001475,
+          "healthy_enemy_half_s": 178.85000000000642,
+          "healthy_s": 324.9000000000396,
+          "distance_m": 165.10985222089374,
+          "jumps": 3,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        },
+        "7": {
+          "tipped_s": 0.05,
+          "dead_s": 36.00000000000009,
+          "empty_s": 162.85000000000278,
+          "enemy_half_s": 244.40000000002132,
+          "healthy_enemy_half_s": 218.90000000001552,
+          "healthy_s": 297.85000000003345,
+          "distance_m": 146.3568729446732,
+          "jumps": 10,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        }
+      },
+      "control": {
+        "blue": 197.3000000000106,
+        "red": 320.55000000001525
+      },
+      "candidate_damage": 5871.0,
+      "opponent_damage": 5522.0,
+      "opening_crossings": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:5",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "245:1",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 245,
+          "time": 12.3,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [
+              "blue"
+            ],
+            "control": "full",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 0.0,
+            "attack_damage": 2500.0,
+            "resources": 400.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 5.899999999999987,
+            "attack_damage": 2610.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 4.091144169288405,
+            "y": 10.289712811878983,
+            "z": 0.10442034034781317,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -0.8880521567643104,
+            "vx": 1.1025553980207454,
+            "vy": -0.28627295244264084
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 9.506172674034774,
+            "y": 14.34490919041881,
+            "z": 0.19245417430265246,
+            "hp": 150.0,
+            "ammo": 86,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 30.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": true,
+            "heading": 1.2445419371713333,
+            "vx": -0.39664072130132594,
+            "vy": -0.7992506322516135
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 9.697254169315782,
+            "y": 14.483140986428648,
+            "z": 0.16778192679936627,
+            "hp": 110.0,
+            "ammo": 124,
+            "heat": 36.79999999999994,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 40.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -1.1554322646526194,
+            "vx": 0.331367686679027,
+            "vy": -0.36404467367531096
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.760895135368977,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 11.908333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.010313001392594771,
+                  -0.2953402013736654,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 12.708333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.0,
+                "vy": 0.0,
+                "vz": 0.0,
+                "x": 25.906419785752437,
+                "y": 7.608433201730987,
+                "z": 0.43405173764106486
+              },
+              {
+                "battery_wh": 3.7351886663848903,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": -0.75,
+                "last_strike": 13.966666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.06679745277909706,
+                  -0.2878720077523779,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 14.766666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -3.409181155993794e-11,
+                "vy": 4.2628187662725716e-33,
+                "vz": -1.1670922401740982e-13,
+                "x": 25.98879896556479,
+                "y": 7.727124353522312,
+                "z": 1.3151179690513775
+              },
+              {
+                "battery_wh": 3.6736788840565366,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": 0.0,
+                "last_strike": 19.45,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.003028244514090494,
+                  -0.2955046907924199,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 20.25,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 8.079312995494158e-16,
+                "vy": 0.011375393795989891,
+                "vz": 0.3883941496926414,
+                "x": 11.69439298409656,
+                "y": 11.425160516140085,
+                "z": 0.4672384885197721
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 7.633956432183887,
+            "y": 10.596527103982787,
+            "z": 0.09291836021859226,
+            "hp": 400.0,
+            "ammo": 256,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 50.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 2.5125484977250094,
+            "vx": -1.4589017319386253,
+            "vy": 1.1291557498099898
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 15.918188231659345,
+            "y": 2.4506037999990404,
+            "z": 0.31574358900803307,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 1.6248127405193948,
+            "vx": 0.16398353425573658,
+            "vy": 0.42862700796684566
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 11.023139479695255,
+            "y": 10.681999680408527,
+            "z": 0.3648182868821904,
+            "hp": 152.0,
+            "ammo": 94,
+            "heat": 29.80000000000004,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 70.0,
+            "level": 2,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.668744081233185,
+            "vx": 1.7506598451029636e-05,
+            "vy": -8.96606730302876e-06
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 11.001478139847256,
+            "y": 7.1250516548394245,
+            "z": 0.40916978200911236,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 35.59999999999998,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.2185930528169857,
+            "vx": 0.7654287903836753,
+            "vy": -1.1271032485125527
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.715377350944948,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 15.708333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -9.512712259683507e-05,
+                  -0.2955201913507627,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 16.508333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.3070243306862822e-11,
+                "vy": -3.0792900724162406e-11,
+                "vz": -6.947825142961966e-13,
+                "x": 2.716746962065178,
+                "y": 7.506249528460735,
+                "z": 0.4392134532347689
+              },
+              {
+                "battery_wh": 3.720925962599408,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": -0.5,
+                "last_strike": 15.416666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.25529603536022094,
+                  0.14884934287565268,
+                  -0.0,
+                  0.9553364891256061
+                ],
+                "recover_until": 16.216666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 1.1391081184238006e-17,
+                "vy": 1.9000675484168372e-13,
+                "vz": 0.0,
+                "x": 2.2881541756121964,
+                "y": 7.805308303747902,
+                "z": 0.4340517376410666
+              },
+              {
+                "battery_wh": 3.69029491369387,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": -0.25,
+                "last_strike": 18.116666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.0025608642898013656,
+                  -0.29550911072122654,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.916666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -4.2124192629236836e-14,
+                "vy": -5.2258205391661997e-14,
+                "vz": -1.6264224105125384e-15,
+                "x": 2.7476723520455297,
+                "y": 7.628874606027736,
+                "z": 0.4415056903701802
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 11.762735168868305,
+            "y": 12.071752246901095,
+            "z": 0.34685102780001814,
+            "hp": 379.0,
+            "ammo": 142,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 200.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.2307188371736526,
+            "vx": 0.003390652742789723,
+            "vy": -0.006512550725539603
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 300.0,
+            "owner": "blue"
+          },
+          "blue": {
+            "hp": 500.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:5",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "245:1",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 245,
+          "time": 12.3,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "5480:0",
+          "robot": "blue-4",
+          "tick": 5480,
+          "time": 274.05,
+          "type": "self_righted"
+        }
+      ]
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 991,
+      "side": "red",
+      "outcome": "loss",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "6ff3dd843d31ab06",
+        "blue": "ddaadf86433536d9"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 18.173333955928683,
+        "p99": 8.79895780235529
+      },
+      "digest": "f541559723206f941cc2fb8e15b2c0618e9a1e41edb14ac599c4c86a22dfb645",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 32.00000000000032,
+          "empty_s": 388.00000000005394,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 333.95000000004165,
+          "distance_m": 145.3796817605252,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 10.95000000000002,
+          "dead_s": 0.0,
+          "empty_s": 185.65000000000796,
+          "enemy_half_s": 48.949999999999356,
+          "healthy_enemy_half_s": 40.84999999999982,
+          "healthy_s": 401.20000000005695,
+          "distance_m": 252.2041657609327,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        },
+        "4": {
+          "tipped_s": 1.3500000000000005,
+          "dead_s": 30.00000000000029,
+          "empty_s": 248.7500000000223,
+          "enemy_half_s": 185.750000000008,
+          "healthy_enemy_half_s": 179.35000000000653,
+          "healthy_s": 365.4500000000488,
+          "distance_m": 120.84450318193807,
+          "jumps": 4,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        },
+        "7": {
+          "tipped_s": 4.099999999999993,
+          "dead_s": 0.0,
+          "empty_s": 109.7999999999959,
+          "enemy_half_s": 132.79999999999595,
+          "healthy_enemy_half_s": 120.4499999999953,
+          "healthy_s": 387.0500000000537,
+          "distance_m": 190.76351105315175,
+          "jumps": 4,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        }
+      },
+      "control": {
+        "red": 179.2000000000065,
+        "blue": 192.20000000000945
+      },
+      "candidate_damage": 4285.0,
+      "opponent_damage": 4105.0,
+      "opening_crossings": [
+        {
+          "id": "179:5",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:3",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [
+              "red"
+            ],
+            "control": "temporary",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 7.099999999999983,
+            "attack_damage": 2540.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 0.0,
+            "attack_damage": 1535.0,
+            "resources": 500.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 12.07604256291593,
+            "y": 12.544517053484107,
+            "z": 0.31585151722267046,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -1.4958728362266445,
+            "vx": -0.16523050152944152,
+            "vy": -0.47292322781017554
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 16.99251076789907,
+            "y": 4.28491083659124,
+            "z": 0.3679315596392416,
+            "hp": 174.0,
+            "ammo": 94,
+            "heat": 32.399999999999984,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 60.0,
+            "level": 2,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -0.5363737332350921,
+            "vx": -2.9003270640932523e-05,
+            "vy": 1.7252861082955766e-05
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 17.26578528049422,
+            "y": 7.432896936956682,
+            "z": 0.4080944757005321,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 35.599999999999966,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.2384348461955434,
+            "vx": -0.0009947776199038518,
+            "vy": 0.0020322225426407364
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.7547563080154593,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 12.416666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.010407226632770149,
+                  -0.29533689606782126,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 13.216666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -4.0368186215908724e-18,
+                "vy": 1.4860480811763805e-17,
+                "vz": 0.0,
+                "x": 25.896709093569612,
+                "y": 7.609048284971978,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.705955583999142,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": -0.5,
+                "last_strike": 16.708333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.0009074534143518904,
+                  -0.2955188134001988,
+                  0.0,
+                  0.9553364891256061
+                ],
+                "recover_until": 17.508333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.0,
+                "vy": 0.0,
+                "vz": 0.0,
+                "x": 25.90958874187608,
+                "y": 7.470057095761838,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.7242819257892834,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": 0.0,
+                "last_strike": 15.008333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.2557842864677725,
+                  0.14800875427262164,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 15.808333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.1197293969133809e-17,
+                "vy": 2.4890690903166972e-17,
+                "vz": 0.0,
+                "x": 25.394750510047263,
+                "y": 7.761088781792923,
+                "z": 0.4340517376410666
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 16.3865270267979,
+            "y": 2.750973457714917,
+            "z": 0.3470576653158688,
+            "hp": 400.0,
+            "ammo": 122,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 80.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -0.9256710554681491,
+            "vx": -5.311186218483992e-07,
+            "vy": 7.092512684706318e-07
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 23.90885458404713,
+            "y": 4.71028782325267,
+            "z": 0.10442035624748672,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 2.2535300538724683,
+            "vx": -1.1025550690516959,
+            "vy": 0.28625495492079933
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 23.066614792070702,
+            "y": 1.571683239028003,
+            "z": 0.21117925637352414,
+            "hp": 30.0,
+            "ammo": 84,
+            "heat": 7.599999999999969,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 60.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 1.9851346925860134,
+            "vx": 0.5378540226891899,
+            "vy": -0.7075045366487444
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 21.947928445987525,
+            "y": 1.1392006915874915,
+            "z": 0.24881477239637464,
+            "hp": 150.0,
+            "ammo": 124,
+            "heat": 36.79999999999994,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -0.09428300336776754,
+            "vx": -0.9228035391589859,
+            "vy": 0.26546026036446013
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.677010838394,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 1.0,
+                "last_strike": 17.0,
+                "launch_until": 13.508333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.0015526409934480546,
+                  0.0002668790147072564,
+                  0.0,
+                  0.9999987590399985
+                ],
+                "recover_until": 17.8,
+                "state": "docked",
+                "strikes": 3,
+                "vx": 0.0,
+                "vy": 0.0,
+                "vz": 0.0,
+                "x": 14.914949,
+                "y": 6.435051,
+                "z": 2.040472
+              },
+              {
+                "battery_wh": 3.674220328117127,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": 1.0,
+                "last_strike": 16.341666667,
+                "launch_until": 13.508333333,
+                "power_w": 38.08430706058703,
+                "quaternion": [
+                  -0.007180730016362216,
+                  -0.0019875028464544074,
+                  0.0,
+                  0.9999722430892106
+                ],
+                "recover_until": 17.141666667,
+                "state": "flying",
+                "strikes": 3,
+                "vx": 0.009161169927955478,
+                "vy": -0.04794271847528964,
+                "vz": -0.21571896543794078,
+                "x": 15.065316058620757,
+                "y": 6.443483451064109,
+                "z": 2.1557977745644177
+              },
+              {
+                "battery_wh": 3.676061763337755,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": 2.0,
+                "last_strike": 16.941666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.0012294650776003711,
+                  -0.0034445848422670292,
+                  0.0,
+                  0.9999933116030764
+                ],
+                "recover_until": 17.741666667,
+                "state": "docked",
+                "strikes": 2,
+                "vx": 0.0,
+                "vy": 0.0,
+                "vz": 0.0,
+                "x": 14.914949,
+                "y": 6.585051,
+                "z": 2.040472
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 22.497415336543703,
+            "y": 1.63940138364673,
+            "z": 0.21089889890728813,
+            "hp": 400.0,
+            "ammo": 256,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 15.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 2.0648964909219676,
+            "vx": -0.6136103594119656,
+            "vy": 0.8862534841177714
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 500.0,
+            "owner": "blue"
+          },
+          "blue": {
+            "hp": 0.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "179:5",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:3",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "3830:4",
+          "robot": "red-3",
+          "tick": 3830,
+          "time": 191.55,
+          "type": "self_righted"
+        },
+        {
+          "id": "4541:1",
+          "robot": "red-4",
+          "tick": 4541,
+          "time": 227.1,
+          "type": "self_righted"
+        }
+      ]
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "ddaadf86433536d9",
+        "blue": "6ff3dd843d31ab06"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 47.902749851346016,
+        "p99": 8.776583010330796
+      },
+      "digest": "e3aa5a4e6002afa3d5d477750c0b0c3203aca5b212d5551a7e2fb597f51ea99c",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 0.0,
+          "empty_s": 361.1000000000478,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 420.0000000000612,
+          "distance_m": 86.40199595966028,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 2.6999999999999984,
+          "dead_s": 0.0,
+          "empty_s": 277.55000000002883,
+          "enemy_half_s": 44.14999999999963,
+          "healthy_enemy_half_s": 36.60000000000006,
+          "healthy_s": 402.60000000005726,
+          "distance_m": 261.1934763564733,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "4": {
+          "tipped_s": 0.9000000000000002,
+          "dead_s": 58.999999999998785,
+          "empty_s": 271.55000000002747,
+          "enemy_half_s": 261.9000000000253,
+          "healthy_enemy_half_s": 243.4000000000211,
+          "healthy_s": 289.8500000000316,
+          "distance_m": 87.5993286593383,
+          "jumps": 3,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        },
+        "7": {
+          "tipped_s": 0.0,
+          "dead_s": 27.00000000000025,
+          "empty_s": 315.2000000000374,
+          "enemy_half_s": 293.45000000003245,
+          "healthy_enemy_half_s": 187.05000000000828,
+          "healthy_s": 237.45000000001974,
+          "distance_m": 189.95569646042952,
+          "jumps": 3,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        }
+      },
+      "control": {
+        "blue": 136.84999999999687,
+        "red": 0.0
+      },
+      "candidate_damage": 4538.0,
+      "opponent_damage": 4338.0,
+      "opening_crossings": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:5",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "245:2",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 245,
+          "time": 12.3,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [
+              "blue"
+            ],
+            "control": "temporary",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 0.0,
+            "attack_damage": 1545.0,
+            "resources": 400.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 5.899999999999987,
+            "attack_damage": 2615.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 4.091144169288405,
+            "y": 10.289712811878983,
+            "z": 0.10442034034781317,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -0.8880521567643104,
+            "vx": 1.1025553980207454,
+            "vy": -0.28627295244264084
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 8.701072315376532,
+            "y": 14.181335333592427,
+            "z": 0.22946442854258367,
+            "hp": 150.0,
+            "ammo": 86,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 30.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": true,
+            "heading": -2.599920534797965,
+            "vx": 0.03163638165981694,
+            "vy": 0.022041358552279153
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 8.682684209589613,
+            "y": 14.234866327414583,
+            "z": 0.1943653708717875,
+            "hp": 130.0,
+            "ammo": 124,
+            "heat": 36.79999999999994,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.578767718599215,
+            "vx": 0.11572650459715521,
+            "vy": 0.08335021067490149
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.6858134057521936,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 2.0,
+                "last_strike": 6.916666667,
+                "launch_until": 0.608333333,
+                "power_w": 48.253065943512155,
+                "quaternion": [
+                  -0.08658551670255994,
+                  -0.11813785478014943,
+                  0.0,
+                  0.9892150401026538
+                ],
+                "recover_until": 7.716666667,
+                "state": "flying",
+                "strikes": 2,
+                "vx": -0.05783996616731625,
+                "vy": -0.05783996616731624,
+                "vz": 0.22922027136595513,
+                "x": 13.307731782400342,
+                "y": 8.191673939433143,
+                "z": 2.044423930807295
+              },
+              {
+                "battery_wh": 3.6692892711484206,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": 0.0,
+                "last_strike": 19.225,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.25049717115761994,
+                  0.15679081537893377,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 20.025000000000002,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 2.72097116830903e-28,
+                "vy": 3.062895973223023e-15,
+                "vz": -4.074902292590251e-17,
+                "x": 10.548177927669169,
+                "y": 12.01674028756695,
+                "z": 0.4323213493706993
+              },
+              {
+                "battery_wh": 3.6994646546188936,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": 2.0,
+                "last_strike": 19.241666667,
+                "launch_until": 14.208333332999999,
+                "power_w": 39.201571519259,
+                "quaternion": [
+                  0.0516460490096615,
+                  0.06825797652647614,
+                  -0.0,
+                  0.9963300328014822
+                ],
+                "recover_until": 20.041666667,
+                "state": "flying",
+                "strikes": 2,
+                "vx": 1.873480576481925,
+                "vy": -2.229895434096524,
+                "vz": 0.48740911611511134,
+                "x": 11.517591200409187,
+                "y": 10.004180678701376,
+                "z": 2.0291127759248107
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 9.156412261777726,
+            "y": 14.12989110149571,
+            "z": 0.1824432452309272,
+            "hp": 375.0,
+            "ammo": 256,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 35.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -1.8033719623040478,
+            "vx": 0.1503708898127423,
+            "vy": 0.12362982306168642
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 15.918188231659345,
+            "y": 2.4506037999990404,
+            "z": 0.31574358900803307,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 1.6248127405193948,
+            "vx": 0.16398353425573658,
+            "vy": 0.42862700796684566
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 11.025142086076645,
+            "y": 10.681565520134049,
+            "z": 0.3648239602143877,
+            "hp": 166.0,
+            "ammo": 94,
+            "heat": 26.600000000000065,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 80.0,
+            "level": 2,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.668799967833373,
+            "vx": 1.2016080082235194e-06,
+            "vy": -6.150961661904635e-07
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 11.000906966184594,
+            "y": 7.12733285315067,
+            "z": 0.40911980318143343,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 35.59999999999997,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.2177584115005624,
+            "vx": 0.7649890764429016,
+            "vy": -1.129673547132503
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.715377350944948,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 15.708333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -9.512712259683507e-05,
+                  -0.2955201913507627,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 16.508333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.3070243306862822e-11,
+                "vy": -3.0792900724162406e-11,
+                "vz": -6.947825142961966e-13,
+                "x": 2.716746962065178,
+                "y": 7.506249528460735,
+                "z": 0.4392134532347689
+              },
+              {
+                "battery_wh": 3.720925962599408,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": -0.5,
+                "last_strike": 15.416666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.25529603536022094,
+                  0.14884934287565268,
+                  -0.0,
+                  0.9553364891256061
+                ],
+                "recover_until": 16.216666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 1.1391081184238006e-17,
+                "vy": 1.9000675484168372e-13,
+                "vz": 0.0,
+                "x": 2.2881541756121964,
+                "y": 7.805308303747902,
+                "z": 0.4340517376410666
+              },
+              {
+                "battery_wh": 3.69029491369387,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": -0.25,
+                "last_strike": 18.116666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.0025608642898013656,
+                  -0.29550911072122654,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.916666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -4.2124192629236836e-14,
+                "vy": -5.2258205391661997e-14,
+                "vz": -1.6264224105125384e-15,
+                "x": 2.7476723520455297,
+                "y": 7.628874606027736,
+                "z": 0.4415056903701802
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 11.667811009397333,
+            "y": 12.224095544345959,
+            "z": 0.34486823908421277,
+            "hp": 400.0,
+            "ammo": 128,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 195.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.274351860184517,
+            "vx": 0.0026621249616387357,
+            "vy": -0.0029615493786128238
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 0.0,
+            "owner": "blue"
+          },
+          "blue": {
+            "hp": 500.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:5",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "245:2",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 245,
+          "time": 12.3,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "3612:0",
+          "robot": "blue-4",
+          "tick": 3612,
+          "time": 180.65,
+          "type": "self_righted"
+        }
+      ]
+    },
+    {
+      "opponent": "gpt61_2027_lineup_serial-731c0578b3d37e10",
+      "seed": 991,
+      "side": "red",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "6ff3dd843d31ab06",
+        "blue": "731c0578b3d37e10"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 47.43787506595254,
+        "p99": 12.883291114121675
+      },
+      "digest": "89041bd74f0ab5e5d5be6ad353fa96c7b704fe52e8699c19248a6aeb78f02fa1",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 0.0,
+          "empty_s": 420.0000000000612,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 370.2500000000499,
+          "distance_m": 77.65842667271659,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 1.5000000000000007,
+          "dead_s": 121.44999999999524,
+          "empty_s": 155.70000000000115,
+          "enemy_half_s": 184.70000000000775,
+          "healthy_enemy_half_s": 166.15000000000353,
+          "healthy_s": 226.90000000001734,
+          "distance_m": 176.40169549150212,
+          "jumps": 13,
+          "terrain_buffs": {
+            "highland": 4
+          },
+          "self_righted": 1
+        },
+        "4": {
+          "tipped_s": 10.20000000000001,
+          "dead_s": 0.0,
+          "empty_s": 202.60000000001182,
+          "enemy_half_s": 14.750000000000075,
+          "healthy_enemy_half_s": 11.000000000000021,
+          "healthy_s": 403.95000000005757,
+          "distance_m": 280.37323875334863,
+          "jumps": 4,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "7": {
+          "tipped_s": 0.2,
+          "dead_s": 41.0999999999998,
+          "empty_s": 239.0000000000201,
+          "enemy_half_s": 278.60000000002907,
+          "healthy_enemy_half_s": 269.550000000027,
+          "healthy_s": 327.35000000004015,
+          "distance_m": 161.40394255079374,
+          "jumps": 16,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        }
+      },
+      "control": {
+        "red": 97.84999999999658,
+        "blue": 45.04999999999958
+      },
+      "candidate_damage": 4463.0,
+      "opponent_damage": 4310.0,
+      "opening_crossings": [
+        {
+          "id": "180:3",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "242:2",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 242,
+          "time": 12.15,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [
+              "red"
+            ],
+            "control": "temporary",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [],
+            "control": "temporary",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 4.099999999999993,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 7.199999999999982,
+            "attack_damage": 2550.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 0.0,
+            "attack_damage": 1980.0,
+            "resources": 460.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 12.0777589489908,
+            "y": 12.545693896766204,
+            "z": 0.3157059537550826,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -1.4945795752781583,
+            "vx": -0.1645063880578524,
+            "vy": -0.46702965006893915
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 17.000058063057185,
+            "y": 4.302364894677903,
+            "z": 0.3681196891503119,
+            "hp": 133.0,
+            "ammo": 94,
+            "heat": 35.60000000000004,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 50.0,
+            "level": 2,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -0.4998110873733684,
+            "vx": -2.330168697851057e-05,
+            "vy": 1.2816395003961798e-05
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 17.26242903198014,
+            "y": 7.409316734007055,
+            "z": 0.40782087084337115,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 37.999999999999986,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 40.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.2217726150711152,
+            "vx": -0.00033771723232795887,
+            "vy": 0.004356423282557923
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.7559210998091945,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 12.316666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.00956374311071219,
+                  -0.2953654132813677,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 13.116666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 1.1056515715406382e-16,
+                "vy": -8.441591348219752e-18,
+                "vz": 0.0,
+                "x": 25.894885284215857,
+                "y": 7.605549705545491,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.705983466935907,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": 0.0,
+                "last_strike": 16.508333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.001483591229624655,
+                  -0.2955164826235995,
+                  0.0,
+                  0.9553364891256061
+                ],
+                "recover_until": 17.308333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -3.7317809264344535e-17,
+                "vy": -5.711928968987188e-17,
+                "vz": 0.0,
+                "x": 25.90447922367207,
+                "y": 7.470072692629551,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.7126761144477665,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": -0.5,
+                "last_strike": 16.108333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.2554026752608567,
+                  0.1486662907815968,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 16.908333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.2811922018358723e-16,
+                "vy": -5.1870684689221053e-17,
+                "vz": 0.0,
+                "x": 25.461682990623412,
+                "y": 7.8035609765968985,
+                "z": 0.4340517376410666
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 16.761541119652552,
+            "y": 2.378529070288913,
+            "z": 0.30107495459480826,
+            "hp": 400.0,
+            "ammo": 110,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 120.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.331206566760587,
+            "vx": -0.6463183310148611,
+            "vy": 0.3899825556983565
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 23.908868286402345,
+            "y": 4.710288842264004,
+            "z": 0.10442038616030187,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 2.253574583763062,
+            "vx": -1.1025519648884126,
+            "vy": 0.2863358162694638
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 17.48999823445114,
+            "y": 1.6377382790298494,
+            "z": 0.2182118488179941,
+            "hp": 150.0,
+            "ammo": 98,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 60.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": true,
+            "heading": -0.6778847224743768,
+            "vx": 0.9384397283453878,
+            "vy": -0.5138091094171512
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 16.73457443655146,
+            "y": 1.6971362900901534,
+            "z": 0.22160444750145095,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 37.19999999999999,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.4385050491246774,
+            "vx": -0.19992687971497133,
+            "vy": 0.42026785229084657
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.6813718196216243,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 18.716666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.0009645832465731675,
+                  -0.2955186324486517,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 19.516666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 1.4857532267141115e-12,
+                "vy": 2.957932360199474e-13,
+                "vz": -2.0579631586166863e-14,
+                "x": 17.65817995989345,
+                "y": 3.5893716533487283,
+                "z": 0.4377277449651237
+              },
+              {
+                "battery_wh": 3.669071998860997,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": 0.5,
+                "last_strike": 18.841666667,
+                "launch_until": 0.608333333,
+                "power_w": 49.86397913328358,
+                "quaternion": [
+                  -0.05800222920102836,
+                  -0.2897722104565451,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 19.641666667,
+                "state": "flying",
+                "strikes": 3,
+                "vx": -1.6529944626291302,
+                "vy": 0.5655901163900782,
+                "vz": -0.3554258173122071,
+                "x": 17.39191054012215,
+                "y": 3.962421848659814,
+                "z": 1.58119188054555
+              },
+              {
+                "battery_wh": 3.668646744090207,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": 0.25,
+                "last_strike": 17.641666667,
+                "launch_until": 0.608333333,
+                "power_w": 40.59937978382906,
+                "quaternion": [
+                  -0.020564289355551137,
+                  -0.09265515981247163,
+                  0.0,
+                  0.9954858770286128
+                ],
+                "recover_until": 18.441666667,
+                "state": "flying",
+                "strikes": 3,
+                "vx": -4.751723750315123,
+                "vy": 1.6401884790370385,
+                "vz": -0.09645773077531097,
+                "x": 13.466267663325713,
+                "y": 4.191872582133654,
+                "z": 1.4323324893664222
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 16.81910229020569,
+            "y": 1.412149605148696,
+            "z": 0.21313339270472337,
+            "hp": 400.0,
+            "ammo": 194,
+            "heat": 246.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 60.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 2.0018141761523056,
+            "vx": -0.13631092948093304,
+            "vy": 0.437267898797052
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 0.0,
+            "owner": "red"
+          },
+          "blue": {
+            "hp": 0.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "180:3",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "242:2",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 242,
+          "time": 12.15,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "1074:0",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 1074,
+          "time": 53.75,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "2041:0",
+          "robot": "red-3",
+          "tick": 2041,
+          "time": 102.1,
+          "type": "self_righted"
+        },
+        {
+          "id": "2578:1",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 2578,
+          "time": 128.95,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "4380:1",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 4380,
+          "time": 219.05,
+          "type": "terrain_buff"
+        }
+      ]
+    },
+    {
+      "opponent": "gpt61_2027_lineup_serial-731c0578b3d37e10",
+      "seed": 991,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "731c0578b3d37e10",
+        "blue": "6ff3dd843d31ab06"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 46.31041595712304,
+        "p99": 9.64204198680818
+      },
+      "digest": "3dd647c4dfa4e4c7dca3f47f2f1e7193199906215ddd57994e9f6a79ac00fbce",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 0.0,
+          "empty_s": 420.0000000000612,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 420.0000000000612,
+          "distance_m": 23.82297211831848,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 0.0,
+          "dead_s": 127.14999999999492,
+          "empty_s": 103.04999999999629,
+          "enemy_half_s": 279.5000000000293,
+          "healthy_enemy_half_s": 226.85000000001733,
+          "healthy_s": 240.20000000002037,
+          "distance_m": 18.11847785444067,
+          "jumps": 4,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "4": {
+          "tipped_s": 0.0,
+          "dead_s": 59.09999999999878,
+          "empty_s": 222.95000000001644,
+          "enemy_half_s": 347.8500000000448,
+          "healthy_enemy_half_s": 163.90000000000302,
+          "healthy_s": 176.95000000000599,
+          "distance_m": 183.8006936627995,
+          "jumps": 3,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        },
+        "7": {
+          "tipped_s": 0.05,
+          "dead_s": 0.0,
+          "empty_s": 328.20000000004035,
+          "enemy_half_s": 403.6500000000575,
+          "healthy_enemy_half_s": 403.6500000000575,
+          "healthy_s": 420.0000000000612,
+          "distance_m": 83.47777159135089,
+          "jumps": 3,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        }
+      },
+      "control": {
+        "blue": 446.50000000004883,
+        "red": 0.0
+      },
+      "candidate_damage": 6363.0,
+      "opponent_damage": 4540.0,
+      "opening_crossings": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:5",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:1",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [
+              "red",
+              "blue"
+            ],
+            "control": "full",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 0.0,
+            "attack_damage": 2520.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 5.999999999999987,
+            "attack_damage": 2540.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 4.091134737145695,
+            "y": 10.289710207604841,
+            "z": 0.10442040962520012,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -0.8880381470789105,
+            "vx": 1.1025516667375803,
+            "vy": -0.2863009016752929
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 6.079308781092985,
+            "y": 13.224713774111333,
+            "z": 0.22924512381940187,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 36.79999999999997,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 2.654926834614356,
+            "vx": -0.13806453384403325,
+            "vy": 0.21188696982879382
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 11.966377685494267,
+            "y": 11.987087736641348,
+            "z": 0.33963558832602364,
+            "hp": 50.0,
+            "ammo": 96,
+            "heat": 31.199999999999978,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -1.5860920830862433,
+            "vx": 0.14510372080085857,
+            "vy": -0.4956532922800709
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.7608951292623414,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 11.908333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.010313006316069417,
+                  -0.29534020120174226,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 12.708333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -9.483329748161741e-18,
+                "vy": 0.0,
+                "vz": 0.0,
+                "x": 25.906419747493764,
+                "y": 7.608433244886972,
+                "z": 0.43405173764106486
+              },
+              {
+                "battery_wh": 3.735379262680859,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": -0.5,
+                "last_strike": 13.933333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.06659022793543226,
+                  -0.28792001335209066,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 14.733333333000001,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -3.773509512491429e-47,
+                "vy": 9.437387774169303e-32,
+                "vz": 0.0,
+                "x": 25.816692968757433,
+                "y": 7.701232122627792,
+                "z": 0.43405173764106664
+              },
+              {
+                "battery_wh": 3.6736789226252506,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": 0.0,
+                "last_strike": 19.45,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.0030282509263684573,
+                  -0.2955046907267088,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 20.25,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.5044200528721412,
+                "vy": -0.5733181752505467,
+                "vz": -2.5338886146376414,
+                "x": 11.476603320423733,
+                "y": 11.35565658161518,
+                "z": 0.4607526662724849
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 6.587664964637478,
+            "y": 13.518668434594076,
+            "z": 0.24005110648866906,
+            "hp": 400.0,
+            "ammo": 196,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 160.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.5381476849454031,
+            "vx": 0.5747196988301143,
+            "vy": 0.400128592257745
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 15.920003481163295,
+            "y": 2.452456866549662,
+            "z": 0.31609400184908915,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 1.6530996595559846,
+            "vx": 0.1602357755201285,
+            "vy": 0.44784029636911005
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 10.97988915096342,
+            "y": 10.724702421451235,
+            "z": 0.3642651400106579,
+            "hp": 58.0,
+            "ammo": 96,
+            "heat": 31.199999999999978,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.6348201894863466,
+            "vx": -7.3364500698785595e-06,
+            "vy": 3.682262688785288e-06
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 10.875955515880106,
+            "y": 7.2689377700617905,
+            "z": 0.40743148889243874,
+            "hp": 150.0,
+            "ammo": 94,
+            "heat": 35.59999999999998,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.161457154737724,
+            "vx": 0.6130911499129703,
+            "vy": -1.0601483847484992
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.716390519792821,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": -0.25,
+                "last_strike": 15.616666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -2.755501366556377e-05,
+                  -0.2955202053766918,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 16.416666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -2.7263610349772434e-13,
+                "vy": 5.372118821359226e-13,
+                "vz": 8.723502733385623e-16,
+                "x": 2.7260019293605557,
+                "y": 7.522743002250475,
+                "z": 0.43963624015568564
+              },
+              {
+                "battery_wh": 3.7211693804671397,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": -0.75,
+                "last_strike": 15.416666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.25528374175376417,
+                  0.1488704260132224,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 16.216666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 1.993439207241652e-17,
+                "vy": 1.331893338484722e-13,
+                "vz": 0.0,
+                "x": 2.288841779991226,
+                "y": 7.8060971189519295,
+                "z": 0.4340517376410666
+              },
+              {
+                "battery_wh": 3.699808552973592,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": 0.0,
+                "last_strike": 17.291666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.007091748711411275,
+                  -0.29543510225661257,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.091666667000002,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.0,
+                "vy": -4.911906071689135e-16,
+                "vz": 8.444133693631871e-18,
+                "x": 2.6775275489027512,
+                "y": 7.880768432198271,
+                "z": 0.4418782030494748
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 11.832583289402606,
+            "y": 11.67191182580357,
+            "z": 0.35985368002023355,
+            "hp": 400.0,
+            "ammo": 160,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 240.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 1.6289328382010764,
+            "vx": -0.09860728343424663,
+            "vy": -0.3739830529673661
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 300.0,
+            "owner": "blue"
+          },
+          "blue": {
+            "hp": 500.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:5",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:1",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "3046:0",
+          "robot": "blue-7",
+          "tick": 3046,
+          "time": 152.35,
+          "type": "self_righted"
+        }
+      ]
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 43,
+      "side": "red",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "6ff3dd843d31ab06",
+        "blue": "ddaadf86433536d9"
+      },
+      "agents": {
+        "red": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        },
+        "blue": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 33.62729214131832,
+        "p99": 8.567375130951405
+      },
+      "digest": "22688c416a7e5ff4f76c688dc09444e6f8a539e1b45cb064b976d76fdab877a2",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 0.0,
+          "empty_s": 420.0000000000612,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 390.75000000005457,
+          "distance_m": 82.32957634098585,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 0.5499999999999999,
+          "dead_s": 55.499999999998984,
+          "empty_s": 213.5500000000143,
+          "enemy_half_s": 187.40000000000836,
+          "healthy_enemy_half_s": 140.29999999999765,
+          "healthy_s": 211.55000000001385,
+          "distance_m": 195.93026726253808,
+          "jumps": 13,
+          "terrain_buffs": {
+            "highland": 3
+          },
+          "self_righted": 0
+        },
+        "4": {
+          "tipped_s": 1.6000000000000008,
+          "dead_s": 64.99999999999845,
+          "empty_s": 214.8500000000146,
+          "enemy_half_s": 342.30000000004355,
+          "healthy_enemy_half_s": 178.45000000000633,
+          "healthy_s": 191.15000000000921,
+          "distance_m": 165.85772610411354,
+          "jumps": 3,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        },
+        "7": {
+          "tipped_s": 11.950000000000035,
+          "dead_s": 0.0,
+          "empty_s": 202.15000000001172,
+          "enemy_half_s": 221.25000000001606,
+          "healthy_enemy_half_s": 211.45000000001383,
+          "healthy_s": 393.30000000005515,
+          "distance_m": 230.13671744417724,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        }
+      },
+      "control": {
+        "red": 224.20000000001673,
+        "blue": 67.94999999999828
+      },
+      "candidate_damage": 4055.0,
+      "opponent_damage": 3972.0,
+      "opening_crossings": [
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "188:6",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 188,
+          "time": 9.45,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "277:0",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 277,
+          "time": 13.9,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [
+              "red",
+              "blue"
+            ],
+            "control": "temporary",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [],
+            "control": "temporary",
+            "controller": "red",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 3.399999999999996,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 5.649999999999988,
+            "attack_damage": 2610.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 0.0,
+            "attack_damage": 1595.0,
+            "resources": 400.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 12.088841050625662,
+            "y": 12.523894665684784,
+            "z": 0.3182960655045006,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -1.487545654634995,
+            "vx": -0.17842921434819756,
+            "vy": -0.5390304169488344
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 17.084781415576746,
+            "y": 4.312035861423629,
+            "z": 0.3677703918324252,
+            "hp": 139.0,
+            "ammo": 94,
+            "heat": 37.00000000000002,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 80.0,
+            "level": 2,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -0.5876037341214058,
+            "vx": 0.0009270312860289989,
+            "vy": -0.0005951323261269019
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 17.272681676284282,
+            "y": 7.423534019526257,
+            "z": 0.4079364406861843,
+            "hp": 150.0,
+            "ammo": 96,
+            "heat": 19.199999999999985,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 40.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.2351732956210069,
+            "vx": -6.72028974509204e-08,
+            "vy": 1.9260839851872463e-07
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.7386830473378794,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 13.825,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.0038100820933471375,
+                  -0.295495644332709,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 14.625,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.0,
+                "vy": -1.6141035105366075e-18,
+                "vz": 0.0,
+                "x": 25.9042964083997,
+                "y": 7.537541514996504,
+                "z": 0.4340517376403009
+              },
+              {
+                "battery_wh": 3.688496906518132,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": 0.0,
+                "last_strike": 18.108333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.0010911858332122114,
+                  -0.29551819209422325,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.908333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 6.477479256638549e-18,
+                "vy": 1.588363748593904e-13,
+                "vz": 0.0,
+                "x": 25.923186358311092,
+                "y": 7.22909618069767,
+                "z": 0.4340517396373629
+              },
+              {
+                "battery_wh": 3.6895493620231754,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": -0.5,
+                "last_strike": 18.016666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.2552523927589143,
+                  0.14892417042243272,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.816666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 7.32679339672674e-17,
+                "vy": 6.690064713394339e-18,
+                "vz": 0.0,
+                "x": 25.463716961575614,
+                "y": 7.798910502589369,
+                "z": 0.4340517376642688
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 14.172641212399942,
+            "y": 5.091293554377837,
+            "z": 0.39473690708184167,
+            "hp": 400.0,
+            "ammo": 134,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 190.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.354310167138481,
+            "vx": 1.6418438351609743,
+            "vy": -1.6667156264532477
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 23.908865335644293,
+            "y": 4.710289870085421,
+            "z": 0.10442041163340114,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 2.253554110673285,
+            "vx": -1.1025515896684157,
+            "vy": 0.2863002782435783
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 16.168026348232036,
+            "y": 2.4214548064113117,
+            "z": 0.3632554477831429,
+            "hp": 150.0,
+            "ammo": 86,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": true,
+            "heading": 1.7964038821541681,
+            "vx": -0.013700580324263145,
+            "vy": -0.011167520088085848
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 16.62615932846007,
+            "y": 4.231418936558817,
+            "z": 0.3693567867354962,
+            "hp": 90.0,
+            "ammo": 124,
+            "heat": 36.79999999999994,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 75.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -2.587563012389744,
+            "vx": -0.0017229277175052696,
+            "vy": -0.0006152596460511276
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.692860828782058,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 19.916666667,
+                "launch_until": 15.008333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.008806530992712856,
+                  -0.29538895977513324,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 20.716666667000002,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.8146217056351545,
+                "vy": -0.0908438763955591,
+                "vz": -0.8126458155824895,
+                "x": 17.444584799800584,
+                "y": 3.5979641684093955,
+                "z": 1.5747931880473354
+              },
+              {
+                "battery_wh": 3.6898941089759556,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": 1.0,
+                "last_strike": 17.841666667,
+                "launch_until": 15.008333333,
+                "power_w": 48.97185921103649,
+                "quaternion": [
+                  0.25912388507641265,
+                  0.1420809794732108,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.641666667,
+                "state": "flying",
+                "strikes": 3,
+                "vx": 0.8563971099885709,
+                "vy": -1.3159079947865633,
+                "vz": 0.0006842746855960413,
+                "x": 16.726650528511698,
+                "y": 4.103145607155753,
+                "z": 1.709838549181438
+              },
+              {
+                "battery_wh": 3.687650500882848,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": 3.0,
+                "last_strike": 6.641666667,
+                "launch_until": 0.608333333,
+                "power_w": 33.233421906313936,
+                "quaternion": [
+                  0.2622845032659253,
+                  0.13615811357281532,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 7.441666667,
+                "state": "flying",
+                "strikes": 1,
+                "vx": -0.0010753326980637774,
+                "vy": -0.0010753326980637774,
+                "vz": -0.002297399322880027,
+                "x": 14.66543443304119,
+                "y": 6.781432331888762,
+                "z": 2.076086971706121
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 16.417344971491374,
+            "y": 2.411065800382226,
+            "z": 0.30630483485249965,
+            "hp": 400.0,
+            "ammo": 256,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 40.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -0.8546293713103132,
+            "vx": -0.08301858604764745,
+            "vy": -0.05509262038517883
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 0.0,
+            "owner": "red"
+          },
+          "blue": {
+            "hp": 0.0,
+            "owner": "red"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "188:6",
+          "kind": "highland",
+          "robot": "red-4",
+          "tick": 188,
+          "time": 9.45,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "277:0",
+          "kind": "highland",
+          "robot": "red-7",
+          "tick": 277,
+          "time": 13.9,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "1738:0",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 1738,
+          "time": 86.95,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "5854:2",
+          "robot": "red-4",
+          "tick": 5854,
+          "time": 292.75,
+          "type": "self_righted"
+        },
+        {
+          "id": "7116:1",
+          "kind": "highland",
+          "robot": "red-3",
+          "tick": 7116,
+          "time": 355.85,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "8269:2",
+          "robot": "red-7",
+          "tick": 8269,
+          "time": 413.5,
+          "type": "self_righted"
+        }
+      ]
+    },
+    {
+      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "seed": 43,
+      "side": "blue",
+      "outcome": "win",
+      "time": 420.0,
+      "reason": "timeout",
+      "valid": true,
+      "policy_errors": 0,
+      "diagnostics": [],
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 305,
+        "6": 2763,
+        "7": 2772
+      },
+      "versions": {
+        "red": "ddaadf86433536d9",
+        "blue": "6ff3dd843d31ab06"
+      },
+      "agents": {
+        "red": {
+          "provider": "anthropic",
+          "model": "Claude Opus 5.5"
+        },
+        "blue": {
+          "provider": "openai",
+          "model": "gpt-6.1-sol-xhigh"
+        }
+      },
+      "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+      "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+      "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+      "decision_ms": {
+        "max": 103.04320813156664,
+        "p99": 10.854666819795966
+      },
+      "digest": "9c009cfca3c4275e1db841110438cdb4fee272855fe6774516ce9b2fa6a98a0f",
+      "activity": {
+        "1": {
+          "tipped_s": 0.0,
+          "dead_s": 0.0,
+          "empty_s": 420.0000000000612,
+          "enemy_half_s": 0.0,
+          "healthy_enemy_half_s": 0.0,
+          "healthy_s": 387.4000000000538,
+          "distance_m": 90.83088742022065,
+          "jumps": 0,
+          "terrain_buffs": {},
+          "self_righted": 0
+        },
+        "3": {
+          "tipped_s": 12.200000000000038,
+          "dead_s": 0.0,
+          "empty_s": 193.80000000000982,
+          "enemy_half_s": 129.84999999999528,
+          "healthy_enemy_half_s": 111.04999999999583,
+          "healthy_s": 373.55000000005066,
+          "distance_m": 219.34701327239748,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 1
+        },
+        "4": {
+          "tipped_s": 1.4500000000000006,
+          "dead_s": 72.999999999998,
+          "empty_s": 202.0500000000117,
+          "enemy_half_s": 218.25000000001538,
+          "healthy_enemy_half_s": 167.50000000000384,
+          "healthy_s": 272.85000000002776,
+          "distance_m": 114.30239172361182,
+          "jumps": 7,
+          "terrain_buffs": {
+            "highland": 2
+          },
+          "self_righted": 0
+        },
+        "7": {
+          "tipped_s": 2.6499999999999986,
+          "dead_s": 0.0,
+          "empty_s": 132.1499999999958,
+          "enemy_half_s": 159.95000000000212,
+          "healthy_enemy_half_s": 156.25000000000128,
+          "healthy_s": 395.95000000005575,
+          "distance_m": 191.99944071856444,
+          "jumps": 5,
+          "terrain_buffs": {
+            "highland": 1
+          },
+          "self_righted": 0
+        }
+      },
+      "control": {
+        "blue": 211.7500000000139,
+        "red": 76.59999999999779
+      },
+      "candidate_damage": 4631.0,
+      "opponent_damage": 3320.0,
+      "opening_crossings": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:2",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        }
+      ],
+      "opening_positions": {
+        "time": 20.0,
+        "positions": {
+          "blue_base": {
+            "active": [],
+            "control": "full",
+            "controller": "blue",
+            "kind": "base",
+            "owner": "blue",
+            "progress": 0.0,
+            "zones": [
+              "blue_base",
+              "blue_fortress"
+            ]
+          },
+          "blue_outpost": {
+            "active": [],
+            "control": "temporary",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "blue",
+            "progress": 4.599999999999992,
+            "zones": [
+              "blue_outpost",
+              "blue_central"
+            ]
+          },
+          "red_base": {
+            "active": [],
+            "control": "full",
+            "controller": "red",
+            "kind": "base",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_base",
+              "red_fortress"
+            ]
+          },
+          "red_outpost": {
+            "active": [
+              "blue"
+            ],
+            "control": "temporary",
+            "controller": "blue",
+            "kind": "outpost",
+            "owner": "red",
+            "progress": 0.0,
+            "zones": [
+              "red_outpost",
+              "red_central"
+            ]
+          }
+        },
+        "teams": {
+          "red": {
+            "control": 0.0,
+            "attack_damage": 1590.0,
+            "resources": 400.0,
+            "completed_difficulties": []
+          },
+          "blue": {
+            "control": 6.449999999999985,
+            "attack_damage": 2735.0,
+            "resources": 560.0,
+            "completed_difficulties": []
+          }
+        },
+        "robots": [
+          {
+            "id": "red-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 4.091132668860529,
+            "y": 10.289711033294711,
+            "z": 0.10442038907736019,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 2,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": -0.8880228729401854,
+            "vx": 1.1025520181231265,
+            "vy": -0.28632734958607353
+          },
+          {
+            "id": "red-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 10.514313711299478,
+            "y": 13.7491312284994,
+            "z": 0.2068261315544906,
+            "hp": 150.0,
+            "ammo": 86,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 30.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": true,
+            "heading": -0.3702946498785497,
+            "vx": 0.13943350868063037,
+            "vy": -0.03930702748330879
+          },
+          {
+            "id": "red-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 8.698883070360173,
+            "y": 14.114179104374616,
+            "z": 0.19818191502328764,
+            "hp": 30.0,
+            "ammo": 124,
+            "heat": 36.79999999999994,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 60.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": -2.9188277437949957,
+            "vx": -2.059026366455323,
+            "vy": -0.4451416992009083
+          },
+          {
+            "id": "red-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 13.010051,
+            "y": 8.489949,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.6858134067431068,
+                "dock": [
+                  12.935051000000001,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d1",
+                "index": 1,
+                "integrity": 2.0,
+                "last_strike": 6.916666667,
+                "launch_until": 0.608333333,
+                "power_w": 48.25306552374535,
+                "quaternion": [
+                  -0.08658551228654728,
+                  -0.11813786049607782,
+                  0.0,
+                  0.9892150398065557
+                ],
+                "recover_until": 7.716666667,
+                "state": "flying",
+                "strikes": 2,
+                "vx": -0.0578399884774155,
+                "vy": -0.05783998847741548,
+                "vz": 0.2292202747283082,
+                "x": 13.307731807952914,
+                "y": 8.191673964985716,
+                "z": 2.044423939391615
+              },
+              {
+                "battery_wh": 3.6692892571575446,
+                "dock": [
+                  13.085051,
+                  8.414949,
+                  2.040472
+                ],
+                "id": "red-6-d2",
+                "index": 2,
+                "integrity": 0.0,
+                "last_strike": 19.225,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.2504971711915144,
+                  0.15679081532478228,
+                  -0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 20.025000000000002,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 1.417172483767274e-28,
+                "vy": -7.511963163823056e-15,
+                "vz": 9.797105511972305e-17,
+                "x": 10.548177926826355,
+                "y": 12.016740288046945,
+                "z": 0.43232134936448174
+              },
+              {
+                "battery_wh": 3.6994646539161278,
+                "dock": [
+                  12.935051000000001,
+                  8.564948999999999,
+                  2.040472
+                ],
+                "id": "red-6-d3",
+                "index": 3,
+                "integrity": 2.0,
+                "last_strike": 19.241666667,
+                "launch_until": 14.208333332999999,
+                "power_w": 39.201571519259,
+                "quaternion": [
+                  0.0516460490096615,
+                  0.06825797652647614,
+                  -0.0,
+                  0.9963300328014822
+                ],
+                "recover_until": 20.041666667,
+                "state": "flying",
+                "strikes": 2,
+                "vx": 1.873480576481925,
+                "vy": -2.229895434096524,
+                "vz": 0.48740911611511134,
+                "x": 11.517591200409187,
+                "y": 10.004180678701376,
+                "z": 2.0291127759248107
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 0.0,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "red-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 11.778476298941731,
+            "y": 12.455391656100375,
+            "z": 0.32978759919323314,
+            "hp": 375.0,
+            "ammo": 256,
+            "heat": 242.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 20.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "move",
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 1.3244930682674614,
+            "vx": 0.15357577521140328,
+            "vy": -0.7228893917278263
+          },
+          {
+            "id": "blue-1",
+            "slot": 1,
+            "role": "heavy",
+            "x": 15.91601992048303,
+            "y": 2.4484130296177615,
+            "z": 0.31565368638308683,
+            "hp": 400.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": "locked",
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [],
+            "defense_buff": 0.5,
+            "weak": false,
+            "heading": 1.6534620890229084,
+            "vx": 0.15529759905101215,
+            "vy": 0.42634857547733535
+          },
+          {
+            "id": "blue-3",
+            "slot": 3,
+            "role": "infantry",
+            "x": 11.011098740144687,
+            "y": 10.69340900012336,
+            "z": 0.36467059095263854,
+            "hp": 175.0,
+            "ammo": 96,
+            "heat": 10.600000000000023,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 120.0,
+            "level": 2,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.6459007870761786,
+            "vx": 7.45012841169075e-08,
+            "vy": -4.032297123076808e-08
+          },
+          {
+            "id": "blue-4",
+            "slot": 4,
+            "role": "infantry",
+            "x": 10.735073307328152,
+            "y": 7.5727909972627945,
+            "z": 0.4048652570374289,
+            "hp": 150.0,
+            "ammo": 96,
+            "heat": 15.599999999999987,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 40.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": -1.2694073207714518,
+            "vx": 1.1473098738817683e-08,
+            "vy": -4.4078068264600163e-08
+          },
+          {
+            "id": "blue-6",
+            "slot": 6,
+            "role": "aerial",
+            "x": 14.989949,
+            "y": 6.510051,
+            "z": 1.770472,
+            "hp": 0.0,
+            "ammo": 0,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 0.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": null,
+            "drones": [
+              {
+                "battery_wh": 3.715316158352438,
+                "dock": [
+                  14.914949,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d1",
+                "index": 1,
+                "integrity": 0.0,
+                "last_strike": 15.708333333,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -7.974048905217841e-05,
+                  -0.29552019590311474,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 16.508333333,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -1.5118772872641887e-15,
+                "vy": -8.377558174463251e-14,
+                "vz": -1.1257250570331166e-15,
+                "x": 2.716454028062372,
+                "y": 7.506490599022617,
+                "z": 0.4392100126334838
+              },
+              {
+                "battery_wh": 3.720977559462448,
+                "dock": [
+                  15.064948999999999,
+                  6.435051,
+                  2.040472
+                ],
+                "id": "blue-6-d2",
+                "index": 2,
+                "integrity": -0.25,
+                "last_strike": 15.416666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  0.2552849907013342,
+                  0.1488682842911158,
+                  -0.0,
+                  0.9553364891256061
+                ],
+                "recover_until": 16.216666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": 0.0,
+                "vy": 5.695540592119003e-18,
+                "vz": 0.0,
+                "x": 2.287975950378871,
+                "y": 7.805370873535181,
+                "z": 0.4340517376410666
+              },
+              {
+                "battery_wh": 3.6895981703371814,
+                "dock": [
+                  14.914949,
+                  6.585051,
+                  2.040472
+                ],
+                "id": "blue-6-d3",
+                "index": 3,
+                "integrity": 0.0,
+                "last_strike": 18.116666667,
+                "launch_until": 0.608333333,
+                "power_w": 0.0,
+                "quaternion": [
+                  -0.003178214690810914,
+                  -0.29550311588296324,
+                  0.0,
+                  0.955336489125606
+                ],
+                "recover_until": 18.916666667,
+                "state": "disabled",
+                "strikes": 4,
+                "vx": -4.272540472533926e-14,
+                "vy": 5.5789801575529944e-14,
+                "vz": -2.321122868392332e-16,
+                "x": 2.7511294881431065,
+                "y": 7.663364664511588,
+                "z": 0.4420326767259673
+              }
+            ],
+            "crossing_firsts": [],
+            "defense_buff": 0.0,
+            "weak": false,
+            "heading": 3.141592653589793,
+            "vx": 0.0,
+            "vy": 0.0
+          },
+          {
+            "id": "blue-7",
+            "slot": 7,
+            "role": "sentry",
+            "x": 11.621548426820754,
+            "y": 12.161644037874535,
+            "z": 0.3646771476931001,
+            "hp": 340.0,
+            "ammo": 136,
+            "heat": 0.0,
+            "alive": true,
+            "tipped": false,
+            "launcher": null,
+            "damage": 275.0,
+            "level": 1,
+            "carried_units": 0,
+            "posture": "attack",
+            "drones": null,
+            "crossing_firsts": [
+              "highland"
+            ],
+            "defense_buff": 0.25,
+            "weak": false,
+            "heading": 2.527626558374753,
+            "vx": -0.04123468875205418,
+            "vy": -0.3791037187517356
+          }
+        ],
+        "outposts": {
+          "red": {
+            "hp": 0.0,
+            "owner": "blue"
+          },
+          "blue": {
+            "hp": 0.0,
+            "owner": "blue"
+          }
+        }
+      },
+      "mobility_events": [
+        {
+          "id": "179:2",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 179,
+          "time": 9.0,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "180:4",
+          "kind": "highland",
+          "robot": "blue-3",
+          "tick": 180,
+          "time": 9.05,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "244:2",
+          "kind": "highland",
+          "robot": "blue-7",
+          "tick": 244,
+          "time": 12.25,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "5721:0",
+          "kind": "highland",
+          "robot": "blue-4",
+          "tick": 5721,
+          "time": 286.1,
+          "type": "terrain_buff"
+        },
+        {
+          "id": "7988:1",
+          "robot": "blue-3",
+          "tick": 7988,
+          "time": 399.45,
+          "type": "self_righted"
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "python_tests": {
+      "passed": 23,
+      "command": ".venv/bin/python -m unittest tests.test_gpt61_2027 tests.test_gpt61_trident_2027 -q"
+    },
+    "generation_checks": {
+      "existing_24_unchanged": true,
+      "trident_matches_generator": true
+    },
+    "installed_engine_smoke": {
+      "duration_s": 30,
+      "games": 2,
+      "policy_errors": 0,
+      "all_three_opening_highland_crossings_both_sides": true,
+      "note": "Compatibility check only; excluded from the eight full-game results.",
+      "engine_hashes": [
+        "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d"
+      ],
+      "version": "6ff3dd843d31ab06"
+    },
+    "library_import": {
+      "application": "Arena-1",
+      "entry": "gpt61_2027_trident",
+      "version": "6ff3dd843d31ab06",
+      "verified_with": "Installed Arena-1 load_submission, load_profile and load_showcase",
+      "existing_entries_overwritten": false
+    }
+  }
+}

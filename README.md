@@ -82,7 +82,24 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 
 ## Agent 怎么参赛
 
-仓库随附的 RMUC 2027 全队、单机组队、多机协同与各型号预置策略均由 **Claude Opus 5.5** 开发；界面按实际模型署名。
+原有 RMUC 2027 基线、守势、单机组队、多机协同与型号预置策略由 **Claude Opus 5.5** 开发；新增策略署名 **gpt-6.1-sol-xhigh**，界面按每条策略的实际元数据展示。
+
+新增两份当前阵容全队策略：
+
+| 策略 | 打法 |
+| --- | --- |
+| [GPT · 双点锁链 2027](examples/gpt61_2027_control) | 争取前哨控制度，取得领先后接防守分，避免占点机器人全部离开 |
+| [GPT · 协同压制 2027](examples/gpt61_2027_pressure) | 步兵推进前哨卡，哨兵有队友接防时前压，重型装炮后支援 |
+
+当前阵容为 **2711 / 2731 / 2732 / 2761 / 2771**（位置 1 / 3 / 4 / 6 / 7）。另附双臂重装、全向机动、串联腿协同、突击与稳健四套阵容版，以及覆盖全部 **18 个 2027 合规型号**的自由适配策略。旧版英雄不能出战 2027，对应位置使用本赛季的重型机器人。
+
+这些策略从公开基线的机构控制起步，加入控制度领先后的收缩、守点交接、补给恢复和实际炮口朝向校验。战斗只读取公开观察；每份提交均包含源码哈希、固定阵容或型号约束，以及战术卡与模型署名。
+
+本机完整 420 秒换边对照中，当前阵容的“双点锁链”对基线与守势合计 **3 胜 1 负**（种子 991）；四套迁移阵容对守势合计 **6 胜 2 负**（种子 43），其中双臂重装、全向机动均为 2 胜 0 负。自由适配策略按每台独立进程组队，对基线换边 2 胜 0 负。以上对局均保持 200 ms 决策限制、无策略错误；[评测记录](benchmarks/gpt61_2027.json)保留阵容、版本哈希和各局结果。
+
+另有 [GPT · 三叉戟突击 2027](examples/gpt61_2027_trident)：阵容为 **2712 / 305 / 305 / 2763 / 2772**，两台 305 步兵加一台 2772 哨兵均使用串联腿。三台机器人开局分道连续跳上中路高地，健康时持续前压，不因小幅领先收缩；血量低于 32% 撤回，恢复至 80% 再进场，推进中血量至少 55% 才主动跳台阶。翻倒后先停机等待自动复位，越障超时则改道。重型优先驻守己方前哨卡，为三台串联腿腾出进攻空间，代价是放弃早期科技经济。
+
+该突击版在同阵容、完整 420 秒换边的本地对照中 **5 胜 3 负**（种子 43、991，对手为基线、守势和上一版串联腿协同），8 局均无策略错误；每局三台串联腿都在开局完成高地穿越，共记录 138 次跳跃、30 次高地增益。对上一版串联腿协同换边 2 胜 0 负，但后期基地防守和弹药节制仍有改进空间。这些对局用于开发选型，不能当作独立泛化胜率；[完整评测记录](benchmarks/gpt61_2027_trident.json)保留最终源码哈希及每局数据。
 
 1. 选择模式和机器人，生成任务目录，把 `AGENT_TASK.md` 交给 Agent。
 2. Agent 阅读规则、编写 Python 策略，通过练习对战迭代，再提交参赛版本。
@@ -164,6 +181,8 @@ cargo build --release --manifest-path simulation/Cargo.toml     # 改了 Rust �
 python scripts/configure_rmuc2027.py                            # 改了 2027 场地、型号或合规规则后重新生成配置
 uv run python scripts/build_examples_2027.py                    # 改了 scripts/robot_policy_2027.py 后重新生成 2027 示例策略
 uv run python scripts/build_robot_presets.py                    # 重新生成各型号的预置策略
+uv run python scripts/build_gpt61_strategies_2027.py             # 重新生成 GPT 署名的 2027 全队与型号策略
+uv run python scripts/build_gpt61_trident_2027.py                # 重新生成三台串联腿的激进突击策略
 uv run python scripts/build_agent_guides.py                     # 重新生成中英文参赛手册
 ```
 
@@ -175,6 +194,17 @@ uv run python -m rmuc_arena match --trusted-local --duration 60 \
   --red examples/official_team --blue examples/official_hold              # 2026 策略自动使用 2026 地图
 python scripts/project.py test                                            # Rust、Python、JS 与桌面端测试
 ```
+
+验证 GPT 策略时使用完整 420 秒、多个种子和双方换边，保持正式的 200 ms 决策限制。例如：
+
+```sh
+uv run python scripts/build_gpt61_strategies_2027.py --check
+uv run python scripts/evaluate_2027.py examples/gpt61_2027_control \
+  examples/official_2027_team examples/official_2027_hold \
+  --seeds 137 2027 --jobs 1 --output replays/gpt61-2027-evaluation.json
+```
+
+评测 JSON 记录控制度、伤害、决策耗时、阵容及引擎/规则/策略哈希，以及跳跃、地形增益、敌半场停留与自动复位次数；有策略错误的对局单列为无效，不计入胜率。建议低并发运行，避免本机负载干扰 200 ms 限制。
 
 接口、规则与开发细节见[项目文档](https://rm-arena.github.io/Arena-1/)和[从源码运行](site/guide/development.md)。
 

@@ -1,0 +1,922 @@
+{
+  "format": "rmuc-gpt61-evaluation-v1",
+  "created_at_utc": "2026-10-16T03:18:29.210858+00:00",
+  "agent": {
+    "provider": "openai",
+    "model": "gpt-6.1-sol-xhigh"
+  },
+  "season": "2027",
+  "protocol": {
+    "sandbox": "trusted-local",
+    "decision_deadline_s": 0.2,
+    "paired_sides": true,
+    "hardware": "identical for both teams in each game",
+    "ranked": false,
+    "note": "Fixed-seed development comparisons using the production runner; these results are not an Elo ranking."
+  },
+  "summary": {
+    "games": 18,
+    "wins": 13,
+    "draws": 0,
+    "losses": 5,
+    "policy_errors": 0
+  },
+  "legal_models_covered": [
+    3,
+    4,
+    7,
+    301,
+    302,
+    303,
+    304,
+    305,
+    2711,
+    2712,
+    2713,
+    2731,
+    2732,
+    2761,
+    2762,
+    2763,
+    2771,
+    2772
+  ],
+  "submissions": [
+    {
+      "entry": "gpt61_2027_adaptive_2711",
+      "mode": "adaptive",
+      "version": "65a67b9e6365f060",
+      "model": 2711
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2712",
+      "mode": "adaptive",
+      "version": "1096dc2fd36a67fb",
+      "model": 2712
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2713",
+      "mode": "adaptive",
+      "version": "9507357afe4c0b5c",
+      "model": 2713
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2731",
+      "mode": "adaptive",
+      "version": "5e4ca1adfa80d663",
+      "model": 2731
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2732",
+      "mode": "adaptive",
+      "version": "025a0b28d4073fcc",
+      "model": 2732
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2761",
+      "mode": "adaptive",
+      "version": "e8bbf2758ab09982",
+      "model": 2761
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2762",
+      "mode": "adaptive",
+      "version": "0a7662834ad567db",
+      "model": 2762
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2763",
+      "mode": "adaptive",
+      "version": "9fc91d4e66f03e11",
+      "model": 2763
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2771",
+      "mode": "adaptive",
+      "version": "0070c73f435317a0",
+      "model": 2771
+    },
+    {
+      "entry": "gpt61_2027_adaptive_2772",
+      "mode": "adaptive",
+      "version": "005cb7060191c374",
+      "model": 2772
+    },
+    {
+      "entry": "gpt61_2027_adaptive_3",
+      "mode": "adaptive",
+      "version": "b20a7efb64df39b5",
+      "model": 3
+    },
+    {
+      "entry": "gpt61_2027_adaptive_301",
+      "mode": "adaptive",
+      "version": "c43f19d436099522",
+      "model": 301
+    },
+    {
+      "entry": "gpt61_2027_adaptive_302",
+      "mode": "adaptive",
+      "version": "d5ab3961f3364ba0",
+      "model": 302
+    },
+    {
+      "entry": "gpt61_2027_adaptive_303",
+      "mode": "adaptive",
+      "version": "8613660275b435a8",
+      "model": 303
+    },
+    {
+      "entry": "gpt61_2027_adaptive_304",
+      "mode": "adaptive",
+      "version": "fee6b45166d4cf10",
+      "model": 304
+    },
+    {
+      "entry": "gpt61_2027_adaptive_305",
+      "mode": "adaptive",
+      "version": "c6e834fcfe4b909f",
+      "model": 305
+    },
+    {
+      "entry": "gpt61_2027_adaptive_4",
+      "mode": "adaptive",
+      "version": "fac37d6b61736968",
+      "model": 4
+    },
+    {
+      "entry": "gpt61_2027_adaptive_7",
+      "mode": "adaptive",
+      "version": "ea49d7ab529a7733",
+      "model": 7
+    },
+    {
+      "entry": "gpt61_2027_control",
+      "mode": "team",
+      "version": "8504ab89eaa7a501",
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      }
+    },
+    {
+      "entry": "gpt61_2027_lineup_assault",
+      "mode": "team",
+      "version": "7ef79d0c7c44c9dc",
+      "lineup": {
+        "1": 2711,
+        "3": 4,
+        "4": 7,
+        "6": 2761,
+        "7": 2771
+      }
+    },
+    {
+      "entry": "gpt61_2027_lineup_dual_arm",
+      "mode": "team",
+      "version": "41b1c3407b615809",
+      "lineup": {
+        "1": 2712,
+        "3": 304,
+        "4": 302,
+        "6": 2763,
+        "7": 2772
+      }
+    },
+    {
+      "entry": "gpt61_2027_lineup_omni",
+      "mode": "team",
+      "version": "3e9886da08684676",
+      "lineup": {
+        "1": 2713,
+        "3": 303,
+        "4": 301,
+        "6": 2762,
+        "7": 2771
+      }
+    },
+    {
+      "entry": "gpt61_2027_lineup_serial",
+      "mode": "team",
+      "version": "731c0578b3d37e10",
+      "lineup": {
+        "1": 2712,
+        "3": 305,
+        "4": 3,
+        "6": 2763,
+        "7": 2772
+      }
+    },
+    {
+      "entry": "gpt61_2027_pressure",
+      "mode": "team",
+      "version": "743f1fb084a1e7b7",
+      "lineup": {
+        "1": 2711,
+        "3": 2731,
+        "4": 2732,
+        "6": 2761,
+        "7": 2771
+      }
+    }
+  ],
+  "evaluations": [
+    {
+      "entry": "gpt61_2027_control",
+      "version": "8504ab89eaa7a501",
+      "source_hashes": {
+        "strategy.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 3,
+        "draw": 0,
+        "loss": 1,
+        "valid_games": 4,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 991,
+          "side": "red",
+          "opponent": "official_2027_team",
+          "opponent_version": "7d49466f50b14961",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 59.74999999999874,
+          "opponent_control": 0.3,
+          "candidate_damage": 5675.0,
+          "opponent_damage": 6076.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 20.205707987770438,
+            "p99": 7.5525830034166574
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "54d90d66273b0cbac5f8eefafbd3b9a2d09b7de194201a2573d1efff51241a5e"
+        },
+        {
+          "seed": 991,
+          "side": "blue",
+          "opponent": "official_2027_team",
+          "opponent_version": "7d49466f50b14961",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 160.05000000000214,
+          "opponent_control": 0.49999999999999994,
+          "candidate_damage": 6099.0,
+          "opponent_damage": 6384.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 20.728542003780603,
+            "p99": 9.082334116101265
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "4d52dab8cb619a01b595f327228f08471499ef627c6166942426f6c260021b3a"
+        },
+        {
+          "seed": 991,
+          "side": "red",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 39.449999999999896,
+          "opponent_control": 10.15000000000001,
+          "candidate_damage": 6047.0,
+          "opponent_damage": 3795.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 20.38916712626815,
+            "p99": 8.706958033144474
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "8c49b5fda2b2517c0edce6bb7ae45675f0dd2624b6071a8b20fe9ab58d4685ee"
+        },
+        {
+          "seed": 991,
+          "side": "blue",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "loss",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 10.300000000000011,
+          "opponent_control": 50.49999999999927,
+          "candidate_damage": 6060.0,
+          "opponent_damage": 6484.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 21.806875010952353,
+            "p99": 10.31816704198718
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "9eebf0d63dfa36076155638202ed317cac805ad0948abe76e8aa000aa48d57b0"
+        }
+      ]
+    },
+    {
+      "entry": "gpt61_2027_pressure",
+      "version": "743f1fb084a1e7b7",
+      "source_hashes": {
+        "strategy.py": "11fc547c30a1d44408c7026f42f6cf5d7a27a0f20e5215b4cf20fe4d06301d01"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 2,
+        "draw": 0,
+        "loss": 2,
+        "valid_games": 4,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 991,
+          "side": "blue",
+          "opponent": "official_2027_team",
+          "opponent_version": "7d49466f50b14961",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 50.34999999999928,
+          "opponent_control": 0.49999999999999994,
+          "candidate_damage": 5071.0,
+          "opponent_damage": 4590.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 16.194500029087067,
+            "p99": 7.253959076479077
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "175cab6f25b119ed507910f52bbd6b125bee284c578d46d26d4cdd5731b1afef"
+        },
+        {
+          "seed": 991,
+          "side": "red",
+          "opponent": "official_2027_team",
+          "opponent_version": "7d49466f50b14961",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 69.09999999999822,
+          "opponent_control": 0.3,
+          "candidate_damage": 5955.0,
+          "opponent_damage": 6512.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 16.0929998382926,
+            "p99": 7.046916056424379
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "1bc098221379cfbb04426dbce3110e382775d854d5ca229b2b2ce5d4298e7ccf"
+        },
+        {
+          "seed": 991,
+          "side": "red",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "loss",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 0.65,
+          "opponent_control": 256.8000000000241,
+          "candidate_damage": 3625.0,
+          "opponent_damage": 6745.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 26.504915906116366,
+            "p99": 10.406667133793235
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "30de45e1d9c7d5299e828b2ff29ef33fe39bf90105dd5d5f59ac95a966e3a45e"
+        },
+        {
+          "seed": 991,
+          "side": "blue",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "loss",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 59.04999999999878,
+          "opponent_control": 73.99999999999794,
+          "candidate_damage": 4595.0,
+          "opponent_damage": 7064.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 29.41762492991984,
+            "p99": 15.314999967813492
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "e6e3dc1fdfc04efe498c95169e32170871b1f36f6602b67bf588e2a8dd1d602a"
+        }
+      ]
+    },
+    {
+      "entry": "gpt61_2027_lineup_dual_arm",
+      "version": "41b1c3407b615809",
+      "source_hashes": {
+        "strategy.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 2,
+        "draw": 0,
+        "loss": 0,
+        "valid_games": 2,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 43,
+          "side": "red",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2712,
+            "3": 304,
+            "4": 302,
+            "6": 2763,
+            "7": 2772
+          },
+          "candidate_control": 1.6500000000000008,
+          "opponent_control": 0.0,
+          "candidate_damage": 4249.0,
+          "opponent_damage": 3335.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 16.06958289630711,
+            "p99": 8.85762507095933
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "04e6036b722f53ca60634dd6d84e4e21a515734b383f993ebb99cb1ff43efbd6"
+        },
+        {
+          "seed": 43,
+          "side": "blue",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2712,
+            "3": 304,
+            "4": 302,
+            "6": 2763,
+            "7": 2772
+          },
+          "candidate_control": 1.3500000000000005,
+          "opponent_control": 1.2000000000000004,
+          "candidate_damage": 3810.0,
+          "opponent_damage": 4021.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 20.021292148157954,
+            "p99": 7.53833306953311
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "8d60e409565b236cc52fba8b379859742a646d06d092adea8ad5140639472f27"
+        }
+      ]
+    },
+    {
+      "entry": "gpt61_2027_lineup_omni",
+      "version": "3e9886da08684676",
+      "source_hashes": {
+        "strategy.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 2,
+        "draw": 0,
+        "loss": 0,
+        "valid_games": 2,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 43,
+          "side": "red",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2713,
+            "3": 303,
+            "4": 301,
+            "6": 2762,
+            "7": 2771
+          },
+          "candidate_control": 197.80000000001073,
+          "opponent_control": 1.4000000000000006,
+          "candidate_damage": 5719.0,
+          "opponent_damage": 5182.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 27.845374774187803,
+            "p99": 9.08333295956254
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "527f1c7018ac849488b10763b8d7c7962262bcc6a8ecf0813b8e3150ada7f817"
+        },
+        {
+          "seed": 43,
+          "side": "blue",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2713,
+            "3": 303,
+            "4": 301,
+            "6": 2762,
+            "7": 2771
+          },
+          "candidate_control": 14.200000000000067,
+          "opponent_control": 7.89999999999998,
+          "candidate_damage": 4863.0,
+          "opponent_damage": 4869.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 28.797584120184183,
+            "p99": 10.248292004689574
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "6027b3af6488d7caf80757013d110d21f45d301da9a08d835647a017f344a35c"
+        }
+      ]
+    },
+    {
+      "entry": "gpt61_2027_lineup_serial",
+      "version": "731c0578b3d37e10",
+      "source_hashes": {
+        "strategy.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 1,
+        "draw": 0,
+        "loss": 1,
+        "valid_games": 2,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 43,
+          "side": "blue",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2712,
+            "3": 305,
+            "4": 3,
+            "6": 2763,
+            "7": 2772
+          },
+          "candidate_control": 50.09999999999929,
+          "opponent_control": 1.2000000000000004,
+          "candidate_damage": 4307.0,
+          "opponent_damage": 4375.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 25.80770803615451,
+            "p99": 10.021083056926727
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "c0c0379762f1eaab45e71769c4651fa0b61e260919d167e380adf5a453682510"
+        },
+        {
+          "seed": 43,
+          "side": "red",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "loss",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2712,
+            "3": 305,
+            "4": 3,
+            "6": 2763,
+            "7": 2772
+          },
+          "candidate_control": 3.2499999999999964,
+          "opponent_control": 43.19999999999968,
+          "candidate_damage": 4452.0,
+          "opponent_damage": 4135.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 23.893458070233464,
+            "p99": 11.572916992008686
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "43140982b42caaced2888a7eafbc30f43dbaefa83dc725fac7f5642c00d10f33"
+        }
+      ]
+    },
+    {
+      "entry": "gpt61_2027_lineup_assault",
+      "version": "7ef79d0c7c44c9dc",
+      "source_hashes": {
+        "strategy.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 1,
+        "draw": 0,
+        "loss": 1,
+        "valid_games": 2,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 43,
+          "side": "blue",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "loss",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 4,
+            "4": 7,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 0.3,
+          "opponent_control": 112.99999999999572,
+          "candidate_damage": 4536.0,
+          "opponent_damage": 7055.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 28.49254198372364,
+            "p99": 9.863541927188635
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "16ea301dc28fc9820e5084599fdd0669143a6b770703a9edc3edde2822832120"
+        },
+        {
+          "seed": 43,
+          "side": "red",
+          "opponent": "official_2027_hold",
+          "opponent_version": "ddaadf86433536d9",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 4,
+            "4": 7,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 63.899999999998506,
+          "opponent_control": 2.6999999999999984,
+          "candidate_damage": 6043.0,
+          "opponent_damage": 5889.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 32.27550000883639,
+            "p99": 8.974666940048337
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "b85f69f5ae306de08cf82f934fcd99ae09b326721ac0be33b400aa5fb2143e13"
+        }
+      ]
+    },
+    {
+      "entry": "adaptive_squad",
+      "version": "ae1e9e57a166af0b",
+      "source_hashes": {
+        "robot_1.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41",
+        "robot_3.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41",
+        "robot_4.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41",
+        "robot_6.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41",
+        "robot_7.py": "4600b38824fb5ce233cbca35c08f73789503029db224b0e6cb1f5e527c0a4e41"
+      },
+      "requested_duration_s": 420,
+      "summary": {
+        "win": 2,
+        "draw": 0,
+        "loss": 0,
+        "valid_games": 2,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "matches": [
+        {
+          "seed": 991,
+          "side": "blue",
+          "opponent": "official_2027_team",
+          "opponent_version": "7d49466f50b14961",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 22.350000000000183,
+          "opponent_control": 10.85000000000002,
+          "candidate_damage": 5743.0,
+          "opponent_damage": 8421.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 16.400083899497986,
+            "p99": 5.598583025857806
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "6ade97e62083d1fa3be9b2a3403bbce4dfc3b2d14aed93a175cadacffdff3831"
+        },
+        {
+          "seed": 991,
+          "side": "red",
+          "opponent": "official_2027_team",
+          "opponent_version": "7d49466f50b14961",
+          "outcome": "win",
+          "valid": true,
+          "time_s": 420.0,
+          "reason": "timeout",
+          "lineup": {
+            "1": 2711,
+            "3": 2731,
+            "4": 2732,
+            "6": 2761,
+            "7": 2771
+          },
+          "candidate_control": 101.0999999999964,
+          "opponent_control": 97.89999999999658,
+          "candidate_damage": 5805.0,
+          "opponent_damage": 7449.0,
+          "policy_errors": 0,
+          "host_round_trip_ms": {
+            "max": 16.90812478773296,
+            "p99": 5.313874920830131
+          },
+          "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+          "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+          "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735",
+          "replay_digest": "d6c450952723bad5b88afdadb0ae09acead9352b1f8d033ec628af7f9f098177"
+        }
+      ]
+    }
+  ],
+  "excluded_experiments": [
+    {
+      "entry": "gpt61_2027_fortress",
+      "reason": "Lower observed win rate; excluded from default publication.",
+      "summary": {
+        "win": 1,
+        "draw": 0,
+        "loss": 3,
+        "valid_games": 4,
+        "invalid_games": 0,
+        "policy_errors": 0
+      },
+      "reproduce": "python scripts/build_gpt61_strategies_2027.py --include-experimental --output build/gpt61-experimental"
+    }
+  ],
+  "installed_engine_compatibility": {
+    "duration_s": 30,
+    "games": 2,
+    "policy_errors": 0,
+    "engine_hashes": [
+      "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d"
+    ],
+    "sdk_sha256": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735"
+  }
+}
