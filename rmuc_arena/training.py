@@ -22,8 +22,9 @@ def official_example(season, name):
 
 
 class TrainingService:
-    def __init__(self, directory, registry=None, submission_root=None, sandbox="docker"):
+    def __init__(self, directory, registry=None, submission_root=None, sandbox="docker", strategy_library=None):
         self.directory = Path(directory)
+        self.strategy_library = strategy_library
         self.registry = Path(registry or data_path(".arena_host/workspaces.json"))
         self.submission_root = Path(submission_root or data_path("submissions"))
         self.sandbox = sandbox
@@ -31,6 +32,14 @@ class TrainingService:
         self.pool = ThreadPoolExecutor(max_workers=2)
         self.active = set()
         self.stopping = threading.Event()
+
+    def example(self, season, name):
+        bundled = official_example(season, name)
+        if self.strategy_library:
+            for manifest in self.strategy_library.paths():
+                if manifest.parent.name == bundled.name:
+                    return manifest.parent
+        return bundled
 
     def authenticate(self, session_id, authorization):
         records = json.loads(self.registry.read_text(encoding="utf-8")) if self.registry.exists() else {}
@@ -87,7 +96,7 @@ class TrainingService:
             return candidate
         # A single author never receives other entrants' code. Practice teammates are public examples.
         season = manifest_season(manifest)
-        _, baseline = load_submission(official_example(season, "squad"))
+        _, baseline = load_submission(self.example(season, "squad"))
         files = {str(slot): baseline[str(slot)] for slot in season_rules.slots(season)}
         files[str(manifest["robot"])] = entries[str(manifest["robot"])]
         save_submission(directory, "squad", files, season=season)
@@ -110,7 +119,7 @@ class TrainingService:
             candidate_manifest = load_submission(candidate)[0]
             candidate_mode, season = candidate_manifest["mode"], manifest_season(candidate_manifest)
             baseline_model = 3 if season == season_rules.LEGACY_SEASON else 2731
-            opponent = official_example(season, f"adaptive_{baseline_model}") if options["opponent"] == "baseline" and candidate_mode == "adaptive" else official_example(season, "hold") if options["opponent"] == "baseline" else candidate
+            opponent = self.example(season, f"adaptive_{baseline_model}") if options["opponent"] == "baseline" and candidate_mode == "adaptive" else self.example(season, "hold") if options["opponent"] == "baseline" else candidate
             if options["opponent"] not in ("self", "baseline"):
                 opponent = self._squad(self._versions(record)[options["opponent"]], directory / "opponent-squad")
             check_training_window(self.authenticate(session_id, authorization)[1])
@@ -147,7 +156,7 @@ class TrainingService:
                         rng = random.Random(seed)
                         season = manifest_season(candidate_manifest)
                         pool = list(season_rules.default_lineup(season).values())
-                        extras = lambda: [official_example(season, f"adaptive_{rng.choice(pool)}") for _ in range(rng.randrange(4))]
+                        extras = lambda: [self.example(season, f"adaptive_{rng.choice(pool)}") for _ in range(rng.randrange(4))]
                         candidate_deck, opponent_deck = [candidate] + extras(), [opponent] + extras()
                         decks = {"red":opponent_deck if swapped else candidate_deck,"blue":candidate_deck if swapped else opponent_deck}
                     remaining = deadline_at - time.time()

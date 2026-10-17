@@ -51,7 +51,7 @@ class ShowcaseExampleTests(unittest.TestCase):
             with self.subTest(example=file.parent.name):
                 agent = json.loads(file.read_text(encoding="utf-8"))["agent"]
                 reported = parse_showcase(showcase_file.read_bytes()).get("generated_by")
-                if agent["provider"] in ("human", "unknown"):
+                if agent["provider"] == "human" or (agent["provider"] == "unknown" and not agent.get("model")):
                     self.assertIsNone(reported)
                 else:
                     self.assertEqual(reported, agent)

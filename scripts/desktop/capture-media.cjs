@@ -25,7 +25,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
     await api('/api/control',{command:'skip_prematch'});
     await api('/api/control',{command:'speed',speed:4});
     await page.waitForFunction(()=>window.arenaDiagnostics().tick>1000,{},{timeout:60000});
-    const movie=path.join(temporary,'battle.webm');
+    const movie=path.join(temporary,'battle.mp4');
     await app.evaluate(({session},filename)=>{session.defaultSession.removeAllListeners('will-download');session.defaultSession.on('will-download',(_e,item)=>item.setSavePath(filename));},movie);
     await page.click('#record');await page.waitForFunction(()=>window.arenaDiagnostics().recording);
     await snapshot('battle');

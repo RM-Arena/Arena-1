@@ -13,6 +13,7 @@ from rmuc_arena.engine import Match
 from rmuc_arena.models import mirrored_lineups, normalize_team_lineup
 from rmuc_arena.runner import Battle
 from rmuc_arena.server import create_app
+from rmuc_arena.showcase import load_profile
 from rmuc_arena.submissions import ROOT, guide_path, load_submission
 from tests.showcase_fixture import SHOWCASE_TEXT
 
@@ -99,8 +100,9 @@ class SeasonApiTests(unittest.TestCase):
         self.assertEqual({catalog[k]["season"] for k in catalog}, {"2027"})
         self.assertIn("official_2027_team", catalog)
         self.assertNotIn("official_team", catalog)
-        for entry in catalog.values():
-            self.assertEqual(entry["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+        self.assertEqual(catalog["official_2027_team"]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+        for key, entry in catalog.items():
+            self.assertEqual(entry["agent"], load_profile(ROOT / "examples" / key)["agent"])
             self.assertNotRegex(entry["display_name"], r"(?i)official|官方")
 
     def test_a_match_without_a_map_follows_its_strategies_and_defaults_to_2027(self):

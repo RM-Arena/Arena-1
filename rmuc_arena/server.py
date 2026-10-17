@@ -12,7 +12,7 @@ import time
 import uuid
 from typing import Literal
 
-from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,8 +31,10 @@ from .decks import prepare_decks
 from .models import robot_models,normalize_team_lineup,mirrored_lineups,DEFAULT_TEAM_LINEUP
 from . import __version__
 from .robot_presets import preset_metadata
-from .showcase import PROFILE_FILE, SHOWCASE_FILE, is_official, load_profile, load_showcase, validate_profile
+from .showcase import PROFILE_FILE, SHOWCASE_FILE, load_profile, load_showcase, validate_profile
 from .custom_models import CustomModels
+from .strategy_library import StrategyLibrary
+from .video_export import MAX_VIDEO_BYTES, VideoExporter, VideoExportError
 from .submissions import write_json, manifest_season
 from . import seasons as season_rules
 
@@ -188,6 +190,8 @@ class ArenaService:
         self.metadata, self.match_id = None, None
         self.busy = False
         self.test_mode = test_mode
+        self.strategy_library = StrategyLibrary(self.store.directory / "strategy-library", enabled=not test_mode)
+        self.strategy_version = self.strategy_library.status()["version"]
         # Rule 6.4/6.5: 15 s referee self-check, then a 5 s countdown before the 7 minutes start.
         # None: the self-check lasts as long as the lineup intro (intro_seconds).
         self.prematch_stages = () if test_mode else (("self_check", None), ("countdown", 5.0))
@@ -196,14 +200,16 @@ class ArenaService:
     def catalog(self, modes=("team", "squad", "distributed"), season=None):
         """Saved strategies by key; `season` keeps only strategies written for that season."""
         profiles = {season_rules.rules_profile(season)} if season else set(season_rules.profiles())
-        paths = list((ROOT / "examples").glob("*/manifest.json"))
+        bundled = {p.parent.name: p for p in (ROOT / "examples").glob("*/manifest.json")}
+        remote = {p.parent.name: p for p in self.strategy_library.paths()}
+        paths = [(p, "remote" if key in remote else "bundled") for key, p in (bundled | remote).items()]
         if self.submission_root.exists():
-            paths += list(self.submission_root.glob("*/manifest.json"))
+            paths += [(p, "local") for p in self.submission_root.glob("*/manifest.json")]
         choices = {}
         records=json.loads(self.workspace_registry.read_text(encoding="utf-8")) if self.workspace_registry.exists() else {}
         current_entries={str(Path(t["last_submission"]["path"]).resolve())
             for r in records.values() if (t:=r.get("training")) and t.get("last_submission")}
-        for manifest_path in paths:
+        for manifest_path, source in paths:
             try:
                 if manifest_path.parent.name.startswith("entry-") and str(manifest_path.parent.resolve()) not in current_entries:
                     continue
@@ -214,18 +220,18 @@ class ArenaService:
                         key = "submission-" + key
                     strategy_season = manifest_season(manifest)
                     choices[key] = {"name": manifest_path.parent.name, "mode": manifest["mode"],
-                                    "version": manifest["version"], "path": manifest_path.parent, "season": strategy_season}
+                                    "version": manifest["version"], "path": manifest_path.parent, "season": strategy_season, "source": source}
                     if manifest["mode"] == "adaptive":
                         choices[key]["robot"] = manifest["robot"]
                         model = robot_models()[str(manifest["robot"])]
                         choices[key]["model_name"] = model["name"]
                         choices[key]["role"] = model["role"]
-                        if manifest_path.parent.parent == ROOT / 'examples':
+                        if source in ("bundled", "remote"):
                             preset = preset_metadata(key, manifest['robot'], model['role'], strategy_season)
                             if preset:
                                 choices[key]['preset'] = preset
                     if manifest['mode']=='team':choices[key]['team_lineup']=normalize_team_lineup(manifest.get('team_lineup'),strategy_season)
-                    profile = load_profile(manifest_path.parent)
+                    profile = load_profile(manifest_path.parent, official=source != "local")
                     choices[key]['agent'] = profile['agent']
                     if profile.get('display_name'):
                         choices[key]['display_name'] = profile['display_name']
@@ -235,6 +241,10 @@ class ArenaService:
 
     def state(self, since=-1):
         with self.lock:
+            strategy_version = self.strategy_library.status()["version"]
+            if strategy_version != self.strategy_version:
+                self.strategy_version = strategy_version
+                self.revision += 1
             events = []
             if self.battle:
                 events = self.battle.frames.events_since(since)
@@ -243,7 +253,7 @@ class ArenaService:
             return {"frame": self.frame, "revision": self.revision, "paused": self.paused,
                     "speed": self.speed, "error": self.error, "metadata": self.metadata, "sandbox": self.sandbox,
                     "match_id": self.match_id, "events": events,
-                    "busy": self.busy, "prematch": copy.copy(self.prematch)}
+                    "busy": self.busy, "prematch": copy.copy(self.prematch), "strategy_version": strategy_version}
 
     def resolve_season(self, args):
         """The request with its map and default strategies filled in: an explicit map wins,
@@ -409,9 +419,9 @@ class ArenaService:
         for key, entry in {**self.catalog(), **self.catalog(("adaptive",))}.items():
             # Each entry already names its rules season.
             path = entry["path"]
-            profile, showcase = load_profile(path), load_showcase(path)
+            profile, showcase = load_profile(path, official=entry["source"] != "local"), load_showcase(path)
             item = {k: v for k, v in entry.items() if k != "path"}
-            item.update(key=key, official=is_official(path), profile=profile,
+            item.update(key=key, official=entry["source"] != "local", profile=profile,
                         showcase={k: showcase[k] for k in ("title", "tagline", "style")} if showcase else None,
                         created_at=profile.get("created_at") or (path / "manifest.json").stat().st_mtime)
             standing = standings.get((entry["name"], entry["version"]))
@@ -422,15 +432,17 @@ class ArenaService:
 
     def shutdown(self):
         self.stopping = True
+        self.strategy_library.shutdown()
         if self.thread:
             self.thread.join(timeout=30)
 
 
 def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=False,workspace_registry=None):
     service = ArenaService(sandbox,submission_root,data_root,test_mode,workspace_registry)
-    training = TrainingService(service.store.directory/"practice",workspace_registry,service.submission_root,sandbox)
+    training = TrainingService(service.store.directory/"practice",workspace_registry,service.submission_root,sandbox,service.strategy_library)
     @asynccontextmanager
     async def lifespan(app):
+        service.strategy_library.start()
         yield
         await asyncio.to_thread(service.shutdown)
         await asyncio.to_thread(training.shutdown)
@@ -440,6 +452,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return {"application": "arena-1", "instance": os.environ.get("RMUC_DESKTOP_INSTANCE", ""), "engine": "rust"}
     app.state.arena = service
     app.state.training = training
+    video_exporter = VideoExporter(service.store.directory / "video-exports")
+    app.state.video_exporter = video_exporter
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=["127.0.0.1","localhost","testserver"])
     app.add_middleware(CORSMiddleware,allow_origins=["http://127.0.0.1:5173","http://localhost:5173"],allow_methods=["GET","POST","DELETE"],allow_headers=["Content-Type"])
 
@@ -451,12 +465,14 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             if origin and origin not in allowed:
                 return JSONResponse({"error":"Invalid origin"},status_code=403)
         if request.method == "POST":
-            if request.headers.get("content-type","").split(";")[0] != "application/json":
-                return JSONResponse({"error":"JSON required"},status_code=415)
+            video = request.url.path == "/api/video-export"
+            expected_type = "video/webm" if video else "application/json"
+            if request.headers.get("content-type","").split(";")[0] != expected_type:
+                return JSONResponse({"error": f"{expected_type} required"},status_code=415)
             try:
                 size=int(request.headers.get("content-length",0))
                 # Strategy sources and robot models are larger than ordinary control requests.
-                limit=48*1024*1024 if request.url.path=="/api/custom-models" else 8*1024*1024 if request.url.path=="/api/submissions" else 600000
+                limit=MAX_VIDEO_BYTES if video else 48*1024*1024 if request.url.path=="/api/custom-models" else 8*1024*1024 if request.url.path=="/api/submissions" else 600000
                 if size>limit:
                     return JSONResponse({"error":"Request too large"},status_code=413)
             except ValueError:
@@ -469,6 +485,19 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return {"version":__version__,"rules":season_rules.rules_profile(default),"season":default,"roster":list(season_rules.slots(default)),
                 "team_size":len(season_rules.slots(default)),"seasons":season_rules.summary(),"duration":420,"engine":service.frame["engine"],
                 "simulation_hz":20,"policy_hz":10,"transport":"websocket","sandbox":sandbox}
+
+    @app.get("/api/video-export")
+    def video_export_capabilities():
+        return video_exporter.capabilities()
+
+    @app.post("/api/video-export")
+    async def video_export(request: Request, duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+        try:
+            path, temporary = await video_exporter.export(request.stream(), duration=duration)
+        except VideoExportError as exc:
+            raise HTTPException(exc.status_code, str(exc)) from exc
+        return FileResponse(path, media_type="video/mp4", filename="rmuc-arena.mp4",
+                            background=BackgroundTask(temporary.cleanup))
 
     @app.get('/api/models')
     def models():
@@ -575,6 +604,14 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     def strategies():
         return sorted((item for item, _ in service.strategies().values()), key=lambda item: -item["created_at"])
 
+    @app.get("/api/strategy-library")
+    def strategy_library_status():
+        return service.strategy_library.status()
+
+    @app.post("/api/strategy-library/sync")
+    def strategy_library_sync():
+        return service.strategy_library.request_sync()
+
     @app.get("/api/strategies/{key}")
     def strategy(key:str):
         found = service.strategies().get(key)
@@ -593,7 +630,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             raise HTTPException(404, "Unknown strategy")
         item, path = found
         if item["official"]:
-            raise HTTPException(403, "内置示例的分类随项目发布，不能在网页修改")
+            raise HTTPException(403, "内置与在线策略的分类由发布仓库维护，不能在网页修改")
         try:
             profile = validate_profile({**data.model_dump(exclude_none=True), "created_at": item["profile"].get("created_at") or item["created_at"]})
         except ValueError as exc:

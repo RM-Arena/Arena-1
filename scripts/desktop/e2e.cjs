@@ -34,7 +34,7 @@ const path = require('node:path');
     await page.waitForFunction(()=>window.arenaDiagnostics().audioEnabled);
     await page.waitForFunction(()=>window.arenaDiagnostics().music,{},{timeout:30000});
     assert.equal(await page.evaluate(()=>window.arenaDiagnostics().audio.error),null);
-    const movie=path.join(output,'broadcast.webm');
+    const movie=path.join(output,'broadcast.mp4');
     await runtime.evaluate(({session},filename)=>{
       session.defaultSession.removeAllListeners('will-download');
       session.defaultSession.on('will-download',(_event,item)=>item.setSavePath(filename));

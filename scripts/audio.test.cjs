@@ -18,12 +18,12 @@ class Context{
  advance(seconds){if(this.state==='running')this.currentTime+=seconds;}
 }
 function harness(fetcher=async url=>({ok:true,arrayBuffer:async()=>({url})})){
- const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
+ const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
 }
 async function flush(){for(let i=0;i<12;i++)await Promise.resolve();}
 test('recorded video headings use display names and the actual season and roster',()=>{
  const labels=[],ctx={fillRect(){},drawImage(){},fillText(text){labels.push(text);}};
- const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{document:{createElement:()=>({getContext:()=>ctx})}});
  const recorder=new BroadcastRecorder({});recorder.source={width:1920,height:1080};recorder.recorder={state:'recording'};
  const robots=['red','blue'].flatMap(team=>[1,3,4,6,7].map(slot=>({team,slot,role:'infantry',alive:true,hp:100,max_hp:100,heat:0,max_heat:40})));
  const frame={season:'2027',remaining:420,seed:42,status:'running',arena:{name:'rmuc2027'},robots,teams:{red:{score:0},blue:{score:0}},bases:{red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}}};

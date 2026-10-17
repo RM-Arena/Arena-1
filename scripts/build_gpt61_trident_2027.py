@@ -17,7 +17,7 @@ TITLE = 'GPT · 三叉戟突击 2027'
 
 
 def source():
-    return (ROOT / 'scripts/gpt61_policy_2027.py').read_text() + '\n\n' + (ROOT / 'scripts/gpt61_trident_2027.py').read_text()
+    return (ROOT / 'scripts/gpt61_policy_2027.py').read_text(encoding='utf-8') + '\n\n' + (ROOT / 'scripts/gpt61_trident_2027.py').read_text(encoding='utf-8')
 
 
 def metadata():
@@ -53,7 +53,7 @@ def output():
     with tempfile.TemporaryDirectory(prefix='gpt61-trident-') as temporary:
         folder = Path(temporary)
         policy = folder / 'policy.py'
-        policy.write_text(source())
+        policy.write_bytes(source().encode('utf-8'))
         showcase, profile = metadata()
         save_submission(folder / NAME, 'team', {'team':policy}, team_lineup=LINEUP,
                         season='2027', showcase=showcase, profile=profile)

@@ -43,7 +43,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await page.waitForFunction(()=>window.arenaDiagnostics().tick>200,{},{timeout:20000});
   await page.click('#stop');
   await page.waitForFunction(()=>document.querySelector('#match-state').textContent==='比赛结束',{},{timeout:30000});
-  const videoPromise=page.waitForEvent('download');await page.click('#record');const video=await videoPromise;await video.saveAs(path.join(output,'broadcast.webm'));
+  const videoPromise=page.waitForEvent('download');await page.click('#record');const video=await videoPromise;await video.saveAs(path.join(output,'broadcast.mp4'));
   const replayPromise=page.waitForEvent('download');await page.click('#download');const replay=await replayPromise;const replayPath=path.join(output,'match.json');await replay.saveAs(replayPath);
   const data=JSON.parse(fs.readFileSync(replayPath));assert.equal(data.format,'rmuc-replay-v4');assert.equal(data.result.policy_errors,0);assert.equal(data.result.reason,'stopped');assert.deepEqual(data.metadata.roster,[1,2,3,4,6,7]);assert.equal(data.metadata.engine,'rust');assert.equal(data.metadata.engine_hash.length,64);
   await page.waitForFunction(()=>!document.querySelector('#start').disabled);
@@ -65,6 +65,6 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await page.waitForFunction(name=>[...document.querySelector('#red-select').options].some(o=>o.value===name),version);
   assert.deepEqual(errors,[]);assert.ok(stateRequests.length<=2,'Realtime must use WebSocket rather than HTTP polling');
   assert.ok(await page.evaluate(()=>window.arenaDiagnostics().wsMessages)>20);
-  console.log(JSON.stringify({browserErrors:errors,gltfAssets:[...assets],httpStateRequests:stateRequests.length,websocketMessages:await page.evaluate(()=>window.arenaDiagnostics().wsMessages),videoBytes:fs.statSync(path.join(output,'broadcast.webm')).size,winner:data.result.winner,ticks:data.actions.length,policyErrors:data.result.policy_errors,submission:version,output},null,2));
+  console.log(JSON.stringify({browserErrors:errors,gltfAssets:[...assets],httpStateRequests:stateRequests.length,websocketMessages:await page.evaluate(()=>window.arenaDiagnostics().wsMessages),videoBytes:fs.statSync(path.join(output,'broadcast.mp4')).size,winner:data.result.winner,ticks:data.actions.length,policyErrors:data.result.policy_errors,submission:version,output},null,2));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

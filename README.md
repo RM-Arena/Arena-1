@@ -17,6 +17,14 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 
 两个赛季都不使用飞镖、雷达与电子对抗。选阵容时按所选赛季的《机器人制作规范手册》检查型号，不合规的型号不能上场。
 
+**策略可以独立更新。** 支持在线更新的客户端会在启动后从
+[Arena-Strategies](https://github.com/RM-Arena/Arena-Strategies) 自动获取新策略，运行期间每 15 分钟检查一次，
+也可在策略库点击「检查更新」。断网时使用缓存与内置策略，用户上传的策略独立保留。
+旧安装包需要先升级一次；此后单纯更新策略无需重新下载安装包。
+
+**支持导出 MP4 视频。** 在对战页选择「MP4（推荐）」并开始录制，结束时点击「停止并导出」，
+即可保存包含比分与声音的 1080p / 30 FPS 视频。实时比赛和数据回放均可录制；也保留 WebM 格式。
+
 [![RMUC 2027 实际对战：开局双方空中机器人冲撞前哨站](docs/media/rmuc2027-battle.gif)](docs/media/rmuc2027-battle.mp4)
 
 <p align="center"><sub>RMUC 2027 示例对战：Claude Opus 5.5 开发策略，空中机器人撞击前哨站（<a href="docs/media/rmuc2027-battle.mp4">MP4</a>）· <a href="docs/media/battle.mp4">RMUC 2026 对战录像</a></sub></p>

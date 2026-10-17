@@ -19,6 +19,8 @@ the licenses of third-party components. Commercial use of Arena-1 is prohibited.
 | FastAPI / Starlette | https://github.com/fastapi/fastapi | MIT / BSD-3-Clause |
 | Uvicorn / HTTPX | https://github.com/encode | BSD-3-Clause |
 | Vite / VitePress / Vue | https://github.com/vitejs | MIT |
+| imageio-ffmpeg | https://github.com/imageio/imageio-ffmpeg | BSD-2-Clause (Python wrapper) |
+| FFmpeg and its bundled codecs | https://ffmpeg.org/ | See the binary's license and build configuration; GPL builds include libx264 |
 
 Exact versions and transitive dependencies are recorded in `bun.lock`,
 `uv.lock` and the Cargo lockfiles. Desktop bundles retain Electron's
@@ -32,6 +34,16 @@ name/version/license index. This collection includes build-time packages as
 well as runtime packages. Python package notices remain with their installed
 distribution metadata. These third-party terms are not replaced by Arena-1's
 non-commercial learning restriction.
+
+MP4 export runs the FFmpeg executable from the locked imageio-ffmpeg wheel as
+a separate process. Its upstream binaries and build information are maintained
+at https://github.com/imageio/imageio-binaries/tree/master/ffmpeg; FFmpeg source
+releases are available at https://ffmpeg.org/releases/ and libx264 source at
+https://code.videolan.org/videolan/x264. Complete GPL v2/v3 license texts are
+retained in `docs/third_party/ffmpeg/`. Desktop preparation also records the
+actual binary's `-L` and `-buildconf` output under
+`runtime/app/third_party_licenses/ffmpeg/`. The FFmpeg binary and codecs retain
+their own licenses, independently of Arena-1's original code and assets.
 
 ## Models, sound and rules
 

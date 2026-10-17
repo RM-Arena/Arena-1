@@ -57,6 +57,19 @@ def main():
     for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md", "README.md"):
         shutil.copyfile(ROOT / filename, app / filename)
     collect_notices(ROOT, app / "third_party_licenses")
+    # Verify the bundled encoder, rather than accidentally relying on a system FFmpeg.
+    run(python, "-B", "-X", "utf8", "-c",
+        "import pathlib, subprocess, tempfile, imageio_ffmpeg\n"
+        "encoder = imageio_ffmpeg.get_ffmpeg_exe()\n"
+        "notices = pathlib.Path(__import__('sys').argv[1]); notices.mkdir(parents=True, exist_ok=True)\n"
+        "for flag, name in [('-L', 'LICENSE.txt'), ('-buildconf', 'BUILD.txt')]:\n"
+        " result = subprocess.run([encoder, flag], capture_output=True, check=True)\n"
+        " (notices / name).write_bytes(result.stdout + result.stderr)\n"
+        "with tempfile.TemporaryDirectory() as temporary:\n"
+        " subprocess.run([encoder, '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=s=16x16:r=30',\n"
+        "  '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', '0.1', '-c:v', 'libx264', '-threads', '1',\n"
+        "  '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', str(pathlib.Path(temporary)/'smoke.mp4')], check=True)\n"
+        "print('Bundled H.264/AAC MP4 encoder OK')", app / "third_party_licenses/ffmpeg")
     executable = "rmuc-sim.exe" if os.name == "nt" else "rmuc-sim"
     for engine in ("simulation", "legacy/v2/simulation"):
         target = app / engine / "target/release" / executable

@@ -289,3 +289,7 @@
   .sg-page *,.sg-page *::before,.sg-page *::after,.sg-detail-backdrop,.sg-detail-backdrop *,.sg-detail-backdrop *::before,.sg-detail-backdrop *::after{animation:none!important;transition:none!important}
   .sg-card:hover,.sg-card:focus-visible{transform:none}.sg-anchor-pulse{opacity:.5}
 }
+.sg-updates{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-8px 0 18px;font-size:12px;color:var(--sg-dim)}
+.sg-updates>span,.sg-updates>button{display:inline-flex;align-items:center;gap:6px}
+.sg-updates>button{padding:6px 10px;border:1px solid #ffffff20;border-radius:7px;background:#ffffff08;color:inherit;cursor:pointer}
+.sg-updates>button:disabled{opacity:.55;cursor:default}

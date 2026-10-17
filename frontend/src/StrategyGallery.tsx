@@ -6,6 +6,7 @@ import {LLM_PROVIDERS,PROVIDERS,detectProvider,providerOf,type AgentProvider} fr
 import {AgentBadge} from './agentLogos';
 import {FOCUS,STYLE_AXES,TACTICS,TAGS,UNIT_COLORS,PhaseTimeline,StyleRadar,TacticalMap,fallbackShowcase,fallbackStyle,strategyTitle,tacticOf,useArena} from './showcaseViz';
 import './gallery.css';
+import {StrategyUpdates} from './StrategyUpdates';
 
 // 策略库: every saved strategy as a tactics card drawn from its showcase.json (docs/STRATEGY_SHOWCASE.md) — never its source code.
 const AUTHORS:AgentProvider[]=[...LLM_PROVIDERS,'human','unknown'];
@@ -58,6 +59,7 @@ export function StrategyGallery({onUpload,onBattle,refreshKey}:{onUpload:()=>voi
         <div className="sg-head-actions"><button className={`sg-icon ${loading?'spin':''}`} aria-label="刷新策略库" title="刷新" disabled={loading} onClick={()=>setReload(n=>n+1)}><RotateCw size={15}/></button><button className="primary sg-upload" onClick={onUpload}><Upload size={15}/>上传策略</button></div>
       </div>
     </header>
+    <StrategyUpdates/>
     <div className="sg-filters">
       <div className="sg-filter-row sg-authors" role="group" aria-label="按生成者筛选"><span className="sg-filter-label">生成者</span>
         <div className="sg-author-rail">{AUTHORS.map((p,i)=>{const n=authorFacet.counts.get(p)||0,on=authors.has(p),info=PROVIDERS[p];

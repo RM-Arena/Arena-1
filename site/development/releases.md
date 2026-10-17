@@ -38,6 +38,35 @@ ad-hoc 签名不提供 Apple 开发者身份认证，也不等同于公证，浏
 检查安装后无需开发工具即可启动，退出后没有遗留后台服务。检查画面、音频、策略训练、
 标准/自由对战、导入导出、录像与回放，记录每个平台实际验证结果。
 
+## 策略独立发布
+
+策略分发仓库为 [RM-Arena/Arena-Strategies](https://github.com/RM-Arena/Arena-Strategies)。
+支持在线更新的客户端在启动后后台检查，并每 15 分钟自动检查一次；
+策略库中的「检查更新」可以立即触发检查。用户无需 Git、GitHub 账号或额外令牌。
+
+客户端先校验下载大小、SHA256、归档路径、源码语法、manifest 版本、规则与展示文件，
+全部通过后才切换到新快照。同名在线策略优先于内置版本，用户上传的策略单独保留。
+下载失败或断网时继续使用缓存与内置策略；运行中的比赛继续读取原版本文件。
+缓存保存在用户数据目录下的 `.arena_data/strategy-library/`，不修改安装目录。
+
+维护策略时，在独立仓库修改 `strategies/<名称>/` 并 push 到 `main`；
+Actions 自动生成并提交 `catalog.json` 与 `bundles/<sha256>.zip`，无需创建 Release。
+代码修改后需要通过原有提交工具重建 manifest 的源码哈希与版本。
+如果策略依赖新的引擎、规则或 SDK，提高该仓库 `library.json` 中的 `min_client_version`。
+
+第一次初始化独立仓库时，可从主仓库导出当前已跟踪且兼容的示例：
+
+```sh
+uv run --locked python scripts/strategies/export.py --output build/strategy-repository
+```
+
+此命令包含独立发布脚本、Actions 工作流、许可和初始策略包，不导出未跟踪的本地实验。
+后续策略直接在独立仓库维护；主仓库 `examples/` 保留为离线后备。
+
+**旧安装包需要先升级到支持在线更新的版本一次。** 此后仅策略更新不需要新的安装包；
+引擎、UI 或 SDK 更新仍走正常桌面发布流程。需要关闭联网检查时，设置环境变量
+`RMUC_STRATEGY_UPDATES=0`，已有缓存仍可使用。
+
 ## 文档站
 
 ```sh
