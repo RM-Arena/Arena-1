@@ -1,0 +1,519 @@
+{
+  "format": "rmuc-dsv41-1017-evaluation-v1",
+  "created_at_utc": "2026-10-17T11:05:26.012025+00:00",
+  "agent": {
+    "provider": "deepseek",
+    "model": "deepseek-v4.1-flash-1017-max"
+  },
+  "season": "2027",
+  "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+  },
+  "protocol": {
+    "sandbox": "trusted-local",
+    "duration_s": 420,
+    "decision_deadline_s": 0.2,
+    "paired_sides": true,
+    "seeds": [
+      43,
+      991
+    ],
+    "hardware": "identical default 2027 lineup for both teams; the trident opponent is rebound to that lineup, not its native serial-leg lineup",
+    "note": "Fixed-seed development comparisons with the production runner. Not an Elo rating and not an independent generalization estimate."
+  },
+  "entries": {
+    "dsv41_1017_sentry": {
+      "style": "sentry",
+      "version": "e1247673ed298afc",
+      "source_hashes": {
+        "strategy.py": "d4faaf3971b5d673128110e691ac90471cb82a47ce94f360bfa351c5afea406a"
+      },
+      "summary": {
+        "games": 16,
+        "wins": 16,
+        "draws": 0,
+        "losses": 0,
+        "policy_errors": 0,
+        "invalid_games": 0
+      },
+      "result": "The sentry card wins every paired 420 s game against the Claude Opus 5.5 baseline and hold variants and the GPT-6.1 control, pressure and trident strategies. The sentry reaches the far side of the enemy base card at about 50 s and holds a temporary capture for the rest of the match; the two infantry keep the home central and outpost cards active so the opponent never converts the outpost fight into control degree.",
+      "matches": [
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "1025.2/83.8",
+          "damage": "7655/7080",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 3.8,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "985.4/324.4",
+          "damage": "5286/7040",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.1,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_pressure",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "1014.0/215.0",
+          "damage": "5181/7262",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 3.7,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_pressure",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1064.9/183.6",
+          "damage": "5399/7219",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 6.9,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_trident",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "1143.3/9.9",
+          "damage": "6342/5539",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.0,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_trident",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1035.3/5.7",
+          "damage": "5953/3526",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.8,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "501.3/2.5",
+          "damage": "6275/6492",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.1,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1061.2/126.3",
+          "damage": "5189/4265",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.1,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_hold",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "728.2/80.4",
+          "damage": "4877/5395",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.2,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_hold",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1061.5/44.7",
+          "damage": "6001/3565",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.3,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 991,
+          "side": "red",
+          "outcome": "win",
+          "control": "617.7/174.2",
+          "damage": "4928/7759",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.2,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 991,
+          "side": "blue",
+          "outcome": "win",
+          "control": "901.3/0.0",
+          "damage": "7032/4842",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.4,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_hold",
+          "seed": 991,
+          "side": "red",
+          "outcome": "win",
+          "control": "290.0/50.8",
+          "damage": "5875/5295",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.4,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "official_2027_hold",
+          "seed": 991,
+          "side": "blue",
+          "outcome": "win",
+          "control": "625.3/91.5",
+          "damage": "5135/5492",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.7,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 991,
+          "side": "red",
+          "outcome": "win",
+          "control": "1030.3/231.8",
+          "damage": "4925/7748",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.0,
+          "candidate_version": "e1247673ed298afc"
+        },
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 991,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1019.7/351.2",
+          "damage": "5337/5175",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 6.9,
+          "candidate_version": "e1247673ed298afc"
+        }
+      ]
+    },
+    "dsv41_1017_heavy": {
+      "style": "heavy",
+      "version": "403d5fe0e9d1748f",
+      "source_hashes": {
+        "strategy.py": "ae597d4eddf50794ba942437c99ab496643ed7ecd58b13d82f36db4a655e6a22"
+      },
+      "summary": {
+        "games": 8,
+        "wins": 8,
+        "draws": 0,
+        "losses": 0,
+        "policy_errors": 0,
+        "invalid_games": 0
+      },
+      "result": "The heavy-anchor card wins every evaluated 420 s game. The heavy robot reaches the enemy base card at about 70 s, gives up assembly and the 42 mm, and the sentry plus both infantry hold the home cards. The card is slower than the sentry version but the anchor is the most durable chassis on the field.",
+      "matches": [
+        {
+          "opponent": "official_2027_team",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "164.9/163.0",
+          "damage": "4328/6931",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.9,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "530.5/5.5",
+          "damage": "4848/5558",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.3,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "760.2/155.9",
+          "damage": "4516/6312",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.1,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "798.0/139.8",
+          "damage": "4465/5727",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.8,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "gpt61_2027_pressure",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "884.7/166.8",
+          "damage": "4472/7031",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.2,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "gpt61_2027_pressure",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "984.2/149.5",
+          "damage": "4484/6849",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.7,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "gpt61_2027_trident",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "1044.0/2.4",
+          "damage": "5459/3968",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.1,
+          "candidate_version": "403d5fe0e9d1748f"
+        },
+        {
+          "opponent": "gpt61_2027_trident",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1046.8/1.7",
+          "damage": "4111/3957",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.5,
+          "candidate_version": "403d5fe0e9d1748f"
+        }
+      ]
+    },
+    "dsv41_1017_pair": {
+      "style": "pair",
+      "version": "1b15a949943f6a10",
+      "source_hashes": {
+        "strategy.py": "3db3b65889cf2097ddb95323dea1e0c0186bcc4c465ae1eaa1ed0cfb3a49f559"
+      },
+      "summary": {
+        "games": 10,
+        "wins": 10,
+        "draws": 0,
+        "losses": 0,
+        "policy_errors": 0,
+        "invalid_games": 0
+      },
+      "result": "The two-anchor card wins every evaluated 420 s game. The wheel-legged infantry follows the sentry to the enemy base card, so a dive on the sentry does not immediately end the capture. The trade is one home guard instead of two; the closer games against the pressure strategy come from that thinner home defence.",
+      "matches": [
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "798.7/215.5",
+          "damage": "5587/5991",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 3.9,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "gpt61_2027_control",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1035.3/0.0",
+          "damage": "5867/4656",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.3,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "gpt61_2027_pressure",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "603.4/320.5",
+          "damage": "5370/6041",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.0,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "gpt61_2027_pressure",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "897.5/166.7",
+          "damage": "6175/6365",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.6,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "gpt61_2027_trident",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "1027.1/3.6",
+          "damage": "6201/3919",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 3.8,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "gpt61_2027_trident",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1099.4/145.1",
+          "damage": "8967/4621",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.3,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "506.4/1.3",
+          "damage": "5924/6422",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 4.7,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "official_2027_team",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "586.0/175.1",
+          "damage": "5346/8195",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 5.0,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "official_2027_hold",
+          "seed": 43,
+          "side": "red",
+          "outcome": "win",
+          "control": "1004.8/226.6",
+          "damage": "3852/4520",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 3.9,
+          "candidate_version": "1b15a949943f6a10"
+        },
+        {
+          "opponent": "official_2027_hold",
+          "seed": 43,
+          "side": "blue",
+          "outcome": "win",
+          "control": "1047.7/65.7",
+          "damage": "5060/4720",
+          "policy_errors": 0,
+          "valid": true,
+          "decision_p99_ms": 8.5,
+          "candidate_version": "1b15a949943f6a10"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "games": 34,
+    "wins": 34,
+    "draws": 0,
+    "losses": 0,
+    "policy_errors": 0,
+    "invalid_games": 0
+  },
+  "diagnosis": [
+    "Every game starts with both outposts destroyed by the opposing aerial systems at about 7 s. The destroyed positions become temporary for their owners and then flip to the other team at about 12 s if the owner is absent, so the opening outpost state is a swap, not a stable hold.",
+    "The base control point is independent of that fight. A base position is active while any robot occupies either its base card or its fortress card; the base card awards the position to a team that stays on it for five seconds. Controlling both base positions pays +3 control per second, three times the outpost rate.",
+    "The baseline and both GPT styles send their sentry to the central-highland card and their infantry to the outposts; none of them guards the far side of its own base card. In the saved traces the sentry anchor sits at (27.1, 7.5) with 350 HP for the rest of the match and is never targeted.",
+    "One robot on one home card is enough to keep that outpost position active. The two infantry therefore deny the opponent the +1/s outpost rate while the anchor accumulates +3/s. The home guards also body-block the ramp and keep the opponent off the central card.",
+    "The anchor is the single point of failure. A death revives the robot but the 2027 engine also marks instant revives weak, so the anchor must return to its own supply zone to clear weakness before it can capture again. The pair version keeps a second body on the card during that window; the heavy version trades arrival speed for the largest health pool and keeps the sentry at home."
+  ],
+  "validation": {
+    "generation_check": "uv run python scripts/build_dsv41_1017_strategies_2027.py --check",
+    "smoke": "The builder runs every entry against a real opening observation; all three entries return valid actions with no NaN or missing slots.",
+    "engine": "Rust engine and rules hashes are recorded in the evaluator outputs under build/ds1017/final_*.json.",
+    "worker_logs": "No policy error or timeout in any counted game."
+  },
+  "reproduce": [
+    "uv run python scripts/build_dsv41_1017_strategies_2027.py --check",
+    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_sentry examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 991 --jobs 1 --output build/ds1017/reproduce-sentry.json",
+    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_heavy examples/official_2027_team examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-heavy.json",
+    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_pair examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-pair.json"
+  ]
+}
