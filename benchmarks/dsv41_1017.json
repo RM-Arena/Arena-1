@@ -1,6 +1,6 @@
 {
   "format": "rmuc-dsv41-1017-evaluation-v1",
-  "created_at_utc": "2026-10-17T11:05:26.012025+00:00",
+  "created_at_utc": "2026-10-17T11:09:22.468944+00:00",
   "agent": {
     "provider": "deepseek",
     "model": "deepseek-v4.1-flash-1017-max"
@@ -52,7 +52,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 3.8,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_control",
@@ -64,7 +65,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.1,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_pressure",
@@ -76,7 +78,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 3.7,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "743f1fb084a1e7b7"
         },
         {
           "opponent": "gpt61_2027_pressure",
@@ -88,7 +91,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 6.9,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "743f1fb084a1e7b7"
         },
         {
           "opponent": "gpt61_2027_trident",
@@ -100,7 +104,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.0,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "d7e3caa4be0ebbce"
         },
         {
           "opponent": "gpt61_2027_trident",
@@ -112,7 +117,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.8,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "d7e3caa4be0ebbce"
         },
         {
           "opponent": "official_2027_team",
@@ -124,7 +130,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.1,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_team",
@@ -136,7 +143,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.1,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_hold",
@@ -148,7 +156,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.2,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "ddaadf86433536d9"
         },
         {
           "opponent": "official_2027_hold",
@@ -160,7 +169,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.3,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "ddaadf86433536d9"
         },
         {
           "opponent": "official_2027_team",
@@ -172,7 +182,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.2,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_team",
@@ -184,7 +195,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.4,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_hold",
@@ -196,7 +208,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.4,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "ddaadf86433536d9"
         },
         {
           "opponent": "official_2027_hold",
@@ -208,7 +221,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.7,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "ddaadf86433536d9"
         },
         {
           "opponent": "gpt61_2027_control",
@@ -220,7 +234,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.0,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_control",
@@ -232,7 +247,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 6.9,
-          "candidate_version": "e1247673ed298afc"
+          "candidate_version": "e1247673ed298afc",
+          "opponent_version": "8504ab89eaa7a501"
         }
       ]
     },
@@ -262,7 +278,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.9,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_team",
@@ -274,7 +291,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.3,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "gpt61_2027_control",
@@ -286,7 +304,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.1,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_control",
@@ -298,7 +317,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.8,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_pressure",
@@ -310,7 +330,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.2,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "743f1fb084a1e7b7"
         },
         {
           "opponent": "gpt61_2027_pressure",
@@ -322,7 +343,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.7,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "743f1fb084a1e7b7"
         },
         {
           "opponent": "gpt61_2027_trident",
@@ -334,7 +356,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.1,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "d7e3caa4be0ebbce"
         },
         {
           "opponent": "gpt61_2027_trident",
@@ -346,7 +369,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.5,
-          "candidate_version": "403d5fe0e9d1748f"
+          "candidate_version": "403d5fe0e9d1748f",
+          "opponent_version": "d7e3caa4be0ebbce"
         }
       ]
     },
@@ -376,7 +400,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 3.9,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_control",
@@ -388,7 +413,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.3,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "8504ab89eaa7a501"
         },
         {
           "opponent": "gpt61_2027_pressure",
@@ -400,7 +426,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.0,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "743f1fb084a1e7b7"
         },
         {
           "opponent": "gpt61_2027_pressure",
@@ -412,7 +439,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.6,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "743f1fb084a1e7b7"
         },
         {
           "opponent": "gpt61_2027_trident",
@@ -424,7 +452,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 3.8,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "d7e3caa4be0ebbce"
         },
         {
           "opponent": "gpt61_2027_trident",
@@ -436,7 +465,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.3,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "d7e3caa4be0ebbce"
         },
         {
           "opponent": "official_2027_team",
@@ -448,7 +478,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 4.7,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_team",
@@ -460,7 +491,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 5.0,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "7d49466f50b14961"
         },
         {
           "opponent": "official_2027_hold",
@@ -472,7 +504,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 3.9,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "ddaadf86433536d9"
         },
         {
           "opponent": "official_2027_hold",
@@ -484,7 +517,8 @@
           "policy_errors": 0,
           "valid": true,
           "decision_p99_ms": 8.5,
-          "candidate_version": "1b15a949943f6a10"
+          "candidate_version": "1b15a949943f6a10",
+          "opponent_version": "ddaadf86433536d9"
         }
       ]
     }
@@ -507,7 +541,7 @@
   "validation": {
     "generation_check": "uv run python scripts/build_dsv41_1017_strategies_2027.py --check",
     "smoke": "The builder runs every entry against a real opening observation; all three entries return valid actions with no NaN or missing slots.",
-    "engine": "Rust engine and rules hashes are recorded in the evaluator outputs under build/ds1017/final_*.json.",
+    "engine": "Engine, rules and SDK hashes are recorded at the top level of this report.",
     "worker_logs": "No policy error or timeout in any counted game."
   },
   "reproduce": [
@@ -515,5 +549,17 @@
     "uv run python scripts/evaluate_2027.py examples/dsv41_1017_sentry examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 991 --jobs 1 --output build/ds1017/reproduce-sentry.json",
     "uv run python scripts/evaluate_2027.py examples/dsv41_1017_heavy examples/official_2027_team examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-heavy.json",
     "uv run python scripts/evaluate_2027.py examples/dsv41_1017_pair examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-pair.json"
-  ]
+  ],
+  "engine": {
+    "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
+    "rules_hash": "db4367a21a23ac605cf111f503967e8689c00b649d3faf758fa01f4079c59a1c",
+    "sdk_hash": "8acaa487f86f37c2f018466784d810f96ecb4ddd5c129a189ec700687326f735"
+  },
+  "opponents": {
+    "gpt61_2027_control": "8504ab89eaa7a501",
+    "gpt61_2027_pressure": "743f1fb084a1e7b7",
+    "gpt61_2027_trident": "d7e3caa4be0ebbce",
+    "official_2027_team": "7d49466f50b14961",
+    "official_2027_hold": "ddaadf86433536d9"
+  }
 }
