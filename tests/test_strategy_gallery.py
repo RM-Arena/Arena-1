@@ -29,13 +29,13 @@ def glb(gltf, binary=b""):
 
 class ShowcaseFormatTests(unittest.TestCase):
     def test_legacy_bundle_attribution_is_not_an_author_category(self):
-        self.assertEqual(validate_profile({"agent": {"provider": "official"}})["agent"], {"provider": "unknown"})
+        self.assertEqual(validate_profile({"agent": {"provider": "bundled"}})["agent"], {"provider": "unknown"})
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "manifest.json").write_text(json.dumps({"rules_profile": "rmuc-2027-v1.0.0-arena-v1"}))
-            (root / "profile.json").write_text(json.dumps({"agent": {"provider": "official"}}))
-            self.assertEqual(load_profile(root, official=True)["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
-            self.assertEqual(load_profile(root, official=False)["agent"], {"provider": "unknown"})
+            (root / "profile.json").write_text(json.dumps({"agent": {"provider": "bundled"}}))
+            self.assertEqual(load_profile(root, bundled=True)["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5 xhigh"})
+            self.assertEqual(load_profile(root, bundled=False)["agent"], {"provider": "unknown"})
 
     def test_spec_example_and_limits(self):
         example = (ROOT / "docs/STRATEGY_SHOWCASE.md").read_text().split("```json\n")[1].split("```")[0]
@@ -126,9 +126,9 @@ class GalleryApiTests(unittest.TestCase):
         self.assertEqual(self.upload("claude-legs", display_name="腿式突击").status_code, 200)
         strategies = {s["key"]: s for s in self.client.get("/api/strategies").json()}
         mine = strategies["claude-legs"]
-        self.assertEqual((mine["agent"]["provider"], mine["display_name"], mine["profile"]["tactic"], mine["official"]), ("anthropic", "腿式突击", "assault", False))
+        self.assertEqual((mine["agent"]["provider"], mine["display_name"], mine["profile"]["tactic"], mine["bundled"]), ("anthropic", "腿式突击", "assault", False))
         self.assertEqual(mine["showcase"]["title"], SHOWCASE["title"])
-        self.assertTrue(strategies["siege_team"]["official"])
+        self.assertTrue(strategies["siege_team"]["bundled"])
         self.assertEqual(strategies["siege_team"]["agent"]["provider"], "anthropic")
         detail = self.client.get("/api/strategies/claude-legs").json()
         self.assertEqual(detail["showcase"]["phases"][0]["title"], "全场")
@@ -153,7 +153,7 @@ class GalleryApiTests(unittest.TestCase):
         skin = created.json()
         self.assertEqual(skin["asset"], f"/api/custom-models/{skin['id']}.glb?fit=0.56,0.55,0.56&fwd=-z")
         self.assertEqual(self.client.get(f"/api/custom-models/{skin['id']}.glb").content, model)
-        args = {"mode": "deck", "red_deck": ["kimi-hero", "official_adaptive_301"], "blue_deck": ["official_adaptive_301"], "duration": 1}
+        args = {"mode": "deck", "red_deck": ["kimi-hero", "claude_opus55_xhigh_adaptive_301"], "blue_deck": ["claude_opus55_xhigh_adaptive_301"], "duration": 1}
         wrong = self.client.post("/api/start", json={**args, "red_skins": {"1": skin["id"]}})
         self.assertEqual(wrong.status_code, 409)
         absent = self.client.post("/api/start", json={**args, "blue_skins": {"302": skin["id"]}})
@@ -174,7 +174,7 @@ class GalleryApiTests(unittest.TestCase):
     def test_self_check_lasts_as_long_as_the_lineup_intro(self):
         arena = self.app.state.arena
         arena.prematch_stages = (("self_check", None), ("countdown", 30.0))
-        response = self.client.post("/api/start", json={"red": "official_team", "blue": "official_hold", "duration": 1})
+        response = self.client.post("/api/start", json={"red": "claude_opus55_xhigh_team", "blue": "claude_opus55_xhigh_hold", "duration": 1})
         self.assertEqual(response.status_code, 200, response.text)
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:

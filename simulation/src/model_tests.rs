@@ -132,7 +132,7 @@ fn bumps_showcase_replay(){
         m.step(&json!({"red":red}));frames.push(m.snapshot());
     }
     for (i,_,_) in lanes {assert!(m.robots[i].x>8.0,"robot {i} stopped at {}",m.robots[i].x);}
-    let keys=["arena","official_rules","simulation_assumptions","robot_models"];
+    let keys=["arena","rulebook_rules","simulation_assumptions","robot_models"];
     let stat:serde_json::Map<String,Value>=keys.iter().map(|k|(k.to_string(),frames[0][*k].clone())).collect();
     for frame in &mut frames {for k in keys {frame.as_object_mut().unwrap().remove(k);}}
     let replay=json!({"format":"rmuc-replay-v4","static":stat,"frames":frames,"actions":[],"diagnostics":[],"metadata":{"seed":42,"duration":12,"map":"rmuc2026","dt":DT,"test_match":true,"teams":{"red":{"name":"起伏路段","version":"bumps-v1","mode":"team"},"blue":{"name":"起伏路段","version":"bumps-v1","mode":"team"}}},"result":{"winner":null,"reason":"timeout","time":12,"digest":"visual-fixture","policy_errors":0}});
@@ -165,7 +165,7 @@ fn model_showcase_replay(){
         frames.push(m.snapshot());
     }
     assert!(landed);assert!(m.robots[1].carried_units>0);assert!(m.robots[2].y<center[1]-0.5);assert!(m.robots[2].transform_progress<0.01);
-    let keys=["arena","official_rules","simulation_assumptions","robot_models"];
+    let keys=["arena","rulebook_rules","simulation_assumptions","robot_models"];
     let stat:serde_json::Map<String,Value>=keys.iter().map(|k|(k.to_string(),frames[0][*k].clone())).collect();
     for frame in &mut frames {for k in keys {frame.as_object_mut().unwrap().remove(k);}}
     let replay=json!({"format":"rmuc-replay-v4","static":stat,"frames":frames,"actions":[],"diagnostics":[],"metadata":{"seed":42,"duration":20,"map":"rmuc2026","dt":DT,"test_match":true,"teams":{"red":{"name":"型号机构展示","version":"model-v1","mode":"team"},"blue":{"name":"同型号蓝方","version":"model-v1","mode":"team"}}},"result":{"winner":null,"reason":"timeout","time":20,"digest":"visual-fixture","policy_errors":0}});
@@ -269,7 +269,7 @@ fn serial_leg_showcase_replay(){
     }
     let (r3,r4,w3)=(&m.robots[index(&m,"red-3")],&m.robots[index(&m,"red-4")],&m.robots[index(&m,"red-7")]);
     assert!(r3.upright>0.95&&r4.upright>0.95&&w3.tipped,"{} {} {}",r3.upright,r4.upright,w3.upright);
-    let keys=["arena","official_rules","simulation_assumptions","robot_models"];
+    let keys=["arena","rulebook_rules","simulation_assumptions","robot_models"];
     let stat:serde_json::Map<String,Value>=keys.iter().map(|k|(k.to_string(),frames[0][*k].clone())).collect();
     for frame in &mut frames {for k in keys {frame.as_object_mut().unwrap().remove(k);}}
     let replay=json!({"format":"rmuc-replay-v4","static":stat,"frames":frames,"actions":[],"diagnostics":[],"metadata":{"seed":42,"duration":20,"map":"rmuc2026","dt":DT,"test_match":true,"lineups":{"red":red.iter().map(|(s,m)|json!({"slot":s,"model":m})).collect::<Vec<_>>(),"blue":blue.iter().map(|(s,m)|json!({"slot":s,"model":m})).collect::<Vec<_>>()},"teams":{"red":{"name":"串联腿自翻身","version":"serial-v1","mode":"team"},"blue":{"name":"串联腿阵容","version":"serial-v1","mode":"team"}}},"result":{"winner":null,"reason":"timeout","time":20,"digest":"visual-fixture","policy_errors":0}});

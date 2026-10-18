@@ -27,10 +27,10 @@ test('recorded video headings use display names and the actual season and roster
  const recorder=new BroadcastRecorder({});recorder.source={width:1920,height:1080};recorder.recorder={state:'recording'};
  const robots=['red','blue'].flatMap(team=>[1,3,4,6,7].map(slot=>({team,slot,role:'infantry',alive:true,hp:100,max_hp:100,heat:0,max_heat:40})));
  const frame={season:'2027',remaining:420,seed:42,status:'running',arena:{name:'rmuc2027'},robots,teams:{red:{score:0},blue:{score:0}},bases:{red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}}};
- recorder.draw(frame,{teams:{red:{name:'official_2027_team',display_name:'官方基线 2027'},blue:{name:'official_2027_hold'}}});
+ recorder.draw(frame,{teams:{red:{name:'claude_opus55_xhigh_2027_team',display_name:'赛事基线 2027'},blue:{name:'claude_opus55_xhigh_2027_hold'}}});
  assert.ok(labels.some(t=>t.includes('基线策略 2027')));
  assert.ok(labels.some(t=>t.includes('5v5 / RMUC 2027')));
- assert.doesNotMatch(labels.join('\n'),/official|官方|6v6|RMUC 2026/i);
+ assert.doesNotMatch(labels.join('\n'),/rulebook|赛事|6v6|RMUC 2026/i);
 });
 const state={page:'arena',hangar:false,prematch:null,post:null,status:'ready'};
 
@@ -200,4 +200,17 @@ test('seeking while paused stops the active source before the suspended clock ca
  const a=harness();await a.enable();await flush();a.announce(announcement('first-blood'),()=>{});a.context.advance(1);const node=a.announcementVoice.node;
  a.setPaused(true);a.cancelAnnouncements();assert.equal(node.stopped,1);
  assert.equal(a.diagnostics.announcer.cue,null);a.setPaused(false);await flush();assert.equal(a.diagnostics.announcer.starts,1);
+});
+
+test('recording renders lineup credits, the actual data panel and MVP stats into the video canvas',()=>{
+ const labels=[],ctx={fillRect(){},drawImage(){},fillText(text){labels.push(text);},save(){},restore(){}};
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const r=new BroadcastRecorder({});r.source={width:1920,height:1080};r.recorder={state:'recording'};
+ const f={remaining:0,seed:42,status:'finished',season:'2027',arena:{name:'rmuc2027'},robots:[],teams:{red:{score:50},blue:{score:20}},bases:{red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}}};
+ r.overlay={kind:'intro',title:'红方阵容介绍',sub:'测试策略',lines:['3号 串联腿 · Model A']};r.draw(f,null);
+ assert.ok(labels.includes('红方阵容介绍'));assert.ok(labels.includes('3号 串联腿 · Model A'));
+ r.overlay={kind:'results',headline:'基地剩余血量判胜',rows:[{label:'总伤害量',red:'1234',blue:'567'}]};r.draw(f,null);
+ assert.ok(labels.includes('赛后数据面板'));assert.ok(labels.includes('1234'));assert.ok(labels.includes('567'));
+ r.overlay={kind:'mvp',name:'3号 步兵',team:'红方',lines:['击毁机器人  7']};r.draw(f,null);
+ assert.ok(labels.includes('MVP'));assert.ok(labels.includes('击毁机器人  7'));
 });

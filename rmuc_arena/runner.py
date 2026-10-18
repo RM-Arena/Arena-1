@@ -303,7 +303,7 @@ class Policy:
 
 
 class Battle:
-    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, practice_lineup=False, free_team_strategies=None):
+    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, practice_lineup=False, free_team_strategies=None, battle_settings=None):
         # The field follows the strategies' rules season unless the caller names it.
         if map_name is None:
             from .submissions import manifest_season
@@ -325,12 +325,16 @@ class Battle:
                 raise ValueError('Team matches require identical registered robot lineups; develop both strategies on the same lineup')
             if chosen!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(chosen,season)
         elif team_lineup is not None:raise ValueError('Decks and shared team lineups cannot be combined')
-        self.match, self.sandbox, self.policies, self.closed = Match(seed, duration, map_name, lineups=lineups), sandbox, [], False
+        from .battle_settings import normalize
+        battle_settings = normalize(battle_settings or {}, season)
+        self.match, self.sandbox, self.policies, self.closed = Match(seed, duration, map_name, lineups=lineups, battle_settings=battle_settings), sandbox, [], False
         self.deck_mode = decks is not None
         self.deadline, self.stop_event = deadline, stop_event
         self.pool = ThreadPoolExecutor(max_workers=24 if self.deck_mode else 12)
         self.metadata = {"api_version": 3, "engine": "rust", "rules": rules_profile, "season": season, "decision_timeout_s":timeout, "policy_timeout_limit":POLICY_TIMEOUT_LIMIT, "roster":list(slot_ids), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
                          "map": map_name, "sandbox": sandbox, "match_mode":"deck" if self.deck_mode else "standard", "teams": {}}
+        if battle_settings:
+            self.metadata.update({"battle_settings": battle_settings, "test_match": True})
         self.frames, self.actions, self.diagnostics = FrameLog(self.match.snapshot()), [], []
         self.metadata["rules_hash"] = self.frames[0]["rules_hash"]
         self.metadata["engine_hash"] = self.frames[0]["engine_hash"]
@@ -340,7 +344,7 @@ class Battle:
             self.metadata.update({"lineups":lineups,"test_match":True,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
         if not self.deck_mode:
             self.metadata['team_lineup']=chosen
-            self.metadata['test_match']=duration!=420 or practice_lineup
+            self.metadata['test_match']=duration!=420 or practice_lineup or bool(battle_settings)
         self.pending_referee = []
         self.metadata["agents"] = {}
         try:

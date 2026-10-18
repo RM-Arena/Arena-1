@@ -2,7 +2,7 @@
   "version": "rmuc-2026-v1.0.0-arena-v3",
   "dt": 0.05,
   "policy_interval": 2,
-  "official": {
+  "rulebook": {
     "source": {
       "title": "RoboMaster 2026 机甲大师超级对抗赛比赛规则手册",
       "version": "1.0.0",
@@ -1386,7 +1386,7 @@
         "protected_wiring": true,
         "no_sharp_edges": true,
         "armor_unmodified": true,
-        "team_color_on_shell_or_official_modules_only": true,
+        "team_color_on_shell_or_rulebook_modules_only": true,
         "pages": [
           17,
           18,
@@ -1417,7 +1417,7 @@
     "arm_translate_speed_mps": 0.15,
     "arm_rotate_speed_deg_s": 120,
     "manual_judging": "Illegal target and zone commands prevented; subjective human penalties and real hardware failures are not randomly simulated.",
-    "map_fidelity": "Chapter 4 dimensioned module footprints and figure4-5 placement; unlabelled joints reconstructed from the plan, not official CAD.",
+    "map_fidelity": "Chapter 4 dimensioned module footprints and figure4-5 placement; unlabelled joints reconstructed from the plan, not rulebook CAD.",
     "central_elevation_m": 0.4,
     "core_move_delay_s": 2.0,
     "floor_slope_deg": 1.5,
@@ -1449,7 +1449,7 @@
       "outpost_top_center_m": 1.5,
       "armor_height_m": 0.125,
       "base_open_duration_s": 1.5,
-      "note": "Finite proxies reconstructed from manual figures 4-10/11/32; unlabelled armor centers and motion are simulation assumptions, not official CAD."
+      "note": "Finite proxies reconstructed from manual figures 4-10/11/32; unlabelled armor centers and motion are simulation assumptions, not rulebook CAD."
     },
     "pickup_phases": {
       "approach_hold_s": 0.2,
@@ -1739,7 +1739,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "deploy_allowed": true,
       "transform_allowed": false,
@@ -1868,7 +1868,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -2072,7 +2072,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not rulebook",
       "leg_type": "five_bar",
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
@@ -2297,7 +2297,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "deploy_allowed": false,
       "transform_allowed": false,
@@ -2503,7 +2503,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "deploy_allowed": false,
       "transform_allowed": false,
@@ -2707,7 +2707,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "rotor_radius_m": 0.235,
       "guard_radius_m": 0.275,
       "guard_height_m": 0.16,
@@ -2848,7 +2848,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "steer_rate_rad_s": 4.5,
       "base_model": 1,
@@ -2981,7 +2981,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "base_model": 1,
       "name_en": "H-O Omni Assault Hero",
@@ -3111,7 +3111,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.1,
       "deploy_allowed": false,
       "base_model": 1,
@@ -3264,7 +3264,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -3554,7 +3554,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -3764,7 +3764,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -3973,7 +3973,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "transform_allowed": true,
       "folded_muzzle_z_m": 0.145,
@@ -4185,7 +4185,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "steer_rate_rad_s": 5,
       "base_model": 4,
@@ -4395,7 +4395,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "base_model": 7,
       "name_en": "I-O Light Omni Infantry",
@@ -4602,7 +4602,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not rulebook",
       "leg_type": "five_bar",
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
@@ -4830,7 +4830,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not rulebook",
       "leg_type": "serial",
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
@@ -5063,7 +5063,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "rotor_radius_m": 0.185,
       "guard_radius_m": 0.23,
       "guard_height_m": 0.16,
@@ -5205,7 +5205,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "rotor_radius_m": 0.16,
       "guard_radius_m": 0.205,
       "guard_height_m": 0.16,
@@ -5338,7 +5338,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -5651,7 +5651,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -6045,7 +6045,7 @@
       "trigger_interval_s": 0.2,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "arm": {
         "joints": [
@@ -6356,7 +6356,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not rulebook",
       "leg_type": "five_bar",
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
@@ -6596,7 +6596,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "transform_allowed": true,
       "folded_muzzle_z_m": 0.145,
@@ -6818,7 +6818,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen engineering parameters within construction limits; not official speed or tire specification",
+      "source_status": "chosen engineering parameters within construction limits; not rulebook speed or tire specification",
       "coast_friction": 0.22,
       "name_en": "S27-O Omni Automatic Sentry",
       "focus_en": "Omni chassis, fast gimbal and a large magazine for autonomous patrol",
@@ -7043,7 +7043,7 @@
       "trigger_interval_s": 0.05,
       "finish_gloss_gs": 20,
       "contact_restitution": 0.08,
-      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official",
+      "source_status": "chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not rulebook",
       "leg_type": "serial",
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
@@ -15343,7 +15343,7 @@
       "asset": "/assets/robot-aerial.glb"
     }
   },
-  "official_2027": {
+  "rulebook_2027": {
     "source": {
       "title": "RoboMaster 2027 机甲大师超级对抗赛比赛规则手册",
       "version": "1.0.0",
@@ -16844,7 +16844,7 @@
     "2026": {
       "label": "RMUC 2026",
       "rules_profile": "rmuc-2026-v1.0.0-arena-v3",
-      "rules_key": "official",
+      "rules_key": "rulebook",
       "map": "rmuc2026",
       "roster": [
         {
@@ -16886,7 +16886,7 @@
     "2027": {
       "label": "RMUC 2027",
       "rules_profile": "rmuc-2027-v1.0.0-arena-v1",
-      "rules_key": "official_2027",
+      "rules_key": "rulebook_2027",
       "map": "rmuc2027",
       "roster": [
         {
@@ -17068,7 +17068,7 @@
         ],
         "assembly_repeat_reset_s": 0,
         "rune_motor": {
-          "profile": "official_2027",
+          "profile": "rulebook_2027",
           "note": "Small and idle large runes rotate at pi/3 rad/s; active large runes use a*sin(omega*t)+2.090-a, reset on each new large activation; both faces share the shaft."
         },
         "arm_lift_speed_mps": 0.15,

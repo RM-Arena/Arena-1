@@ -597,7 +597,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_hold",
+      "opponent": "claude_opus55_xhigh_hold",
       "seed": 21,
       "side": "blue",
       "outcome": "win",
@@ -613,7 +613,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_hold",
+      "opponent": "claude_opus55_xhigh_hold",
       "seed": 21,
       "side": "red",
       "outcome": "win",
@@ -629,7 +629,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 21,
       "side": "blue",
       "outcome": "win",
@@ -645,7 +645,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 21,
       "side": "red",
       "outcome": "win",
@@ -661,7 +661,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_squad",
+      "opponent": "claude_opus55_xhigh_squad",
       "seed": 21,
       "side": "red",
       "outcome": "win",
@@ -693,7 +693,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_squad",
+      "opponent": "claude_opus55_xhigh_squad",
       "seed": 21,
       "side": "blue",
       "outcome": "win",

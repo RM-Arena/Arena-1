@@ -37,7 +37,7 @@
     "invalid_games": 0,
     "policy_errors": 0
   },
-  "result": "This controller loses all four paired games to the Claude Opus 5.5 official baseline and the official hold variant, 0-4 with 0.0 control degree in every game. Both opponents hold both outpost positions for most of the match and reach 395-408 control degree by the timeout, while this controller never holds the enemy outpost position at all. Attack damage is roughly half the opponent figure. The submission is published with the negative result rather than a claim of parity.",
+  "result": "This controller loses all four paired games to the Claude Opus 5.5 rulebook baseline and the rulebook hold variant, 0-4 with 0.0 control degree in every game. Both opponents hold both outpost positions for most of the match and reach 395-408 control degree by the timeout, while this controller never holds the enemy outpost position at all. Attack damage is roughly half the opponent figure. The submission is published with the negative result rather than a claim of parity.",
   "diagnosis": [
     "The enemy outpost card is reached by one infantry almost every game, but the robot is killed or tipped before the five second capture completes, so the position is never taken.",
     "The own outpost card is entered from behind, and a robot parked on it does recover the position (observed at t=39.8 s in the trace), but the enemy re-takes it because the forward card is never held: control degree needs both positions at once.",
@@ -47,7 +47,7 @@
   ],
   "matches": [
     {
-      "opponent": "official_2027_team",
+      "opponent": "claude_opus55_xhigh_2027_team",
       "seed": 991,
       "side": "red",
       "outcome": "loss",
@@ -56,7 +56,7 @@
       "policy_errors": 0
     },
     {
-      "opponent": "official_2027_team",
+      "opponent": "claude_opus55_xhigh_2027_team",
       "seed": 991,
       "side": "blue",
       "outcome": "loss",
@@ -65,7 +65,7 @@
       "policy_errors": 0
     },
     {
-      "opponent": "official_2027_hold",
+      "opponent": "claude_opus55_xhigh_2027_hold",
       "seed": 991,
       "side": "red",
       "outcome": "loss",
@@ -74,7 +74,7 @@
       "policy_errors": 0
     },
     {
-      "opponent": "official_2027_hold",
+      "opponent": "claude_opus55_xhigh_2027_hold",
       "seed": 991,
       "side": "blue",
       "outcome": "loss",

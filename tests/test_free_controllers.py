@@ -21,7 +21,7 @@ class FreeControllerTests(unittest.TestCase):
     return {s:{'aim':.25} for s in own},(state or 0)+1
 ''')
         self.team=self.root/'submissions/free-team';save_submission(self.team,'team',{'team':source})
-        self.decks={'red':[ROOT/'examples/official_adaptive_3']*3,'blue':[ROOT/'examples/official_adaptive_7']*2}
+        self.decks={'red':[ROOT/'examples/claude_opus55_xhigh_adaptive_3']*3,'blue':[ROOT/'examples/claude_opus55_xhigh_adaptive_7']*2}
         self.registry=self.root/'registry.json'
 
     def app(self):
@@ -40,8 +40,8 @@ class FreeControllerTests(unittest.TestCase):
                 replay=self.root/'mixed.json';battle.save(replay);self.assertEqual(verify_replay(replay)['digest'],result['digest'])
 
     def test_api_accepts_mixed_control_and_rejects_unavailable_or_wrong_strategy(self):
-        app,client=self.app();body={'mode':'deck','duration':1,'red_deck':['official_adaptive_3']*3,'blue_deck':['official_adaptive_7']*2,'red_control':'team','red_team_strategy':'free-team'}
-        for key in ['missing','official_adaptive_3','official_squad']:
+        app,client=self.app();body={'mode':'deck','duration':1,'red_deck':['claude_opus55_xhigh_adaptive_3']*3,'blue_deck':['claude_opus55_xhigh_adaptive_7']*2,'red_control':'team','red_team_strategy':'free-team'}
+        for key in ['missing','claude_opus55_xhigh_adaptive_3','claude_opus55_xhigh_squad']:
             self.assertEqual(client.post('/api/start',json={**body,'red_team_strategy':key}).status_code,409)
         response=client.post('/api/start',json=body);self.assertEqual(response.status_code,200,response.text)
         until=time.monotonic()+10
@@ -52,13 +52,13 @@ class FreeControllerTests(unittest.TestCase):
         self.assertEqual(client.get('/api/leaderboard').json(),[])
 
     def test_named_presets_persist_and_restore_all_controls_without_starting_a_match(self):
-        app,client=self.app();body={'name':'轮足突击','decks':{'red':['official_adaptive_3']*3,'blue':['official_adaptive_7']*2},'controllers':{'red':{'mode':'team','strategy':'free-team'},'blue':{'mode':'independent','strategy':'official_hold'}}}
+        app,client=self.app();body={'name':'轮足突击','decks':{'red':['claude_opus55_xhigh_adaptive_3']*3,'blue':['claude_opus55_xhigh_adaptive_7']*2},'controllers':{'red':{'mode':'team','strategy':'free-team'},'blue':{'mode':'independent','strategy':'claude_opus55_xhigh_hold'}}}
         response=client.post('/api/deck-presets',json=body);self.assertEqual(response.status_code,200,response.text)
         self.assertFalse(app.state.arena.busy);self.assertEqual(client.post('/api/deck-presets',json=body).status_code,409)
         presets=client.get('/api/deck-presets').json();self.assertEqual(presets[0]['decks'],body['decks']);self.assertEqual(presets[0]['controllers'],body['controllers'])
-        changed={**body,'replace':True,'decks':{'red':['official_adaptive_103'],'blue':['official_adaptive_6']}}
+        changed={**body,'replace':True,'decks':{'red':['claude_opus55_xhigh_adaptive_103'],'blue':['claude_opus55_xhigh_adaptive_6']}}
         self.assertEqual(client.post('/api/deck-presets',json=changed).status_code,200)
         restarted,other=self.app();self.assertEqual(other.get('/api/deck-presets').json()[0]['decks'],changed['decks'])
         self.assertEqual(other.get('/api/deck-presets').json()[0]['controllers'],body['controllers'])
-        for invalid in [{**body,'name':' '},{**body,'name':'bad','decks':{'red':['missing'],'blue':['official_adaptive_7']}},{**body,'name':'bad','controllers':{'red':{'mode':'team','strategy':'missing'},'blue':{'mode':'independent'}}}]:
+        for invalid in [{**body,'name':' '},{**body,'name':'bad','decks':{'red':['missing'],'blue':['claude_opus55_xhigh_adaptive_7']}},{**body,'name':'bad','controllers':{'red':{'mode':'team','strategy':'missing'},'blue':{'mode':'independent'}}}]:
             self.assertEqual(other.post('/api/deck-presets',json=invalid).status_code,400)

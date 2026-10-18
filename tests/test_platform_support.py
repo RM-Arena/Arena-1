@@ -42,7 +42,7 @@ class PlatformSupportTests(unittest.TestCase):
                     self.assertEqual(data, path.read_bytes())
             build_robot_presets.materialize(root / "preset", build_examples_2027.POLICY.read_text(encoding="utf-8"), 2711, False, "2027")
             for name in ("strategy.py", "manifest.json"):
-                self.assertEqual((root / "preset" / name).read_bytes(), (ROOT / "examples/official_2027_adaptive_2711" / name).read_bytes())
+                self.assertEqual((root / "preset" / name).read_bytes(), (ROOT / "examples/claude_opus55_xhigh_2027_adaptive_2711" / name).read_bytes())
 
     def test_restarting_desktop_updates_practice_url_without_resetting_clock_or_code(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -38,7 +38,7 @@ function recorderHarness(format='mp4',conversionFails=false,startFails=false){
     start(){if(startFails)throw new Error('encoder start failed');this.state='recording';this.ondataavailable({data:new Blob(['first-'])});}
     stop(){this.state='inactive';this.ondataavailable({data:new Blob(['last'])});this.onstop();}
   }
-  const fetch=async(_url,options)=>{requests.push(options);return !options?response('{"mp4":true}'):conversionFails?response('{"detail":"转码失败"}',500):response(new Blob(['mp4'],{type:'video/mp4'}));};
+  const fetch=async(_url,options)=>{requests.push(options);if(options&&_url.includes('/api/matches/')&&!conversionFails)return response(JSON.stringify({url:'/api/matches/test/video'}));return !options?response('{"mp4":true}'):conversionFails?response('{"detail":"转码失败"}',500):response(new Blob(['mp4'],{type:'video/mp4'}));};
   const api=video(fetch),identity=compile('strategyIdentity'),playlist=compile('audioPlaylist'),kills=compile('killAnnouncements');
   const document={createElement:tag=>tag==='canvas'?{getContext:()=>({fillRect(){}}),captureStream:()=>stream}:{click(){downloads.push({name:this.download,blob:this.blob});},remove(){}},body:{append(){}}};
   let latest;
@@ -68,4 +68,15 @@ test('explicit WebM recordings export without uploading and failed starts releas
   assert.equal(h.requests.length,0);assert.match(h.downloads[0].name,/\.webm$/);
   const failed=recorderHarness('mp4',false,true);await assert.rejects(failed.recorder.start('mp4'),/encoder start failed/);
   assert.deepEqual(failed.stopped.sort(),['cloned-audio','video']);assert.equal(failed.recorder.active,false);
+});
+
+test('automatic MP4 attaches the final capture to its match without downloading',async()=>{
+  const h=recorderHarness();await h.recorder.start('mp4');await h.recorder.stop(()=>{},'test');
+  assert.equal(h.downloads.length,0);assert.equal(await h.requests[1].body.text(),'first-last');
+  assert.equal(h.recorder.hasRecovery,false);assert.equal(h.recorder.active,false);
+});
+test('failed automatic save keeps the match target and original capture; cancel releases tracks',async()=>{
+  const h=recorderHarness('mp4',true);await h.recorder.start('mp4');await assert.rejects(h.recorder.stop(()=>{},'test'),/原始 WebM 已保留/);
+  assert.equal(h.recorder.canRetrySave,true);await assert.rejects(h.recorder.retrySave(),/转码失败/);assert.equal(h.recorder.hasRecovery,true);
+  const clean=recorderHarness();await clean.recorder.start('mp4');await clean.recorder.cancel();assert.equal(clean.recorder.active,false);assert.equal(clean.downloads.length,0);assert.equal(clean.recorder.hasRecovery,false);
 });

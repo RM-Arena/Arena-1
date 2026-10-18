@@ -16,7 +16,7 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, W
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.background import BackgroundTask
 
@@ -24,6 +24,8 @@ from .paths import data_path
 from .engine import DT, Match, arena_map, SLOT_IDS, RULES_PROFILE
 from .runner import Battle
 from .store import Store
+from .strategy_names import canonical_key
+from .battle_settings import BattleSettings, normalize as normalize_settings
 from .submissions import ROOT, guide_path, load_submission, save_submission
 from .worker import SOURCE_LIMIT
 from .training import TrainingService
@@ -38,8 +40,8 @@ from .video_export import MAX_VIDEO_BYTES, VideoExporter, VideoExportError
 from .submissions import write_json, manifest_season
 from . import seasons as season_rules
 
-# The official baseline pair each season starts with when a request names no strategies.
-DEFAULT_PAIRS = {"2026": ("official_team", "official_hold"), "2027": ("official_2027_team", "official_2027_hold")}
+# The bundled baseline pair each season starts with when a request names no strategies.
+DEFAULT_PAIRS = {"2026": ("claude_opus55_xhigh_team", "claude_opus55_xhigh_hold"), "2027": ("claude_opus55_xhigh_2027_team", "claude_opus55_xhigh_2027_hold")}
 
 # Pre-match broadcast (rule 6.4 self-check): opening, a title card per team, one camera shot per robot and a face-off.
 # frontend/src/intro.ts lays out the same segments, scaled to the duration the server announces.
@@ -53,7 +55,7 @@ def intro_seconds(robots):
 
 class StartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # Omitted strategies default to the season's official baseline pair.
+    # Omitted strategies default to the season's bundled baseline pair.
     red: str | None = None
     blue: str | None = None
     seed: int = Field(default=42, ge=-(2**31), le=2**31-1)
@@ -69,9 +71,17 @@ class StartRequest(BaseModel):
     blue_control: Literal["team","independent"] = "independent"
     red_team_strategy: str | None = None
     blue_team_strategy: str | None = None
+    save_mp4: bool = False
+    battle_settings: dict[str, StrictFloat] | None = None
     # Uploaded appearances, by hardware model number.
     red_skins: dict[str,str] = Field(default_factory=dict)
     blue_skins: dict[str,str] = Field(default_factory=dict)
+
+
+class BattleSettingsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: Literal["2026", "2027"]
+    values: dict[str, StrictFloat]
 
 
 class FreeControllerRequest(BaseModel):
@@ -173,6 +183,7 @@ class ArenaService:
         self.submission_root = Path(submission_root or data_path("submissions"))
         self.workspace_registry = Path(workspace_registry or data_path(".arena_host/workspaces.json"))
         self.store = Store(data_root or data_path(".arena_data"))
+        self.settings = BattleSettings(self.store.directory / "battle-settings.json")
         self.custom_models = CustomModels(self.store.directory / "custom-models")
         token_path = self.store.directory / "referee.token"
         if not token_path.exists():
@@ -201,7 +212,7 @@ class ArenaService:
         """Saved strategies by key; `season` keeps only strategies written for that season."""
         profiles = {season_rules.rules_profile(season)} if season else set(season_rules.profiles())
         bundled = {p.parent.name: p for p in (ROOT / "examples").glob("*/manifest.json")}
-        remote = {p.parent.name: p for p in self.strategy_library.paths()}
+        remote = {canonical_key(p.parent.name): p for p in self.strategy_library.paths()}
         paths = [(p, "remote" if key in remote else "bundled") for key, p in (bundled | remote).items()]
         if self.submission_root.exists():
             paths += [(p, "local") for p in self.submission_root.glob("*/manifest.json")]
@@ -215,11 +226,11 @@ class ArenaService:
                     continue
                 manifest, _ = load_submission(manifest_path.parent)
                 if manifest["mode"] in modes and manifest.get("api_version")==3 and manifest.get("rules_profile") in profiles:
-                    key = manifest_path.parent.name
+                    key = canonical_key(manifest_path.parent.name)
                     if key in choices:
                         key = "submission-" + key
                     strategy_season = manifest_season(manifest)
-                    choices[key] = {"name": manifest_path.parent.name, "mode": manifest["mode"],
+                    choices[key] = {"name": canonical_key(manifest_path.parent.name), "mode": manifest["mode"],
                                     "version": manifest["version"], "path": manifest_path.parent, "season": strategy_season, "source": source}
                     if manifest["mode"] == "adaptive":
                         choices[key]["robot"] = manifest["robot"]
@@ -231,7 +242,7 @@ class ArenaService:
                             if preset:
                                 choices[key]['preset'] = preset
                     if manifest['mode']=='team':choices[key]['team_lineup']=normalize_team_lineup(manifest.get('team_lineup'),strategy_season)
-                    profile = load_profile(manifest_path.parent, official=source != "local")
+                    profile = load_profile(manifest_path.parent, bundled=source != "local")
                     choices[key]['agent'] = profile['agent']
                     if profile.get('display_name'):
                         choices[key]['display_name'] = profile['display_name']
@@ -258,6 +269,10 @@ class ArenaService:
     def resolve_season(self, args):
         """The request with its map and default strategies filled in: an explicit map wins,
         otherwise the season shared by every selected strategy, otherwise RMUC 2027."""
+        for field in ("red", "blue", "red_team_strategy", "blue_team_strategy"):
+            setattr(args, field, canonical_key(getattr(args, field)))
+        args.red_deck = [canonical_key(key) for key in args.red_deck]
+        args.blue_deck = [canonical_key(key) for key in args.blue_deck]
         if args.map:
             season = season_rules.season_of_map(args.map)
         else:
@@ -281,8 +296,9 @@ class ArenaService:
 
     def start(self, data):
         args, season = self.resolve_season(StartRequest.model_validate(data))
+        args.battle_settings = normalize_settings(args.battle_settings if args.battle_settings is not None else self.settings.get(season)["overrides"], season)
         if args.duration!=420 and not self.test_mode:
-            raise ValueError("Official matches are 420 seconds; use CLI for unranked short test matches")
+            raise ValueError("Ranked matches are 420 seconds; use CLI for unranked short test matches")
         with self.lock:
             if self.busy:
                 raise ValueError("请先结束当前比赛")
@@ -312,12 +328,15 @@ class ArenaService:
                 if selected!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(selected,season)
             fielded = lineups or mirrored_lineups(season_rules.default_lineup(season),season)
             skins = {team: self.custom_models.resolve(team, getattr(args, team + "_skins"), {d["model"] for d in fielded[team]}) for team in ("red", "blue")}
-            with Match(args.seed, args.duration, args.map, lineups=lineups) as match:
+            with Match(args.seed, args.duration, args.map, lineups=lineups, battle_settings=args.battle_settings) as match:
                 self.frame = match.snapshot()
             self.error, self.paused, self.stopping, self.battle = None, False, False, None
             self.match_id = uuid.uuid4().hex[:16]
             self.metadata = {"engine":"rust","rules":season_rules.rules_profile(season),"season":season,"roster":list(season_rules.slots(season)),"test_match":args.duration!=420,"seed":args.seed,"duration":args.duration,"map":args.map,
                              "teams":team_metadata if decks else {t:{k:v for k,v in choices[key].items() if k!="path"} for t,key in (("red",args.red),("blue",args.blue))}}
+            self.metadata.update({"battle_settings": args.battle_settings, "save_mp4": args.save_mp4})
+            if args.battle_settings:
+                self.metadata["test_match"] = True
             if decks:
                 self.metadata.update({"lineups":lineups,"test_match":True,"match_mode":"deck"})
             if any(skins.values()):
@@ -331,8 +350,9 @@ class ArenaService:
 
     def _run(self, match_id, red, blue, args, decks=None, free_team_strategies=None, skins=None):
         try:
-            with Battle(red,blue,args.seed,args.duration,args.map,self.sandbox,decks=decks,team_lineup=args.team_lineup,free_team_strategies=free_team_strategies) as battle:
+            with Battle(red,blue,args.seed,args.duration,args.map,self.sandbox,decks=decks,team_lineup=args.team_lineup,free_team_strategies=free_team_strategies,battle_settings=args.battle_settings) as battle:
                 battle.metadata["match_id"] = match_id
+                battle.metadata["save_mp4"] = args.save_mp4
                 if skins and any(skins.values()):
                     battle.metadata["skins"] = skins
                 with self.lock:
@@ -419,9 +439,9 @@ class ArenaService:
         for key, entry in {**self.catalog(), **self.catalog(("adaptive",))}.items():
             # Each entry already names its rules season.
             path = entry["path"]
-            profile, showcase = load_profile(path, official=entry["source"] != "local"), load_showcase(path)
+            profile, showcase = load_profile(path, bundled=entry["source"] != "local"), load_showcase(path)
             item = {k: v for k, v in entry.items() if k != "path"}
-            item.update(key=key, official=entry["source"] != "local", profile=profile,
+            item.update(key=key, bundled=entry["source"] != "local", profile=profile,
                         showcase={k: showcase[k] for k in ("title", "tagline", "style")} if showcase else None,
                         created_at=profile.get("created_at") or (path / "manifest.json").stat().st_mtime)
             standing = standings.get((entry["name"], entry["version"]))
@@ -465,7 +485,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             if origin and origin not in allowed:
                 return JSONResponse({"error":"Invalid origin"},status_code=403)
         if request.method == "POST":
-            video = request.url.path == "/api/video-export"
+            video = request.url.path == "/api/video-export" or (request.url.path.startswith("/api/matches/") and request.url.path.endswith("/video"))
             expected_type = "video/webm" if video else "application/json"
             if request.headers.get("content-type","").split(";")[0] != expected_type:
                 return JSONResponse({"error": f"{expected_type} required"},status_code=415)
@@ -498,6 +518,55 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             raise HTTPException(exc.status_code, str(exc)) from exc
         return FileResponse(path, media_type="video/mp4", filename="rmuc-arena.mp4",
                             background=BackgroundTask(temporary.cleanup))
+
+    @app.get("/api/battle-settings")
+    def battle_settings(season: Literal["2026", "2027"] = "2027"):
+        return service.settings.get(season)
+
+    @app.post("/api/battle-settings")
+    def save_battle_settings(data: BattleSettingsRequest):
+        try:
+            return service.settings.save(data.season, data.values)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/matches/{match_id}/video")
+    def match_video(match_id: str):
+        path = service.store.video_path(match_id)
+        if not path or not path.is_file():
+            raise HTTPException(404, "MP4 not found")
+        return FileResponse(path, media_type="video/mp4", filename=f"rmuc-{match_id}.mp4", content_disposition_type="inline")
+
+    @app.post("/api/matches/{match_id}/video")
+    async def save_match_video(match_id: str, request: Request,
+                               duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+        with service.store.lock:
+            record = service.store.match(match_id)
+            if not record:
+                raise HTTPException(404, "Unknown match")
+            if record["status"] in ("initializing", "running") or record.get("video_status") == "processing":
+                raise HTTPException(409, "Wait for the match or video export to finish")
+            service.store.video_status(match_id, "processing")
+        temporary = None
+        try:
+            path, temporary = await video_exporter.export(request.stream(), duration=duration)
+            with service.store.lock:
+                if not service.store.match(match_id):
+                    raise HTTPException(404, "Match was deleted")
+                target = service.store.directory / "videos" / f"{match_id}.mp4"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                path.replace(target)
+                service.store.video_status(match_id, "ready", path=target)
+            return {"match_id": match_id, "url": f"/api/matches/{match_id}/video"}
+        except VideoExportError as exc:
+            service.store.video_status(match_id, "failed", error=str(exc))
+            raise HTTPException(exc.status_code, str(exc)) from exc
+        except BaseException:
+            service.store.video_status(match_id, "failed", error="录像保存中断，可重试保存原始 WebM")
+            raise
+        finally:
+            if temporary is not None:
+                temporary.cleanup()
 
     @app.get('/api/models')
     def models():
@@ -570,10 +639,18 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     def deck_presets():
         path=service.store.directory/'deck-presets.json'
         with service.lock:
-            return list(json.loads(path.read_text(encoding="utf-8")).values()) if path.exists() else []
+            presets = list(json.loads(path.read_text(encoding="utf-8")).values()) if path.exists() else []
+        for preset in presets:
+            preset["decks"] = {team: [canonical_key(key) for key in cards] for team, cards in preset["decks"].items()}
+            for controller in preset["controllers"].values():
+                controller["strategy"] = canonical_key(controller.get("strategy", ""))
+        return presets
 
     @app.post("/api/deck-presets")
     def save_deck_preset(data:DeckPresetRequest):
+        data.decks = {team: [canonical_key(key) for key in cards] for team, cards in data.decks.items()}
+        for controller in data.controllers.values():
+            controller.strategy = canonical_key(controller.strategy)
         from .submissions import write_json
         try:
             name=data.name.strip()
@@ -629,7 +706,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         if not found:
             raise HTTPException(404, "Unknown strategy")
         item, path = found
-        if item["official"]:
+        if item["bundled"]:
             raise HTTPException(403, "内置与在线策略的分类由发布仓库维护，不能在网页修改")
         try:
             profile = validate_profile({**data.model_dump(exclude_none=True), "created_at": item["profile"].get("created_at") or item["created_at"]})

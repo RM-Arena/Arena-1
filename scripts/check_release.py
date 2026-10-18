@@ -11,6 +11,9 @@ PATTERNS = [re.compile(rb"gh[pousr]_[A-Za-z0-9_]{30,}"),
             re.compile(rb"AKIA[0-9A-Z]{16}")]
 
 
+DEPRECATED = re.compile(("off" + "icial|\u5b98\u65b9").encode(), re.IGNORECASE)
+
+
 def main():
     files = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
     errors = []
@@ -25,6 +28,13 @@ def main():
             if absolute.suffix not in (".glb", ".blend", ".m4a", ".mp3", ".png", ".jpg", ".woff2"):
                 if any(pattern.search(absolute.read_bytes()) for pattern in PATTERNS):
                     errors.append(f"Possible credential in {filename}; inspect locally")
+                if "third_party" not in path.parts and path.name not in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+                    try:
+                        text = absolute.read_text(encoding="utf-8")
+                    except UnicodeDecodeError:
+                        text = ""
+                    if DEPRECATED.search(filename.encode()) or DEPRECATED.search(text.encode()):
+                        errors.append(f"Obsolete category in publication source: {filename}")
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     if package["license"] != "SEE LICENSE IN LICENSE":
         errors.append("Package must point to the non-commercial learning license")

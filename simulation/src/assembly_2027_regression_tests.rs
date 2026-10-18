@@ -114,7 +114,7 @@ fn default_infantry_performance_is_hp_and_cooling() {
 }
 
 #[test]
-fn rune_has_official_constant_and_reset_sine_motion() {
+fn rune_has_rulebook_constant_and_reset_sine_motion() {
     let mut m = Engine::new(42, 420.0, "rmuc2027").unwrap();
     let constant = std::f64::consts::PI / 3.0;
     for t in [0.0, 40.0, 179.0, 200.0] {

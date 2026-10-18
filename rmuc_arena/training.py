@@ -16,9 +16,9 @@ from .showcase import PROFILE_FILE, SHOWCASE_FILE, validate_profile
 from . import seasons as season_rules
 
 
-def official_example(season, name):
+def rulebook_example(season, name):
     """Public baseline example directory of a season (2026 keeps the original names)."""
-    return ROOT / "examples" / (f"official_{name}" if season == season_rules.LEGACY_SEASON else f"official_{season}_{name}")
+    return ROOT / "examples" / (f"claude_opus55_xhigh_{name}" if season == season_rules.LEGACY_SEASON else f"claude_opus55_xhigh_{season}_{name}")
 
 
 class TrainingService:
@@ -34,7 +34,7 @@ class TrainingService:
         self.stopping = threading.Event()
 
     def example(self, season, name):
-        bundled = official_example(season, name)
+        bundled = rulebook_example(season, name)
         if self.strategy_library:
             for manifest in self.strategy_library.paths():
                 if manifest.parent.name == bundled.name:

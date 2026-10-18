@@ -50,7 +50,7 @@ PROFILES_2027 = {
 
 def preset_key(model, tactic, season="2026"):
     suffix = "" if tactic == "balanced" else "_" + tactic
-    prefix = "official_adaptive" if str(season) == "2026" else f"official_{season}_adaptive"
+    prefix = "claude_opus55_xhigh_adaptive" if str(season) == "2026" else f"claude_opus55_xhigh_{season}_adaptive"
     return f"{prefix}_{model}{suffix}"
 
 

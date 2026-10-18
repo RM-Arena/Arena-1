@@ -18,7 +18,7 @@ class ConstructionAuditTests(unittest.TestCase):
         cls.config = json.loads((ROOT/'config/rules.json').read_text())
         cls.designs = copy.deepcopy(cls.config['robot_designs'])
         COMPLIANCE.add_builtin_construction_inspections(cls.designs)
-        cls.limits = COMPLIANCE.construction_2027(cls.config['official_2027']['construction']['source'])
+        cls.limits = COMPLIANCE.construction_2027(cls.config['rulebook_2027']['construction']['source'])
 
     def model(self, key):
         return copy.deepcopy(self.designs[str(key)])

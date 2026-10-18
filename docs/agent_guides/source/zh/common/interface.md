@@ -34,7 +34,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | 可见弹丸：己方全部，加上视野内的敌方弹丸 |
 | `arena` | 地图几何，见「比赛概览」 |
 | `referee` | 裁判快照，见下节 |
-| `specs`、`official_rules`、`simulation_assumptions` | 参数摘要；完整数值请用 `sdk.RULES`、`sdk.DESIGNS` 或 `arena.json` |
+| `specs`、`rulebook_rules`、`simulation_assumptions` | 参数摘要；完整数值请用 `sdk.RULES`、`sdk.DESIGNS` 或 `arena.json` |
 
 `robots` 中每台机器人的常用字段：
 

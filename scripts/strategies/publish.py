@@ -15,8 +15,8 @@ SOURCE_LIMIT = 512 * 1024
 
 def publish(source, output, min_client_version="0.6.0", tracked=False):
     source, output = Path(source).resolve(), Path(output).resolve()
-    if not re.fullmatch(r"\d+\.\d+\.\d+", min_client_version):
-        raise ValueError("Minimum client version must be major.minor.patch")
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?", min_client_version):
+        raise ValueError("Minimum client version must be major.minor.patch with an optional prerelease suffix")
     tracked_paths = None
     if tracked:
         names = subprocess.check_output(["git", "ls-files", "-z", "--", str(source)], cwd=source).decode().split("\0")

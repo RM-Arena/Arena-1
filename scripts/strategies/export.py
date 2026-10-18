@@ -48,7 +48,7 @@ def main():
         destination = output / target
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / source, destination)
-    (output / "library.json").write_text('{"min_client_version": "0.6.0"}\n', encoding="utf-8")
+    (output / "library.json").write_text('{"min_client_version": "0.7.0-beta.1"}\n', encoding="utf-8")
     (output / ".gitignore").write_text('__pycache__/\n*.pyc\n.DS_Store\n', encoding="utf-8")
     # Submission hashes cover the exact bytes; checkout must not rewrite line endings.
     (output / ".gitattributes").write_text('* text=auto eol=lf\nstrategies/** -text\nbundles/** binary\n', encoding="utf-8")

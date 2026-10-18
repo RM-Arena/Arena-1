@@ -21,7 +21,7 @@ fn fixture(team: &str, slot: u32) -> (Engine, usize) {
     }
     // Flat, empty field after the engineer's initial defensive buff has expired.
     m.tick = 4000;
-    m.update_official_buffs();
+    m.update_rulebook_buffs();
     (m, i)
 }
 
@@ -115,7 +115,7 @@ fn every_visible_ground_armor_face_takes_17mm_and_42mm_damage() {
                         m.robots[i].weak = false;
                         m.robots[i].invulnerable_until = 0.0;
                         m.robots[i].armor_hit_times.fill(-1000.0);
-                        m.update_official_buffs();
+                        m.update_rulebook_buffs();
                         let (point, normal) = model_face(&m.robots[i], face, horizontal, vertical);
                         shoot(&mut m, i, point, normal, heavy);
                         let expected = max_hp - if heavy { 200.0_f64.min(max_hp) } else { 20.0 };
@@ -210,7 +210,7 @@ fn hit_speed_uses_the_moving_armor_point_on_a_spinning_robot() {
         p.vx = -normal.x * speed;
         p.vy = -normal.y * speed;
         p.vz = -normal.z * speed;
-        m.official_robot_hit(i, &p, 0.0, point.x, point.y, point.z);
+        m.rulebook_robot_hit(i, &p, 0.0, point.x, point.y, point.z);
         assert_eq!(
             m.robots[i].hp,
             hp - damage,
@@ -304,7 +304,7 @@ fn defense_and_attack_multipliers_are_applied_once_and_use_the_strongest_buff() 
         m.teams.get_mut("blue").unwrap().tech_defense = tech;
         m.robots[i].crossing_defense = crossing;
         m.robots[i].crossing_defense_until = m.time() + 10.0;
-        m.update_official_buffs();
+        m.update_rulebook_buffs();
         let hp = m.robots[i].hp;
         let (point, normal) = model_face(&m.robots[i], 0, 0.0, 0.0);
         queue_shot(&mut m, i, point, normal, false);
@@ -314,7 +314,7 @@ fn defense_and_attack_multipliers_are_applied_once_and_use_the_strongest_buff() 
     }
     let (mut m, i) = fixture("blue", 2);
     m.tick = 1000;
-    m.update_official_buffs();
+    m.update_rulebook_buffs();
     let hp = m.robots[i].hp;
     let (point, normal) = model_face(&m.robots[i], 2, 0.0, 0.0);
     shoot(&mut m, i, point, normal, false);

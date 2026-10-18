@@ -82,7 +82,7 @@ def mecanum_wheel(wheel,radius,width,hand,motor_side):
 
 
 def armor_module(slot,mount,width,height,parent_name='ArmorPlate'):
-    """Official armor module on an A-type support: plate tilted so its normal is
+    """Rulebook armor module on an A-type support: plate tilted so its normal is
     75 deg from down. `mount` sits at the support foot, +X facing out."""
     plate=empty(parent_name,mount);plate.rotation_euler[1]=-math.radians(15)
     for y in (-.0475,.0475):
@@ -100,7 +100,7 @@ def armor_module(slot,mount,width,height,parent_name='ArmorPlate'):
     box('ArmorHitFace',(.003,w*.96,h*.92),(face_offset-.0015,0,0),REF_GRAY,plate,.002)
     box('ArmorSticker',(.002,w*.62 if w<.2 else w*.72,h*.62),(.0115,0,0),WHITE,plate,.003)
     for y in (-w/2-.011,w/2+.011):
-        box('OfficialArmorLamp',(.006,.008,h*.56),(.009,y,0),GLOW,plate,.002)
+        box('RulebookArmorLamp',(.006,.008,h*.56),(.009,y,0),GLOW,plate,.002)
     for y in (-w*.42,w*.42):
         for z in (-h*.40,h*.40):cyl('ArmorM4',.0035,.003,(.0115,y,z),ROBOT_ALUMINUM,plate,(0,math.pi/2,0),8)
     for y in (-w*.3,w*.3):box('ArmorTopTab',(.012,.012,.008),(-.004,y,h/2+.008),ROBOT_ALUMINUM,plate,.002)
@@ -175,7 +175,7 @@ def verify_robot_envelope(slot,d):
             if obj.type!='MESH' or exclude_mast and obj.name.startswith(('RigidSafetyMast','SafetyHookRing')):continue
             points.extend(obj.matrix_world@Vector(v) for v in obj.bound_box)
         return [max(p[i] for p in points)-min(p[i] for p in points) for i in range(3)]
-    limit=CONFIG['official']['construction']['envelope'][d['role']]
+    limit=CONFIG['rulebook']['construction']['envelope'][d['role']]
     legged=d.get('chassis_type')=='wheel_legged'
     if legged:pose_legs(d,d['leg_min_m'])
     stowed=dimensions(d['role']=='aerial')

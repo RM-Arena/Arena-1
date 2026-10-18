@@ -118,7 +118,7 @@ def act(obs, state):
 
     def test_deck_and_engine_input_validation(self):
         card = self.card()
-        for decks in ({"red":[],"blue":[card]}, {"red":[ROOT/"examples/official_team"],"blue":[card]}, {"red":[card]}):
+        for decks in ({"red":[],"blue":[card]}, {"red":[ROOT/"examples/claude_opus55_xhigh_team"],"blue":[card]}, {"red":[card]}):
             with self.subTest(decks=decks), self.assertRaises(ValueError):
                 prepare_decks(decks,42)
         for red in ([{"slot":1,"model":5}], [{"slot":1,"model":3}]*2, []):
@@ -151,7 +151,7 @@ def act(obs, state):
         self.assertNotIn("custom-d",client.get("/api/catalog").json())
         guide=client.get("/api/agent-guide",params={"mode":"adaptive","robot":3})
         self.assertIn("开发阶段不预告最终阵容",guide.text)
-        args={"mode":"deck","red_deck":["custom-d"]*3,"blue_deck":["official_adaptive_7"],"duration":1}
+        args={"mode":"deck","red_deck":["custom-d"]*3,"blue_deck":["claude_opus55_xhigh_adaptive_7"],"duration":1}
         response=client.post("/api/start",json=args)
         self.assertEqual(response.status_code,200,response.text)
         record=self.wait(lambda:client.get("/api/matches/"+response.json()["match_id"]).json())

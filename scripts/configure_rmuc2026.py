@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def tiers(hp,power,heat,cooling):
     return [{'level':i+1,'hp':h,'power_w':p,'max_heat':q,'cooling':c} for i,(h,p,q,c) in enumerate(zip(hp,power,heat,cooling))]
 
-official = {
+rulebook = {
     'source': source_metadata("rules"),
     'terrain_geometry': {'central_ramp_deg':10.5,'assembly_ramp_deg':10,'road_ramp_deg':11,'fly_ramp_deg':17,'fortress_ramp_deg':20,'trapezoid_ramps_deg':[43,23],'trapezoid_height_m_range':[.2,.4],'source_pages':[52,53,54,55,60,61]},
     'match': {'duration_s':420,'field_length_m':28,'field_width_m':15,'fence_height_m':2.4,'prep_s':180,'self_check_s':15,'countdown_s':5,'source_pages':[22,32,113,119]},
@@ -63,9 +63,9 @@ sim = {'note':'Only these robot hardware, sensor and geometric assumptions are n
 
 from chapter4_layout import CHARGER, CHARGER_NORMAL, make_arena, mirrored
 arena = make_arena()
-sim['map_fidelity'] = 'Chapter 4 dimensioned module footprints and figure4-5 placement; unlabelled joints reconstructed from the plan, not official CAD.'
-official['penalties'] = {'offender_hp_ratio': 0.15, 'teammate_hp_ratio': 0.05, 'repeat_window_s': 30, 'offender_fpv_s': 5, 'teammate_fpv_s': 2, 'engineer_yellow_limit': 2, 'other_yellow_limit': 3, 'yellow_min_hp': 1, 'source_pages': [122, 123], 'card_authority': 'trusted_referee_only; subjective intent is not randomly judged'}
-official['adaptations']['all_runes_variable_speed'] = True
+sim['map_fidelity'] = 'Chapter 4 dimensioned module footprints and figure4-5 placement; unlabelled joints reconstructed from the plan, not rulebook CAD.'
+rulebook['penalties'] = {'offender_hp_ratio': 0.15, 'teammate_hp_ratio': 0.05, 'repeat_window_s': 30, 'offender_fpv_s': 5, 'teammate_fpv_s': 2, 'engineer_yellow_limit': 2, 'other_yellow_limit': 3, 'yellow_min_hp': 1, 'source_pages': [122, 123], 'card_authority': 'trusted_referee_only; subjective intent is not randomly judged'}
+rulebook['adaptations']['all_runes_variable_speed'] = True
 sim.update({
     'arm_insert_speed_mps': .1,
     'arm_translate_speed_mps': .15,
@@ -83,7 +83,7 @@ sim.update({
         'note': "Both small and large runes use smoothly varying shaft speed throughout the match; both faces share the same motor. This overrides the manual's constant small-rune speed.",
     },
 })
-sim['structure_geometry'] = {'base_lower_center_above_pedestal_m': 0.287, 'base_lower_radius_m': 0.34, 'base_lower_width_m': 0.23, 'base_top_center_above_pedestal_m': 1.043, 'outpost_middle_center_m': [1.116, 1.216, 1.316], 'outpost_top_center_m': 1.5, 'armor_height_m': 0.125, 'base_open_duration_s': 1.5, 'note': 'Finite proxies reconstructed from manual figures 4-10/11/32; unlabelled armor centers and motion are simulation assumptions, not official CAD.'}
+sim['structure_geometry'] = {'base_lower_center_above_pedestal_m': 0.287, 'base_lower_radius_m': 0.34, 'base_lower_width_m': 0.23, 'base_top_center_above_pedestal_m': 1.043, 'outpost_middle_center_m': [1.116, 1.216, 1.316], 'outpost_top_center_m': 1.5, 'armor_height_m': 0.125, 'base_open_duration_s': 1.5, 'note': 'Finite proxies reconstructed from manual figures 4-10/11/32; unlabelled armor centers and motion are simulation assumptions, not rulebook CAD.'}
 sim['pickup_phases'] = {'approach_hold_s': 0.2, 'grip_hold_s': 0.35, 'lift_hold_s': 0.3, 'stow_hold_s': 0.4, 'position_tolerance_m': 0.045, 'note': 'Requires actual arm contact, closing, lift and storage. Keep pick_unit true; leaving, destruction, weakness or manual arm control cancels.'}
 sim['central_cover_height_above_deck_m'] = .15
 sim['overheat_vision_range_multiplier'] = .35
@@ -91,15 +91,15 @@ sim['ground_camera_fov_deg'] = {'horizontal':100.0,'vertical':70.0,'note':'Groun
 sim['central_elevation_m'] = .4
 sim.pop('trapezoid_elevation_m',None)
 sim['trapezoid_elevations_m'] = [.2,.4]
-official['terrain_geometry']['chapter4_dimensions'] = {'base_x_m':2.407,'fortress_x_m':6.6,'outpost_x_blue_m':17.008,'outpost_y_blue_m':3.643,'central_width_m':7.7,'central_depth_m':10.82,'fortress_width_m':2.24,'fortress_depth_m':1.939,'fortress_height_m':.15,'helipad_width_m':2.2,'helipad_height_m':.9,'trapezoid_segments_m':[6.707,3.798],'trapezoid_depth_m':4.38,'highway_width_segments_m':[1.561,2.09],'tunnel_width_m':.8,'tunnel_clearance_m':.25,'fly_gap_m':.65,'fly_run_m':1.145,'fly_width_m':1.143,'road_bump_height_m':.07,'road_bump_pitch_m':.24,'assembly_plinth_height_m':.1,'source_pages':[35,43,52,53,54,55,59,60,61]}
+rulebook['terrain_geometry']['chapter4_dimensions'] = {'base_x_m':2.407,'fortress_x_m':6.6,'outpost_x_blue_m':17.008,'outpost_y_blue_m':3.643,'central_width_m':7.7,'central_depth_m':10.82,'fortress_width_m':2.24,'fortress_depth_m':1.939,'fortress_height_m':.15,'helipad_width_m':2.2,'helipad_height_m':.9,'trapezoid_segments_m':[6.707,3.798],'trapezoid_depth_m':4.38,'highway_width_segments_m':[1.561,2.09],'tunnel_width_m':.8,'tunnel_clearance_m':.25,'fly_gap_m':.65,'fly_run_m':1.145,'fly_width_m':1.143,'road_bump_height_m':.07,'road_bump_pitch_m':.24,'assembly_plinth_height_m':.1,'source_pages':[35,43,52,53,54,55,59,60,61]}
 
 specs={}
 for role,hp,power,heat,cooling,ammo,damage,muzzle in [('hero',150,50,100,20,0,200,12),('engineer',250,120,0,0,0,0,0),('infantry',200,45,40,12,0,20,25),('aerial',0,0,100,20,750,20,25)]:
     specs[role]={'hp':hp,'power_w':power,'speed':sim['max_move_speed_mps'][role],'acceleration':sim['acceleration_mps2'][role],'damage':damage,'cooldown':sim['hero_trigger_interval_s'] if role=='hero' else sim['infantry_trigger_interval_s'],'ammo':ammo,'vision':sim['vision_range_m'][role],'range':40,'armor':0,'heat_per_shot':100 if role=='hero' else 0 if role=='engineer' else 10,'max_heat':heat,'cooling':cooling,'projectile_speed':muzzle,'asset':'/assets/robot-'+role+'.glb'}
 from robot_designs import construction_limits, make_designs, validate_designs
 construction=construction_limits();designs=make_designs();validate_designs(designs,construction)
-official['construction']=construction
-official['power']['wireless_transfer_max_w']=120
+rulebook['construction']=construction
+rulebook['power']['wireless_transfer_max_w']=120
 sim['physics_engine']='rapier3d-f64 0.26.1 enhanced-determinism; 120Hz rigid bodies and ray suspension'
 sim['physics_dt_s']=1/120
 sim['robot_hardware']='18 selectable symmetric hardware designs; default six-model lineup preserved; construction bounds enforced'
@@ -111,6 +111,6 @@ for old in ['robot_radius_m','muzzle_height_m','aerial_muzzle_offset_m','max_mov
     sim.pop(old,None)
 arena['charging_docks']={'red':{'transmitter':[*CHARGER,.16],'normal':CHARGER_NORMAL},
                          'blue':{'transmitter':[*mirrored(CHARGER),.16],'normal':[-v for v in CHARGER_NORMAL]}}
-rules={'version':'rmuc-2026-v1.0.0-arena-v3','dt':.05,'policy_interval':2,'official':official,'simulation_assumptions':sim,'robot_designs':designs,'roster':[{'slot':i,'role':r} for i,r in [(1,'hero'),(2,'engineer'),(3,'infantry'),(4,'infantry'),(6,'aerial'),(7,'infantry')]],'maps':{'rmuc2026':arena},'specs':specs}
+rules={'version':'rmuc-2026-v1.0.0-arena-v3','dt':.05,'policy_interval':2,'rulebook':rulebook,'simulation_assumptions':sim,'robot_designs':designs,'roster':[{'slot':i,'role':r} for i,r in [(1,'hero'),(2,'engineer'),(3,'infantry'),(4,'infantry'),(6,'aerial'),(7,'infantry')]],'maps':{'rmuc2026':arena},'specs':specs}
 (ROOT/'config/rules.json').write_text(json.dumps(rules,ensure_ascii=False,indent=2)+'\n')
-print('Configured RMUC 2026 V1.0.0; official values are page-referenced; 6v6 adaptation applied.')
+print('Configured RMUC 2026 V1.0.0; rulebook values are page-referenced; 6v6 adaptation applied.')

@@ -10,12 +10,12 @@ const fmt=(n:number)=>Math.round(n).toLocaleString('en-US');
 
 // ---------------------------------------------------------------- pre-match
 // Rule 6.4 self-check, shown as the lineup intro, followed by the 6.5 five-second countdown.
-export function Prematch({stage,remaining,duration,frame,metadata,standings,images,models,free,paused,replay,onCut,onSkip}:{stage:'self_check'|'countdown';remaining:number;duration:number;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
+export function Prematch({stage,remaining,duration,frame,metadata,standings,images,models,free,paused,replay,onCut,onSkip,locked=false}:{locked?:boolean;stage:'self_check'|'countdown';remaining:number;duration:number;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
   const n=Math.max(1,Math.ceil(remaining-1e-6));
   if(stage==='countdown')return <Stage className="cer-countdown"><div className="cd-shade"/>
     <svg key={'bolt'+n} className={`cd-bolt k${n%2}`} viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden><polyline points={bolt(n)}/><polyline className="core" points={bolt(n)}/></svg>
-    <div key={n} className="cd-number">{n}</div><div className="cd-caption">比赛即将开始</div><button className="cer-skip" onClick={onSkip}>跳过</button></Stage>;
-  return <LineupIntro frame={frame} metadata={metadata} standings={standings} images={images} models={models} duration={duration} remaining={remaining} free={free} paused={paused} replay={replay} onCut={onCut} onSkip={onSkip}/>;
+    <div key={n} className="cd-number">{n}</div><div className="cd-caption">比赛即将开始</div><button className="cer-skip" disabled={locked} onClick={onSkip}>跳过</button></Stage>;
+  return <LineupIntro frame={frame} metadata={metadata} standings={standings} images={images} models={models} duration={duration} remaining={remaining} free={free} paused={paused} replay={replay} onCut={onCut} onSkip={onSkip} locked={locked}/>;
 }
 function bolt(seed:number){let s=seed*9301+49297;const r=()=>{s=(s*9301+49297)%233280;return s/233280;};const pts:string[]=[];const vertical=seed%2===0;
   for(let i=0;i<=22;i++){const t=i/22;pts.push(vertical?`${960+(r()-.5)*180+(t-.5)*260},${t*1080}`:`${t*1920},${540+(r()-.5)*150+(t-.5)*-220}`);}return pts.join(' ');}
@@ -52,10 +52,10 @@ function Diverge({label,red,blue,format=fmt}:{label:string;red:number;blue:numbe
 }
 function Tile({icon,value,label}:{icon:string;value:string;label:string}){return <div className="res-tile"><span>{icon}</span><b>{value}</b><small>{label}</small></div>;}
 
-export function Results({frame,metadata,stats,images,onMvp,onClose,auto}:{frame:Frame;metadata:Metadata|null;stats:MatchStats;images:Record<string,string>;onMvp:()=>void;onClose:()=>void;auto:boolean}){
+export function Results({frame,metadata,stats,images,onMvp,onClose,auto,locked=false,paused=false}:{locked?:boolean;paused?:boolean;frame:Frame;metadata:Metadata|null;stats:MatchStats;images:Record<string,string>;onMvp:()=>void;onClose:()=>void;auto:boolean}){
   const v=verdict(frame),w=frame.winner,hero=(t:TeamId)=>frame.robots.find(r=>r.team===t&&r.role==='hero')||frame.robots.find(r=>r.team===t);
   const [left,setLeft]=useState(auto?10:0);
-  useEffect(()=>{if(!auto)return;const id=window.setInterval(()=>setLeft(n=>Math.max(0,n-1)),1000);return()=>window.clearInterval(id);},[auto]);
+  useEffect(()=>{if(!auto||paused)return;const id=window.setInterval(()=>setLeft(n=>Math.max(0,n-1)),1000);return()=>window.clearInterval(id);},[auto,paused]);
   useEffect(()=>{if(auto&&left===0)onMvp();},[auto,left,onMvp]);
   const dmg=(t:TeamId)=>(frame.teams[t] as {attack_damage?:number}).attack_damage??frame.teams[t].score,maxAssembly=(t:TeamId)=>{const a=stats.teams[t].assemblies.map((n,i)=>n?i+1:0);return Math.max(0,...a);};
   return <Stage className="cer-results">
@@ -79,12 +79,12 @@ export function Results({frame,metadata,stats,images,onMvp,onClose,auto}:{frame:
     {TEAMS.map(t=>{const s=stats.teams[t];return <aside key={t} className={`res-tiles ${t}`}>
       <Tile icon="✷" value={`大×${s.runes.large} 小×${s.runes.small}`} label="能量机关"/><Tile icon="⚙" value={maxAssembly(t)?`Lv.${maxAssembly(t)}`:'—'} label="最高装配"/>
       <Tile icon="▲" value={`Lv.${s.levelMax}`} label="最高等级"/><Tile icon="◆" value={`×${stats.teams[t==='red'?'blue':'red'].outpostsLost}`} label="击毁前哨站"/></aside>;})}
-    <footer className="res-actions"><button onClick={onMvp}>MVP 结算{left>0?` · ${left}s`:''}</button><button onClick={onClose}>继续查看战场</button></footer>
+    <footer className="res-actions"><button disabled={locked} onClick={onMvp}>MVP 结算{left>0?` · ${left}s`:''}</button><button disabled={locked} onClick={onClose}>继续查看战场</button></footer>
   </Stage>;
 }
 
 // ---------------------------------------------------------------- MVP
-export function MvpCard({mvp,metadata,image,onBack,onClose}:{mvp:Mvp;metadata:Metadata|null;image?:string;onBack:()=>void;onClose:()=>void}){
+export function MvpCard({mvp,metadata,image,onBack,onClose,locked=false}:{locked?:boolean;mvp:Mvp;metadata:Metadata|null;image?:string;onBack:()=>void;onClose:()=>void}){
   const r:Robot=mvp.robot,team=r.team,{code,name}=nickname(r);
   return <Stage className={`cer-mvp ${team}`}>
     <div className="mvp-bg"/><div className="mvp-streak"/><div className="mvp-word">MVP</div>
@@ -95,6 +95,6 @@ export function MvpCard({mvp,metadata,image,onBack,onClose}:{mvp:Mvp;metadata:Me
       {mvp.lines.map(l=><div key={l.label} className="mvp-line"><span>{l.label}</span><b>{l.value}{l.unit&&<small>{l.unit}</small>}</b></div>)}
       {mvp.note&&<p>{mvp.note}</p>}
     </div>
-    <footer className="res-actions"><button onClick={onBack}>返回数据面板</button><button onClick={onClose}>继续查看战场</button></footer>
+    <footer className="res-actions"><button disabled={locked} onClick={onBack}>返回数据面板</button><button disabled={locked} onClick={onClose}>继续查看战场</button></footer>
   </Stage>;
 }

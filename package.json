@@ -1,11 +1,12 @@
 {
   "name": "arena-1",
   "private": true,
-  "version": "0.6.1-beta.1",
+  "version": "0.7.0-beta.1",
   "scripts": {
     "dev": "vite --config frontend/vite.config.ts",
     "build": "tsc -p frontend/tsconfig.json && vite build --config frontend/vite.config.ts",
     "start": "uv run --locked python -m rmuc_arena serve",
+    "headless": "uv run --locked python -m rmuc_arena headless",
     "test": "uv run --locked python -m unittest discover -s tests",
     "test:rust": "cargo test --manifest-path simulation/Cargo.toml",
     "test:rune-lights": "bun test ./scripts/rune_lights.test.cjs",

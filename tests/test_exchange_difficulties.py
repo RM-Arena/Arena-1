@@ -9,8 +9,8 @@ class ExchangeDifficultyTests(unittest.TestCase):
     def test_authoring_profiles_equal_public_rules(self):
         data=json.loads((ROOT/'config/rules.json').read_text())
         self.assertEqual(data['simulation_assumptions']['assembly_difficulties'],ASSEMBLY_DIFFICULTIES)
-        self.assertEqual(data['official']['assembly']['difficulty_4_secondary_insert_window_s'],3)
+        self.assertEqual(data['rulebook']['assembly']['difficulty_4_secondary_insert_window_s'],3)
         for index,profile in enumerate(ASSEMBLY_DIFFICULTIES):
-            bounds=data['official']['assembly']['pose_ranges']['1' if index==0 else '2-4']
+            bounds=data['rulebook']['assembly']['pose_ranges']['1' if index==0 else '2-4']
             for axis,interval in profile['pose_ranges'].items():
                 self.assertGreaterEqual(interval[0],bounds[axis][0]);self.assertLessEqual(interval[1],bounds[axis][1])

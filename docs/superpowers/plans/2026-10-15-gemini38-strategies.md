@@ -59,7 +59,7 @@
 **Files:**
 - Test Output: `build/eval_vs_claude.json`
 
-- [ ] **Step 3.1**: 使用 `evaluate_2027.py` 运行 Gemini 策略 vs Claude 基线（`official_2027_team` 和 `official_2027_hold`），设置红蓝换边（红方 + 蓝方）。
+- [ ] **Step 3.1**: 使用 `evaluate_2027.py` 运行 Gemini 策略 vs Claude 基线（`claude_opus55_xhigh_2027_team` 和 `claude_opus55_xhigh_2027_hold`），设置红蓝换边（红方 + 蓝方）。
 - [ ] **Step 3.2**: 分析对局日志、控制度、胜率、伤害量和决策耗时。
 - [ ] **Step 3.3**: 针对暴露的问题（如开局冲点时机、受损撤退阈值、装甲板预判精度）进行代码调优。
 - [ ] **Step 3.4**: 验证对打结果达到期望胜率与 0 策略错误。

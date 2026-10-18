@@ -1,7 +1,7 @@
 """Add the RMUC 2027 V1.0.0 season (2026-10-15 manuals) to config/rules.json.
 
 The 2026 sections stay byte-for-byte as configured by configure_rmuc2026.py; this script
-adds `official_2027`, the `seasons` table, the `rmuc2027` map, 2027 robot designs and the
+adds `rulebook_2027`, the `seasons` table, the `rmuc2027` map, 2027 robot designs and the
 per-season construction compliance of every design. Page numbers are the printed pages of
 the 2027 rules manual (rules) and construction manual (construction).
 Darts, radar and electronic countermeasures (radar marking, information/jamming waves and
@@ -32,7 +32,7 @@ def tiers(rows, keys):
     return [dict(level=i+1, **dict(zip(keys, row))) for i, row in enumerate(rows)]
 
 
-def official_2027():
+def rulebook_2027():
     infantry_chassis = {
         'power': tiers(zip([150, 175, 200, 225, 250, 275, 300, 325, 350, 400], [60, 65, 70, 75, 80, 85, 90, 95, 100, 100]), ('hp', 'power_w')),
         'hp': tiers(zip([200, 225, 250, 275, 300, 325, 350, 375, 400, 400], [45, 50, 55, 60, 65, 70, 75, 80, 90, 100]), ('hp', 'power_w'))}
@@ -205,7 +205,7 @@ def simulation_2027(base_sim):
         'hangar_recharge_w': 0, 'sentry_supply_card': 'supply zone polygon',
         'assembly_difficulties': copy.deepcopy(ASSEMBLY_DIFFICULTIES),
         'assembly_repeat_reset_s': 0,
-        'rune_motor': {'profile': 'official_2027',
+        'rune_motor': {'profile': 'rulebook_2027',
                        'note': 'Small and idle large runes rotate at pi/3 rad/s; active large runes use a*sin(omega*t)+2.090-a, reset on each new large activation; both faces share the shaft.'},
         'arm_lift_speed_mps': .15, 'arm_flip_speed_deg_s': 180,
         'central_elevation_m': .3,
@@ -238,21 +238,21 @@ def main():
         del designs[key]
     make_designs_2027(designs)
     add_builtin_construction_inspections(designs)
-    official = official_2027()
-    official['construction'] = construction_2027(SOURCES['construction'])
-    rules['official_2027'] = official
+    rulebook = rulebook_2027()
+    rulebook['construction'] = construction_2027(SOURCES['construction'])
+    rules['rulebook_2027'] = rulebook
     arena = make_arena()
     rules['maps']['rmuc2026'].update(season='2026', ruleset='rmuc2026')
     rules['maps']['rmuc2027'] = arena
-    compliance = season_compliance(designs, {'2026': rules['official']['construction'], '2027': official['construction']})
+    compliance = season_compliance(designs, {'2026': rules['rulebook']['construction'], '2027': rulebook['construction']})
     for key, design in designs.items():
         design['seasons'] = compliance[key]
     roster = lambda pairs: [{'slot': s, 'role': r} for s, r in pairs]
     rules['seasons'] = {
-        '2026': {'label': 'RMUC 2026', 'rules_profile': RULES_PROFILE_2026, 'rules_key': 'official', 'map': 'rmuc2026',
+        '2026': {'label': 'RMUC 2026', 'rules_profile': RULES_PROFILE_2026, 'rules_key': 'rulebook', 'map': 'rmuc2026',
                  'roster': roster([(1, 'hero'), (2, 'engineer'), (3, 'infantry'), (4, 'infantry'), (6, 'aerial'), (7, 'infantry')]),
                  'default_lineup': {'1': 1, '2': 2, '3': 3, '4': 4, '6': 6, '7': 7}, 'specs_key': 'specs', 'simulation_overrides': {}},
-        '2027': {'label': 'RMUC 2027', 'rules_profile': RULES_PROFILE_2027, 'rules_key': 'official_2027', 'map': 'rmuc2027',
+        '2027': {'label': 'RMUC 2027', 'rules_profile': RULES_PROFILE_2027, 'rules_key': 'rulebook_2027', 'map': 'rmuc2027',
                  'roster': roster([(1, 'heavy'), (3, 'infantry'), (4, 'infantry'), (6, 'aerial'), (7, 'sentry')]),
                  'default_lineup': DEFAULT_LINEUP_2027, 'specs': specs_2027(),
                  'simulation_overrides': simulation_2027(rules['simulation_assumptions'])},

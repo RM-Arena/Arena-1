@@ -1,4 +1,4 @@
-"""RMUC 2027 official baseline: every role, in team, squad, distributed or deck play.
+"""RMUC 2027 rulebook baseline: every role, in team, squad, distributed or deck play.
 
 The heavy robot carries energy units, climbs the tech-core levels, fits its modular 42 mm
 launcher at the workbench and then shells structures from the central deck. Infantry take
@@ -7,7 +7,7 @@ and later the enemy fortress. The sentry holds the own central-highland card in 
 posture the fight calls for. Aerial robots ram the rotating outpost armor with timed
 dashes, then the enemy base once it can be damaged.
 
-TACTIC selects the behaviour: balanced (the official baseline), assault or guard.
+TACTIC selects the behaviour: balanced (the rulebook baseline), assault or guard.
 """
 import math
 from sdk import (action, aim_at, aim_pitch, assembly_work_point, ballistic_reachable, can_fire,

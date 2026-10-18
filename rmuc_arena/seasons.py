@@ -65,7 +65,7 @@ def season_of_profile(profile):
     return profiles().get(profile)
 
 
-def official(key):
+def rulebook(key):
     return _config()[season(key)["rules_key"]]
 
 
@@ -109,7 +109,7 @@ def summary():
                   "slots": list(slots(key)), "roles": {str(s): r for s, r in roles(key).items()},
                   "team_size": len(slots(key)), "default_lineup": default_lineup(key),
                   "legal_models": list(legal_models(key)),
-                  "excluded_systems": official(key).get("adaptations", {}).get("excluded_systems", [])}
+                  "excluded_systems": rulebook(key).get("adaptations", {}).get("excluded_systems", [])}
             for key in seasons()}
 
 

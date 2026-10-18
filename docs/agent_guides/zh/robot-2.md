@@ -350,7 +350,7 @@ action(assembly=2, assembly_insert=True, assembly_translate=True,
 | 同一块装甲两次有效受击的最短间隔 | 0.05 s | 0.2 s |
 
 - 出膛速度固定，动作无法改变。弹丸受重力和空气阻力影响，并叠加机器人发射时自身的速度；射击还会产生后坐力。
-- 每发弹丸在炮口方向周围独立随机散布：17mm 最大偏角 1.8°，42mm 最大偏角 1.6°（公开的仿真校准参数，并非官方规定）。散布圆锥随距离张开，因此距离越远，横向散布越大；相同比赛种子与动作可复现。红蓝双方弹丸均为绿色。
+- 每发弹丸在炮口方向周围独立随机散布：17mm 最大偏角 1.8°，42mm 最大偏角 1.6°（公开的仿真校准参数，并非赛事规定）。散布圆锥随距离张开，因此距离越远，横向散布越大；相同比赛种子与动作可复现。红蓝双方弹丸均为绿色。
 - `fire=True` 在本次决策后的 0.1 s 内持续有效：17mm 可能连发 **2 发**，42mm 最多 1 发。
 - 工程没有发射机构。空中机器人不能被攻击，不是合法目标。
 
@@ -749,7 +749,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | 可见弹丸：己方全部，加上视野内的敌方弹丸 |
 | `arena` | 地图几何，见「比赛概览」 |
 | `referee` | 裁判快照，见下节 |
-| `specs`、`official_rules`、`simulation_assumptions` | 参数摘要；完整数值请用 `sdk.RULES`、`sdk.DESIGNS` 或 `arena.json` |
+| `specs`、`rulebook_rules`、`simulation_assumptions` | 参数摘要；完整数值请用 `sdk.RULES`、`sdk.DESIGNS` 或 `arena.json` |
 
 `robots` 中每台机器人的常用字段：
 

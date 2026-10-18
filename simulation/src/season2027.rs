@@ -1,5 +1,5 @@
 //! RMUC 2027 V1.0.0 referee rules (rules manual 2026-10-15). The 2026 rules stay in
-//! `official.rs`; shared physics, projectiles, vision and the rune motor are reused.
+//! `rulebook.rs`; shared physics, projectiles, vision and the rune motor are reused.
 //! Darts, radar and electronic countermeasures are not part of this arena.
 use super::*;
 
@@ -457,7 +457,7 @@ impl Engine {
             }
             if self.robots[i].role == "aerial" {
                 if self.tick % 2 == 0 {
-                    self.official_rpc_2027(i, &actions[i].rpc);
+                    self.rulebook_rpc_2027(i, &actions[i].rpc);
                 }
                 continue;
             }
@@ -495,7 +495,7 @@ impl Engine {
                 }
             }
             if self.tick % 2 == 0 {
-                self.official_rpc_2027(i, &actions[i].rpc);
+                self.rulebook_rpc_2027(i, &actions[i].rpc);
             }
         }
         self.update_rune_motor_2027();
@@ -673,7 +673,7 @@ impl Engine {
                     || r.zone_contacts.get(&z.id).map(|t| self.time() - t <= release + 1e-8).unwrap_or(false))
         })
     }
-    fn official_rpc_2027(&mut self, i: usize, rpc: &Value) {
+    fn rulebook_rpc_2027(&mut self, i: usize, rpc: &Value) {
         let now = self.time();
         let r = self.robots[i].clone();
         if r.red_card {
@@ -1705,7 +1705,7 @@ impl Engine {
         }
         true
     }
-    fn assembly_pair_expired_2027(&self, s: &official::AssemblyState, now: f64) -> bool {
+    fn assembly_pair_expired_2027(&self, s: &rulebook::AssemblyState, now: f64) -> bool {
         if s.difficulty != 4 { return false; }
         let window = n(&self.rules["assembly"], "difficulty_4_pair_window_s");
         let (a, b) = (s.core(0), s.core(1));
@@ -1976,7 +1976,7 @@ impl Engine {
             }
         }
         let before = self.runes[&p.team].status.clone();
-        self.official_rune_hit(p, arm, x, y, z);
+        self.rulebook_rune_hit(p, arm, x, y, z);
         let after = &self.runes[&p.team];
         if before != "active" && after.status == "active" && after.mode == "large" {
             let team = p.team.clone();

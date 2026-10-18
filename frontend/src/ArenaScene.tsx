@@ -19,7 +19,7 @@ import {runeActive,runeArmLight} from './runeLights';
 import {useRobotScene} from './customModels';
 
 type Controls=React.ElementRef<typeof OrbitControls>;
-// Default framing of the official broadcast: elevated over the long side, field below the scoreboard.
+// Default framing of the rulebook broadcast: elevated over the long side, field below the scoreboard.
 const BROADCAST_EYE:[number,number,number]=[0,15.5,18.5],BROADCAST_TARGET:[number,number,number]=[0,0,-1.2];
 const point=(r:{x:number;y:number;z?:number},h=0,width=28,height=15)=>new THREE.Vector3(r.x-width/2,(r.z||0)+h,r.y-height/2);
 const colors={red:new THREE.Color(LED_COLORS.red),blue:new THREE.Color(LED_COLORS.blue)},WHITE=new THREE.Color('#ffffff');

@@ -1,0 +1,13 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5 xhigh"
+  },
+  "tactic": "assault",
+  "tags": [
+    "outpost_rush"
+  ],
+  "display_name": "[2027] I-S 舵轮重装步兵 · 前哨突击",
+  "description": "I-S 舵轮重装步兵（舵轮底盘）：开局兑换 150 发后上高地：交替编号的步兵分别占敌方中央高地卡与敌方前哨卡，持续射击敌人和敌方前哨站，180 秒后若控制着敌方前哨控制点就进攻敌方堡垒。残血回补给区，弹少时远程兑换。"
+}

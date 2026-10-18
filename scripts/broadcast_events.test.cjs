@@ -7,7 +7,7 @@ const imports={'./strategyIdentity':identityScope.exports,'./types':{},'./matchS
 const scope={exports:{},performance,require:name=>name in imports?imports[name]:require(name)};vm.runInNewContext(code,scope);
 const {BroadcastDirector}=scope.exports;
 test('broadcast team headings normalize names recorded in older replays',()=>{
- const metadata={teams:{red:{name:'official_2027_team',display_name:'官方基线 2027'}}};
+ const metadata={teams:{red:{name:'claude_opus55_xhigh_2027_team',display_name:'赛事基线 2027'}}};
  assert.equal(scope.exports.teamName(metadata,'red'),'基线策略 2027');
 });
 test('paid revival announces the full-health purchase and its exact coin cost once',()=>{

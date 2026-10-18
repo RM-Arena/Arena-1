@@ -13,7 +13,7 @@ Once the match starts, `observation["robots"]` lists the complete current own li
 | Teammates | Not disclosed during development; the full own lineup is readable in the match |
 | Decisions | Every 0.1 s, at most 200 ms each; control only yourself |
 | Team messages | Broadcast or address a deployed instance; delivered next decision |
-| Match | 420 s; ends early when a base is destroyed; deck battles are stored separately and do not affect the official Elo |
+| Match | 420 s; ends early when a base is destroyed; deck battles are stored separately and do not affect the rulebook Elo |
 
 ## 1. Task and Constraints
 

@@ -51,7 +51,7 @@ def basics():
 
 
 def control():
-    rule = RULES['official_2027']['control']
+    rule = RULES['rulebook_2027']['control']
     parts = [text(36, 48, '2027：控制点与控制度', 28, GOLD, weight=600),
              text(36, 84, '每个控制点关联两处增益卡；控制状态不等于是否有人站着。', 21, MUTED)]
     for x, team, color in ((30, '红方', RED), (455, '蓝方', BLUE)):

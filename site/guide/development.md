@@ -29,10 +29,10 @@ CLI 默认使用 2027 全队基线与守势示例，地图按策略赛季推断�
 
 ```sh
 uv run python -m rmuc_arena match --trusted-local --map rmuc2027 --duration 30
-uv run python -m rmuc_arena match --trusted-local --map rmuc2026 --duration 30 --red examples/official_team --blue examples/official_hold
+uv run python -m rmuc_arena match --trusted-local --map rmuc2026 --duration 30 --red examples/claude_opus55_xhigh_team --blue examples/claude_opus55_xhigh_hold
 ```
 
-30 秒只用于检查启动与基本行为，完整判胜使用 420 秒。2026 和 2027 的策略、阵容与地图不能混用。命令里的 `official_*` 是保留的目录标识，文档与策略库中使用“示例”“基线”等展示名称。
+30 秒只用于检查启动与基本行为，完整判胜使用 420 秒。2026 和 2027 的策略、阵容与地图不能混用。命令里的 `claude_opus55_xhigh_*` 标明策略由 Claude Opus 5.5 xhigh 编写；界面提供便于比较的基线、守势与型号名称。
 
 ## 更新规则、示例与文档插图
 

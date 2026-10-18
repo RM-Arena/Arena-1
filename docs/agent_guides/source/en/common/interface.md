@@ -34,7 +34,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | Visible projectiles: all of your team's, plus enemy ones within vision |
 | `arena` | Map geometry, see "Match Overview" |
 | `referee` | Referee snapshot, see below |
-| `specs`, `official_rules`, `simulation_assumptions` | Parameter summaries; use `sdk.RULES`, `sdk.DESIGNS` or `arena.json` for complete values |
+| `specs`, `rulebook_rules`, `simulation_assumptions` | Parameter summaries; use `sdk.RULES`, `sdk.DESIGNS` or `arena.json` for complete values |
 
 Common fields of each robot in `robots`:
 

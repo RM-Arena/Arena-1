@@ -288,7 +288,7 @@ fn realism_qa_replay() {
     assert_eq!(m.robots[1].carried_units, 2);
     assert!(m.bases["blue"].hp < 5000.0);
     let mut fixed = serde_json::Map::new();
-    for key in ["arena", "official_rules", "simulation_assumptions"] {
+    for key in ["arena", "rulebook_rules", "simulation_assumptions"] {
         fixed.insert(key.into(), frames[0][key].clone());
     }
     for f in &mut frames {

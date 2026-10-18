@@ -8,7 +8,7 @@ systems (hangar GLB plus one drone GLB per system). Only robot_designs entries w
 season == '2027' and maps with season == '2027' are built here.
 """
 
-S27_ENV = CONFIG['official_2027']['construction']['envelope']
+S27_ENV = CONFIG['rulebook_2027']['construction']['envelope']
 S27_REPORT = {}
 # Use the same two S68 envelope alternatives as lineup inspection. Blender is
 # launched outside scripts/, so load the shared check by its explicit path.

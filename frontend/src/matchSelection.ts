@@ -1,13 +1,13 @@
 import type {MatchRecord} from './types';
 
-export function canDeleteMatch(match:MatchRecord){return match.status!=='running'&&match.status!=='initializing';}
+export function canDeleteMatch(match:MatchRecord){return match.status!=='running'&&match.status!=='initializing'&&match.video_status!=='processing';}
 export function reconcileSelection(ids:Set<string>,matches:MatchRecord[]){
   const eligible=new Set(matches.filter(canDeleteMatch).map(m=>m.id));
   return new Set([...ids].filter(id=>eligible.has(id)));
 }
 export function selectionSummary(ids:Set<string>,matches:MatchRecord[]){
   const eligible=matches.filter(canDeleteMatch),selected=eligible.filter(m=>ids.has(m.id));
-  return {eligible,selected,all:eligible.length>0&&selected.length===eligible.length,mixed:selected.length>0&&selected.length<eligible.length,bytes:selected.reduce((sum,m)=>sum+(m.replay_bytes||0),0)};
+  return {eligible,selected,all:eligible.length>0&&selected.length===eligible.length,mixed:selected.length>0&&selected.length<eligible.length,bytes:selected.reduce((sum,m)=>sum+(m.replay_bytes||0)+(m.video_bytes||0),0)};
 }
 
 // Bound concurrency so selecting a large journal doesn't flood the control plane.

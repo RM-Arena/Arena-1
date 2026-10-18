@@ -22,7 +22,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   assert.equal(await page.locator('#follow-select option').count(),12);
   assert.equal(await page.locator('#follow-select option[value="red-5"]').count(),0);
   const guide=await page.request.get(new URL('/api/agent-guide',page.url()).href);assert.equal(guide.status(),200);assert.match(await guide.text(),/只修改 `strategy.py`/);
-  await page.selectOption('#red-select',process.env.RMUC_QA_RED||'official_team');
+  await page.selectOption('#red-select',process.env.RMUC_QA_RED||'claude_opus55_xhigh_team');
   await page.click('#start');
   await page.waitForFunction(()=>window.arenaDiagnostics().tick>10,{},{timeout:30000});
   await page.click('#sound');assert.equal(await page.evaluate(()=>window.arenaDiagnostics().audioEnabled),true);

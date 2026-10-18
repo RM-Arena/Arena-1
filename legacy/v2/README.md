@@ -173,7 +173,7 @@ Rust 固定步长与固定 RNG 对相同初始条件、同一平台和引擎构�
 - 击杀获得 100 分、25 资源；实际伤害每点得 0.05 分。
 - 每次升级消耗 60 资源，每分支最多 2 次；火力每次 +15%、装甲每次 +8% 减伤、机动每次 +8% 速度。按槽位处理同一步的共享资源请求。
 
-这套运动学与扫掠碰撞适合策略游戏；当前没有轮胎刚体接触求解、车辆侧翻、机械损伤和官方装甲板规则。
+这套运动学与扫掠碰撞适合策略游戏；当前没有轮胎刚体接触求解、车辆侧翻、机械损伤和赛事装甲板规则。
 
 ## 比赛管理与 API
 
@@ -238,4 +238,4 @@ Headless 没有实时等待；批量模式保存每场回放和原策略 A/B 胜
 - 观战初始 HTTP 状态请求一次，后续用 WebSocket 推送；七个当前场景 GLB 资源正常加载。
 - 历史、Elo、策略提交、时间轴、暂停和录像下载已通过浏览器检查。
 
-官方 API 参考：[FastAPI WebSocket](https://fastapi.tiangolo.com/advanced/websockets/)、[React Three Fiber](https://r3f.docs.pmnd.rs/getting-started/introduction)、[Vite](https://vite.dev/guide/)。
+赛事 API 参考：[FastAPI WebSocket](https://fastapi.tiangolo.com/advanced/websockets/)、[React Three Fiber](https://r3f.docs.pmnd.rs/getting-started/introduction)、[Vite](https://vite.dev/guide/)。

@@ -10,7 +10,7 @@
   <a href="#微信交流群">微信交流群</a>
 </p>
 
-> **Beta 版本说明：目前所有已发布版本（包括早期未在版本号中标注 Beta 的版本）仍处于 Beta 阶段。规则实现、仿真、界面和数据格式仍可能调整。当前版本：`v0.6.1-beta.1`。更新记录见 [CHANGELOG](CHANGELOG.md)。
+> **Beta 版本说明：目前所有已发布版本（包括早期未在版本号中标注 Beta 的版本）仍处于 Beta 阶段。规则实现、仿真、界面和数据格式仍可能调整。当前版本：`v0.7.0-beta.1`。更新记录见 [CHANGELOG](CHANGELOG.md)。
 
 Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选的规则与场地：
 
@@ -24,12 +24,17 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 也可在策略库点击「检查更新」。断网时使用缓存与内置策略，用户上传的策略独立保留。
 旧安装包需要先升级一次；此后单纯更新策略无需重新下载安装包。
 
-**支持导出 MP4 视频。** 在对战页选择「MP4（推荐）」并开始录制，结束时点击「停止并导出」，
-即可保存包含比分与声音的 1080p / 30 FPS 视频。实时比赛和数据回放均可录制；也保留 WebM 格式。
+**完整对局 MP4 自动保存。** 开赛前勾选「保存完整对局 MP4」，自动录下赛前阵容介绍、对局、赛后数据面板和 MVP，
+以 H.264/AAC、1080p / 30 FPS 保存到该场比赛。在「比赛与回放」可直接播放或下载；保存完成前请保持观战页面打开。
+仍可手动录制 MP4 / WebM，实时比赛和数据回放均可录制；自动保存失败时保留原始 WebM，并可重试保存。
+
+**战场设置与策略比较。** 在「战场设置」按赛季调整散布、视场、装配和无人机撞击等参数，一键恢复当前版本默认值；
+更改用于下一场比赛并随回放保存，非默认参数的比赛不计 Elo。对战页的「浏览全部策略 / 并排比较与配对」支持搜索与三份策略对照，
+无需先选阵容；应用组合时自动载入已注册阵容，双方仍须同赛季、同阵容。
 
 [![RMUC 2027 实际对战：开局双方空中机器人冲撞前哨站](docs/media/rmuc2027-battle.gif)](docs/media/rmuc2027-battle.mp4)
 
-<p align="center"><sub>RMUC 2027 示例对战：Claude Opus 5.5 开发策略，空中机器人撞击前哨站（<a href="docs/media/rmuc2027-battle.mp4">MP4</a>）· <a href="docs/media/battle.mp4">RMUC 2026 对战录像</a></sub></p>
+<p align="center"><sub>RMUC 2027 示例对战：Claude Opus 5.5 xhigh 开发策略，空中机器人撞击前哨站（<a href="docs/media/rmuc2027-battle.mp4">MP4</a>）· <a href="docs/media/battle.mp4">RMUC 2026 对战录像</a></sub></p>
 
 ## 第一次接触 RoboMaster？
 
@@ -233,9 +238,15 @@ uv run python scripts/build_agent_guides.py                     # 重新生成�
 **3. 命令行对局与测试**
 
 ```sh
+# 无需浏览器、Electron 或图形桌面；默认 Docker 隔离，以下示例信任仓库内置策略。
+uv run --locked python -m rmuc_arena headless --trusted-local --duration 60 --output replays/headless.json
+# 可在「战场设置」导出参数后传给终端；CLI 未传 --settings 时使用版本默认值。
+uv run --locked python -m rmuc_arena headless --trusted-local --settings battle-settings-2027.json
+uv run --locked python -m rmuc_arena batch --trusted-local --games 10 --swap-sides --output replays/batch
+# headless / match / batch 输出 JSON 结果并保存可复现回放；广播 MP4 在观战页勾选保存。
 uv run python -m rmuc_arena match --trusted-local --duration 60           # 2027 基线全队策略对守势策略
 uv run python -m rmuc_arena match --trusted-local --duration 60 \
-  --red examples/official_team --blue examples/official_hold              # 2026 策略自动使用 2026 地图
+  --red examples/claude_opus55_xhigh_team --blue examples/claude_opus55_xhigh_hold              # 2026 策略自动使用 2026 地图
 python scripts/project.py test                                            # Rust、Python、JS 与桌面端测试
 ```
 
@@ -244,7 +255,7 @@ python scripts/project.py test                                            # Rust
 ```sh
 uv run python scripts/build_gpt61_strategies_2027.py --check
 uv run python scripts/evaluate_2027.py examples/gpt61_2027_control \
-  examples/official_2027_team examples/official_2027_hold \
+  examples/claude_opus55_xhigh_2027_team examples/claude_opus55_xhigh_2027_hold \
   --seeds 137 2027 --jobs 1 --output replays/gpt61-2027-evaluation.json
 ```
 

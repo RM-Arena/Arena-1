@@ -61,7 +61,7 @@ class ModelTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Protected file'):validate_workspace(workspace,self.registry)
 
     def test_different_lineups_change_version_and_are_rejected_before_matching(self):
-        source=ROOT/'examples/official_team/strategy.py'
+        source=ROOT/'examples/claude_opus55_xhigh_team/strategy.py'
         a=save_submission(self.root/'a','team',{'team':source},team_lineup=CUSTOM)
         b=save_submission(self.root/'b','team',{'team':source})
         self.assertNotEqual(a['version'],b['version'])
@@ -136,7 +136,7 @@ class ModelTests(unittest.TestCase):
         wrong={**CUSTOM,'1':201}
         with self.assertRaises(ValueError):scaffold(self.root/'bad-workspace',registry=self.registry,team_lineup=wrong)
         self.assertFalse((self.root/'bad-workspace').exists())
-        with self.assertRaises(ValueError):save_submission(self.root/'bad-submission','team',{'team':ROOT/'examples/official_team/strategy.py'},team_lineup=wrong)
+        with self.assertRaises(ValueError):save_submission(self.root/'bad-submission','team',{'team':ROOT/'examples/claude_opus55_xhigh_team/strategy.py'},team_lineup=wrong)
         self.assertFalse((self.root/'bad-submission').exists())
 
     def test_custom_team_practice_keeps_models_when_swapping_sides_against_baseline(self):

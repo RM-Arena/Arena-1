@@ -17,14 +17,14 @@ const TAG_ORDER=Object.keys(TAGS) as StrategyTag[];
 type Sort='new'|'elo'|'name';
 const SORTS:[Sort,string][]=[['new','最新'],['elo','Elo'],['name','名称']];
 // The 57 organizer presets (3 per robot model) are near-identical, so they live in a collapsed shelf below the user strategies.
-const isPreset=(s:StrategySummary)=>s.official&&s.mode==='adaptive'&&!!s.preset;
+const isPreset=(s:StrategySummary)=>s.bundled&&s.mode==='adaptive'&&!!s.preset;
 const authorOf=(s:StrategySummary)=>providerOf(s.profile?.agent??s.agent);
 const stamp=(s:StrategySummary)=>{const t=s.created_at??s.profile?.created_at??0;return t&&t<1e12?t*1000:t;};
 const day=(ms:number)=>ms?new Date(ms).toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
 const bytes=(n:number)=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(2)} MB`;
 const light=(color:string)=>`color-mix(in srgb,${color} 76%,#fff)`;
 const byTitle=(a:StrategySummary,b:StrategySummary)=>strategyTitle(a).localeCompare(strategyTitle(b),'zh-CN');
-const SORTERS:Record<Sort,(a:StrategySummary,b:StrategySummary)=>number>={new:(a,b)=>stamp(b)-stamp(a)||Number(a.official)-Number(b.official)||byTitle(a,b),elo:(a,b)=>(b.standing?.rating??-1)-(a.standing?.rating??-1)||byTitle(a,b),name:byTitle};
+const SORTERS:Record<Sort,(a:StrategySummary,b:StrategySummary)=>number>={new:(a,b)=>stamp(b)-stamp(a)||Number(a.bundled)-Number(b.bundled)||byTitle(a,b),elo:(a,b)=>(b.standing?.rating??-1)-(a.standing?.rating??-1)||byTitle(a,b),name:byTitle};
 function modelLine(s:StrategySummary){const a=s.profile?.agent??s.agent,p=providerOf(a);return a?.model||(p==='human'?s.profile?.author||'人工编写':PROVIDERS[p].maker);}
 function haystack(s:StrategySummary){const p=authorOf(s);return [s.name,s.key,strategyTitle(s),s.showcase?.tagline,s.profile?.description,s.profile?.author,s.profile?.agent?.model,PROVIDERS[p].name,PROVIDERS[p].maker,PROVIDERS[p].examples,s.model_name,s.preset?.name,MODE_LABELS[s.mode],TACTICS[tacticOf(s)].name,...(s.profile?.tags||[]).map(t=>TAGS[t])].filter(Boolean).join(' ').toLowerCase();}
 function Chips({s}:{s:StrategySummary}){const t=TACTICS[tacticOf(s)];return <><span className="sg-chip mode">{MODE_LABELS[s.mode]}</span>{(s.mode==='adaptive'||s.mode==='robot')&&s.model_name&&<span className="sg-chip model">{s.robot?<b>{s.robot}</b>:null}{s.model_name}</span>}<span className="sg-chip tactic" style={{'--tc':t.color} as CSSProperties}><i/>{t.name}</span></>;}

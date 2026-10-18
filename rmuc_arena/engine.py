@@ -18,7 +18,7 @@ SLOT_IDS = (1, 2, 3, 4, 6, 7)
 RULES_PROFILE = _config["version"]
 MATCH_DURATION = 420
 # Frame fields that never change during a match; compact engine steps leave them out.
-STATIC_FRAME_KEYS = ("arena", "official_rules", "simulation_assumptions", "robot_models")
+STATIC_FRAME_KEYS = ("arena", "rulebook_rules", "simulation_assumptions", "robot_models")
 
 
 def arena_map(name="rmuc2026"):
@@ -36,7 +36,7 @@ def binary_path():
 
 
 class Match:
-    def __init__(self, seed=42, duration=420, map_name="rmuc2026", replay_version=None, lineups=None):
+    def __init__(self, seed=42, duration=420, map_name="rmuc2026", replay_version=None, lineups=None, battle_settings=None):
         self.lock = threading.RLock()
         binary = ROOT / "legacy/v2/simulation/target/release" / ("rmuc-sim.exe" if os.name == "nt" else "rmuc-sim") if replay_version == 2 else binary_path()
         if not binary.is_file():
@@ -50,7 +50,7 @@ class Match:
         self._reader = threading.Thread(target=self._read_output, args=(self.process.stdout, self._responses), daemon=True)
         self._reader.start()
         try:
-            self._frame = self._request({"op": "init", "seed": int(seed), "duration": duration, "map": map_name, "lineups": lineups})
+            self._frame = self._request({"op": "init", "seed": int(seed), "duration": duration, "map": map_name, "lineups": lineups, "battle_settings": battle_settings})
             self._static = {key: self._frame[key] for key in STATIC_FRAME_KEYS if key in self._frame}
             # The latest compact step's JSON, for callers that store frames without static fields.
             self.raw_frame = None

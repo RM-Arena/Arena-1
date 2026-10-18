@@ -3,7 +3,7 @@
 Every preset directory (balanced, assault and guard) also gets its display sidecars,
 showcase.json and profile.json, generated from the role x tactic cards below.
 
-RMUC 2027 presets (official_2027_adaptive_<model>[_assault|_guard]) cover every model
+RMUC 2027 presets (claude_opus55_xhigh_2027_adaptive_<model>[_assault|_guard]) cover every model
 legal in 2027; all three come from scripts/robot_policy_2027.py with its TACTIC set, and
 their cards live in scripts/robot_cards_2027.py.
 """
@@ -23,8 +23,8 @@ from rmuc_arena.robot_presets import PROFILES, PROFILES_2027, TACTICS, preset_ke
 from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, example_agent, parse_showcase, validate_profile
 from rmuc_arena.submissions import load_submission, save_submission
 
-# Own-side metres (own base on the left). The balanced policy is the official baseline
-# (examples/official_adaptive_*/strategy.py); assault and guard come from
+# Own-side metres (own base on the left). The balanced policy is the rulebook baseline
+# (examples/claude_opus55_xhigh_adaptive_*/strategy.py); assault and guard come from
 # scripts/robot_preset_template.py. Each card describes what that code really does.
 HERO_START, ENGINEER_START, INFANTRY_START, AERIAL_PAD = [1.6, 6.05], [1.6, 8.95], [3.93, 7.5], [1.4, 1.85]
 RESOURCE, ASSEMBLY = [0.98, 13.12], [13.59, 7.09]
@@ -270,8 +270,7 @@ def sidecars(model, tactic, season="2026"):
                 "style": card["style"], "phases": card["phases"], "units": [{"name": "本机", **card["unit"]}],
                 "rules": card["rules"], "priorities": card["priorities"], "strengths": card["strengths"],
                 "weaknesses": weaknesses}
-    if season == "2027":
-        showcase["generated_by"] = example_agent(season)
+    showcase["generated_by"] = example_agent(season)
     profile = validate_profile({"agent": example_agent(season), "tactic": card["tactic"], "tags": card["tags"],
                                 "display_name": name, "description": summary})
     return {SHOWCASE_FILE: showcase, PROFILE_FILE: profile}
@@ -317,7 +316,7 @@ def materialize(destination, source_text, model, check, season):
 
 def build(check=False):
     template = (ROOT / 'scripts/robot_preset_template.py').read_text()
-    baseline = (ROOT / 'examples/official_adaptive/strategy.py').read_text()
+    baseline = (ROOT / 'examples/claude_opus55_xhigh_adaptive/strategy.py').read_text()
     for model in legal_models('2026'):
         balanced = ROOT / 'examples' / preset_key(model, 'balanced')
         if (balanced / 'manifest.json').is_file():

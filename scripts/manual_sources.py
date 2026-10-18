@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def source_metadata(kind):
     rules = json.loads((ROOT / "config/rules.json").read_text(encoding="utf-8"))
-    source = rules["official"]["source"] if kind == "rules" else rules["official"]["construction"]["source"]
+    source = rules["rulebook"]["source"] if kind == "rules" else rules["rulebook"]["construction"]["source"]
     variable = "RMUC_RULES_PDF" if kind == "rules" else "RMUC_CONSTRUCTION_PDF"
     if os.environ.get(variable):
         provided = Path(os.environ[variable])

@@ -474,12 +474,12 @@ def chapter4_arena(arena):
         if kind=='resource':
             resource_station(fixture,root,color)
         elif kind=='charger':
-            # The fixture point is the wireless transmitter; the official DC supply
+            # The fixture point is the wireless transmitter; the rulebook DC supply
             # cabinet stands behind it against the wall.
             z=floor_z(y);sign=1 if team=='red' else -1;cx=x-sign*.59
             box('ChargerCabinet',(.7,.94,.25),(cx-14,7.5-y,z+.125),KERB,root,.035)
             box('CableCover',(.2,.62,.03),(cx-14,7.5-y,z+.268),STEEL,root,.006)
-            # Added wireless TX, separate from the official DC supply cabinet.
+            # Added wireless TX, separate from the rulebook DC supply cabinet.
             # Its 480x480x180 mm envelope and 100x100 mm coupling face meet S73/S79.
             box('WirelessTransmitter',(.48,.48,.18),(x-14,7.5-y,z+.09),DARK,root,.012)
             box('WirelessTxCoil',(.005,.1,.1),(x-14+sign*.243,7.5-y,z+.16),DARK,root,.002)

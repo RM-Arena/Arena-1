@@ -1,7 +1,7 @@
 """Evaluate team strategies on both sides and save reproducible match summaries.
 
 Example: .venv/bin/python scripts/evaluate_team.py examples/siege_team \
-    examples/official_team examples/official_hold --seeds 1 7 23 \
+    examples/claude_opus55_xhigh_team examples/claude_opus55_xhigh_hold --seeds 1 7 23 \
     --output replays/siege-evaluation.json
 
 Strategy files are snapshotted into temporary, validated submissions. The

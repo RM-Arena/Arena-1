@@ -10,7 +10,7 @@ from rmuc_arena.runner import Policy
 
 
 class RuleInterfaces2027Tests(unittest.TestCase):
-    def test_catalog_uses_the_official_unselected_profiles(self):
+    def test_catalog_uses_the_rulebook_unselected_profiles(self):
         for model in (2731,2732,305):
             stats=model_catalog()[str(model)]['initial_stats_by_season']['2027']
             self.assertEqual((stats['hp'],stats['power_w'],stats['max_heat'],stats['cooling']),

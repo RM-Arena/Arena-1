@@ -243,7 +243,7 @@
         {
           "seed": 991,
           "side": "red",
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "opponent_version": "7d49466f50b14961",
           "outcome": "win",
           "valid": true,
@@ -273,7 +273,7 @@
         {
           "seed": 991,
           "side": "blue",
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "opponent_version": "7d49466f50b14961",
           "outcome": "win",
           "valid": true,
@@ -303,7 +303,7 @@
         {
           "seed": 991,
           "side": "red",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -333,7 +333,7 @@
         {
           "seed": 991,
           "side": "blue",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "loss",
           "valid": true,
@@ -381,7 +381,7 @@
         {
           "seed": 991,
           "side": "blue",
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "opponent_version": "7d49466f50b14961",
           "outcome": "win",
           "valid": true,
@@ -411,7 +411,7 @@
         {
           "seed": 991,
           "side": "red",
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "opponent_version": "7d49466f50b14961",
           "outcome": "win",
           "valid": true,
@@ -441,7 +441,7 @@
         {
           "seed": 991,
           "side": "red",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "loss",
           "valid": true,
@@ -471,7 +471,7 @@
         {
           "seed": 991,
           "side": "blue",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "loss",
           "valid": true,
@@ -519,7 +519,7 @@
         {
           "seed": 43,
           "side": "red",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -549,7 +549,7 @@
         {
           "seed": 43,
           "side": "blue",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -597,7 +597,7 @@
         {
           "seed": 43,
           "side": "red",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -627,7 +627,7 @@
         {
           "seed": 43,
           "side": "blue",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -675,7 +675,7 @@
         {
           "seed": 43,
           "side": "blue",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -705,7 +705,7 @@
         {
           "seed": 43,
           "side": "red",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "loss",
           "valid": true,
@@ -753,7 +753,7 @@
         {
           "seed": 43,
           "side": "blue",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "loss",
           "valid": true,
@@ -783,7 +783,7 @@
         {
           "seed": 43,
           "side": "red",
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "opponent_version": "ddaadf86433536d9",
           "outcome": "win",
           "valid": true,
@@ -835,7 +835,7 @@
         {
           "seed": 991,
           "side": "blue",
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "opponent_version": "7d49466f50b14961",
           "outcome": "win",
           "valid": true,
@@ -865,7 +865,7 @@
         {
           "seed": 991,
           "side": "red",
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "opponent_version": "7d49466f50b14961",
           "outcome": "win",
           "valid": true,

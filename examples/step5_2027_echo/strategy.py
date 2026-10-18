@@ -1,7 +1,7 @@
 """Step 5 Preview · RMUC 2027 全队策略 · 读阵应变（echo）
 
 机械层：项目公开 2027 机制基线（导航/脱困/装配/无人机撞击/弹道），
-与 examples/official_2027_team、examples/gpt61_2027_* 同源；
+与 examples/claude_opus55_xhigh_2027_team、examples/gpt61_2027_* 同源；
 战术层：Step 5 Preview 设计。
 """
 import math

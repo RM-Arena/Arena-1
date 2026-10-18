@@ -5,7 +5,7 @@
 - 《RoboMaster 2027 机甲大师超级对抗赛比赛规则手册》V1.0.0（2026-10-15，SHA-256 `9e2eed92…5d54be`）
 - 《RoboMaster 2027 机甲大师高校系列赛机器人制作规范手册》V1.0.0（2026-10-15，SHA-256 `3287fe5f…154a3c`）
 
-数值全部写在 `config/rules.json` 的 `official_2027`（规则表，附页码）、`seasons.2027`（阵容、默认型号、仿真补充假设）和 `maps.rmuc2027`（场地）中，Rust 引擎与 Python 层读取同一份配置。生成脚本：`scripts/configure_rmuc2027.py`（规则与型号合入，2026 部分保持不变）、`scripts/chapter4_2027_layout.py`（场地）、`scripts/robot_designs_2027.py`（型号）、`scripts/robot_compliance.py`（两个赛季的制作规范检查）。
+数值全部写在 `config/rules.json` 的 `rulebook_2027`（规则表，附页码）、`seasons.2027`（阵容、默认型号、仿真补充假设）和 `maps.rmuc2027`（场地）中，Rust 引擎与 Python 层读取同一份配置。生成脚本：`scripts/configure_rmuc2027.py`（规则与型号合入，2026 部分保持不变）、`scripts/chapter4_2027_layout.py`（场地）、`scripts/robot_designs_2027.py`（型号）、`scripts/robot_compliance.py`（两个赛季的制作规范检查）。
 
 ## 用户明确决定
 
@@ -80,7 +80,7 @@ Python 全量 320 项中为 296 通过、20 跳过、4 失败：失败均来自�
 
 - Rust：`cargo test --release`，包含 `season2027_tests`（默认阵容、两季合法性、金币、控制点夺取与释放、前哨重建与控制度、撞击伤害与护罩、发射机构解锁/安装/重新开始、落后提前解锁、哨兵姿态与配给、物流复活、隧道越过/穿越、到时判定、实体 1 级装配）。
 - Python：`tests/test_season_2027.py`（两季规则、阵容合法性、引擎拒绝不合规型号与第二套机库、默认 2027 比赛与 2026 回退、自由对战合法卡组、2027 工作区与指南、上传校验、示例策略短局零错误），以及全部既有测试。
-- Claude Opus 5.5 开发的 2027 示例策略（`examples/official_2027_*`，由 `scripts/robot_policy_2027.py` 生成）完整 420 秒对局零策略错误，按控制度分出胜负。
+- Claude Opus 5.5 开发的 2027 示例策略（`examples/rulebook_2027_*`，由 `scripts/robot_policy_2027.py` 生成）完整 420 秒对局零策略错误，按控制度分出胜负。
 
 ## 制作规范检录范围（2026-10-17 审计补充）
 

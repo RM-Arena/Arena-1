@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-mod official;
+mod rulebook;
 mod penalties;
 mod season2027;
 mod physics;
@@ -162,11 +162,11 @@ fn season_2026() -> String {
 pub struct Config {
     pub maps: BTreeMap<String, Arena>,
     pub specs: BTreeMap<String, Spec>,
-    pub official: Value,
+    pub rulebook: Value,
     pub simulation_assumptions: Value,
     pub robot_designs: BTreeMap<String, Value>,
     #[serde(default)]
-    pub official_2027: Value,
+    pub rulebook_2027: Value,
     #[serde(default)]
     pub seasons: BTreeMap<String, Value>,
 }
@@ -533,8 +533,8 @@ pub struct Engine {
     next_projectile: u64,
     rules: Value,
     sim: Value,
-    pub runes: BTreeMap<String, official::RuneState>,
-    pub assemblies: BTreeMap<String, official::AssemblyState>,
+    pub runes: BTreeMap<String, rulebook::RuneState>,
+    pub assemblies: BTreeMap<String, rulebook::AssemblyState>,
     rune_direction: f64,
     rune_angle: f64,
     rune_phase: [f64; 2],
@@ -791,6 +791,15 @@ impl Engine {
         map: &str,
         lineups: Option<BTreeMap<String, Vec<Deployment>>>,
     ) -> Result<Self, String> {
+        Self::new_with_settings(seed, duration, map, lineups, None)
+    }
+    pub fn new_with_settings(
+        seed: i64,
+        duration: f64,
+        map: &str,
+        lineups: Option<BTreeMap<String, Vec<Deployment>>>,
+        settings: Option<Value>,
+    ) -> Result<Self, String> {
         let conf = config();
         if let Some(ref teams) = lineups {
             if teams.len() != 2 || !["red", "blue"].iter().all(|t| teams.contains_key(*t)) {
@@ -811,7 +820,7 @@ impl Engine {
             }
         }
         if !duration.is_finite() || !(1.0..=420.0).contains(&duration) {
-            return Err("duration must be in [1,420]; official matches use 420".into());
+            return Err("duration must be in [1,420]; rulebook matches use 420".into());
         }
         let arena = conf.maps.get(map).ok_or("Unknown map")?.clone();
         let season_key = arena.season.clone();
@@ -837,7 +846,7 @@ impl Engine {
         } else {
             (SLOT_IDS.to_vec(), ROLES.to_vec())
         };
-        let rules = if season == 2027 { conf.official_2027.clone() } else { conf.official.clone() };
+        let rules = if season == 2027 { conf.rulebook_2027.clone() } else { conf.rulebook.clone() };
         let specs: BTreeMap<String, Spec> = match season_conf.get("specs") {
             Some(v) => serde_json::from_value(v.clone()).map_err(|e| e.to_string())?,
             None => conf.specs.clone(),
@@ -846,6 +855,20 @@ impl Engine {
         if let Some(overrides) = season_conf["simulation_overrides"].as_object() {
             for (key, value) in overrides {
                 sim[key] = value.clone();
+            }
+        }
+        if let Some(settings) = settings.filter(|v| !v.is_null()) {
+            let fields: Value = serde_json::from_str(include_str!("../../config/battle_settings.json"))
+                .map_err(|e| e.to_string())?;
+            for (key, value) in settings.as_object().ok_or("Battle settings must be an object")? {
+                let field = fields.as_array().unwrap().iter().find(|f| f["path"] == *key
+                    && (f.get("seasons").is_none() || f["seasons"].as_array().unwrap().iter().any(|s| s == &season_key)))
+                    .ok_or_else(|| format!("Unknown battle setting: {key}"))?;
+                let number = value.as_f64().filter(|n| n.is_finite()
+                    && *n >= field["min"].as_f64().unwrap() && *n <= field["max"].as_f64().unwrap())
+                    .ok_or_else(|| format!("Invalid battle setting: {key}"))?;
+                let pointer = format!("/{}", key.replace('.', "/"));
+                *sim.pointer_mut(&pointer).ok_or_else(|| format!("Missing battle setting: {key}"))? = json!(number);
             }
         }
         let mut robots = Vec::new();
@@ -965,7 +988,7 @@ impl Engine {
                     power_limit: if season == 2027 {
                         50.0
                     } else {
-                        conf.official["profiles"]["engineer"]["power_w"].as_f64().unwrap_or(120.0)
+                        conf.rulebook["profiles"]["engineer"]["power_w"].as_f64().unwrap_or(120.0)
                     },
                     power_w: 0.0,
                     buffer_energy_j: 60.0,
@@ -1192,13 +1215,13 @@ impl Engine {
             rules,
             sim,
             runes: [
-                ("red".into(), official::RuneState::new()),
-                ("blue".into(), official::RuneState::new()),
+                ("red".into(), rulebook::RuneState::new()),
+                ("blue".into(), rulebook::RuneState::new()),
             ]
             .into(),
             assemblies: [
-                ("red".into(), official::AssemblyState::new()),
-                ("blue".into(), official::AssemblyState::new()),
+                ("red".into(), rulebook::AssemblyState::new()),
+                ("blue".into(), rulebook::AssemblyState::new()),
             ]
             .into(),
             rune_direction: if seed & 1 == 0 { 1.0 } else { -1.0 },
@@ -1234,7 +1257,7 @@ impl Engine {
         if season == 2027 {
             engine.update_buffs_2027();
         } else {
-            engine.update_official_buffs();
+            engine.update_rulebook_buffs();
         }
         engine.physics = Some(physics::PhysicsWorld::new(
             &engine.arena,
@@ -1275,7 +1298,7 @@ impl Engine {
         [
             ("arena", json!(self.arena)),
             ("robot_models", json!(self.robot_models)),
-            ("official_rules", self.public_rule_summary()),
+            ("rulebook_rules", self.public_rule_summary()),
             ("simulation_assumptions", self.sim.clone()),
         ]
     }
@@ -1603,7 +1626,7 @@ impl Engine {
         let mut observation = json!({"api_version":3,"seed":self.seed,"tick":self.tick,"time":self.time(),"dt":DT,"policy_dt":0.1,
             "remaining":(self.duration-self.time()).max(0.0),"team":team,
             "controlled_ids":friends.iter().filter(|r|slots.map(|s|s.contains(&r.slot)).unwrap_or(true)).map(|r|r.slot.to_string()).collect::<Vec<_>>(),
-            "robots":friends,"robot_models":observed_models,"enemies":enemies,"bases":self.base_snapshots(),"outposts":self.outpost_snapshots(),"runes":self.observed_runes(team,&observers),"assemblies":self.assembly_snapshots(),"official_rules":self.public_rule_summary(),"simulation_assumptions":self.sim,"roster":self.roster(),"teams":self.observed_teams(team),"zones":self.zones,
+            "robots":friends,"robot_models":observed_models,"enemies":enemies,"bases":self.base_snapshots(),"outposts":self.outpost_snapshots(),"runes":self.observed_runes(team,&observers),"assemblies":self.assembly_snapshots(),"rulebook_rules":self.public_rule_summary(),"simulation_assumptions":self.sim,"roster":self.roster(),"teams":self.observed_teams(team),"zones":self.zones,
             "projectiles":bullets,"vision":vision,"specs":self.specs,"referee":self.referee_telemetry(team)});
         if self.season == 2027 {
             observation["season"] = json!("2027");
@@ -1810,7 +1833,7 @@ impl Engine {
         if self.season == 2027 {
             self.before_step_2027(&actions);
         } else {
-            self.official_before_step(&actions);
+            self.rulebook_before_step(&actions);
         }
         for base in self.bases.values_mut() {
             base.armor_open_progress = approach(base.armor_open_progress, if base.armor_open {1.0} else {0.0}, DT / 1.5);
@@ -1829,7 +1852,7 @@ impl Engine {
                 self.drone_strikes();
                 self.keep_drones_clear_2027();
             } else {
-                self.official_fire(&actions);
+                self.rulebook_fire(&actions);
             }
             self.fly_projectiles();
             world = self.physics.take().unwrap();
@@ -1861,12 +1884,12 @@ impl Engine {
             self.check_winner_2027();
             return;
         }
-        self.update_official_buffs();
+        self.update_rulebook_buffs();
         self.advance_pickups();
-        self.official_after_step();
+        self.rulebook_after_step();
         self.micro_time = 0.0;
         self.tick += 1;
-        self.check_official_winner();
+        self.check_rulebook_winner();
     }
     fn fly_projectiles(&mut self) {
         let projectiles = std::mem::take(&mut self.projectiles);
@@ -1990,13 +2013,13 @@ impl Engine {
                         _ => {}
                     }
                 } else if kind == 1 {
-                    self.official_robot_hit(index, &p, t, x, y, z);
+                    self.rulebook_robot_hit(index, &p, t, x, y, z);
                 } else if kind == 2 {
-                    self.official_structure_hit(enemy, false, &p, t, x, y, z);
+                    self.rulebook_structure_hit(enemy, false, &p, t, x, y, z);
                 } else if kind == 3 {
-                    self.official_structure_hit(enemy, true, &p, t, x, y, z);
+                    self.rulebook_structure_hit(enemy, true, &p, t, x, y, z);
                 } else if kind == 4 {
-                    self.official_rune_hit(&p, index, x, y, z);
+                    self.rulebook_rune_hit(&p, index, x, y, z);
                 }
                 self.event("impact", json!({"x":x,"y":y,"z":z,"team":p.team}));
                 continue;

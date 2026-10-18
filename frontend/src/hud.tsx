@@ -26,7 +26,7 @@ const labelMaterial=(texture:THREE.Texture,team:TeamId)=>new THREE.MeshBasicMate
 const overlayMaterial=(texture?:THREE.Texture)=>new THREE.MeshBasicMaterial({...(texture?{map:texture}:{}),transparent:true,depthTest:false,depthWrite:false,toneMapped:false,fog:false});
 
 const barVertex='varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
-// Broadcast robot plate: [number box][segmented health][rank chevrons], after the official overlay.
+// Broadcast robot plate: [number box][segmented health][rank chevrons], after the rulebook overlay.
 const plateFragment=`uniform vec3 uColor;uniform float uHp,uTrail,uSegments,uFlash,uRespawn,uDead,uFocus,uTime,uLevel;varying vec2 vUv;
 float chevron(vec2 q,float y0){float d=abs(q.x-.5);float yc=y0+.2*(1.-d/.34);return step(d,.34)*(1.-smoothstep(.055,.085,abs(q.y-yc)));}
 void main(){

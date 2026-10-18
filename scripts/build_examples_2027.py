@@ -1,10 +1,10 @@
 """Materialize the RMUC 2027 Claude Opus 5.5 team examples from scripts/robot_policy_2027.py.
 
-    official_2027_team         team mode, balanced (the default red strategy)
-    official_2027_hold         team mode, guard (the default blue strategy)
-    official_2027_squad        squad mode: one copy of the balanced policy per robot
-    official_2027_distributed  distributed mode: one self-contained policy per slot
-    official_2027_adaptive     template for adaptive workspaces (no manifest)
+    claude_opus55_xhigh_2027_team         team mode, balanced (the default red strategy)
+    claude_opus55_xhigh_2027_hold         team mode, guard (the default blue strategy)
+    claude_opus55_xhigh_2027_squad        squad mode: one copy of the balanced policy per robot
+    claude_opus55_xhigh_2027_distributed  distributed mode: one self-contained policy per slot
+    claude_opus55_xhigh_2027_adaptive     template for adaptive workspaces (no manifest)
 
 Per-model deck presets are built by scripts/build_robot_presets.py.
 
@@ -138,12 +138,12 @@ def outputs():
     squad = submission("squad", "squad", {str(s): balanced for s in SLOTS})
     distributed = submission("distributed", "distributed", {str(s): balanced + DISTRIBUTED_TAIL.format(slot=s) for s in SLOTS})
     for name, files, tactic, title, text in (
-            ("official_2027_team", team, "balanced", "基线策略 2027", "RMUC 2027 基线全队策略：空中机器人拆前哨，步兵夺控制点，重型升科技后装炮，哨兵守卡。"),
-            ("official_2027_hold", hold, "guard", "守势策略 2027", "RMUC 2027 守势全队策略：守住己方前哨控制点，科技升满，空中机器人只清前哨。"),
-            ("official_2027_squad", squad, "balanced", "单机组队 2027", "RMUC 2027 基线策略的单机组队版本：每台机器人运行同一份策略、只控制自己。"),
-            ("official_2027_distributed", distributed, "balanced", "多机协同 2027", "RMUC 2027 基线策略的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。")):
+            ("claude_opus55_xhigh_2027_team", team, "balanced", "基线策略 2027", "RMUC 2027 基线全队策略：空中机器人拆前哨，步兵夺控制点，重型升科技后装炮，哨兵守卡。"),
+            ("claude_opus55_xhigh_2027_hold", hold, "guard", "守势策略 2027", "RMUC 2027 守势全队策略：守住己方前哨控制点，科技升满，空中机器人只清前哨。"),
+            ("claude_opus55_xhigh_2027_squad", squad, "balanced", "单机组队 2027", "RMUC 2027 基线策略的单机组队版本：每台机器人运行同一份策略、只控制自己。"),
+            ("claude_opus55_xhigh_2027_distributed", distributed, "balanced", "多机协同 2027", "RMUC 2027 基线策略的多机协同版本：每台一份独立策略，每秒向队友报告所见敌人。")):
         showcase = team_showcase(tactic)
-        if name != "official_2027_team" and name != "official_2027_hold":
+        if name != "claude_opus55_xhigh_2027_team" and name != "claude_opus55_xhigh_2027_hold":
             showcase = dict(showcase, title=title)
         showcase["generated_by"] = example_agent(SEASON)
         files = dict(files)
@@ -151,7 +151,7 @@ def outputs():
         files[PROFILE_FILE] = dump(profile("guard" if tactic == "guard" else "balanced", title, text))
         for key, data in files.items():
             built[EXAMPLES / name / key] = data
-    built[EXAMPLES / "official_2027_adaptive" / "strategy.py"] = balanced.encode()
+    built[EXAMPLES / "claude_opus55_xhigh_2027_adaptive" / "strategy.py"] = balanced.encode()
     return built
 
 

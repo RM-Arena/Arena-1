@@ -165,7 +165,7 @@ def act(obs, state):
                               f'def act(obs,state):\n n=(state or 0)+1\n return {{"{slot}":{{"aim":n}}}},n\n')
             entries[str(slot)] = source
         save_submission(self.root / "faulty", "distributed", entries)
-        with Battle(self.root / "faulty", ROOT / "examples/official_team", duration=1, sandbox="trusted-local") as battle:
+        with Battle(self.root / "faulty", ROOT / "examples/claude_opus55_xhigh_team", duration=1, sandbox="trusted-local") as battle:
             self.assertEqual(battle.run()["policy_errors"], 1)
             self.assertTrue(battle.policies[0][2].disabled)
             for slot in SLOT_IDS[1:]:
@@ -180,7 +180,7 @@ def act(obs, state):
             self.assertEqual(battle.run()["policy_errors"], 0, battle.diagnostics)
 
     def test_team_observation_keeps_shared_control_and_enables_messages(self):
-        with Battle(ROOT / "examples/official_team", ROOT / "examples/official_hold",
+        with Battle(ROOT / "examples/claude_opus55_xhigh_team", ROOT / "examples/claude_opus55_xhigh_hold",
                     duration=1, sandbox="trusted-local") as battle:
             self.assertEqual(len(battle.policies), 2)
             self.assertEqual(battle.observation("red", None)["messages"],[])

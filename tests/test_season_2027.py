@@ -98,12 +98,12 @@ class SeasonApiTests(unittest.TestCase):
         self.assertEqual(set(self.client.get("/api/maps").json()), {"rmuc2026", "rmuc2027"})
         catalog = self.client.get("/api/catalog", params={"season": "2027"}).json()
         self.assertEqual({catalog[k]["season"] for k in catalog}, {"2027"})
-        self.assertIn("official_2027_team", catalog)
-        self.assertNotIn("official_team", catalog)
-        self.assertEqual(catalog["official_2027_team"]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+        self.assertIn("claude_opus55_xhigh_2027_team", catalog)
+        self.assertNotIn("claude_opus55_xhigh_team", catalog)
+        self.assertEqual(catalog["claude_opus55_xhigh_2027_team"]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5 xhigh"})
         for key, entry in catalog.items():
             self.assertEqual(entry["agent"], load_profile(ROOT / "examples" / key)["agent"])
-            self.assertNotRegex(entry["display_name"], r"(?i)official|官方")
+            self.assertNotRegex(entry["display_name"], r"(?i)rulebook|赛事")
 
     def test_a_match_without_a_map_follows_its_strategies_and_defaults_to_2027(self):
         started = self.client.post("/api/start", json={"duration": 2})
@@ -112,14 +112,14 @@ class SeasonApiTests(unittest.TestCase):
         self.assertEqual((record["status"], record["metadata"]["season"], record["metadata"]["map"]), ("finished", "2027", "rmuc2027"))
         self.assertEqual(record["result"]["policy_errors"], 0)
         for team in ("red", "blue"):
-            self.assertEqual(record["metadata"]["teams"][team]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5"})
+            self.assertEqual(record["metadata"]["teams"][team]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5 xhigh"})
             for agent in record["metadata"]["agents"][team].values():
-                self.assertEqual((agent["provider"], agent["model"]), ("anthropic", "Claude Opus 5.5"))
-                self.assertNotRegex(agent["strategy"], r"(?i)official|官方")
-        legacy = self.client.post("/api/start", json={"red": "official_team", "blue": "official_hold", "duration": 2})
+                self.assertEqual((agent["provider"], agent["model"]), ("anthropic", "Claude Opus 5.5 xhigh"))
+                self.assertNotRegex(agent["strategy"], r"(?i)rulebook|赛事")
+        legacy = self.client.post("/api/start", json={"red": "claude_opus55_xhigh_team", "blue": "claude_opus55_xhigh_hold", "duration": 2})
         self.assertEqual(legacy.status_code, 200, legacy.text)
         self.assertEqual(self.wait(legacy.json()["match_id"])["metadata"]["map"], "rmuc2026")
-        mixed = self.client.post("/api/start", json={"red": "official_team", "blue": "official_2027_hold", "map": "rmuc2027", "duration": 2})
+        mixed = self.client.post("/api/start", json={"red": "claude_opus55_xhigh_team", "blue": "claude_opus55_xhigh_2027_hold", "map": "rmuc2027", "duration": 2})
         self.assertEqual(mixed.status_code, 409)
 
     def test_free_battle_lists_only_legal_models_and_limits_aerial_systems(self):
@@ -128,16 +128,16 @@ class SeasonApiTests(unittest.TestCase):
         self.assertTrue({2711, 2761, 2771, 3, 305} <= models)
         self.assertFalse({1, 2, 6, 101, 601} & models)
         deck = {"mode": "deck", "map": "rmuc2027", "duration": 2,
-                "red_deck": ["official_2027_adaptive_2711", "official_2027_adaptive_2761", "official_2027_adaptive_305"],
-                "blue_deck": ["official_2027_adaptive_2771_guard", "official_2027_adaptive_2732_assault"]}
+                "red_deck": ["claude_opus55_xhigh_2027_adaptive_2711", "claude_opus55_xhigh_2027_adaptive_2761", "claude_opus55_xhigh_2027_adaptive_305"],
+                "blue_deck": ["claude_opus55_xhigh_2027_adaptive_2771_guard", "claude_opus55_xhigh_2027_adaptive_2732_assault"]}
         started = self.client.post("/api/start", json=deck)
         self.assertEqual(started.status_code, 200, started.text)
         record = self.wait(started.json()["match_id"])
         self.assertEqual(record["status"], "finished", record)
         self.assertEqual(record["result"]["policy_errors"], 0)
-        illegal = dict(deck, red_deck=["official_adaptive_1"])
+        illegal = dict(deck, red_deck=["claude_opus55_xhigh_adaptive_1"])
         self.assertEqual(self.client.post("/api/start", json=illegal).status_code, 409)
-        twice = dict(deck, red_deck=["official_2027_adaptive_2761", "official_2027_adaptive_2762"])
+        twice = dict(deck, red_deck=["claude_opus55_xhigh_2027_adaptive_2761", "claude_opus55_xhigh_2027_adaptive_2762"])
         self.assertEqual(self.client.post("/api/start", json=twice).status_code, 409)
 
     def test_2027_workspaces_use_the_five_robot_roster_and_2027_guides(self):
@@ -196,15 +196,15 @@ class Season2027ExampleTests(unittest.TestCase):
 
 
 class Season2027BattleTests(unittest.TestCase):
-    def test_official_2027_strategies_play_without_errors(self):
-        for red, blue in (("official_2027_team", "official_2027_hold"), ("official_2027_squad", "official_2027_distributed")):
+    def test_rulebook_2027_strategies_play_without_errors(self):
+        for red, blue in (("claude_opus55_xhigh_2027_team", "claude_opus55_xhigh_2027_hold"), ("claude_opus55_xhigh_2027_squad", "claude_opus55_xhigh_2027_distributed")):
             with self.subTest(red=red, blue=blue):
                 with Battle(ROOT / "examples" / red, ROOT / "examples" / blue, 7, 12, None, "trusted-local") as battle:
                     result = battle.run()
                     self.assertEqual(result["policy_errors"], 0, battle.diagnostics)
                     self.assertEqual(battle.metadata["season"], "2027")
                     self.assertEqual(battle.match.snapshot()["arena"]["name"], "rmuc2027")
-        manifest, _ = load_submission(ROOT / "examples/official_2027_team")
+        manifest, _ = load_submission(ROOT / "examples/claude_opus55_xhigh_2027_team")
         self.assertEqual(manifest["team_lineup"], season_rules.default_lineup("2027"))
 
 

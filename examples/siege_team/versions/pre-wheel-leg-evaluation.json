@@ -30,7 +30,7 @@
   },
   "matches": [
     {
-      "opponent": "examples/official_hold",
+      "opponent": "examples/claude_opus55_xhigh_hold",
       "opponent_version": "47adbbde25429366",
       "seed": 23,
       "side": "red",
@@ -45,7 +45,7 @@
       "digest": "efb8a000ce9a494bd9b194a53d2c5c265e56a7c8766f4eefc90d698e709d6b45"
     },
     {
-      "opponent": "examples/official_hold",
+      "opponent": "examples/claude_opus55_xhigh_hold",
       "opponent_version": "47adbbde25429366",
       "seed": 23,
       "side": "blue",
@@ -60,7 +60,7 @@
       "digest": "a5df68a222b7dc9147601b959d9da9eb95501eda088e28bc0ef86cd8d8ff5c87"
     },
     {
-      "opponent": "examples/official_team",
+      "opponent": "examples/claude_opus55_xhigh_team",
       "opponent_version": "3d62f4f73023f8f1",
       "seed": 23,
       "side": "red",
@@ -75,7 +75,7 @@
       "digest": "3da0fd43aede7634dcd64d826b772a8768c7c4a44dd250efc6adb088e1b171c7"
     },
     {
-      "opponent": "examples/official_team",
+      "opponent": "examples/claude_opus55_xhigh_team",
       "opponent_version": "3d62f4f73023f8f1",
       "seed": 23,
       "side": "blue",

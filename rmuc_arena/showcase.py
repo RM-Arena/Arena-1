@@ -15,6 +15,7 @@ PROFILE_FORMAT = "rmuc-strategy-profile-v1"
 SHOWCASE_LIMIT = 64 * 1024
 FIELD = (28.0, 15.0)
 from .paths import ROOT
+from .strategy_names import CLAUDE_AGENT, CLAUDE_PREFIX, LEGACY_CATEGORY, canonical_key
 
 EXAMPLES = ROOT / "examples"
 
@@ -24,8 +25,8 @@ AUTHORS = PROVIDERS + ("human", "unknown")
 
 
 def example_agent(season):
-    """Development attribution supplied by the project owner for the 2027 examples."""
-    return {"provider": "anthropic", "model": "Claude Opus 5.5"} if str(season) == "2027" else {"provider": "unknown"}
+    """Development attribution supplied by the project owner for both seasons."""
+    return dict(CLAUDE_AGENT)
 STYLE_KEYS = ("aggression", "defense", "economy", "objective", "teamwork", "adaptability")
 PHASE_FOCUS = ("attack", "defense", "economy", "objective", "support")
 TACTICS = ("balanced", "assault", "siege", "guard", "economy")
@@ -219,17 +220,17 @@ def load_showcase(path):
         return None
 
 
-def is_official(path):
+def is_bundled(path):
     return Path(path).resolve().parent == EXAMPLES
 
 
-def load_profile(path, official=None):
+def load_profile(path, bundled=None):
     """Stored attribution, with compatibility for earlier bundled strategy profiles."""
-    official = is_official(path) if official is None else official
+    bundled = is_bundled(path) if bundled is None else bundled
     from .seasons import season_of_profile
     season = season_of_profile((_read(path, "manifest.json") or {}).get("rules_profile"))
     data = _read(path, PROFILE_FILE)
-    if official and isinstance(data, dict) and isinstance(data.get("agent"), dict) and data["agent"].get("provider") == "official":
+    if bundled and isinstance(data, dict) and isinstance(data.get("agent"), dict) and data["agent"].get("provider") in (LEGACY_CATEGORY, "bundled"):
         data = {**data, "agent": example_agent(season)}
     try:
         profile = validate_profile(data) if data is not None else None
@@ -238,12 +239,14 @@ def load_profile(path, official=None):
     if profile is None:
         showcase = load_showcase(path)
         reported = (showcase or {}).get("generated_by")
-        profile = validate_profile({"agent": reported or (example_agent(season) if official else {"provider": "unknown"})})
+        profile = validate_profile({"agent": reported or (example_agent(season) if bundled else {"provider": "unknown"})})
+    if bundled and canonical_key(Path(path).name).startswith(CLAUDE_PREFIX):
+        profile["agent"] = dict(CLAUDE_AGENT)
     return profile
 
 
-def agent_of(path, official=None):
-    return load_profile(path, official)["agent"]
+def agent_of(path, bundled=None):
+    return load_profile(path, bundled)["agent"]
 
 
 def team_agents(slots, sources, strategy_names):

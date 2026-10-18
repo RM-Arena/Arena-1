@@ -25,7 +25,7 @@ const path = require('node:path');
     await page.screenshot({path:path.join(output,'home.png')});
     await page.getByRole('button',{name:'RM 对战',exact:true}).first().click();
     await page.waitForSelector('#start');
-    await page.selectOption('#red-select','official_team');await page.selectOption('#blue-select','official_hold');
+    await page.selectOption('#red-select','claude_opus55_xhigh_team');await page.selectOption('#blue-select','claude_opus55_xhigh_hold');
     await page.click('#start');
     await page.waitForFunction(()=>window.arenaDiagnostics().prematch);
     await api('/api/control',{command:'skip_prematch'});

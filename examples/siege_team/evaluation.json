@@ -26,7 +26,7 @@
     }
   },
   "by_opponent": {
-    "official_team": {
+    "claude_opus55_xhigh_team": {
       "wins": 20,
       "losses": 0,
       "draws": 0
@@ -40,7 +40,7 @@
   "matches": [
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 1,
       "side": "blue",
       "outcome": "win",
@@ -56,7 +56,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 1,
       "side": "red",
       "outcome": "win",
@@ -136,7 +136,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 2,
       "side": "red",
       "outcome": "win",
@@ -152,7 +152,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 2,
       "side": "blue",
       "outcome": "win",
@@ -184,7 +184,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 3,
       "side": "blue",
       "outcome": "win",
@@ -216,7 +216,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 3,
       "side": "red",
       "outcome": "win",
@@ -232,7 +232,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 4,
       "side": "blue",
       "outcome": "win",
@@ -248,7 +248,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 4,
       "side": "red",
       "outcome": "win",
@@ -328,7 +328,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 5,
       "side": "red",
       "outcome": "win",
@@ -344,7 +344,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 5,
       "side": "blue",
       "outcome": "win",
@@ -376,7 +376,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 6,
       "side": "blue",
       "outcome": "win",
@@ -392,7 +392,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 6,
       "side": "red",
       "outcome": "win",
@@ -424,7 +424,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 7,
       "side": "red",
       "outcome": "win",
@@ -456,7 +456,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 7,
       "side": "blue",
       "outcome": "win",
@@ -504,7 +504,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 8,
       "side": "red",
       "outcome": "win",
@@ -536,7 +536,7 @@
     },
     {
       "sandbox": "trusted-local",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 8,
       "side": "blue",
       "outcome": "win",
@@ -552,7 +552,7 @@
     },
     {
       "sandbox": "docker",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 11,
       "side": "red",
       "outcome": "win",
@@ -568,7 +568,7 @@
     },
     {
       "sandbox": "docker",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 11,
       "side": "blue",
       "outcome": "win",
@@ -584,7 +584,7 @@
     },
     {
       "sandbox": "docker",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 12,
       "side": "red",
       "outcome": "win",
@@ -600,7 +600,7 @@
     },
     {
       "sandbox": "docker",
-      "opponent": "official_team",
+      "opponent": "claude_opus55_xhigh_team",
       "seed": 12,
       "side": "blue",
       "outcome": "win",
@@ -617,7 +617,7 @@
   ],
   "notes": {
     "opponents": "Both sides play the candidate lineup (practice_lineup); siege_team@c282be0 is the previous version run on this lineup.",
-    "decision_time": "Pure act() compute over a full match: max 9.4 ms, p99 under 3 ms; resident memory 43 MB. On 2026-10-12 Docker Desktop on the development Mac stalled policies of both teams (official_team included) for 180-465 ms; two of the four Docker matches record one such deadline miss for siege_team.",
+    "decision_time": "Pure act() compute over a full match: max 9.4 ms, p99 under 3 ms; resident memory 43 MB. On 2026-10-12 Docker Desktop on the development Mac stalled policies of both teams (claude_opus55_xhigh_team included) for 180-465 ms; two of the four Docker matches record one such deadline miss for siege_team.",
     "self_play": "Against itself the red side wins about 60 percent of matches; base armour faces are at 0/120/240 degrees for both bases, so the red base exposes one panel to the field and the blue base two."
   }
 }

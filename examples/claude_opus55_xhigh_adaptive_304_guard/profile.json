@@ -1,0 +1,11 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5 xhigh"
+  },
+  "tactic": "guard",
+  "tags": [],
+  "display_name": "I-W 长行程轮足步兵 · 阵地防守",
+  "description": "I-W 长行程轮足步兵（轮足底盘）：驻守己方前哨站后方约 1.5 m 处（按编号上下错开），己方前哨被毁后退到己方基地后方。只攻击 8 m 内的敌人，不主动推进。血量低于 50%、虚弱或弹药打空就回补给区；阵亡后金币够且未到 300 秒就立即买活。"
+}

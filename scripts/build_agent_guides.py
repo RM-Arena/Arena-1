@@ -109,11 +109,11 @@ def counts(lang, size):
 
 
 def shared_variables(lang, rules):
-    t, official = TEXT[lang], rules["official"]
-    profiles, designs = official["profiles"], rules["robot_designs"]
+    t, rulebook = TEXT[lang], rules["rulebook"]
+    profiles, designs = rulebook["profiles"], rules["robot_designs"]
     vision = rules["simulation_assumptions"]["vision_range_m"]
     levels = range(10)
-    thresholds = official["experience"]["thresholds"]
+    thresholds = rulebook["experience"]["thresholds"]
     hero, chassis, weapon = profiles["hero"], profiles["infantry_chassis"], profiles["infantry_weapon"]
     hardware = []
     roster=[]
@@ -374,7 +374,7 @@ def design_name(lang, d):
 
 def shared_variables_2027(lang, rules, designs):
     t, t27 = TEXT[lang], TEXT_2027[lang]
-    o, specs = rules["official_2027"], rules["seasons"]["2027"]["specs"]
+    o, specs = rules["rulebook_2027"], rules["seasons"]["2027"]["specs"]
     roster, hardware, aerial = [], [], []
     for slot, d in sorted(designs.items()):
         role = d["role"]

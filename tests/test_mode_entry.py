@@ -43,9 +43,9 @@ class ModeEntryTests(unittest.TestCase):
         roles={'1':1,'2':2,'3':3,'4':4,'6':6,'7':7}
         for invalid in [{**roles,'6':3},{**roles,'7':1},{k:v for k,v in roles.items() if k!='2'},{**roles,'8':3}]:
             with self.subTest(lineup=invalid),self.assertRaises(ValueError):normalize_team_lineup(invalid)
-        for body in [{'mode':'deck','red_deck':['missing'],'blue_deck':['official_adaptive_7']},
-                {'mode':'deck','red_deck':['official_team'],'blue_deck':['official_adaptive_7']},
-                {'mode':'deck','red_deck':[],'blue_deck':['official_adaptive_7']},
-                {'mode':'deck','red_deck':['official_adaptive_3'],'blue_deck':['official_adaptive_7'],'team_lineup':roles}]:
+        for body in [{'mode':'deck','red_deck':['missing'],'blue_deck':['claude_opus55_xhigh_adaptive_7']},
+                {'mode':'deck','red_deck':['claude_opus55_xhigh_team'],'blue_deck':['claude_opus55_xhigh_adaptive_7']},
+                {'mode':'deck','red_deck':[],'blue_deck':['claude_opus55_xhigh_adaptive_7']},
+                {'mode':'deck','red_deck':['claude_opus55_xhigh_adaptive_3'],'blue_deck':['claude_opus55_xhigh_adaptive_7'],'team_lineup':roles}]:
             with self.subTest(body=body):self.assertEqual(self.client.post('/api/start',json=body).status_code,409)
         self.assertFalse(self.app.state.arena.busy)

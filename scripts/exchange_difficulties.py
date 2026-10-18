@@ -1,4 +1,4 @@
-"""Public simulator difficulty profiles, within the official core-pose envelope."""
+"""Public simulator difficulty profiles, within the rulebook core-pose envelope."""
 ASSEMBLY_DIFFICULTIES = [
     {'name':'基础', 'tip_tolerance_m':.09, 'tool_tolerance_deg':12.,
      'chassis_speed_mps':.2, 'chassis_angular_speed_rad_s':.5, 'min_upright':.96,

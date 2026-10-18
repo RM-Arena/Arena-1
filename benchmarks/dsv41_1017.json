@@ -128,7 +128,7 @@
           "opponent_version": "d7e3caa4be0ebbce"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -141,7 +141,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -154,7 +154,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -167,7 +167,7 @@
           "opponent_version": "ddaadf86433536d9"
         },
         {
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -180,7 +180,7 @@
           "opponent_version": "ddaadf86433536d9"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 991,
           "side": "red",
           "outcome": "win",
@@ -193,7 +193,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 991,
           "side": "blue",
           "outcome": "win",
@@ -206,7 +206,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "seed": 991,
           "side": "red",
           "outcome": "win",
@@ -219,7 +219,7 @@
           "opponent_version": "ddaadf86433536d9"
         },
         {
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "seed": 991,
           "side": "blue",
           "outcome": "win",
@@ -283,7 +283,7 @@
       "result": "The heavy-anchor card wins every evaluated 420 s game. The heavy robot reaches the enemy base card at about 70 s, gives up assembly and the 42 mm, and the sentry plus both infantry hold the home cards. The card is slower than the sentry version but the anchor is the most durable chassis on the field.",
       "matches": [
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -296,7 +296,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -490,7 +490,7 @@
           "opponent_version": "d7e3caa4be0ebbce"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -503,7 +503,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -516,7 +516,7 @@
           "opponent_version": "7d49466f50b14961"
         },
         {
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -529,7 +529,7 @@
           "opponent_version": "ddaadf86433536d9"
         },
         {
-          "opponent": "official_2027_hold",
+          "opponent": "claude_opus55_xhigh_2027_hold",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -593,7 +593,7 @@
           "opponent_version": "8504ab89eaa7a501"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -606,7 +606,7 @@
           "opponent_version": "c63c3582f0034b8f"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -670,7 +670,7 @@
           "opponent_version": "8504ab89eaa7a501"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -683,7 +683,7 @@
           "opponent_version": "c63c3582f0034b8f"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -799,7 +799,7 @@
           "opponent_version": "8504ab89eaa7a501"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "red",
           "outcome": "win",
@@ -812,7 +812,7 @@
           "opponent_version": "c63c3582f0034b8f"
         },
         {
-          "opponent": "official_2027_team",
+          "opponent": "claude_opus55_xhigh_2027_team",
           "seed": 43,
           "side": "blue",
           "outcome": "win",
@@ -850,9 +850,9 @@
   },
   "reproduce": [
     "uv run python scripts/build_dsv41_1017_strategies_2027.py --check",
-    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_sentry examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 991 --jobs 1 --output build/ds1017/reproduce-sentry.json",
-    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_heavy examples/official_2027_team examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-heavy.json",
-    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_pair examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-pair.json"
+    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_sentry examples/claude_opus55_xhigh_2027_team examples/claude_opus55_xhigh_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 991 --jobs 1 --output build/ds1017/reproduce-sentry.json",
+    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_heavy examples/claude_opus55_xhigh_2027_team examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-heavy.json",
+    "uv run python scripts/evaluate_2027.py examples/dsv41_1017_pair examples/claude_opus55_xhigh_2027_team examples/claude_opus55_xhigh_2027_hold examples/gpt61_2027_control examples/gpt61_2027_pressure examples/gpt61_2027_trident --seeds 43 --jobs 1 --output build/ds1017/reproduce-pair.json"
   ],
   "engine": {
     "engine_hash": "95ad43085d7691971a7d47b1b1f4e090ad17d8e8d18054750e9050d2e1ca670d",
@@ -863,7 +863,7 @@
     "gpt61_2027_control": "8504ab89eaa7a501",
     "gpt61_2027_pressure": "743f1fb084a1e7b7",
     "gpt61_2027_trident": "d7e3caa4be0ebbce",
-    "official_2027_team": "7d49466f50b14961",
-    "official_2027_hold": "ddaadf86433536d9"
+    "claude_opus55_xhigh_2027_team": "7d49466f50b14961",
+    "claude_opus55_xhigh_2027_hold": "ddaadf86433536d9"
   }
 }

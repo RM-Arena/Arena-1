@@ -184,13 +184,13 @@ fn whole_team_dead_is_not_a_win() {
     assert_eq!(m.status, "running");
 }
 #[test]
-fn official_timeout_tiebreaker_preserves_outpost_destruction_history() {
+fn rulebook_timeout_tiebreaker_preserves_outpost_destruction_history() {
     let mut m = Engine::new(42, 1.0, "rmuc2026").unwrap();
     m.tick = 20;
     m.outposts.get_mut("red").unwrap().ever_destroyed = true;
     m.outposts.get_mut("red").unwrap().hp = 750.0;
     m.teams.get_mut("red").unwrap().attack_damage = 9999.0;
-    m.check_official_winner();
+    m.check_rulebook_winner();
     assert_eq!(m.winner.as_deref(), Some("blue"));
     let mut m = Engine::new(42, 1.0, "rmuc2026").unwrap();
     m.tick = 20;
@@ -198,7 +198,7 @@ fn official_timeout_tiebreaker_preserves_outpost_destruction_history() {
         o.ever_destroyed = true;
     }
     m.teams.get_mut("red").unwrap().attack_damage = 1.0;
-    m.check_official_winner();
+    m.check_rulebook_winner();
     assert_eq!(m.winner.as_deref(), Some("red"));
 }
 
@@ -384,7 +384,7 @@ fn hardware_variants_are_identical_between_teams_and_inside_construction_limits(
         assert_eq!(red.chassis_size_m, blue.chassis_size_m);
         assert_eq!(red.model_asset, blue.model_asset);
         let d = &cfg.robot_designs[&slot.to_string()];
-        let limits = &cfg.official["construction"]["envelope"][&red.role];
+        let limits = &cfg.rulebook["construction"]["envelope"][&red.role];
         assert!(
             d["bare_mass_kg"].as_f64().unwrap()
                 <= limits["mass_excluding_referee_kg"].as_f64().unwrap()
@@ -1164,13 +1164,13 @@ fn qa_scenario_replay() {
         frames.push(m.step(&commands));
     }
     let mut stat = serde_json::Map::new();
-    for key in ["arena", "official_rules", "simulation_assumptions"] {
+    for key in ["arena", "rulebook_rules", "simulation_assumptions"] {
         stat.insert(key.into(), frames[0][key].clone());
     }
     let frames: Vec<Value> = frames
         .into_iter()
         .map(|mut f| {
-            for key in ["arena", "official_rules", "simulation_assumptions"] {
+            for key in ["arena", "rulebook_rules", "simulation_assumptions"] {
                 f.as_object_mut().unwrap().remove(key);
             }
             f

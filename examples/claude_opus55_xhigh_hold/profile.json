@@ -1,0 +1,14 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5 xhigh"
+  },
+  "tactic": "guard",
+  "tags": [
+    "assembly",
+    "aerial"
+  ],
+  "display_name": "守家策略",
+  "description": "基线策略的守家版本：三台步兵守在己方堡垒旁，英雄独自开到敌方前哨站前炮击，工程不救援、专心往返资源区与装配区升科技，空中机器人在航道前端全程支援。"
+}

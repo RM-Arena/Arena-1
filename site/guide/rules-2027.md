@@ -133,7 +133,7 @@
 
 ## 规则版本与进一步阅读
 
-本页依据仓库中 `config/rules.json` 的 `official_2027`、`seasons.2027` 和 `maps.rmuc2027`，以及对应的规则说明整理。飞镖、雷达与电子对抗未纳入本项目；部分接触阈值和未标注几何采用公开的仿真假设。
+本页依据仓库中 `config/rules.json` 的 `rulebook_2027`、`seasons.2027` 和 `maps.rmuc2027`，以及对应的规则说明整理。飞镖、雷达与电子对抗未纳入本项目；部分接触阈值和未标注几何采用公开的仿真假设。
 
 - [2027 完整规则对应与适配说明](https://github.com/RM-Arena/Arena-1/blob/main/docs/RULES_2027_IMPLEMENTATION.md)：手册版本、来源指纹、已实现机制与歧义处理。
 - [2027 全队参赛手册](https://github.com/RM-Arena/Arena-1/blob/main/docs/agent_guides/zh/2027/team.md)：详细时序、参数、状态字段和动作接口。

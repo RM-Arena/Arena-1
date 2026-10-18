@@ -22,7 +22,7 @@ class FastApiTests(unittest.TestCase):
 
     def test_health_catalog_and_request_boundaries(self):
         self.assertEqual(self.client.get('/api/health').json()['engine'],'rust')
-        self.assertEqual(self.client.get('/api/catalog').json()['official_squad']['mode'],'squad')
+        self.assertEqual(self.client.get('/api/catalog').json()['claude_opus55_xhigh_squad']['mode'],'squad')
         self.assertEqual(self.client.post('/api/start',json={'red':'../../outside'}).status_code,409)
         self.assertEqual(self.client.post('/api/start',json={'duration':0}).status_code,422)
         self.assertEqual(self.client.post('/api/control',json={'command':'speed','speed':99}).status_code,400)

@@ -1,0 +1,13 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5 xhigh"
+  },
+  "tactic": "guard",
+  "tags": [
+    "aerial"
+  ],
+  "display_name": "A-H 六旋翼支援机 · 后场掩护",
+  "description": "A-H 六旋翼支援机（旋翼）：开启空中支援后停在己方航道后段、停机坪附近，以 1.9 m 高度悬停；只攻击 8 m 内的敌人，平时不开火。全程保持支援开启。"
+}

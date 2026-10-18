@@ -24,17 +24,17 @@ def initial_model_stats(design,rules,season=None):
     role=design['role']
     season=season or design.get('season',season_rules.LEGACY_SEASON)
     if season=='2027':
-        official=rules[rules['seasons']['2027']['rules_key']];specs=rules['seasons']['2027']['specs']
+        rulebook=rules[rules['seasons']['2027']['rules_key']];specs=rules['seasons']['2027']['specs']
         stats=dict(specs[role])
-        if role=='heavy':stats.update(official['heavy']['stages'][0])
+        if role=='heavy':stats.update(rulebook['heavy']['stages'][0])
         elif role=='infantry':
-            defaults = official['profiles']['defaults']
-            stats.update(official['profiles']['infantry_chassis'][defaults['infantry_chassis']][0])
-            stats.update(official['profiles']['infantry_weapon'][defaults['infantry_weapon']][0])
-        elif role=='sentry':stats.update(official['sentry']['automatic']);stats['ammo']=official['initial_ammo']['sentry']
+            defaults = rulebook['profiles']['defaults']
+            stats.update(rulebook['profiles']['infantry_chassis'][defaults['infantry_chassis']][0])
+            stats.update(rulebook['profiles']['infantry_weapon'][defaults['infantry_weapon']][0])
+        elif role=='sentry':stats.update(rulebook['sentry']['automatic']);stats['ammo']=rulebook['initial_ammo']['sentry']
         stats.setdefault('max_heat',0);stats.setdefault('cooling',0);stats.setdefault('power_w',0)
         return {key:stats.get(key,0) for key in ('hp','power_w','max_heat','cooling','damage','ammo')}
-    profiles=rules['official']['profiles'];stats=dict(rules['specs'][role])
+    profiles=rules['rulebook']['profiles'];stats=dict(rules['specs'][role])
     if role=='hero':stats.update(profiles['hero'][design['hero_profile']][0])
     elif role=='infantry':
         stats.update(profiles['infantry_chassis'][design['chassis_profile']][0])

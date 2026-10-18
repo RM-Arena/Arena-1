@@ -25,3 +25,12 @@ export async function prepareVideoExport(blob:Blob,format:VideoFormat,onProgress
   onProgress('正在保存 MP4…');
   return result;
 }
+
+export async function saveMatchVideo(blob:Blob,matchId:string,onProgress:(message:string)=>void=()=>{},duration?:number){
+  if(!blob.size||blob.size>MAX_BYTES)throw new Error('录像为空或超过 1 GiB。');
+  onProgress('正在转码并保存 MP4 到比赛记录…');
+  const query=duration===undefined?'':`?duration=${duration.toFixed(3)}`;
+  const response=await fetch(`/api/matches/${encodeURIComponent(matchId)}/video${query}`,{method:'POST',headers:{'Content-Type':'video/webm'},body:blob});
+  if(!response.ok)throw new Error(await responseError(response));
+  return response.json() as Promise<{match_id:string;url:string}>;
+}

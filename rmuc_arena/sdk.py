@@ -124,14 +124,14 @@ def _load_rules():
     for file in (here / "rules.json", here.parent / "config/rules.json"):
         if file.is_file():
             bundle=json.loads(file.read_text(encoding="utf-8"))
-            seasons={'2026':(bundle["official"],bundle["maps"]["rmuc2026"])}
-            if 'official_2027' in bundle and 'rmuc2027' in bundle['maps']:
-                seasons['2027']=(bundle['official_2027'],bundle['maps']['rmuc2027'])
+            seasons={'2026':(bundle["rulebook"],bundle["maps"]["rmuc2026"])}
+            if 'rulebook_2027' in bundle and 'rmuc2027' in bundle['maps']:
+                seasons['2027']=(bundle['rulebook_2027'],bundle['maps']['rmuc2027'])
             return seasons,bundle.get('robot_designs',{})
     file = here / "arena.json"
     if file.is_file():
         bundle=json.loads(file.read_text(encoding="utf-8"))
-        return {bundle.get('season','2026'):(bundle["official_rules"],bundle["map"])},bundle.get('robot_designs',{})
+        return {bundle.get('season','2026'):(bundle["rulebook_rules"],bundle["map"])},bundle.get('robot_designs',{})
     raise RuntimeError("Public rules reference missing from SDK runtime")
 
 _SEASONS, DESIGNS = _load_rules()

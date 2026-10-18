@@ -1,0 +1,66 @@
+{
+  "format": "rmuc-showcase-v1",
+  "title": "[2027] AS-4 四机机库 · 前哨清障",
+  "tagline": "只撞前哨站，300 秒后才撞基地",
+  "summary": "AS-4 四机机库（机库）：空中机器人只冲撞前哨站（敌方的前哨，或被对方重建为其所有的己方前哨），保留护罩；300 秒后才在敌方基地可受伤时冲撞基地。",
+  "style": {
+    "aggression": 45,
+    "defense": 40,
+    "economy": 15,
+    "objective": 75,
+    "teamwork": 35,
+    "adaptability": 45
+  },
+  "phases": [
+    {
+      "from": 0,
+      "to": 300,
+      "title": "前哨清障",
+      "goal": "只冲撞前哨站",
+      "focus": "objective"
+    },
+    {
+      "from": 300,
+      "to": 420,
+      "title": "终局冲撞",
+      "goal": "冲撞可受伤的敌方基地",
+      "focus": "attack"
+    }
+  ],
+  "units": [
+    {
+      "name": "本机",
+      "role": "清障编队",
+      "task": "冲撞前哨站，终局冲撞基地",
+      "route": [
+        [13.01, 8.49],
+        [16.3, 4.3]
+      ],
+      "anchor": [16.3, 4.3]
+    }
+  ],
+  "rules": [
+    {
+      "when": "有敌对前哨站",
+      "then": "定时冲撞"
+    },
+    {
+      "when": "已过 300 秒且敌方基地可受伤",
+      "then": "冲撞基地"
+    }
+  ],
+  "priorities": [
+    "敌方前哨站",
+    "被对方重建的前哨站"
+  ],
+  "strengths": [
+    "护罩留到终局"
+  ],
+  "weaknesses": [
+    "中段对基地没有压力"
+  ],
+  "generated_by": {
+    "provider": "anthropic",
+    "model": "Claude Opus 5.5 xhigh"
+  }
+}

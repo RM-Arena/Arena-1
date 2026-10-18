@@ -1,4 +1,5 @@
 """SQLite match journal, replay catalog, and version-aware Elo standings."""
+from .strategy_names import normalize_metadata, display_name, canonical_key
 import datetime
 import json
 from pathlib import Path
@@ -24,6 +25,11 @@ class Store:
                 games INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0,
                 losses INTEGER NOT NULL DEFAULT 0, draws INTEGER NOT NULL DEFAULT 0);
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(matches)")}
+            for column in ("video_path", "video_status", "video_error"):
+                if column not in columns:
+                    db.execute(f"ALTER TABLE matches ADD COLUMN {column} TEXT")
+            db.execute("UPDATE matches SET video_status='failed',video_error='录像保存中断，可重新录制回放' WHERE video_status IN ('pending','processing')")
             db.execute("UPDATE matches SET status='interrupted', error='Backend restarted during the match' WHERE status IN ('initializing','running')")
 
     @contextmanager
@@ -40,6 +46,8 @@ class Store:
         with self.lock, self.connect() as db:
             db.execute("INSERT INTO matches(id,created_at,status,metadata) VALUES(?,?,?,?)",
                        (match_id, datetime.datetime.now(datetime.timezone.utc).isoformat(), "initializing", json.dumps(metadata)))
+            if metadata.get("save_mp4"):
+                db.execute("UPDATE matches SET video_status='pending' WHERE id=?", (match_id,))
 
     def running(self, match_id, metadata):
         with self.lock, self.connect() as db:
@@ -78,13 +86,26 @@ class Store:
     @staticmethod
     def decode(row):
         value = dict(row)
-        value["metadata"] = json.loads(value["metadata"])
+        value["metadata"] = normalize_metadata(json.loads(value["metadata"]))
         value["result"] = json.loads(value["result"]) if value["result"] else None
         # Host paths are never exposed through the public API.
         replay = value.pop("replay_path")
         value["has_replay"] = bool(replay)
         value["replay_bytes"] = Path(replay).stat().st_size if replay and Path(replay).is_file() else 0
+        video = value.pop("video_path", None)
+        value["has_video"] = bool(video and Path(video).is_file())
+        value["video_bytes"] = Path(video).stat().st_size if value["has_video"] else 0
         return value
+
+    def video_path(self, match_id):
+        with self.lock, self.connect() as db:
+            row = db.execute("SELECT video_path FROM matches WHERE id=?", (match_id,)).fetchone()
+            return Path(row[0]) if row and row[0] else None
+
+    def video_status(self, match_id, status, path=None, error=None):
+        with self.lock, self.connect() as db:
+            return db.execute("UPDATE matches SET video_status=?,video_path=COALESCE(?,video_path),video_error=? WHERE id=?",
+                              (status, str(path) if path else None, error, match_id)).rowcount > 0
 
     def matches(self, limit=50):
         with self.lock, self.connect() as db:
@@ -104,18 +125,23 @@ class Store:
         """Remove a match record and its replay file; Elo standings keep the games already rated."""
         with self.lock:
             with self.connect() as db:
-                row = db.execute("SELECT status,replay_path FROM matches WHERE id=?", (match_id,)).fetchone()
+                row = db.execute("SELECT status,replay_path,video_path,video_status FROM matches WHERE id=?", (match_id,)).fetchone()
                 if row is None:
                     return False
                 if row["status"] in ("initializing", "running"):
                     raise ValueError("A running match cannot be deleted")
+                if row["video_status"] == "processing":
+                    raise ValueError("Wait for the MP4 export to finish before deleting it")
                 db.execute("DELETE FROM matches WHERE id=?", (match_id,))
             replay = Path(row["replay_path"]) if row["replay_path"] else None
             # Only files inside this journal's own replay folder are ever removed.
             if replay and replay.resolve().parent == (self.directory / "replays").resolve():
                 replay.unlink(missing_ok=True)
+            video = Path(row["video_path"]) if row["video_path"] else None
+            if video and video.resolve().parent == (self.directory / "videos").resolve():
+                video.unlink(missing_ok=True)
             return True
 
     def leaderboard(self):
         with self.lock, self.connect() as db:
-            return [dict(row) for row in db.execute("SELECT * FROM standings ORDER BY rating DESC, wins DESC, identity")]
+            return [{**dict(row), "name": display_name(canonical_key(row["name"]))} for row in db.execute("SELECT * FROM standings ORDER BY rating DESC, wins DESC, identity")]

@@ -126,7 +126,7 @@ def write_references(path, metadata):
     shutil.copyfile(Path(__file__).with_name("author_client.py"), path / "arena.py")
     rules = json.loads((ROOT / "config/rules.json").read_text(encoding="utf-8"))
     write_json(path / "arena.json", {"season":season,"map":arena_map(season_rules.map_of(season)),"specs":season_rules.specs(season),
-        "official_rules":season_rules.official(season),"simulation_assumptions":season_rules.simulation(season),
+        "rulebook_rules":season_rules.rulebook(season),"simulation_assumptions":season_rules.simulation(season),
         "robot_designs":rules.get("robot_designs",{})})
     write_json(path / "agent.json", metadata)
     if metadata['mode']=='team':
@@ -206,7 +206,7 @@ def scaffold(path, mode="team", robot=None, registry=None, minutes=90, training_
     if mode!='team' and team_lineup is not None:raise ValueError('A shared team lineup is only for team mode')
     path.mkdir(parents=True)
     editable = editable_files(mode, season)
-    prefix = "official" if season == season_rules.LEGACY_SEASON else f"official_{season}"
+    prefix = "claude_opus55_xhigh" if season == season_rules.LEGACY_SEASON else f"claude_opus55_xhigh_{season}"
     for name in editable:
         template = ROOT / "examples" / f"{prefix}_distributed" / name if mode == "distributed" else ROOT / "examples" / f"{prefix}_adaptive" / "strategy.py" if mode == "adaptive" else ROOT / "examples" / f"{prefix}_team" / "strategy.py"
         shutil.copyfile(template, path / name)

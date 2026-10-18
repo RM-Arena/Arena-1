@@ -2,7 +2,7 @@
 
 A model may enter a season's lineup only in that season's role for it and only if it
 passes that season's construction limits. Checks use the machine-readable limits in
-config/rules.json (2026: official.construction; 2027: official_2027.construction); items
+config/rules.json (2026: rulebook.construction; 2027: rulebook_2027.construction); items
 that need physical testing (gloss, EMI, edge radii, drop tests) are not claimed.
 """
 import math

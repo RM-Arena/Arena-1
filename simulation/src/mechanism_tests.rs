@@ -37,7 +37,7 @@ fn operate(m: &mut Engine) {
     align_engineer(m, 1);
     m.assembly_rpc(1, &operations());
     m.tick += 2;
-    m.official_after_step();
+    m.rulebook_after_step();
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn firing_applies_spread_to_the_real_velocity_without_changing_muzzle_speed() {
     let (_, axis) = physics::muzzle(&m.robots[2]);
     let mut actions = vec![Action::default(); 12];
     actions[2].fire = true;
-    m.official_fire(&actions);
+    m.rulebook_fire(&actions);
     let p = &m.projectiles[0];
     let velocity = rapier3d::na::Vector3::new(p.vx - 1.0, p.vy + 0.5, p.vz - 0.25);
     assert!((velocity.norm() - 25.0).abs() < 1e-10);
@@ -185,7 +185,7 @@ fn assembly_has_timed_sequential_phases_and_continuous_confirmation() {
     assert_eq!(m.assembly_snapshots()["red"]["operation"], "positioning");
     assert_eq!(m.assemblies["red"].inserted, 0.0);
     m.tick = 40;
-    m.official_after_step();
+    m.rulebook_after_step();
     for _ in 0..10 {
         operate(&mut m);
     }
@@ -201,7 +201,7 @@ fn assembly_has_timed_sequential_phases_and_continuous_confirmation() {
     assert_eq!(m.assemblies["red"].confirm_progress_s, 0.0);
     operate(&mut m);
     m.robots[1].x = 1.0;
-    m.official_after_step();
+    m.rulebook_after_step();
     assert_eq!(m.assemblies["red"].confirm_progress_s, 0.0);
     in_zone(&mut m, 1, "assembly");
     for _ in 0..4 {
@@ -223,7 +223,7 @@ fn level_four_accepts_perfect_low_rotation_operations_within_the_three_second_wi
     m.assembly_rpc(1, &json!({"assembly":4}));
     m.assemblies.get_mut("red").unwrap().target_rotation=0.0;
     m.tick += 40;
-    m.official_after_step();
+    m.rulebook_after_step();
     for _ in 0..29 {
         operate(&mut m);
     }
@@ -318,15 +318,15 @@ fn rebuild_reports_the_fastest_robot_and_resets_when_eligibility_changes() {
     assert_eq!(m.outpost_snapshots()["red"]["rebuild"]["robot"], "red-3");
     assert_eq!(m.outpost_snapshots()["red"]["rebuild"]["progress"], 0.3);
     m.robots[2].x = 1.0;
-    m.official_after_step();
+    m.rulebook_after_step();
     assert_eq!(m.outpost_snapshots()["red"]["rebuild"]["robot"], "red-2");
     assert!(!m.assemblies["red"].rebuild_hold.contains_key("red-3"));
     m.robots[1].weak = true;
-    m.official_after_step();
+    m.rulebook_after_step();
     assert!(m.outpost_snapshots()["red"]["rebuild"].is_null());
     m.robots[1].weak = false;
     for _ in 0..100 {
-        m.official_after_step();
+        m.rulebook_after_step();
         m.tick += 1;
     }
     assert_eq!(m.outposts["red"].hp, 750.0);
@@ -334,10 +334,10 @@ fn rebuild_reports_the_fastest_robot_and_resets_when_eligibility_changes() {
     assert!(m.outposts["red"].ever_destroyed);
     assert!(m.outpost_snapshots()["red"]["rebuild"].is_null());
     m.outposts.get_mut("red").unwrap().hp = 0.0;
-    m.official_after_step();
+    m.rulebook_after_step();
     assert!(m.outpost_snapshots()["red"]["rebuild"].is_object());
     m.tick = 6000;
-    m.official_after_step();
+    m.rulebook_after_step();
     assert!(m.assemblies["red"].rebuild_hold.is_empty());
     assert!(m.outpost_snapshots()["red"]["rebuild"].is_null());
     assert_eq!(m.outposts["red"].hp, 0.0);
@@ -403,7 +403,7 @@ fn mechanism_qa_replay() {
         .iter()
         .any(|p| p["team"] == "blue")));
     let mut static_data = serde_json::Map::new();
-    for key in ["arena", "official_rules", "simulation_assumptions"] {
+    for key in ["arena", "rulebook_rules", "simulation_assumptions"] {
         static_data.insert(key.into(), frames[0][key].clone());
         for frame in &mut frames {
             frame.as_object_mut().unwrap().remove(key);
@@ -431,17 +431,17 @@ fn dead_infantry_cannot_gain_health_from_initial_profile_selection() {
 fn infantry_natural_and_paid_revives_have_distinct_hp_and_paid_events() {
     let mut m=match_();m.tick=1000;m.robots[2].alive=false;m.robots[2].hp=0.0;
     m.robots[2].respawn_required=15.0;m.robots[2].respawn_progress=0.0;m.teams.get_mut("red").unwrap().resources=1000.0;
-    m.official_before_step(&vec![Action::default();12]);assert!(!m.robots[2].alive);assert_eq!(m.robots[2].hp,0.0);
+    m.rulebook_before_step(&vec![Action::default();12]);assert!(!m.robots[2].alive);assert_eq!(m.robots[2].hp,0.0);
     m.respawn(2,false);assert_eq!(m.robots[2].hp,(m.robots[2].max_hp*0.1).round());assert!(m.robots[2].weak);
     m.robots[2].alive=false;m.robots[2].hp=0.0;m.robots[2].respawn_progress=0.0;
     let before=m.teams["red"].resources;let cost=80.0+m.robots[2].level as f64*20.0;
-    m.official_rpc(2,&json!({"revive":true}));
+    m.rulebook_rpc(2,&json!({"revive":true}));
     assert_eq!(m.robots[2].hp,m.robots[2].max_hp);assert!(m.robots[2].alive);assert!(!m.robots[2].weak);
     assert_eq!(m.teams["red"].resources,before-cost);
     let e=m.events.iter().rev().find(|e|e["type"]=="respawn").unwrap();assert_eq!(e["instant"],true);assert_eq!(e["cost"],cost);assert_eq!(e["team"],"red");
-    m.official_rpc(2,&json!({"revive":true}));assert_eq!(m.teams["red"].resources,before-cost);
+    m.rulebook_rpc(2,&json!({"revive":true}));assert_eq!(m.teams["red"].resources,before-cost);
     m.robots[2].alive=false;m.robots[2].hp=0.0;m.teams.get_mut("red").unwrap().resources=cost-1.0;
-    m.official_rpc(2,&json!({"revive":true}));assert!(!m.robots[2].alive);assert_eq!(m.robots[2].hp,0.0);
+    m.rulebook_rpc(2,&json!({"revive":true}));assert!(!m.robots[2].alive);assert_eq!(m.robots[2].hp,0.0);
 }
 
 #[test]
@@ -497,7 +497,7 @@ fn timed_out_lower_grade_can_be_retried_without_level_four_lock() {
         let started=m.assemblies["red"].started;
         let deadline=n(m.assembly_difficulty(difficulty),"attempt_timeout_s");
         m.tick=((started+deadline)/DT).ceil() as u64;
-        m.official_after_step();m.official_after_step();
+        m.rulebook_after_step();m.rulebook_after_step();
         assert_eq!(m.assemblies["red"].stage,"failed");
         assert!(!m.assemblies["red"].permanent_lock);
         m.assembly_rpc(1,&json!({"assembly":difficulty}));
@@ -551,7 +551,7 @@ fn extreme_grade_is_physically_possible_for_favourable_poses_on_both_sides() {
 }
 
 #[test]
-fn seeded_difficulty_poses_are_symmetric_and_respect_official_envelopes() {
+fn seeded_difficulty_poses_are_symmetric_and_respect_rulebook_envelopes() {
     let mut m=match_();m.tick=3600;
     for d in 1..=4 {
         for i in [1,7] {in_zone(&mut m,i,"assembly");m.robots[i].carried_units=2;}
@@ -598,5 +598,20 @@ fn assembly_difficulty_calibration() {
             }
         }
         println!("CALIBRATION {}",json!({"grade":d,"model":model,"samples":samples,"dock":dock,"successes":successes.len(),"seeds":successes,"failures":reasons}));
+    }
+}
+
+#[test]
+fn runtime_settings_change_actual_shot_spread_and_preserve_other_defaults() {
+    let settings = json!({"projectile_spread_half_angle_deg.17mm":0.0});
+    let mut m = Engine::new_with_settings(42, 5.0, "rmuc2026", None, Some(settings)).unwrap();
+    let axis = [1.0,0.0,0.0];
+    for _ in 0..20 { assert_eq!(m.dispersed_shot_direction(axis,"infantry"),axis); }
+    assert_eq!(m.snapshot()["simulation_assumptions"]["projectile_spread_half_angle_deg"]["42mm"],json!(1.3));
+    assert!(Engine::new_with_settings(42, 5.0, "rmuc2026", None,
+        Some(json!({"drone_impact.recovery_s":1.0}))).is_err());
+    for value in [json!(-1),json!(100),json!(true),json!("0")] {
+        assert!(Engine::new_with_settings(42,5.0,"rmuc2027",None,
+            Some(json!({"projectile_spread_half_angle_deg.17mm":value}))).is_err());
     }
 }

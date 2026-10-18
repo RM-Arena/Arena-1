@@ -22,6 +22,8 @@ def verify_replay(path):
     else:
         ReplayEngine = Match
     options = {"replay_version":2} if replay["format"]=="rmuc-replay-v2" else {"lineups":meta["lineups"]} if meta.get("lineups") else {}
+    if meta.get("battle_settings"):
+        options["battle_settings"] = meta["battle_settings"]
     match = ReplayEngine(meta["seed"], meta["duration"], meta["map"], **options)
     if replay["format"] in ("rmuc-replay-v2", "rmuc-replay-v3", "rmuc-replay-v4") and meta.get("engine_hash") != match.snapshot().get("engine_hash"):
         match.close()
@@ -60,17 +62,18 @@ def main():
     server.add_argument("--port", type=int, default=8765)
     server.add_argument("--submissions", default=str(data_path("submissions")))
     server.add_argument("--trusted-local", action="store_true", help="Run trusted developer strategies without container isolation")
-    for name in ("match", "batch"):
-        p = sub.add_parser(name)
-        p.add_argument("--red", default=str(ROOT / "examples" / "official_2027_team"))
-        p.add_argument("--blue", default=str(ROOT / "examples" / "official_2027_hold"))
+    for name in ("match", "headless", "batch"):
+        p = sub.add_parser(name, help="Run a match without a GUI" if name == "headless" else None)
+        p.add_argument("--settings", type=Path, help="JSON file of simulation overrides (flat parameter paths)")
+        p.add_argument("--red", default=str(ROOT / "examples" / "claude_opus55_xhigh_2027_team"))
+        p.add_argument("--blue", default=str(ROOT / "examples" / "claude_opus55_xhigh_2027_hold"))
         p.add_argument("--seed", type=int, default=42)
-        p.add_argument("--duration", type=int, default=420, help="Official matches are 420s; shorter runs are unranked test matches")
+        p.add_argument("--duration", type=int, default=420, help="Rulebook matches are 420s; shorter runs are unranked test matches")
         p.add_argument("--map", choices=["rmuc2027", "rmuc2026"], default=None,
                        help="field and rules season; defaults to the strategies' season (RMUC 2027 for new strategies)")
         p.add_argument("--trusted-local", action="store_true")
         p.add_argument("--timeout", type=float, default=0.2)
-        p.add_argument("--output", default="replays/match.json" if name == "match" else "replays/batch")
+        p.add_argument("--output", default="replays/match.json" if name != "batch" else "replays/batch")
         if name == "batch":
             p.add_argument("--games", type=int, default=4)
             p.add_argument("--swap-sides", action="store_true", help="Play each seed twice, swapping sides")
@@ -112,9 +115,10 @@ def main():
             print(json.dumps(assemble(args.robots, args.output, "2026" if len(args.robots) == 6 else "2027"), indent=2))
         elif args.command == "verify-replay":
             print(json.dumps(verify_replay(args.replay), indent=2))
-        elif args.command in ("match", "batch"):
+        elif args.command in ("match", "headless", "batch"):
             if not 0.01 <= args.timeout <= 5:
                 raise ValueError("timeout must be in [0.01, 5]")
+            settings = json.loads(args.settings.read_text(encoding="utf-8")) if args.settings else {}
             games = args.games if args.command == "batch" else 1
             if not 1 <= games <= 1000:
                 raise ValueError("games must be in [1, 1000]")
@@ -124,9 +128,9 @@ def main():
                 for swapped in orientations:
                     red, blue = (args.blue, args.red) if swapped else (args.red, args.blue)
                     with Battle(red, blue, args.seed + i, args.duration, args.map,
-                                "trusted-local" if args.trusted_local else "docker", args.timeout) as battle:
+                                "trusted-local" if args.trusted_local else "docker", args.timeout, battle_settings=settings) as battle:
                         result = battle.run()
-                        output = args.output if args.command == "match" else str(Path(args.output) / f"{i}-{'swap' if swapped else 'normal'}.json")
+                        output = args.output if args.command != "batch" else str(Path(args.output) / f"{i}-{'swap' if swapped else 'normal'}.json")
                         battle.save(output)
                         result.update({"seed": args.seed + i, "swapped": swapped, "replay": output})
                         results.append(result)

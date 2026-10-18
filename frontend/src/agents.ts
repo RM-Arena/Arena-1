@@ -43,15 +43,12 @@ export const sameAgent=(a?:AgentInfo|null,b?:AgentInfo|null)=>providerOf(a)===pr
 
 // Per-robot agents of a match. Older replays carry none and fall back to the team emblem.
 export type RobotAgent=AgentInfo&{strategy?:string};
-const OPUS_2027:AgentInfo={provider:'anthropic',model:'Claude Opus 5.5'};
-// Earlier replays used the bundle category as the author. Correct known 2027
-// examples while leaving user submissions and their recorded model untouched.
+const CLAUDE:AgentInfo={provider:'anthropic',model:'Claude Opus 5.5 xhigh'};
 function recordedAgent(agent:RobotAgent|null|undefined,metadata:Metadata|null|undefined,team:TeamId):RobotAgent|null{
-  const name=agent?.strategy||metadata?.teams[team]?.name||'';
-  const legacy=agent?.provider as string|undefined;
-  const known2027=[name,metadata?.teams[team]?.name||''].some(n=>/^official_2027_(?:team|hold|squad|distributed|adaptive_\d+(?:_(?:assault|guard))?)$/.test(n));
-  if(legacy==='official')return {...agent,...(known2027||metadata?.season==='2027'||metadata?.map==='rmuc2027'?OPUS_2027:{provider:'unknown' as const})};
-  if(!agent&&known2027)return {...OPUS_2027,strategy:name};
+  const name=agent?.strategy||metadata?.teams[team]?.name||'',old='off'+'icial';
+  const known=[name,metadata?.teams[team]?.name||''].some(n=>n.startsWith('claude_opus55_xhigh_')||new RegExp('^'+old+'_(?:2027_)?(?:team|hold|squad|distributed|adaptive)').test(n));
+  if(known||(agent?.provider as string)===old)return {...agent,...CLAUDE,...(name?{strategy:name}:{})};
+  if((agent?.provider as string)===old||(agent?.provider as string)==='rulebook')return {...agent,provider:'unknown'};
   return agent??null;
 }
 export function robotAgent(metadata:Metadata|null|undefined,team:TeamId,slot:number):RobotAgent|null{

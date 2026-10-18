@@ -23,7 +23,7 @@
   },
   "matches": [
     {
-      "opponent": "official_2027_team-7d49466f50b14961",
+      "opponent": "claude_opus55_xhigh_2027_team-7d49466f50b14961",
       "seed": 991,
       "side": "red",
       "outcome": "win",
@@ -12830,7 +12830,7 @@
       "logs": {}
     },
     {
-      "opponent": "official_2027_team-7d49466f50b14961",
+      "opponent": "claude_opus55_xhigh_2027_team-7d49466f50b14961",
       "seed": 991,
       "side": "blue",
       "outcome": "win",

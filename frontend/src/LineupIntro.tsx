@@ -107,7 +107,7 @@ function Faceoff({frame,metadata,images,progress}:{frame:Frame;metadata:Metadata
 }
 
 // Rule 6.4 self-check as a broadcast lineup intro: the camera visits every robot while overlays introduce it.
-export function LineupIntro({frame,metadata,standings,images,models:catalog,duration,remaining,free,paused,replay=false,onCut,onSkip}:{frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;duration:number;remaining:number;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
+export function LineupIntro({frame,metadata,standings,images,models:catalog,duration,remaining,free,paused,replay=false,onCut,onSkip,locked=false}:{locked?:boolean;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;duration:number;remaining:number;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
   const cuts=useMemo(()=>introSchedule(frame.robots,duration),[frame.robots.map(r=>r.id).join(),duration]);// eslint-disable-line react-hooks/exhaustive-deps
   const elapsed=Math.max(0,duration-remaining),at=introAt(cuts,elapsed),models=catalog&&Object.keys(catalog).length?catalog:frame.robot_models;
   const ranges=useMemo(()=>{const list=Object.values(models||{}) as RobotHardware[];const max=(f:(m:RobotHardware)=>number,floor:number)=>Math.max(floor,...list.map(f),...frame.robots.map(r=>f(hardware(frame,r,models)||({} as RobotHardware))||0));
@@ -126,6 +126,6 @@ export function LineupIntro({frame,metadata,standings,images,models:catalog,dura
     </div>
     <div className="li-bug"><i/>{replay?'REPLAY':'LIVE'} · 赛前自检<b>{Math.ceil(remaining)}s</b></div>
     <div className="li-progress">{cuts.map(c=><i key={c.key} className={`${c.segment.kind} ${'team' in c.segment?c.segment.team:''} ${c.end<=elapsed?'done':c.key===at.cut.key?'now':''}`} style={{flexGrow:c.end-c.start}}/>)}</div>
-    <button className="cer-skip" onClick={onSkip}>跳过</button>
+    <button className="cer-skip" disabled={locked} onClick={onSkip}>跳过</button>
   </Stage>;
 }

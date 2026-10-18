@@ -101,7 +101,7 @@ The arena is 28 by 15 metres. Each side has a base, outpost, tech core and rune.
 | Minimum interval between two valid hits on the same armor plate | 0.05 s | 0.2 s |
 
 - Muzzle speed is fixed; actions cannot change it. Projectiles feel gravity and air drag and inherit the shooter's velocity at the moment of firing; firing also produces recoil.
-- Each shot has independent angular spread around the muzzle axis: up to 1.8° for 17mm and 1.6° for 42mm (public simulation calibration, not official limits). The cone widens with distance, so lateral spread increases at longer ranges. The same seed and action trace reproduce the spread. All projectiles are green for both teams.
+- Each shot has independent angular spread around the muzzle axis: up to 1.8° for 17mm and 1.6° for 42mm (public simulation calibration, not rulebook limits). The cone widens with distance, so lateral spread increases at longer ranges. The same seed and action trace reproduce the spread. All projectiles are green for both teams.
 - `fire=True` stays in effect for the 0.1 s after the decision: 17mm may fire **2 rounds**, 42mm at most 1.
 - The engineer has no launcher. The aerial robot cannot be attacked and is not a valid target.
 
@@ -491,7 +491,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | Visible projectiles: all of your team's, plus enemy ones within vision |
 | `arena` | Map geometry, see "Match Overview" |
 | `referee` | Referee snapshot, see below |
-| `specs`, `official_rules`, `simulation_assumptions` | Parameter summaries; use `sdk.RULES`, `sdk.DESIGNS` or `arena.json` for complete values |
+| `specs`, `rulebook_rules`, `simulation_assumptions` | Parameter summaries; use `sdk.RULES`, `sdk.DESIGNS` or `arena.json` for complete values |
 
 Common fields of each robot in `robots`:
 

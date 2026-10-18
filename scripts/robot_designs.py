@@ -1,7 +1,7 @@
 """Symmetric robot hardware designs within the supplied construction limits.
 
 Compliance bounds come from the manual. Chosen hardware and material values
-are design inputs, not invented official speed, friction or mass requirements.
+are design inputs, not invented rulebook speed, friction or mass requirements.
 """
 import copy
 import math
@@ -22,7 +22,7 @@ def construction_limits():
       charging=dict(max_transfer_w=120,max_face_area_m2=.01,max_gap_m=.03,transmitter_max_size_m=[.5,.5,.3],receivers_allowed=['hero','infantry'],receiver_max_count=1,frequency_hz=[100000,148500],pages=[24,25]),
       aerial=dict(full_rotor_enclosure=True,guard_test_force_n=20,guard_collision_test_mps=[1.1,1.3],guard_blocks_42mm=True,recommended_max_mesh_area_m2=.0009,mast_above_rotor_plane_m=[.30,.40],backup_safety_rope=True,nav_light_length_min_m=1.5,nav_lights_upward_only=True,flight_test_min_s=10,indicator_count_max=6,pages=[34,35,36,37]),
       weapon=dict(friction_wheel_electric=True,min_17mm_hardware_rate_hz=10,min_17mm_test_speed_mps=20,one_launcher_per_robot=True,engineer_has_no_launcher=True,muzzle_sensor_after_acceleration=True,pages=[19,23,30,31,33,34,81,82]),
-      appearance=dict(gloss_max_gs=30,protected_wiring=True,no_sharp_edges=True,armor_unmodified=True,team_color_on_shell_or_official_modules_only=True,pages=[17,18,19,66]))
+      appearance=dict(gloss_max_gs=30,protected_wiring=True,no_sharp_edges=True,armor_unmodified=True,team_color_on_shell_or_rulebook_modules_only=True,pages=[17,18,19,66]))
 
 
 # Wheeled ground robots: chassis underside 100 mm above the ground at static ride, so the
@@ -90,7 +90,7 @@ def make_designs():
         turret_yaw_rate_rad_s=5.0 if role=='hero' else 6.5 if slot==3 else 5.5,turret_pitch_rate_rad_s=2.5,
         pitch_limits_rad=[-.2617993878,.7853981634],muzzle_z_m=muzzle,muzzle_reach_m=reach,
         trigger_interval_s=.2 if role=='hero' else .05,finish_gloss_gs=20,contact_restitution=.08,
-        source_status='chosen engineering parameters within construction limits; not official speed or tire specification')
+        source_status='chosen engineering parameters within construction limits; not rulebook speed or tire specification')
       if role=='aerial':
         result[str(slot)].update(rotor_radius_m=.235,guard_radius_m=.275,guard_height_m=.16,guard_mesh_pitch_m=.025,rotor_plane_z_m=.30,
           mast_top_z_m=.65,mast_offset_above_rotor_m=.35,nav_light_length_m=1.76,nav_light_lux_at_40mm=500,backup_rope_diameter_m=.004,
@@ -107,7 +107,7 @@ def make_designs():
           balance_kp_nm_per_rad=180,balance_kd_nms_per_rad=19,balance_torque_max_nm=45,air_torque_max_nm=5,
           stand_torque_max_nm=80,coast_friction=.10,leg_holding_power_w=18,
           suspension_rest_m=.20,suspension_travel_m=.16,
-          source_status='chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not official')
+          source_status='chosen wheel-legged parameters within the infantry envelope; balance and leg control are simulation choices, not rulebook')
       elif role!='aerial':
         result[str(slot)]['coast_friction']=.22
       if role=='engineer':

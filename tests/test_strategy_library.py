@@ -223,7 +223,7 @@ class StrategyLibraryTests(unittest.TestCase):
         self.assertFalse(self.library.thread.is_alive())
 
     def test_catalog_overlay_api_refresh_and_local_uploads(self):
-        self.write_strategy("official_2027_team", CODE + "# newer online version\n")
+        self.write_strategy("claude_opus55_xhigh_2027_team", CODE + "# newer online version\n")
         self.catalog = publish(self.source, self.feed)
         app = create_app("trusted-local", self.root / "submissions", self.root / "data", test_mode=True)
         service = app.state.arena
@@ -232,21 +232,21 @@ class StrategyLibraryTests(unittest.TestCase):
         app.state.training.strategy_library = self.library
         file = self.root / "local.py"
         file.write_text(CODE)
-        save_submission(service.submission_root / "official_2027_team", "team", {"team": file}, season="2027")
+        save_submission(service.submission_root / "claude_opus55_xhigh_2027_team", "team", {"team": file}, season="2027")
         client = TestClient(app)
         before = service.state()["revision"]
         self.library.sync()
         catalog = client.get("/api/catalog").json()
-        self.assertEqual(catalog["official_2027_team"]["source"], "remote")
-        self.assertEqual(app.state.training.example("2027", "team"), service.catalog()["official_2027_team"]["path"])
-        self.assertEqual(app.state.training.example("2027", "hold").name, "official_2027_hold")
-        self.assertEqual(catalog["submission-official_2027_team"]["source"], "local")
+        self.assertEqual(catalog["claude_opus55_xhigh_2027_team"]["source"], "remote")
+        self.assertEqual(app.state.training.example("2027", "team"), service.catalog()["claude_opus55_xhigh_2027_team"]["path"])
+        self.assertEqual(app.state.training.example("2027", "hold").name, "claude_opus55_xhigh_2027_hold")
+        self.assertEqual(catalog["submission-claude_opus55_xhigh_2027_team"]["source"], "local")
         self.assertIn("online-team", catalog)
         self.assertEqual(service.state()["revision"], before + 1)
         self.assertEqual(service.state()["strategy_version"], self.catalog["sha256"])
-        item = client.get("/api/strategies/official_2027_team").json()
-        self.assertTrue(item["official"])
-        response = client.post("/api/strategies/official_2027_team/profile", json={"agent": {"provider": "human"}})
+        item = client.get("/api/strategies/claude_opus55_xhigh_2027_team").json()
+        self.assertTrue(item["bundled"])
+        response = client.post("/api/strategies/claude_opus55_xhigh_2027_team/profile", json={"agent": {"provider": "human"}})
         self.assertEqual(response.status_code, 403)
         self.assertEqual(client.get("/api/strategy-library").json()["count"], 2)
         with patch.object(self.library, "request_sync", return_value=self.library.status()) as request:

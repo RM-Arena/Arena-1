@@ -2,7 +2,7 @@ import type {Frame,Metadata,MatchEvent} from './types';
 import {strategyDisplayName} from './strategyIdentity';
 import {MUSIC,type BgmCue} from './audioPlaylist';
 import {KILL_CUES,type KillCue,type KillAnnouncement,type KillHighlight} from './killAnnouncements';
-import {checkVideoExport,prepareVideoExport,type VideoFormat} from './videoExport';
+import {checkVideoExport,prepareVideoExport,saveMatchVideo,type VideoFormat} from './videoExport';
 export type {BgmCue} from './audioPlaylist';
 export const clock=(s:number)=>{s=Math.ceil(Math.max(0,s));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;};
 export function download(blob:Blob,name:string){const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
@@ -350,11 +350,11 @@ export class ArenaAudio {
 }
 
 // DOM ceremonies are not in the WebGL canvas, so the export redraws their essentials: countdown numerals and the result title.
-export type RecorderOverlay={kind:'countdown';n:number}|{kind:'title';title:string;sub:string;color:string}|null;
+export type RecorderOverlay={kind:'countdown';n:number}|{kind:'title';title:string;sub:string;color:string}|{kind:'intro';title:string;sub:string;lines:string[];image?:string}|{kind:'results';headline:string;rows:{label:string;red:string;blue:string}[]}|{kind:'mvp';name:string;team:string;lines:string[];image?:string}|null;
 export class BroadcastRecorder {
   canvas=document.createElement('canvas');ctx:CanvasRenderingContext2D;recorder:MediaRecorder|null=null;source:HTMLCanvasElement|null=null;stream:MediaStream|null=null;started=0;frames=0;chunks:Blob[]=[];overlay:RecorderOverlay=null;announcement:KillHighlight|null=null;
   private capture:Promise<{blob:Blob;error:string|null}>|null=null;private format:VideoFormat='mp4';
-  private recovery:{blob:Blob;name:string}|null=null;
+  private recovery:{blob:Blob;name:string;matchId?:string;duration?:number}|null=null;private overlayImages=new Map<string,HTMLImageElement>();
   constructor(public audio:ArenaAudio){this.canvas.width=1920;this.canvas.height=1080;this.ctx=this.canvas.getContext('2d')!;}
   get active(){return this.recorder?.state==='recording';}
   get hasRecovery(){return this.recovery!==null;}
@@ -382,7 +382,10 @@ export class BroadcastRecorder {
       this.started=performance.now();recorder.start(1000);
     }catch(error){stream.getTracks().forEach(t=>t.stop());this.stream=null;this.recorder=null;this.capture=null;throw error;}
   }
-  async stop(onProgress:(message:string)=>void=()=>{}){
+  async cancel(){const capture=this.capture;if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();if(capture)await capture;this.capture=null;this.recorder=null;}
+  get canRetrySave(){return !!this.recovery?.matchId;}
+  async retrySave(onProgress:(message:string)=>void=()=>{}){const r=this.recovery;if(!r?.matchId)return;await saveMatchVideo(r.blob,r.matchId,onProgress,r.duration);this.recovery=null;}
+  async stop(onProgress:(message:string)=>void=()=>{},matchId?:string){
     const capture=this.capture;if(!capture)return;
     const duration=Math.max(.034,(performance.now()-this.started)/1000);
     if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();
@@ -390,9 +393,9 @@ export class BroadcastRecorder {
     const name='rmuc-arena-'+new Date().toISOString().replaceAll(':','-');
     try{
       if(error)throw new Error(error);
-      const video=await prepareVideoExport(blob,this.format,onProgress,duration);
-      download(video,`${name}.${this.format}`);
-    }catch(cause){if(blob.size){this.recovery={blob,name:`${name}.webm`};throw new Error(`${(cause as Error).message} 原始 WebM 已保留，请点击「保存原始 WebM」。`);}throw cause;}
+      if(matchId)await saveMatchVideo(blob,matchId,onProgress,duration);
+      else{const video=await prepareVideoExport(blob,this.format,onProgress,duration);download(video,`${name}.${this.format}`);}
+    }catch(cause){if(blob.size){this.recovery={blob,name:`${name}.webm`,matchId,duration};throw new Error(`${(cause as Error).message} 原始 WebM 已保留，请点击「保存原始 WebM」。`);}throw cause;}
   }
   draw(frame:Frame,metadata:Metadata|null){if(!this.active||!this.source)return;this.frames++;const c=this.ctx;c.fillStyle='#10191f';c.fillRect(0,0,1920,1080);const scale=Math.min(1920/this.source.width,942/this.source.height),w=this.source.width*scale,h=this.source.height*scale;c.drawImage(this.source,(1920-w)/2,90+(942-h)/2,w,h);c.fillStyle='#0f181ee8';c.fillRect(0,0,1920,90);c.fillRect(0,1030,1920,50);c.textBaseline='middle';c.textAlign='left';c.fillStyle='#e6b66c';c.font='bold 25px sans-serif';c.fillText('RMUC / STRATEGY LEAGUE',28,44);c.fillStyle='#e78e7e';c.font='bold 26px sans-serif';c.fillText(`${strategyDisplayName(metadata?.teams.red)||'红方'}  ${Math.floor(frame.teams.red.score)}`,470,44);c.textAlign='right';c.fillStyle='#83c5e9';c.fillText(`${Math.floor(frame.teams.blue.score)}  ${strategyDisplayName(metadata?.teams.blue)||'蓝方'}`,1490,44);c.textAlign='center';c.fillStyle='#edf2f5';c.font='32px monospace';c.fillText(clock(frame.remaining),960,44);c.font='16px sans-serif';c.fillStyle='#9cabb6';c.fillText(`RUST ENGINE · SEED ${frame.seed} · ${frame.arena.name.toUpperCase()} · ${frame.status==='finished'?(frame.winner?.toUpperCase()||'DRAW')+' / MATCH COMPLETE':`${frame.robots.filter(r=>r.team==='red').length}v${frame.robots.filter(r=>r.team==='blue').length} / RMUC ${frame.season||(frame.arena.name==='rmuc2027'?'2027':'2026')}`}`,960,1056);
     c.font='15px sans-serif';c.textAlign='left';c.fillStyle='#ca9f96';c.fillText(`基地 ${Math.ceil(frame.bases.red.hp)} / ${frame.bases.red.max_hp}   前哨 ${Math.ceil(frame.outposts?.red.hp||0)} / ${frame.outposts?.red.max_hp||1500}`,470,74);c.textAlign='right';c.fillStyle='#8ebacf';c.fillText(`基地 ${Math.ceil(frame.bases.blue.hp)} / ${frame.bases.blue.max_hp}   前哨 ${Math.ceil(frame.outposts?.blue.hp||0)} / ${frame.outposts?.blue.max_hp||1500}`,1490,74);
@@ -400,7 +403,18 @@ export class BroadcastRecorder {
     if(this.announcement&&!this.overlay)this.drawAnnouncement(this.announcement,frame);
     const o=this.overlay;if(o){c.save();c.textAlign='center';c.textBaseline='middle';
       if(o.kind==='countdown'){c.fillStyle='rgba(0,0,0,.35)';c.fillRect(0,90,1920,940);c.font='italic 900 360px sans-serif';c.shadowColor='#a77bff';c.shadowBlur=60;c.fillStyle='#fff';c.fillText(o.n>0?String(o.n):'比赛开始',960,540);}
-      else{const g=c.createRadialGradient(960,540,80,960,540,900);g.addColorStop(0,o.color+'aa');g.addColorStop(1,'rgba(0,0,0,.75)');c.fillStyle=g;c.fillRect(0,90,1920,940);c.font='italic 900 150px sans-serif';c.shadowColor=o.color;c.shadowBlur=40;c.fillStyle='#fff';c.fillText(o.title,960,500);c.shadowBlur=0;c.font='bold 44px sans-serif';c.fillText(o.sub,960,640);}
+      else if(o.kind==='title'){const g=c.createRadialGradient(960,540,80,960,540,900);g.addColorStop(0,o.color+'aa');g.addColorStop(1,'rgba(0,0,0,.75)');c.fillStyle=g;c.fillRect(0,90,1920,940);c.font='italic 900 150px sans-serif';c.shadowColor=o.color;c.shadowBlur=40;c.fillStyle='#fff';c.fillText(o.title,960,500);c.shadowBlur=0;c.font='bold 44px sans-serif';c.fillText(o.sub,960,640);}
+      else if(o.kind==='intro'){
+        c.fillStyle='#07111cce';c.fillRect(160,690,1600,300);c.fillStyle='#e9bd78';c.font='bold 48px sans-serif';c.fillText(o.title,960,745);c.fillStyle='#e5edf4';c.font='28px sans-serif';c.fillText(o.sub,960,800);
+        c.font='22px sans-serif';o.lines.slice(0,3).forEach((line,i)=>c.fillText(line,960,855+i*38));
+      }else if(o.kind==='results'){
+        c.fillStyle='#08131bf5';c.fillRect(130,115,1660,890);c.fillStyle='#e9bd78';c.font='bold 46px sans-serif';c.fillText('赛后数据面板',960,170);c.fillStyle='#dbe7f0';c.font='25px sans-serif';c.fillText(o.headline,960,222);
+        o.rows.forEach((row,i)=>{const y=285+i*58;c.fillStyle=i%2?'#142330':'#10202b';c.fillRect(200,y-24,1520,50);c.textAlign='center';c.font='23px sans-serif';c.fillStyle='#adbfcd';c.fillText(row.label,960,y);c.fillStyle='#f4a294';c.fillText(row.red,480,y);c.fillStyle='#8ecff2';c.fillText(row.blue,1440,y);});
+      }else if(o.kind==='mvp'){
+        c.fillStyle='#08131bf2';c.fillRect(160,150,1600,820);c.fillStyle='#e9bd78';c.font='italic bold 90px sans-serif';c.fillText('MVP',960,255);c.fillStyle='#e6eff5';c.font='bold 42px sans-serif';c.fillText(o.name,960,355);c.font='28px sans-serif';c.fillText(o.team,960,415);
+        if(o.image){let img=this.overlayImages.get(o.image);if(!img){img=new Image();img.src=o.image;this.overlayImages.set(o.image,img);}if(img.complete&&img.naturalWidth)c.drawImage(img,210,420,560,500);}
+        c.font='32px sans-serif';o.lines.forEach((line,i)=>c.fillText(line,o.image?1210:960,540+i*72));
+      }
       c.restore();}
   }
   private drawAnnouncement(h:KillHighlight,frame:Frame){

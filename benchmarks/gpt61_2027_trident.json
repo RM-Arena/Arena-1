@@ -53,8 +53,8 @@
   },
   "reproduce": [
     ".venv/bin/python scripts/build_gpt61_trident_2027.py --check",
-    ".venv/bin/python scripts/evaluate_2027.py examples/gpt61_2027_trident examples/official_2027_team examples/official_2027_hold examples/gpt61_2027_lineup_serial --seeds 991 --jobs 2 --output build/gpt61-trident/release-991.json",
-    ".venv/bin/python scripts/evaluate_2027.py examples/gpt61_2027_trident examples/official_2027_hold --seeds 43 --jobs 2 --output build/gpt61-trident/release-43.json"
+    ".venv/bin/python scripts/evaluate_2027.py examples/gpt61_2027_trident examples/claude_opus55_xhigh_2027_team examples/claude_opus55_xhigh_2027_hold examples/gpt61_2027_lineup_serial --seeds 991 --jobs 2 --output build/gpt61-trident/release-991.json",
+    ".venv/bin/python scripts/evaluate_2027.py examples/gpt61_2027_trident examples/claude_opus55_xhigh_2027_hold --seeds 43 --jobs 2 --output build/gpt61-trident/release-43.json"
   ],
   "development": {
     "earlier_versions_excluded": true,
@@ -62,7 +62,7 @@
   },
   "matches": [
     {
-      "opponent": "official_2027_team-7d49466f50b14961",
+      "opponent": "claude_opus55_xhigh_2027_team-7d49466f50b14961",
       "seed": 991,
       "side": "red",
       "outcome": "loss",
@@ -736,7 +736,7 @@
       ]
     },
     {
-      "opponent": "official_2027_team-7d49466f50b14961",
+      "opponent": "claude_opus55_xhigh_2027_team-7d49466f50b14961",
       "seed": 991,
       "side": "blue",
       "outcome": "loss",
@@ -1410,7 +1410,7 @@
       ]
     },
     {
-      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "opponent": "claude_opus55_xhigh_2027_hold-ddaadf86433536d9",
       "seed": 991,
       "side": "red",
       "outcome": "loss",
@@ -2091,7 +2091,7 @@
       ]
     },
     {
-      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "opponent": "claude_opus55_xhigh_2027_hold-ddaadf86433536d9",
       "seed": 991,
       "side": "blue",
       "outcome": "win",
@@ -4138,7 +4138,7 @@
       ]
     },
     {
-      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "opponent": "claude_opus55_xhigh_2027_hold-ddaadf86433536d9",
       "seed": 43,
       "side": "red",
       "outcome": "win",
@@ -4836,7 +4836,7 @@
       ]
     },
     {
-      "opponent": "official_2027_hold-ddaadf86433536d9",
+      "opponent": "claude_opus55_xhigh_2027_hold-ddaadf86433536d9",
       "seed": 43,
       "side": "blue",
       "outcome": "win",
