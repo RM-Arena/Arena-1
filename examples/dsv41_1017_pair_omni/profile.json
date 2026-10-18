@@ -1,0 +1,17 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "deepseek",
+    "model": "deepseek-v4.1-flash-1017-max"
+  },
+  "tactic": "siege",
+  "tags": [
+    "aerial",
+    "mobility",
+    "focus_fire",
+    "base_rush"
+  ],
+  "display_name": "DeepSeek · 双锚断粮·全向机动 2027",
+  "author": "deepseek-v4.1-flash-1017-max",
+  "description": "全向机动 2713/303/301/2762/2771；哨兵与 303 双锚占敌基地卡，控制度 +3/秒。"
+}

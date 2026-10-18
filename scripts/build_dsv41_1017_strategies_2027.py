@@ -26,6 +26,7 @@ HOME_ROUTE = [[3.2, 6.15], [7.2, 9.6], [8.25, 12.3], [11.9, 13.9], [12.0, 12.7],
 ENTRIES = {
     'sentry': {
         'name': 'dsv41_1017_sentry',
+        'card': 'sentry',
         'title': 'DeepSeek · 釜底抽薪 2027',
         'tagline': '7 号哨兵独走敌方基地卡，控制度每秒 +3；双步兵守家，重型照常做科技。',
         'summary': '控制度由控制点决定：同时控制双方基地控制点每秒 +3，是前哨控制的三倍，而基地控制点只需要一张卡有人就能维持。'
@@ -61,6 +62,7 @@ ENTRIES = {
     },
     'pair': {
         'name': 'dsv41_1017_pair',
+        'card': 'pair',
         'title': 'DeepSeek · 双锚断粮 2027',
         'tagline': '哨兵加轮足步兵双锚占敌基地卡，一机被击倒另一机仍在卡上，控制度 +3/秒。',
         'summary': '同一套基地控制思路，但把 3 号登阶轮足步兵也派去敌方基地卡：哨兵先到，步兵随后，两台机器人轮流占卡。'
@@ -96,6 +98,7 @@ ENTRIES = {
     },
     'heavy': {
         'name': 'dsv41_1017_heavy',
+        'card': 'heavy',
         'title': 'DeepSeek · 重装断粮 2027',
         'tagline': '重型机器人放弃科技直取敌方基地卡，哨兵守家；用最厚车体换 +3/秒。',
         'summary': '把基地卡突袭交给 1 号重型机器人：它不开科技、不装 42mm，沿南侧公开路点直接开到敌方基地卡背面并停车。'
@@ -131,8 +134,53 @@ ENTRIES = {
 }
 
 
-def sidecars(style):
-    entry = ENTRIES[style]
+# Three transferred lineups. The tactic is unchanged; only the hardware changes, so each
+# card is generated from its base entry and keeps the same route, rules and role split.
+LINEUP_SPECS = (
+    ('sentry_dual_arm', 'sentry', '双臂重装',
+     {'1': 2712, '3': 304, '4': 302, '6': 2763, '7': 2772},
+     ['assembly', 'aerial'],
+     '双臂重装 2712/304/302/2763/2772；7 号哨兵独走敌基地卡，控制度每秒 +3。'),
+    ('pair_omni', 'pair', '全向机动',
+     {'1': 2713, '3': 303, '4': 301, '6': 2762, '7': 2771},
+     ['mobility', 'aerial'],
+     '全向机动 2713/303/301/2762/2771；哨兵与 303 双锚占敌基地卡，控制度 +3/秒。'),
+    ('pair_s2772', 'pair', '自复位哨兵',
+     {'1': 2711, '3': 2731, '4': 2732, '6': 2761, '7': 2772},
+     ['aerial'],
+     '自复位哨兵 2711/2731/2732/2761/2772；双锚占敌基地卡，控制度 +3/秒。'),
+)
+
+
+def _fit(text, extra, limit):
+    if len(text) + len(extra) <= limit:
+        return text + extra
+    return text[:max(0, limit - len(extra) - 1)] + '…' + extra
+
+
+for _key, _base, _label, _lineup, _extra_tags, _tagline in LINEUP_SPECS:
+    _entry = dict(ENTRIES[_base])
+    _text = ' / '.join(str(model) for _, model in sorted(_lineup.items()))
+    _entry.update({
+        'name': f'dsv41_1017_{_key}',
+        'card': _base,
+        'lineup': _lineup,
+        'label': _label,
+        'extra_tags': _extra_tags,
+        'title': ENTRIES[_base]['title'].replace(' 2027', f'·{_label} 2027'),
+        'tagline': _tagline,
+        'summary': _fit(ENTRIES[_base]['summary'], f' 本版阵容为 {_text}。', 600),
+        'units': list(ENTRIES[_base]['units']) + [
+            {'name': '出战阵容', 'role': _label, 'task': f'{_label}：{_text}'}],
+        'strengths': (ENTRIES[_base]['strengths'][:4] + [f'{_label}阵容验证了同一套基地卡路线']),
+        'weaknesses': (ENTRIES[_base]['weaknesses'][:4] + [f'{_label}的越障与转向手感不同，路线需保持一致']),
+    })
+    ENTRIES[_key] = _entry
+
+
+def sidecars(key):
+    entry = ENTRIES[key]
+    card = entry['card']
     showcase = validate_showcase({
         'format': 'rmuc-showcase-v1',
         'title': entry['title'],
@@ -151,8 +199,9 @@ def sidecars(style):
         'agent': AGENT,
         'author': 'deepseek-v4.1-flash-1017-max',
         'tactic': 'siege',
-        'tags': ['base_rush', 'focus_fire', 'mobility'] if style == 'pair' else
-                ['base_rush', 'focus_fire', 'aerial'] if style == 'sentry' else ['base_rush', 'focus_fire'],
+        'tags': (['base_rush', 'focus_fire', 'mobility'] if card == 'pair' else
+                 ['base_rush', 'focus_fire', 'aerial'] if card == 'sentry' else ['base_rush', 'focus_fire'])
+                + entry.get('extra_tags', []),
         'display_name': entry['title'],
         'description': entry['tagline'],
     })
@@ -163,13 +212,13 @@ def outputs():
     policy = (ROOT / 'scripts/dsv41_1017_policy_2027.py').read_text()
     with tempfile.TemporaryDirectory(prefix='dsv41-1017-submissions-') as temporary:
         folder = Path(temporary)
-        for style, entry in ENTRIES.items():
+        for key, entry in ENTRIES.items():
             source = folder / (entry['name'] + '.py')
-            source.write_text(policy.replace('STYLE = "sentry"', f'STYLE = "{style}"'))
-            showcase, profile = sidecars(style)
+            source.write_text(policy.replace('STYLE = "sentry"', f'STYLE = "{entry["card"]}"'))
+            showcase, profile = sidecars(key)
             output = folder / entry['name']
             save_submission(output, 'team', {'team': source},
-                            team_lineup=seasons.default_lineup('2027'),
+                            team_lineup=entry.get('lineup') or seasons.default_lineup('2027'),
                             showcase=showcase, profile=profile, season='2027')
             yield entry['name'], {p.name: p.read_bytes() for p in output.iterdir() if p.is_file()}
 
