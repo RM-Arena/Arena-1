@@ -1,3 +1,3 @@
 """RMUC-inspired strategy arena. Rules are intentionally simplified."""
 
-__version__ = "0.6.0"
+__version__ = "0.6.1-beta.1"

@@ -83,6 +83,7 @@ jobs:
       contents: write
       actions: read
     steps:
+      - uses: actions/checkout@v4
       - name: Require successful native regression checks
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,4 +101,9 @@ jobs:
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Arena-1 $GITHUB_REF_NAME" --generate-notes installers/*/*
+        run: |
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          test -f "$notes"
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "Arena-1 $GITHUB_REF_NAME (Beta)" --prerelease --latest=false \
+            --notes-file "$notes" installers/*/*

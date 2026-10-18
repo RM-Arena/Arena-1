@@ -25,6 +25,12 @@ def _steps():
   return g
 STEP = _steps()
 OVERHEAD = 0.7
+# The road bumps are traversable by ordinary wheels with power assistance;
+# treating their local ripple as a wall disconnects the only road access.
+_BUMPS = [t for t in ARENA['terrain'] if t['kind'] == 'bumps']
+_BUMPCELL = bytearray(any(t['x']-RES <= (i+.5)*RES <= t['x']+t['w']+RES
+                        and t['y']-RES <= (j+.5)*RES <= t['y']+t['h']+RES for t in _BUMPS)
+                     for i in range(NX) for j in range(NY))
 
 def _walls(team, fold):
   blocked = bytearray(NX * NY)
@@ -83,7 +89,7 @@ def grid(team, mode, slope):
     blocked = bytearray(_WALLS[(team, mode == "fold")])
     rise = slope * RES
     for k in range(NX * NY):
-      if STEP[k] > ((.45 if _STAIRCELL[k] else .22) if mode == "leg" else rise):
+      if STEP[k] > ((.45 if _STAIRCELL[k] else .22) if mode == "leg" else max(rise, .08 if _BUMPCELL[k] else 0)):
         blocked[k] = 1
     _GRIDS[key] = _clearance(blocked)
   return _GRIDS[key]
@@ -171,7 +177,7 @@ def nearest_ok(ok, x, y, limit=14):
   return None
 _NB = ((1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0), (1, 1, 1.414), (1, -1, 1.414), (-1, 1, 1.414), (-1, -1, 1.414))
 
-def astar(team, mode, slope, radius, start, goal, budget=6000):
+def astar(team, mode, slope, radius, start, goal, budget=6000, time_budget=.025):
   ok = coarse_map(team, mode, slope, radius)
   clear = grid(team, mode, slope)
   s = nearest_ok(ok, start[0], start[1])
@@ -187,7 +193,7 @@ def astar(team, mode, slope, radius, start, goal, budget=6000):
   came = {sn: -1}
   cost = {sn: 0.0}
   found = None
-  stop = time.perf_counter() + .025
+  stop = time.perf_counter() + time_budget if time_budget is not None else math.inf
   while openq and budget > 0:
     budget -= 1
     if not budget & 255 and time.perf_counter() > stop:
@@ -371,7 +377,7 @@ def deck_waypoint(ctx, r, m, goal):
   rx, ry = ctx.p(*pos(r))
   gx, gy = ctx.p(*goal)
   hr, hg = lift(*pos(r)), lift(*goal)
-  on_deck = hr > .3 and 10.15 < rx < 17.9
+  on_deck = hr > .3 and 10.15 < rx < 17.9 and r.get('z', ground(*pos(r))) >= ground(*pos(r))-.15
   goal_deck = hg > .3 and 10.15 < gx < 17.9
   on_road = .12 < hr < .3 and ry > 11.3 and rx < 12.7
   enemy = [(W - x, H - y) for x, y in DECK_CHAIN]

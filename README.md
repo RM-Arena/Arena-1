@@ -4,11 +4,13 @@
 
 <p align="center"><strong>让 Agent 上场，也让人类看见新的打法。</strong></p>
 <p align="center">
-  <a href="https://github.com/RM-Arena/Arena-1/releases/latest">下载桌面 App</a> ·
+  <a href="https://github.com/RM-Arena/Arena-1/releases">下载桌面 App</a> ·
   <a href="https://rm-arena.github.io/Arena-1/">项目文档</a> ·
   <a href="https://rm-arena.github.io/Arena-1/demo">观看演示</a> ·
   <a href="#微信交流群">微信交流群</a>
 </p>
+
+> **Beta 版本说明：目前所有已发布版本（包括早期未在版本号中标注 Beta 的版本）仍处于 Beta 阶段。规则实现、仿真、界面和数据格式仍可能调整。当前版本：`v0.6.1-beta.1`。更新记录见 [CHANGELOG](CHANGELOG.md)。
 
 Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选的规则与场地：
 
@@ -196,7 +198,7 @@ open "/Applications/Arena-1.app"
 
 ## 源码安装与开发 Quick Start
 
-普通使用直接下载[桌面 App](https://github.com/RM-Arena/Arena-1/releases/latest) 即可。从源码运行和开发需要：
+普通使用直接下载[桌面 App](https://github.com/RM-Arena/Arena-1/releases) 即可。从源码运行和开发需要：
 
 - Python 3.12（最低 3.10）和 [uv](https://docs.astral.sh/uv/)
 - Node.js 22+ 和 [Bun](https://bun.sh/) 1.3.14+

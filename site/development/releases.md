@@ -1,5 +1,8 @@
 # 构建与发布
 
+目前所有版本仍为 **Beta**，包括早期未使用 Beta 后缀的版本。GitHub Releases 使用预发布标记；新版本采用 `vX.Y.Z-beta.N` 标签，并附对应的 `docs/releases/<tag>.md` changelog。
+桌面与 API 使用 SemVer（如 `0.6.1-beta.1`），Python 包元数据和 `uv.lock` 使用等价的 PEP 440（`0.6.1b1`）。
+
 ## 本机构建
 
 完成源码环境准备后：

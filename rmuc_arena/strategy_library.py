@@ -29,9 +29,11 @@ DIGEST = re.compile(r"[a-f0-9]{64}\Z")
 
 
 def version_tuple(value):
-    if not isinstance(value, str) or not re.fullmatch(r"\d+\.\d+\.\d+", value):
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?", value) if isinstance(value, str) else None
+    if match is None:
         raise ValueError("Invalid minimum client version")
-    return tuple(map(int, value.split(".")))
+    major, minor, patch, stage, number = match.groups()
+    return (int(major), int(minor), int(patch), {'alpha':0,'beta':1,'rc':2,None:3}[stage], int(number or 0))
 
 
 def validate_snapshot(directory):

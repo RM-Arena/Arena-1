@@ -194,9 +194,11 @@ class SiegeAssaultTeamTests(unittest.TestCase):
         for team in ('red','blue'):
             obs=self.observation(team);obs.update(tick=2400,time=120)
             S.MEM.clear();ctx=S.Ctx(obs,{})
-            r=ctx.robots[3];x,y=ctx.p(15,1.6)
-            r.update(x=x,y=y,vx=1.2 if team=='red' else -1.2,vy=0,grounded=True,tipped=False)
-            command,_=S.go(ctx,r,ctx.p(16.2,1.6))
+            # Cross the actual floor-to-road lip; (15, 1.6) is flat road.
+            r=ctx.robots[3];x,y=ctx.p(8.24,12.7)
+            r.update(x=x,y=y,z=sdk.terrain_height(obs['arena'],x,y),vx=0,
+                     vy=1.2 if team=='red' else -1.2,grounded=True,tipped=False)
+            command,_=S.go(ctx,r,ctx.p(8.24,13.35))
             self.assertIsInstance(command,dict)
             self.assertGreater(command.get('jump',0),0)
 
@@ -431,7 +433,7 @@ class SiegeAssaultTeamTests(unittest.TestCase):
             with self.subTest(team=team):
                 mirror = lambda p: p if team == "red" else (28-p[0], 15-p[1])
                 radius = S.RADIUS["hero"]
-                path = S.astar(team, "mec", .4, radius, mirror((1.6, 6.05)), mirror(S.HERO_SPOT))
+                path = S.astar(team, "mec", .4, radius, mirror((1.6, 6.05)), mirror(S.HERO_SPOT), time_budget=None)
                 self.assertIsNotNone(path)
                 self.assertLess(S.dist(path[-1], mirror(S.HERO_SPOT)), .25)
                 clear = S.grid(team, "mec", .4)
@@ -442,13 +444,15 @@ class SiegeAssaultTeamTests(unittest.TestCase):
         S = self.strategy
         for team in ("red", "blue"):
             mirror = lambda p: p if team == "red" else (28-p[0], 15-p[1])
-            wheels = S.astar(team, "mec", .4, S.RADIUS["engineer"], mirror((0.98, 13.0)), mirror((13.34, 6.84)))
+            # Test reachability with the deterministic node budget. The live
+            # policy also has a 25 ms wall-clock budget, independent of geometry.
+            wheels = S.astar(team, "mec", .4, S.RADIUS["engineer"], mirror((0.98, 13.0)), mirror((13.34, 6.84)), time_budget=None)
             self.assertIsNotNone(wheels, team)
             self.assertTrue(any(S.lift(*p) > .15 and mirror(p)[1] > 12.9 for p in wheels), team)   # via the highway
-            legs = S.astar(team, "leg", .4, S.RADIUS["infantry"], mirror((5.0, 7.5)), mirror((21.4, 7.5)))
+            legs = S.astar(team, "leg", .4, S.RADIUS["infantry"], mirror((5.0, 7.5)), mirror((21.4, 7.5)), time_budget=None)
             self.assertIsNotNone(legs, team)
             self.assertLess(max(abs(mirror(p)[1] - 7.5) for p in legs), 2.5, team)              # straight over
-            around = S.astar(team, "mec", .4, S.RADIUS["infantry"], mirror((8.0, 7.5)), mirror((11.0, 7.5)))
+            around = S.astar(team, "mec", .4, S.RADIUS["infantry"], mirror((8.0, 7.5)), mirror((11.0, 7.5)), time_budget=None)
             self.assertGreater(sum(S.dist(a, b) for a, b in zip(around, around[1:])), 12, team)    # no wheels up the steps
 
     def test_deck_chain_keeps_wheeled_robots_on_the_validated_route(self):
