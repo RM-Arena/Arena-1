@@ -166,7 +166,7 @@ class GalleryApiTests(unittest.TestCase):
         self.assertEqual(metadata["skins"]["red"]["301"]["asset"], skin["asset"])
         self.assertEqual(metadata["skins"]["blue"], {})
         self.assertEqual(metadata["agents"]["red"]["1"], {"provider": "moonshot", "model": "Kimi K2", "strategy": "kimi-hero"})
-        self.assertEqual(metadata["agents"]["red"]["2"]["provider"], "unknown")
+        self.assertEqual(metadata["agents"]["red"]["2"]["model"], "Claude Opus 5.5 xhigh")
         self.assertEqual(metadata["teams"]["red"]["cards"][0]["agent"]["provider"], "moonshot")
         self.assertEqual(self.client.delete(f"/api/custom-models/{skin['id']}").status_code, 200)
         self.assertEqual(self.client.get("/api/custom-models").json(), [])
@@ -183,7 +183,7 @@ class GalleryApiTests(unittest.TestCase):
                 break
             time.sleep(.05)
         self.assertEqual(state["prematch"]["duration"], intro_seconds(12))
-        self.assertEqual(state["metadata"]["agents"]["red"]["1"]["provider"], "unknown")
+        self.assertEqual(state["metadata"]["agents"]["red"]["1"]["model"], "Claude Opus 5.5 xhigh")
         self.client.post("/api/control", json={"command": "stop"})
         self.wait()
 

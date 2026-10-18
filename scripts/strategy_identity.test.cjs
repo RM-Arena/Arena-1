@@ -41,3 +41,8 @@ test('pre-0.7 strategy identifiers and labels normalize without changing user na
  const metadata={teams:{red:{name:old+'_team',agent:{provider:old}}}};
  assert.equal(agents.robotAgent(metadata,'red',1).model,'Claude Opus 5.5 xhigh');
 });
+
+test('an explicitly credited local submission keeps its author even when its name resembles a bundled strategy',()=>{
+ const metadata={teams:{red:{name:'claude_opus55_xhigh_team',agent:{provider:'human',model:'Local author'}}}};
+ assert.equal(agents.robotAgent(metadata,'red',1).provider,'human');
+});

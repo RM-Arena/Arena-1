@@ -47,7 +47,9 @@ const CLAUDE:AgentInfo={provider:'anthropic',model:'Claude Opus 5.5 xhigh'};
 function recordedAgent(agent:RobotAgent|null|undefined,metadata:Metadata|null|undefined,team:TeamId):RobotAgent|null{
   const name=agent?.strategy||metadata?.teams[team]?.name||'',old='off'+'icial';
   const known=[name,metadata?.teams[team]?.name||''].some(n=>n.startsWith('claude_opus55_xhigh_')||new RegExp('^'+old+'_(?:2027_)?(?:team|hold|squad|distributed|adaptive)').test(n));
-  if(known||(agent?.provider as string)===old)return {...agent,...CLAUDE,...(name?{strategy:name}:{})};
+  const category=agent?.provider as string|undefined;
+  const priorClaude=agent?.provider==='anthropic'&&(!agent.model||/^Claude Opus 5\.5(?: xhigh)?$/.test(agent.model));
+  if(category===old||(known&&(!agent||category==='unknown'||category==='rulebook'||priorClaude)))return {...agent,...CLAUDE,...(name?{strategy:name}:{})};
   if((agent?.provider as string)===old||(agent?.provider as string)==='rulebook')return {...agent,provider:'unknown'};
   return agent??null;
 }

@@ -27,6 +27,8 @@ class StrategyNamingTests(unittest.TestCase):
         self.assertEqual(normalized['teams']['red']['agent'], CLAUDE_AGENT)
         self.assertEqual(normalized['teams']['blue']['agent'], meta['teams']['blue']['agent'])
         self.assertEqual(meta['teams']['red']['name'], LEGACY_CATEGORY+'_team')
+        local={'teams':{'red':{'name':'claude_opus55_xhigh_team','agent':{'provider':'human'}}}}
+        self.assertEqual(normalize_metadata(local)['teams']['red']['agent']['provider'],'human')
 
     def test_owned_strategy_paths_and_payloads_have_no_obsolete_category(self):
         pattern=re.compile(LEGACY_CATEGORY+'|\u5b98\u65b9',re.I)

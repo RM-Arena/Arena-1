@@ -21,6 +21,13 @@ def display_name(value):
     return re.sub(LEGACY_CATEGORY, '', value, flags=re.I).replace(LEGACY_ZH, '').strip()
 
 
+def confirmed_claude(agent, known=False):
+    agent = agent or {}
+    provider = agent.get('provider')
+    return provider == LEGACY_CATEGORY or (known and (provider in (None, 'unknown') or
+        (provider == 'anthropic' and agent.get('model') in (None, 'Claude Opus 5.5', CLAUDE_AGENT['model']))))
+
+
 def normalize_metadata(metadata):
     """Normalize public records without rewriting their checksummed replay files."""
     import copy
@@ -30,12 +37,12 @@ def normalize_metadata(metadata):
         team['name'] = canonical_key(old_name)
         if team.get('display_name'):
             team['display_name'] = display_name(team['display_name'])
-        if team['name'].startswith(CLAUDE_PREFIX) or team.get('agent', {}).get('provider') == LEGACY_CATEGORY:
+        if confirmed_claude(team.get('agent'), team['name'].startswith(CLAUDE_PREFIX)):
             team['agent'] = dict(CLAUDE_AGENT)
     for name, agents in result.get('agents', {}).items():
         known = result.get('teams', {}).get(name, {}).get('name', '').startswith(CLAUDE_PREFIX)
         for key, value in agents.items():
-            if known or value.get('provider') == LEGACY_CATEGORY or canonical_key(value.get('strategy', '')).startswith(CLAUDE_PREFIX):
+            if confirmed_claude(value, known or canonical_key(value.get('strategy', '')).startswith(CLAUDE_PREFIX)):
                 value.update(CLAUDE_AGENT)
             if value.get('strategy'):
                 value['strategy'] = display_name(canonical_key(value['strategy']))
