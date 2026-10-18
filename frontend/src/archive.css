@@ -1,4 +1,5 @@
 .row-actions{display:flex;align-items:center;gap:6px}.row-actions>small{margin:0 0 0 4px;font-variant-numeric:tabular-nums}
+.match-history .match-status-detail{max-width:260px;white-space:normal;overflow-wrap:anywhere;color:#e5ab82}
 td button.delete-match{padding:7px 8px;background:transparent;color:#8fa4b2;border-color:#33444f}td button.delete-match:hover:not(:disabled){color:#ffb3a6;border-color:#a1574c;background:#3a2427}
 .delete-match-dialog{width:440px;max-width:100%;background:linear-gradient(160deg,#1a252e,#131c23);border:1px solid #6c3f3b;border-radius:9px;padding:24px;box-shadow:0 24px 70px #000a,inset 0 1px 0 #ff8a7614}
 .delete-match-dialog .dialog-heading{margin-bottom:18px}.delete-match-dialog .dialog-heading h2 svg{color:#f0907f}

@@ -28,8 +28,9 @@ def initial_model_stats(design,rules,season=None):
         stats=dict(specs[role])
         if role=='heavy':stats.update(official['heavy']['stages'][0])
         elif role=='infantry':
-            stats.update(official['profiles']['infantry_chassis'][design['chassis_profile']][0])
-            stats.update(official['profiles']['infantry_weapon'][design['weapon_profile']][0])
+            defaults = official['profiles']['defaults']
+            stats.update(official['profiles']['infantry_chassis'][defaults['infantry_chassis']][0])
+            stats.update(official['profiles']['infantry_weapon'][defaults['infantry_weapon']][0])
         elif role=='sentry':stats.update(official['sentry']['automatic']);stats['ammo']=official['initial_ammo']['sentry']
         stats.setdefault('max_heat',0);stats.setdefault('cooling',0);stats.setdefault('power_w',0)
         return {key:stats.get(key,0) for key in ('hp','power_w','max_heat','cooling','damage','ammo')}

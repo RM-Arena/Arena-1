@@ -59,6 +59,7 @@ class Action(TypedDict, total=False):
     assembly_insert: bool
     assembly_translate: bool
     assembly_rotate: float
+    assembly_rotate2: float
     assembly_confirm: bool
     rune_start: bool
     heading: float
@@ -157,7 +158,7 @@ def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgra
 
     Additional operations: profile, power, altitude, buy_ammo, remote_heal,
     revive, deploy, support, pick_unit, assembly, assembly_insert,
-    assembly_translate, assembly_rotate, assembly_confirm, rune_start, rescue,
+    assembly_translate, assembly_rotate, assembly_rotate2, assembly_confirm, rune_start, rescue,
     yaw_rate, brake, leg_height, jump, lean, arm, messages (all control modes).
     rescue=<own slot> makes the engineer grip and right that tipped robot;
     arm={"tip":[x,y,z],"dir":[dx,dy,dz],"frame":"world"|"robot"} or
@@ -167,7 +168,7 @@ def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgra
     if skill or upgrade is not None:
         raise ValueError("Unsupported action; use the documented game operations")
     allowed = {"profile", "power", "altitude", "buy_ammo", "remote_heal", "revive", "deploy", "support", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform", "messages",
-               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "posture", "posture_enhanced", "drones"}
+               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture", "posture_enhanced", "drones"}
     if not set(operations) <= allowed:
         raise ValueError("Unknown action operation")
     # A move from `navigate` that backs a chassis off the road bumps keeps its heading.

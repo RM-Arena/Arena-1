@@ -103,11 +103,20 @@ impl Engine {
         let team = r.team.clone();
         let robot = r.id.clone();
         let hp = r.hp;
+        let victim_level = if r.role == "sentry" { 1 } else { r.level.max(1) };
         let opponent = if team == "red" { "blue" } else { "red" };
         let t = self.teams.get_mut(opponent).unwrap();
         t.attack_damage += taken;
         t.score = t.attack_damage;
-        // Referee damage bypasses shields/defence/protection and never grants XP.
+        // Referee damage bypasses defence/protection. In 2027, table 5-14
+        // attributes its damage/death XP to the opponent's living infantry.
+        if self.season == 2027 {
+            let xp = taken * n(&self.rules["experience"], "robot_damage_xp_per_hp");
+            self.award_damage_xp_2027(None, opponent, xp, None);
+            if hp <= 0.0 {
+                self.award_kill_xp_2027(None, opponent, victim_level, None);
+            }
+        }
         self.event(
             "penalty_damage",
             json!({"robot":robot,"team":team,"damage":taken,"hp":hp}),
@@ -129,6 +138,7 @@ impl Engine {
         r.deployed = false;
         r.deploy_at = None;
         r.pending_heal = None;
+        r.weak_until = None;
         r.zone_contacts.clear();
         r.last_raw_zones.clear();
         r.invulnerable_until = 0.0;

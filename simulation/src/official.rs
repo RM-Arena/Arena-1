@@ -56,6 +56,9 @@ pub struct AssemblyState {
     pub retry_at: f64,
     pub permanent_lock: bool,
     pub attempt_by_difficulty: BTreeMap<u32, u32>,
+    /// Successful assemblies seed the next pose; failed retries keep the same pose.
+    #[serde(default)]
+    pub successes_by_difficulty: BTreeMap<u32, u32>,
     pub inserted: f64,
     pub translated: f64,
     pub rotation: f64,
@@ -132,6 +135,7 @@ impl AssemblyState {
             retry_at: 0.0,
             permanent_lock: false,
             attempt_by_difficulty: BTreeMap::new(),
+            successes_by_difficulty: BTreeMap::new(),
             inserted: 0.0,
             translated: 0.0,
             rotation: 0.0,
@@ -186,6 +190,8 @@ impl Engine {
             h.update(include_bytes!("penalties.rs"));
             h.update(include_bytes!("structures.rs"));
             h.update(include_bytes!("pickup.rs"));
+            h.update(include_bytes!("season2027.rs"));
+            h.update(include_bytes!("vision.rs"));
             h.update(include_bytes!("../Cargo.lock"));
             format!("{:x}", h.finalize())
         })
@@ -216,6 +222,9 @@ impl Engine {
         })
     }
     pub(super) fn raw_zone(&self, i: usize, kind: &str, owner: Option<&str>) -> bool {
+        if self.season == 2027 {
+            return self.raw_zone_2027(i, kind, owner);
+        }
         let r = &self.robots[i];
         self.arena.zones.iter().any(|z| {
             z.kind == kind
@@ -1871,6 +1880,9 @@ impl Engine {
         }
     }
     fn rune_motor_rates(&self, now: f64) -> (f64, f64) {
+        if self.season == 2027 {
+            return self.rune_motor_rates_2027(now);
+        }
         let motor = &self.sim["rune_motor"];
         let weight = n(motor, "secondary_weight");
         let secondary = self.rune_omega * n(motor, "secondary_frequency_ratio");

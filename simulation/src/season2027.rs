@@ -3,6 +3,10 @@
 //! Darts, radar and electronic countermeasures are not part of this arena.
 use super::*;
 
+#[cfg(test)]
+#[path = "combat_2027_regression_tests.rs"]
+mod combat_2027_regression_tests;
+
 fn n(v: &Value, k: &str) -> f64 {
     v[k].as_f64().unwrap_or(0.0)
 }
@@ -214,6 +218,58 @@ impl Engine {
             self.event("level_up", json!({"robot":self.robots[i].id,"level":level,"team":team}));
         }
     }
+    fn can_gain_xp_2027(&self, i: usize) -> bool {
+        let r = &self.robots[i];
+        r.role == "infantry" && r.alive && !r.red_card && r.level < self.teams[&r.team].level_cap
+    }
+    /// Table 5-14: only living infantry can receive unattributed XP. None denotes
+    /// non-projectile damage; infantry cannot normally deal 42 mm damage.
+    fn fallback_xp_recipients_2027(&self, team: &str, caliber: Option<&str>) -> Vec<usize> {
+        if caliber == Some("42mm") {
+            return Vec::new();
+        }
+        self.robots.iter().enumerate()
+            .filter(|(i, r)| r.team == team && self.can_gain_xp_2027(*i))
+            .map(|(i, _)| i).collect()
+    }
+    pub(super) fn award_damage_xp_2027(&mut self, source: Option<usize>, team: &str, xp: f64, caliber: Option<&str>) {
+        if let Some(i) = source.filter(|i| self.robots[*i].team == team && self.can_gain_xp_2027(*i)) {
+            self.gain_xp_2027(i, xp);
+            return;
+        }
+        let recipients = self.fallback_xp_recipients_2027(team, caliber);
+        if recipients.is_empty() {
+            return;
+        }
+        let share = (xp / recipients.len() as f64 * 10.0).round() / 10.0;
+        for i in recipients {
+            self.gain_xp_2027(i, share);
+        }
+    }
+    pub(super) fn award_kill_xp_2027(&mut self, source: Option<usize>, team: &str, victim_level: u32, caliber: Option<&str>) {
+        let direct = source.filter(|i| self.robots[*i].team == team && self.can_gain_xp_2027(*i));
+        let recipients = match direct {
+            Some(i) => vec![i],
+            None => self.fallback_xp_recipients_2027(team, caliber),
+        };
+        if recipients.is_empty() {
+            return;
+        }
+        let killer_level = if let Some(i) = direct {
+            self.xp_level(i)
+        } else {
+            let average = recipients.iter().map(|i| self.robots[*i].experience).sum::<f64>() / recipients.len() as f64;
+            self.rules["experience"]["thresholds"].as_array().unwrap().iter()
+                .take_while(|threshold| threshold.as_f64().unwrap() <= average).count().max(1) as u32
+        };
+        let gap = victim_level.saturating_sub(killer_level);
+        let xp = n(&self.rules["experience"], "kill_base_xp") * victim_level as f64
+            * (1.0 + n(&self.rules["experience"], "kill_level_gap_factor") * gap as f64);
+        let share = if direct.is_some() { xp } else { (xp / recipients.len() as f64 * 10.0).round() / 10.0 };
+        for i in recipients {
+            self.gain_xp_2027(i, share);
+        }
+    }
     /// The level a robot counts as when killed (sentry counts as level 1).
     fn xp_level(&self, i: usize) -> u32 {
         if self.robots[i].role == "sentry" { 1 } else { self.robots[i].level.max(1) }
@@ -266,6 +322,8 @@ impl Engine {
                 if s.progress >= capture - 1e-8 {
                     change = Some(("temporary".into(), other.clone()));
                 }
+            } else if holder_on && other_on {
+                // Table 5-21 pauses both advance and rollback while both teams activate.
             } else if !holder_on {
                 s.progress += DT;
                 if s.progress >= capture - 1e-8 {
@@ -378,6 +436,10 @@ impl Engine {
                 self.robots[i].profile_locked = true;
             }
             let team = self.robots[i].team.clone();
+            if self.robots[i].alive && self.robots[i].weak_until.map(|until| now + 1e-8 >= until).unwrap_or(false) {
+                self.robots[i].weak = false;
+                self.robots[i].weak_until = None;
+            }
             let deliveries: Vec<u32> = self.robots[i].pending_ammo.iter().filter(|(due, _)| *due <= now + 1e-8).map(|(_, a)| *a).collect();
             for amount in deliveries {
                 self.robots[i].ammo += amount;
@@ -403,7 +465,7 @@ impl Engine {
                 self.settle_heat_power_2027(i);
             }
             if !self.robots[i].alive {
-                let fast = self.raw_zone(i, "supply", Some(&team))
+                let fast = self.contacted_zone_2027(i, "supply", Some(&team))
                     || self.bases[&team].hp < n(&self.rules["respawn"], "fast_when_base_hp_below");
                 let rate = if fast { n(&self.rules["respawn"], "fast_progress_per_s") } else { 1.0 };
                 self.robots[i].respawn_progress += rate * DT;
@@ -411,7 +473,7 @@ impl Engine {
                     self.respawn_2027(i, false);
                 }
             } else if whole {
-                let supply = self.raw_zone(i, "supply", Some(&team));
+                let supply = self.contacted_zone_2027(i, "supply", Some(&team));
                 let rate = self.supply_heal_rate(i);
                 let outpost = !supply && self.on_controlled_outpost(i);
                 let fraction = if supply { rate } else if outpost { rate * n(&self.rules["heal"], "outpost_ratio_of_supply") } else { 0.0 };
@@ -421,7 +483,7 @@ impl Engine {
                 }
             }
             // Sentry: 100 allowed rounds per elapsed minute, collected on its supply card.
-            if self.robots[i].role == "sentry" && self.robots[i].alive && self.raw_zone(i, "supply", Some(&team)) {
+            if self.robots[i].role == "sentry" && self.robots[i].alive && !self.robots[i].weak && self.contacted_zone_2027(i, "supply", Some(&team)) {
                 let interval = n(&self.rules["sentry"]["supply_grant"], "interval_s").max(1.0);
                 let due = (now / interval).floor() as u32;
                 let taken = self.robots[i].supply_grants_taken;
@@ -451,7 +513,7 @@ impl Engine {
     fn on_controlled_outpost(&self, i: usize) -> bool {
         let r = &self.robots[i];
         ["red", "blue"].iter().any(|owner| {
-            self.fully_controls(&format!("{owner}_outpost"), &r.team) && self.raw_zone(i, "outpost", Some(owner))
+            self.fully_controls(&format!("{owner}_outpost"), &r.team) && self.contacted_zone_2027(i, "outpost", Some(owner))
         })
     }
     fn disengaged_2027(&self, i: usize) -> bool {
@@ -532,6 +594,7 @@ impl Engine {
         r.alive = true;
         r.hp = if instant { r.max_hp } else { (r.max_hp * 0.1).round() };
         r.weak = true;
+        r.weak_until = instant.then_some(now + 3.0);
         r.invulnerable_until = now + if instant { 3.0 } else { 30.0 };
         r.invulnerable = true;
         r.shield = if instant { 3.0 } else { 30.0 };
@@ -561,12 +624,53 @@ impl Engine {
                 || ["red", "blue"].iter().any(|owner| self.fully_controls(&format!("{owner}_outpost"), &r.team)
                     && self.contacted_zone_2027(i, "outpost", Some(owner))))
     }
-    pub(super) fn contacted_zone_2027(&self, i: usize, kind: &str, owner: Option<&str>) -> bool {
+    /// The RFID receiver is mounted under the chassis at its design ground clearance.
+    /// Construction manual 3.8.2 gives a 100 mm (+/-5%) effective detection distance.
+    /// Explicit tunnel card planes prevent a robot on the roof detecting the card below it.
+    fn card_contact_2027(&self, i: usize, zone: &Zone) -> bool {
         let r = &self.robots[i];
+        if r.role == "aerial" {
+            return false;
+        }
+        let design = &self.robot_models[&r.design_slot().to_string()];
+        let mount = n(design, "ground_clearance_m");
+        let [qx, qy, qz, qw] = r.quaternion;
+        let receiver = [
+            r.x + mount * 2.0 * (qx * qz + qw * qy),
+            r.y + mount * 2.0 * (qy * qz - qw * qx),
+            r.z + mount * (1.0 - 2.0 * (qx * qx + qy * qy)),
+        ];
+        let within = if zone.polygon.is_empty() {
+            dist(receiver[0], receiver[1], zone.x, zone.y) <= zone.radius
+        } else {
+            point_in_polygon(receiver[0], receiver[1], &zone.polygon)
+        };
+        if !within {
+            return false;
+        }
+        let card_z = zone.card_z_m.map(|z| {
+            // Cards follow the tilted floor, including across their finite footprint.
+            let slope = self.arena.floor_slope_deg.to_radians().tan();
+            let substrate = |y: f64| y.min(self.arena.height - y).max(0.0) * slope;
+            z + substrate(receiver[1]) - substrate(zone.y)
+        }).unwrap_or_else(|| height_at(&self.arena, receiver[0], receiver[1]));
+        (receiver[2] - card_z).abs() <= 0.100 * 1.05 + 1e-8
+    }
+    pub(super) fn raw_zone_2027(&self, i: usize, kind: &str, owner: Option<&str>) -> bool {
         self.arena.zones.iter().any(|z| {
             z.kind == kind
                 && owner.map(|o| z.owner.as_deref() == Some(o)).unwrap_or(true)
-                && r.zone_contacts.get(&z.id).map(|t| self.time() - t <= 2.0 + 1e-8).unwrap_or(false)
+                && self.card_contact_2027(i, z)
+        })
+    }
+    pub(super) fn contacted_zone_2027(&self, i: usize, kind: &str, owner: Option<&str>) -> bool {
+        let r = &self.robots[i];
+        let release = n(&self.rules["buffs"], "release_delay_s");
+        self.arena.zones.iter().any(|z| {
+            z.kind == kind
+                && owner.map(|o| z.owner.as_deref() == Some(o)).unwrap_or(true)
+                && (self.card_contact_2027(i, z)
+                    || r.zone_contacts.get(&z.id).map(|t| self.time() - t <= release + 1e-8).unwrap_or(false))
         })
     }
     fn official_rpc_2027(&mut self, i: usize, rpc: &Value) {
@@ -726,21 +830,35 @@ impl Engine {
         let now = self.time();
         for i in 0..self.robots.len() {
             let r = self.robots[i].clone();
-            if r.role == "aerial" || !r.alive {
+            if r.role == "aerial" {
                 self.robots[i].zone_contacts.clear();
                 self.robots[i].last_raw_zones.clear();
                 continue;
             }
-            let raw: Vec<String> = self.arena.zones.iter()
-                .filter(|z| if z.polygon.is_empty() { dist(r.x, r.y, z.x, z.y) <= z.radius } else { point_in_polygon(r.x, r.y, &z.polygon) })
-                .map(|z| z.id.clone()).collect();
+            // Dead ground robots retain physical RFID contact for supply respawn speed,
+            // but are excluded from card occupants and crossing rewards below.
+            let cards: Vec<Zone> = self.arena.zones.iter()
+                .filter(|z| self.card_contact_2027(i, z)).cloned().collect();
+            let raw: Vec<String> = cards.iter().map(|z| z.id.clone()).collect();
+            // Detecting any other card interrupts a pending crossing, including a card
+            // belonging to another crossing group. Check before awarding this frame.
+            let interrupted: Vec<String> = self.robots[i].crossings.keys()
+                .filter(|key| !key.contains(':') && cards.iter().any(|z| z.group.as_deref() != Some(key.as_str())))
+                .cloned().collect();
+            for group in interrupted {
+                for key in [group.clone(), format!("{group}:order"), format!("{group}:path")] {
+                    self.robots[i].crossings.remove(&key);
+                }
+            }
             for zone in self.arena.zones.clone() {
                 if raw.contains(&zone.id) {
                     self.robots[i].zone_contacts.insert(zone.id.clone(), now);
-                    if !r.weak && !r.last_raw_zones.contains(&zone.id) {
+                    if r.alive && !r.weak && !r.last_raw_zones.contains(&zone.id) {
                         if let (Some(group), Some(order)) = (&zone.group, zone.order) {
-                            let kind = zone.crossing.clone().unwrap_or(zone.kind.clone());
-                            self.process_crossing_2027(i, group, order, &kind);
+                            if cards.iter().all(|z| z.group.as_deref() == Some(group.as_str())) {
+                                let kind = zone.crossing.clone().unwrap_or(zone.kind.clone());
+                                self.process_crossing_2027(i, group, order, &kind);
+                            }
                         }
                         if zone.kind == "high_point" && zone.owner.as_deref() == Some(&r.team)
                             && !self.robots[i].crossing_firsts.contains(&"high_point".to_string())
@@ -751,21 +869,16 @@ impl Engine {
                     }
                 }
             }
-            // Cards outside a crossing sequence break it (the robot must not detect other cards).
-            let others = raw.iter().any(|id| {
-                !r.last_raw_zones.contains(id) && self.arena.zones.iter().any(|z| &z.id == id && z.group.is_none())
-            });
-            if others {
-                self.robots[i].crossings.clear();
-            }
             self.robots[i].last_raw_zones = raw;
-            self.robots[i].zone_contacts.retain(|_, time| now - *time <= 2.0 + 1e-8);
+            let release = n(&self.rules["buffs"], "release_delay_s");
+            self.robots[i].zone_contacts.retain(|_, time| now - *time <= release + 1e-8);
             let clears = self.contacted_zone_2027(i, "base", Some(&r.team))
                 || self.contacted_zone_2027(i, "supply", Some(&r.team))
                 || ["red", "blue"].iter().any(|o| self.fully_controls(&format!("{o}_outpost"), &r.team) && self.contacted_zone_2027(i, "outpost", Some(o)));
-            if r.weak && clears {
+            if r.alive && r.weak && clears && r.weak_until.map(|until| now + 1e-8 >= until).unwrap_or(true) {
                 let actor = &mut self.robots[i];
                 actor.weak = false;
+                actor.weak_until = None;
                 // Respawn protection then ends, but not before 10 s after the respawn.
                 let floor = (actor.respawned_at + n(&self.rules["respawn"], "weak_clear_invulnerability_min_s")).max(now);
                 actor.invulnerable_until = actor.invulnerable_until.min(floor);
@@ -931,9 +1044,9 @@ impl Engine {
         if r.role != "heavy" || r.weak {
             return false;
         }
-        let supply = self.raw_zone(i, "supply", Some(&r.team));
+        let supply = self.contacted_zone_2027(i, "supply", Some(&r.team));
         let assembly = self.assembly_active_for(&r.team)
-            && self.raw_zone(i, "assembly", Some(&r.team))
+            && self.contacted_zone_2027(i, "assembly", Some(&r.team))
             && r.assembly_invulnerable_spent + 1e-8 < n(&self.rules["buffs"], "assembly_invulnerability_budget_s");
         supply || assembly
     }
@@ -952,7 +1065,6 @@ impl Engine {
             if order == 1 {
                 if fresh && matches!(previous_order, Some(0) | Some(2)) {
                     self.robots[i].crossings.insert(path_key.clone(), 1.0);
-                    self.robots[i].crossings.insert(group.into(), now);
                 }
                 return;
             }
@@ -1144,26 +1256,27 @@ impl Engine {
         if amount <= 0.0 {
             return;
         }
-        let Some(source) = self.robots.iter().position(|r| r.id == p.source) else { return };
+        let source = self.robots.iter().position(|r| r.id == p.source);
         let victim_level = self.xp_level(index);
-        let killer_level = self.xp_level(source);
+        let attacker = opponent(&target.team).to_string();
+        let caliber = Some(if heavy { "42mm" } else { "17mm" });
         let now = self.time();
         let r = &mut self.robots[index];
         r.hp -= amount;
         r.last_damage_time = now;
         r.armor_hit_times[face] = now;
-        self.record_damage_2027(source, amount, n(&self.rules["experience"], "robot_damage_xp_per_hp"));
+        self.record_damage_2027(source, &attacker, amount, n(&self.rules["experience"], "robot_damage_xp_per_hp"), caliber);
         self.event("hit", json!({"robot":self.robots[index].id,"team":p.team,"x":x,"y":y,"z":z,"damage":amount}));
         if self.robots[index].hp <= 0.0 {
             let lambda = self.logistics(&self.robots[index].team.clone());
             let r = &mut self.robots[index];
             r.alive = false;
+            r.weak_until = None;
             r.death_time = now;
             r.heat = 0.0;
             r.buffer_energy_j = 60.0;
             r.vx = 0.0;
             r.vy = 0.0;
-            r.zone_contacts.clear();
             r.crossing_buffs.clear();
             r.crossing_defense_until = 0.0;
             r.pending_heal = None;
@@ -1172,30 +1285,32 @@ impl Engine {
             if r.unit_pickup.take().is_some() {
                 self.event("unit_pickup_cancelled", json!({"robot":self.robots[index].id}));
             }
-            self.robots[source].kills += 1;
-            self.teams.get_mut(&p.team).unwrap().kills += 1;
-            let gap = victim_level.saturating_sub(killer_level);
-            let xp = n(&self.rules["experience"], "kill_base_xp") * victim_level as f64 * (1.0 + n(&self.rules["experience"], "kill_level_gap_factor") * gap as f64);
-            self.gain_xp_2027(source, xp);
+            if let Some(source) = source.filter(|i| self.robots[*i].team == attacker) {
+                self.robots[source].kills += 1;
+            }
+            self.teams.get_mut(&attacker).unwrap().kills += 1;
+            self.award_kill_xp_2027(source, &attacker, victim_level, caliber);
             if self.robots[index].role == "heavy" {
                 self.heavy_down(index);
             }
             self.event("destroy", json!({"robot":self.robots[index].id,"killer":p.source,"team":p.team,"x":x,"y":y,"z":z}));
         }
     }
-    fn record_damage_2027(&mut self, source: usize, amount: f64, xp_rate: f64) {
-        let team = self.robots[source].team.clone();
-        self.robots[source].damage += amount;
-        let t = self.teams.get_mut(&team).unwrap();
+    fn record_damage_2027(&mut self, source: Option<usize>, team: &str, amount: f64, xp_rate: f64, caliber: Option<&str>) {
+        if let Some(i) = source.filter(|i| self.robots[*i].team == team) {
+            self.robots[i].damage += amount;
+        }
+        let t = self.teams.get_mut(team).unwrap();
         t.attack_damage += amount;
         t.score = t.attack_damage;
-        self.gain_xp_2027(source, amount * xp_rate);
+        self.award_damage_xp_2027(source, team, amount * xp_rate, caliber);
     }
     /// Base 100% defense while its outpost position is fully held by its own team; team
     /// assembly and rune defense apply to both structures.
     pub(super) fn structure_defense(&self, team: &str, outpost: bool) -> f64 {
-        let rune = &self.runes[team];
-        let mut defense = self.teams[team].tech_defense.max(if rune.status == "active" { rune.defense } else { 0.0 });
+        let holder = if outpost { self.outposts[team].owner.as_deref().unwrap_or(team) } else { team };
+        let rune = &self.runes[holder];
+        let mut defense = self.teams[holder].tech_defense.max(if rune.status == "active" { rune.defense } else { 0.0 });
         if !outpost && self.fully_controls(&format!("{team}_outpost"), team) {
             defense = defense.max(n(&self.rules["structures"], "base_defense_while_own_outpost_position_fully_controlled"));
         }
@@ -1234,15 +1349,18 @@ impl Engine {
             return;
         }
         let damage = (p.damage * (1.0 - self.structure_defense(team, outpost))).round().max(0.0);
-        let Some(source) = self.robots.iter().position(|r| r.id == p.source) else { return };
+        let source = self.robots.iter().position(|r| r.id == p.source);
         let attacker = p.team.clone();
         let actual = self.damage_structure_2027(team, outpost, plate.face, damage, &attacker);
         if actual <= 0.0 {
             return;
         }
         let rate = n(&self.rules["experience"], if outpost { "outpost_damage_xp_per_hp" } else { "base_damage_xp_per_hp" });
-        self.robots[source].damage += actual;
-        self.gain_xp_2027(source, actual * rate);
+        if let Some(i) = source {
+            self.robots[i].damage += actual;
+        }
+        let xp = if outpost { actual * rate } else { (actual * rate).ceil() };
+        self.award_damage_xp_2027(source, &attacker, xp, Some(if heavy { "42mm" } else { "17mm" }));
         self.event(if outpost { "outpost_hit" } else { "base_hit" }, json!({"team":p.team,"target_team":team,"x":x,"y":y,"z":z,"damage":actual}));
     }
     /// Applies structure damage and its consequences; returns the HP actually removed.
@@ -1340,6 +1458,10 @@ impl Engine {
                         }
                         let id = d.id.clone();
                         if actual > 0.0 {
+                            self.robots[i].damage += actual;
+                            let rate = n(&self.rules["experience"], if outpost { "outpost_damage_xp_per_hp" } else { "base_damage_xp_per_hp" });
+                            let xp = if outpost { actual * rate } else { (actual * rate).ceil() };
+                            self.award_damage_xp_2027(None, &team, xp, None);
                             self.event(if outpost { "outpost_hit" } else { "base_hit" }, json!({"team":team,"target_team":owner,"x":dr.x,"y":dr.y,"z":dr.z,"damage":actual,"drone":id}));
                         }
                         self.event("drone_strike", json!({"team":team,"drone":id,"target":if outpost {"outpost"} else {"base"},"target_team":owner,"valid":fresh,"damage":actual}));
@@ -1408,7 +1530,6 @@ impl Engine {
             let unlocks = self.rules["assembly"]["unlock_times_s"].as_array().unwrap();
             let time_ok = now + 1e-8 >= unlocks[(d - 1) as usize].as_f64().unwrap();
             let prev_ok = d == 1 || completed.contains(&(d - 1));
-            let reset_ok = !completed.contains(&d) || now + 1e-8 >= s.repeat_ready_at;
             let once_ok = d != 4 || !completed.contains(&4);
             let stock = r.carried_units >= if d == 4 { 2 } else { 1 };
             let other = &self.assemblies[opponent(&team)];
@@ -1416,9 +1537,10 @@ impl Engine {
             // Level 4 needs the other core: never while the other team is assembling, and a
             // level-4 attempt in progress bars the other team from starting at all.
             let priority_ok = !(other_active && (d == 4 || other.difficulty == 4));
-            if eligible && time_ok && prev_ok && reset_ok && once_ok && stock && priority_ok {
+            if eligible && time_ok && prev_ok && once_ok && stock && priority_ok {
                 let attempt = s.attempt_by_difficulty.get(&d).copied().unwrap_or(0) + 1;
-                let mut rng = (self.seed as u64) ^ (attempt as u64 * 0x9e3779b9) ^ (d as u64 * 0xbf58476d) ^ 0x2027;
+                let generation = s.successes_by_difficulty.get(&d).copied().unwrap_or(0) + 1;
+                let mut rng = (self.seed as u64) ^ (generation as u64 * 0x9e3779b9) ^ (d as u64 * 0xbf58476d) ^ 0x2027;
                 let mut sample = |low: f64, high: f64| {
                     rng ^= rng << 13;
                     rng ^= rng >> 7;
@@ -1426,18 +1548,15 @@ impl Engine {
                     low + (high - low) * (rng >> 11) as f64 / (1u64 << 53) as f64
                 };
                 let ranges = &self.rules["assembly"]["pose_ranges"][if d == 1 { "1" } else { "2-4" }];
-                let profile = self.assembly_difficulty(d).clone();
                 let mut pose = [0.0; 6];
                 for (k, key) in ["x", "y", "z", "theta", "phi", "alpha"].iter().enumerate() {
                     let (lo, hi) = (ranges[key][0].as_f64().unwrap(), ranges[key][1].as_f64().unwrap());
-                    // The simulated grades narrow the official envelope (sim assembly_difficulties).
-                    let sim = &profile["pose_ranges"][key];
-                    let (slo, shi) = (sim[0].as_f64().unwrap_or(lo).max(lo), sim[1].as_f64().unwrap_or(hi).min(hi));
-                    pose[k] = if slo <= shi { sample(slo, shi) } else { sample(lo, hi) };
+                    pose[k] = sample(lo, hi);
                 }
                 let range = n(&self.rules["assembly"], "rotation_range_deg");
                 let target = if d >= 3 { sample(-range, range) } else { 0.0 };
                 let target = (target / 5.0).round() * 5.0;
+                let second_target = (sample(-range, range) / 5.0).round() * 5.0;
                 let state = self.assemblies.get_mut(&team).unwrap();
                 state.difficulty = d;
                 state.stage = "moving".into();
@@ -1454,10 +1573,11 @@ impl Engine {
                 state.pose = pose;
                 state.interrupted = false;
                 state.confirm_progress_s = 0.0;
+                state.retry_at = 0.0;
                 state.lifted = 0.0;
                 state.flipped = 0.0;
                 state.confirmed = false;
-                state.second = if d == 4 { Some(CoreProgress::new(target)) } else { None };
+                state.second = if d == 4 { Some(CoreProgress::new(second_target)) } else { None };
                 state.step_times = Default::default();
                 state.buffer_until = now;
                 self.event("assembly_start", json!({"team":team,"difficulty":d,"pose":pose}));
@@ -1468,6 +1588,10 @@ impl Engine {
             if self.assembly_motion_blocked(i) {
                 self.assemblies.get_mut(&team).unwrap().confirm_progress_s = 0.0;
             }
+            return;
+        }
+        if self.assembly_pair_expired_2027(&state, now) {
+            self.fail_assembly_2027(&team, "pair_window");
             return;
         }
         // Which core the arm works on: 0 = own, 1 = the borrowed core of a level-4 attempt,
@@ -1494,6 +1618,16 @@ impl Engine {
         let steps = self.rules["assembly"]["steps"][state.difficulty.to_string()].clone();
         let needs = |k: u64| steps.as_array().map(|v| v.iter().any(|x| x.as_u64() == Some(k))).unwrap_or(false);
         let mut c = state.core(core);
+        // Each command must be backed by the actual tool at the current unit pose.
+        // The IK controller follows progress; commands cannot move a virtual unit ahead of it.
+        if self.assembly_alignment_error_2027(i, core).is_some() {
+            c.confirm = 0.0;
+            self.assemblies.get_mut(&team).unwrap().set_core(core, c);
+            if rpc.get("assembly_confirm").and_then(Value::as_bool) == Some(true) {
+                self.assemblies.get_mut(&team).unwrap().retry_at = now + n(&self.rules["assembly"], "confirm_retry_lock_s");
+            }
+            return true;
+        }
         let mut done_step: Option<usize> = None;
         if c.inserted < depth - 1e-8 {
             if r.carried_units == 0 && c.inserted <= 1e-9 {
@@ -1521,20 +1655,28 @@ impl Engine {
                 c.flipped = (c.flipped + n(&self.sim, "arm_flip_speed_deg_s") * 0.1).min(flip);
             }
         } else if needs(5) && (c.rotation - c.target_rotation).abs() > tolerance + 1e-8 {
-            if let Some(angle) = rpc.get("assembly_rotate").and_then(Value::as_f64).filter(|a| a.is_finite()) {
+            let angle = if core == 1 && r.arm_count == 2 {
+                rpc.get("assembly_rotate2").or_else(|| rpc.get("assembly_rotate"))
+            } else { rpc.get("assembly_rotate") };
+            if let Some(angle) = angle.and_then(Value::as_f64).filter(|a| a.is_finite()) {
                 let range = n(&self.rules["assembly"], "rotation_range_deg");
                 c.rotation = approach(c.rotation, angle.clamp(-range, range), n(&self.sim, "arm_rotate_speed_deg_s") * 0.1);
-                if (c.rotation - c.target_rotation).abs() <= tolerance + 1e-8 {
-                    done_step = Some(3);
-                }
             }
         } else if !c.confirmed {
             let aligned = self.assembly_alignment_error_2027(i, core).is_none();
-            if rpc.get("assembly_confirm").and_then(Value::as_bool) == Some(true) && aligned {
+            if aligned {
                 c.confirm += 0.1;
-                if c.confirm >= n(&profile, "confirm_hold_s") - 1e-8 {
+                let hold = if needs(5) { n(&profile, "confirm_hold_s") } else { 0.0 };
+                if needs(5) && c.confirm >= hold - 1e-8 && c.step_times[3].is_none() {
+                    c.step_times[3] = Some(now);
+                }
+                if rpc.get("assembly_confirm").and_then(Value::as_bool) == Some(true) && now + 1e-8 >= state.retry_at {
+                    if c.confirm >= hold - 1e-8 {
                     c.confirmed = true;
                     done_step = Some(4);
+                    } else {
+                        self.assemblies.get_mut(&team).unwrap().retry_at = now + n(&self.rules["assembly"], "confirm_retry_lock_s");
+                    }
                 }
             } else {
                 c.confirm = 0.0;
@@ -1545,19 +1687,13 @@ impl Engine {
         }
         let s = self.assemblies.get_mut(&team).unwrap();
         s.set_core(core, c.clone());
-        s.confirm_progress_s = c.confirm;
         // Level 4: each paired step must finish on both cores within 5 s (steps 1 and 4 exempt).
         if s.difficulty == 4 {
-            let window = n(&self.rules["assembly"], "difficulty_4_pair_window_s");
             let a = s.core(0);
             let b = s.core(1);
-            for step in [0usize, 1, 3, 4] {
-                if let (Some(ta), None) | (None, Some(ta)) = (a.step_times[step], b.step_times[step]) {
-                    if now - ta > window + 1e-8 {
-                        self.fail_assembly_2027(&team, "pair_window");
-                        return false;
-                    }
-                }
+            if self.assembly_pair_expired_2027(&self.assemblies[&team], now) {
+                self.fail_assembly_2027(&team, "pair_window");
+                return false;
             }
             if a.confirmed && b.confirmed {
                 self.complete_assembly_2027(&team, i, 4);
@@ -1568,6 +1704,16 @@ impl Engine {
             return false;
         }
         true
+    }
+    fn assembly_pair_expired_2027(&self, s: &official::AssemblyState, now: f64) -> bool {
+        if s.difficulty != 4 { return false; }
+        let window = n(&self.rules["assembly"], "difficulty_4_pair_window_s");
+        let (a, b) = (s.core(0), s.core(1));
+        [0usize, 1, 3, 4].iter().any(|&step| match (a.step_times[step], b.step_times[step]) {
+            (Some(x), Some(y)) => (x - y).abs() > window + 1e-8,
+            (Some(x), None) | (None, Some(x)) => now - x > window + 1e-8,
+            _ => false,
+        })
     }
     /// Public assembly state in 2027: the step each core is on, with what blocks it.
     pub(super) fn assembly_snapshot_2027(&self, team: &str, out: &mut Value) {
@@ -1618,7 +1764,7 @@ impl Engine {
                 "rotation":c.rotation,"target_rotation":c.target_rotation,"confirmed":c.confirmed,"alignment":alignment}));
         }
         let (operation, progress) = match s.stage.as_str() {
-            "moving" if self.time() < s.ready_at => ("positioning".to_string(), (1.0 - (s.ready_at - self.time()) / n(&self.sim, "core_move_delay_s")).clamp(0.0, 1.0)),
+            "moving" => ("positioning".to_string(), (1.0 - (s.ready_at - self.time()) / n(&self.sim, "core_move_delay_s").max(DT)).clamp(0.0, 1.0)),
             _ if active => first_open.clone().unwrap_or(("verifying".into(), 1.0)),
             "complete" => ("complete".into(), 1.0),
             "failed" => ("failed".into(), 0.0),
@@ -1628,11 +1774,10 @@ impl Engine {
             match heavy {
                 None => Some("heavy_absent"),
                 Some((i, _)) if self.assembly_motion_blocked(i) => Some("chassis_unstable"),
-                Some((i, _)) if operation == "verifying" => (0..count).find_map(|core| {
+                Some((i, _)) => (0..count).find_map(|core| {
                     let c = s.core(core);
                     if c.confirmed { None } else { self.assembly_alignment_error_2027(i, core) }
                 }),
-                _ => None,
             }
         } else {
             None
@@ -1646,8 +1791,8 @@ impl Engine {
         out["requirements"] = profile.clone();
         out["steps"] = steps.clone();
         out["alignment"] = cores.first().map(|c| c["alignment"].clone()).unwrap_or(Value::Null);
-        out["attempt_remaining_s"] = if active {
-            let limit = if s.difficulty == 4 { n(a, "difficulty_4_time_limit_s") } else { n(&profile, "attempt_timeout_s") };
+        out["attempt_remaining_s"] = if s.stage == "inserting" && s.difficulty == 4 {
+            let limit = n(a, "difficulty_4_time_limit_s");
             json!((s.started + limit - self.time()).max(0.0))
         } else {
             Value::Null
@@ -1656,11 +1801,11 @@ impl Engine {
     fn assembly_alignment_error_2027(&self, i: usize, core: usize) -> Option<&'static str> {
         let r = &self.robots[i];
         let profile = self.assembly_difficulty(self.assemblies[&r.team].difficulty);
-        let Some((position, direction, _roll)) = self.assembly_alignment_metrics_2027(i, core) else { return Some("arm_out_of_reach") };
+        let Some((position, direction, roll)) = self.assembly_alignment_metrics_2027(i, core) else { return Some("arm_out_of_reach") };
         if position > n(profile, "tip_tolerance_m") {
             return Some("arm_out_of_reach");
         }
-        if direction > n(profile, "tool_tolerance_deg") {
+        if direction > n(profile, "tool_tolerance_deg") || roll > n(profile, "tool_tolerance_deg") {
             return Some("arm_misaligned");
         }
         None
@@ -1674,19 +1819,29 @@ impl Engine {
         let point = [entry[0] - normal[0] * depth, entry[1] - normal[1] * depth, entry[2] - normal[2] * depth + c.lifted];
         // Step 4 turns the unit up about the horizontal P axis: the tool tips from -normal toward +z.
         let a = c.flipped.to_radians();
-        let h = (normal[0].hypot(normal[1])).max(1e-9);
-        let dir = [-normal[0] * a.cos(), -normal[1] * a.cos(), -normal[2] * a.cos() + a.sin() * h];
+        let h = normal[0].hypot(normal[1]);
+        let frame = &self.arena.assembly_frames[team];
+        let (ux, uy) = if h > 1e-9 { (normal[0]/h, normal[1]/h) } else {
+            (frame["x_axis"][0].as_f64()?, frame["x_axis"][1].as_f64()?)
+        };
+        // Rodrigues rotation preserves the tilted core's vertical component too.
+        let dir = [-normal[0]*a.cos()-ux*normal[2]*a.sin(),
+                   -normal[1]*a.cos()-uy*normal[2]*a.sin(),
+                   -normal[2]*a.cos()+h*a.sin()];
         Some((point, dir, (s.current_pose[5] + c.rotation).to_radians()))
     }
     fn assembly_alignment_metrics_2027(&self, i: usize, core: usize) -> Option<(f64, f64, f64)> {
         let r = &self.robots[i];
-        let (point, dir, _) = self.core_goal_2027(&r.team, core)?;
-        let tip = if core == 1 && r.arm_count == 2 { r.arm2_tip } else { r.arm_tip };
+        let (point, dir, roll) = self.core_goal_2027(&r.team, core)?;
+        let secondary = core == 1 && r.arm_count == 2;
+        let tip = if secondary { r.arm2_tip } else { r.arm_tip };
         let error = tip.iter().zip(point).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
-        let direction = physics::arm_direction(r);
+        let direction = physics::arm_direction_for(r, secondary);
         let length = dir.iter().map(|v| v * v).sum::<f64>().sqrt().max(1e-9);
         let cosine = direction.iter().zip(dir).map(|(a, b)| a * b / length).sum::<f64>().clamp(-1.0, 1.0);
-        Some((error, cosine.acos().to_degrees(), 0.0))
+        let actual_roll = if secondary { r.arm2_joints[5] } else { r.arm_joints[5] };
+        let roll_error = (actual_roll - roll + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI;
+        Some((error, cosine.acos().to_degrees(), roll_error.abs().to_degrees()))
     }
     /// Core entry for the own core, or the borrowed core set beside it (y' = y - 0.35 m).
     pub(super) fn core_entry_2027(&self, team: &str, core: usize) -> Option<([f64; 3], [f64; 3], [f64; 3])> {
@@ -1737,7 +1892,8 @@ impl Engine {
         }
         let s = self.assemblies.get_mut(team).unwrap();
         s.stage = "complete".into();
-        s.repeat_ready_at = now + n(&self.sim, "assembly_repeat_reset_s");
+        s.repeat_ready_at = now;
+        *s.successes_by_difficulty.entry(difficulty).or_default() += 1;
         self.event("assembly_success", json!({"team":team,"difficulty":difficulty,"first":first,"income_per_10s":self.teams[team].tech_income}));
     }
     fn fail_assembly_2027(&mut self, team: &str, reason: &str) {
@@ -1753,20 +1909,23 @@ impl Engine {
     fn assembly_after_step_2027(&mut self) {
         let now = self.time();
         for team in ["red", "blue"] {
-            let s = self.assemblies[team].clone();
-            if s.stage == "moving" && now >= s.ready_at {
-                self.assemblies.get_mut(team).unwrap().stage = "inserting".into();
+            let mut s = self.assemblies[team].clone();
+            if s.stage == "moving" && now >= s.ready_at
+                && s.current_pose.iter().zip(s.pose).all(|(a,b)| (a-b).abs() <= 1e-6) {
+                let state = self.assemblies.get_mut(team).unwrap();
+                state.stage = "inserting".into();
+                state.ready_at = now;
+                state.started = now;
+                s = state.clone();
             }
             if !["moving", "inserting"].contains(&s.stage.as_str()) {
                 continue;
             }
-            let limit = if s.difficulty == 4 {
-                n(&self.rules["assembly"], "difficulty_4_time_limit_s")
-            } else {
-                n(self.assembly_difficulty(s.difficulty), "attempt_timeout_s")
-            };
-            if now >= s.ready_at && now - s.ready_at >= limit {
+            let limit = n(&self.rules["assembly"], "difficulty_4_time_limit_s");
+            if s.stage == "inserting" && s.difficulty == 4 && now - s.started >= limit {
                 self.fail_assembly_2027(team, "timeout");
+            } else if self.assembly_pair_expired_2027(&s, now) {
+                self.fail_assembly_2027(team, "pair_window");
             } else if now - s.buffer_until >= n(&self.rules["assembly"], "card_absence_fail_s") {
                 self.fail_assembly_2027(team, "left_assembly_area");
             }
@@ -1775,7 +1934,22 @@ impl Engine {
 
     // ---- Rune -------------------------------------------------------------------------
     fn start_rune_2027(&mut self, team: &str) {
+        let was_activating = self.runes[team].status == "activating";
         self.start_rune(team);
+        if !was_activating && self.runes[team].status == "activating" && self.runes[team].mode == "large" {
+            // Both faces share a shaft: a new large activation resets its target function.
+            self.rune_a = 0.780 + self.random() * (1.045 - 0.780);
+            self.rune_omega = 1.884 + self.random() * (2.0 - 1.884);
+            self.rune_phase[0] = self.time();
+        }
+    }
+    pub(super) fn rune_motor_rates_2027(&self, now: f64) -> (f64, f64) {
+        if !self.runes.values().any(|r| r.mode == "large" && r.status == "activating") {
+            return (n(&self.rules["rune"], "small_speed_rad_s"), 0.0);
+        }
+        let phase = self.rune_omega * (now - self.rune_phase[0]);
+        (self.rune_a * phase.sin() + 2.090 - self.rune_a,
+         self.rune_a * self.rune_omega * phase.cos())
     }
     fn update_rune_motor_2027(&mut self) {
         self.update_rune_motor();
@@ -1911,3 +2085,11 @@ impl CoreProgress {
         Self { target_rotation: target, ..Default::default() }
     }
 }
+
+#[cfg(test)]
+#[path = "field_2027_regression_tests.rs"]
+mod field_2027_regression_tests;
+
+#[cfg(test)]
+#[path = "assembly_2027_regression_tests.rs"]
+mod assembly_2027_regression_tests;

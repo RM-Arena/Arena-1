@@ -65,9 +65,11 @@ During a match your program runs in its own container, which holds only your `st
 - at most 16 KiB of actions per decision and 1 KiB per robot;
 - `new_state` must be JSON-serializable and at most 256 KiB.
 
-Any of the following **disables your program for the rest of the match** — the match goes on, but your robots receive no further commands:
+A single decision timeout skips that round's actions while retaining the program and its private state. Late actions are discarded; subsequent decisions use fresh observations. Each round still has a 200 ms wall-clock budget, including any wait for the previous response. A successful fresh decision resets the consecutive-timeout count. All policy errors, including recovered timeouts, remain in the replay and exclude the match from Elo rating.
 
-- a decision times out, or `act` raises an exception;
+Any of the following **disables your program for the rest of the match** — the match goes on, but the robots controlled by that process receive no further commands:
+
+- three consecutive decision rounds time out, or `act` raises an exception;
 - the return value is malformed, or an action contains an unsupported field or a non-finite number (NaN, Infinity);
 - you try to control a robot that is not yours;
 - you exceed one of the size limits above.

@@ -2117,6 +2117,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "ab3a450fce0af76c26d62129acfd7c8311db0799906334030b3388a22a491f88",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.21862518408917975,
+              0.0,
+              0.28284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.1549961396669711e-17,
+              0.18862518408917975,
+              0.28284700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.21862518408917975,
+              2.6773863190781483e-17,
+              0.28284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.464988419000913e-17,
+              -0.18862518408917975,
+              0.28284700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "4": {
@@ -2240,6 +2323,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "bc1995b9520cc11a37285fc38d0b06c9874dafb25b31372003ab88b9e602c06d",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.24862518408917977,
+              0.0,
+              0.2878470094961277
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.5223901794111772e-17,
+              0.24862518408917977,
+              0.2878470094961277
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.24862518408917977,
+              3.0447803588223544e-17,
+              0.2878470094961277
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.5671705382335316e-17,
+              -0.24862518408917977,
+              0.2878470094961277
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "7": {
@@ -2363,6 +2529,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "7f3173ca42314637efc402baaf8b4abcad2f5b47d54598b5026d9914900ab782",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.2536251840891798,
+              0.0,
+              0.17784700949612772
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.553006349389861e-17,
+              0.2536251840891798,
+              0.17784700949612772
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.2536251840891798,
+              3.106012698779722e-17,
+              0.17784700949612772
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.659019048169583e-17,
+              -0.2536251840891798,
+              0.17784700949612772
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "6": {
@@ -3756,6 +4005,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "17e7b96876b77eb71d4db841733a9cd16eefba18bcc14cc1b012962f09da708e",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.20862518408917977,
+              0.0,
+              0.15284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.216228479624339e-17,
+              0.19862518408917976,
+              0.15284700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.20862518408917977,
+              2.5549216391634133e-17,
+              0.15284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.648685438873016e-17,
+              -0.19862518408917976,
+              0.15284700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "302": {
@@ -3883,6 +4215,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "8a555a387a465e538792ad2e3841d6dcffd5444233cddd54435d076571823940",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.24862518408917977,
+              0.0,
+              0.2878470094961277
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.5223901794111772e-17,
+              0.24862518408917977,
+              0.2878470094961277
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.24862518408917977,
+              3.0447803588223544e-17,
+              0.2878470094961277
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.5671705382335316e-17,
+              -0.24862518408917977,
+              0.2878470094961277
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "303": {
@@ -4009,6 +4424,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "a639446330c12b7dba227443c9a098252539530956ce22fc912b48550c0abe14",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.2536251840891798,
+              0.0,
+              0.17784700949612772
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.553006349389861e-17,
+              0.2536251840891798,
+              0.17784700949612772
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.2536251840891798,
+              3.106012698779722e-17,
+              0.17784700949612772
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.659019048169583e-17,
+              -0.2536251840891798,
+              0.17784700949612772
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "304": {
@@ -4154,6 +4652,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "ab3a450fce0af76c26d62129acfd7c8311db0799906334030b3388a22a491f88",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.21862518408917975,
+              0.0,
+              0.28284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.1549961396669711e-17,
+              0.18862518408917975,
+              0.28284700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.21862518408917975,
+              2.6773863190781483e-17,
+              0.28284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.464988419000913e-17,
+              -0.18862518408917975,
+              0.28284700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "305": {
@@ -4304,6 +4885,89 @@
           "role": "infantry",
           "issues": []
         }
+      },
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "ca9615254d336159a5c6f32a0624c44c9ed5a900ca430b2343f1e4b8f44b5277",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.21862518408917975,
+              0.0,
+              0.28284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.1549961396669711e-17,
+              0.18862518408917975,
+              0.21784700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.21862518408917975,
+              2.6773863190781483e-17,
+              0.28284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.464988419000913e-17,
+              -0.18862518408917975,
+              0.21784700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
       }
     },
     "601": {
@@ -4817,7 +5481,91 @@
       "base_model": 2,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "5d64a161cc25a2a4034bb21e9a646a03dd9cc22b4cccf62a73a044846fb6592c",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.2536251840891798,
+              0.0,
+              0.27784700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.553006349389861e-17,
+              0.2536251840891798,
+              0.27784700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.2536251840891798,
+              3.106012698779722e-17,
+              0.27784700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.659019048169583e-17,
+              -0.2536251840891798,
+              0.27784700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      },
+      "launcher_module_battery_wh": 0
     },
     "2712": {
       "slot": 2712,
@@ -5127,7 +5875,91 @@
       "base_model": 201,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "35e9504f3527e644d75bf3991ffe9a9bdeb93e9fed44adebc3a855a2256fa925",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.2536251840891798,
+              0.0,
+              0.27784700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.553006349389861e-17,
+              0.2536251840891798,
+              0.27784700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.2536251840891798,
+              3.106012698779722e-17,
+              0.27784700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.659019048169583e-17,
+              -0.2536251840891798,
+              0.27784700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      },
+      "launcher_module_battery_wh": 0
     },
     "2713": {
       "slot": 2713,
@@ -5356,7 +6188,91 @@
       "base_model": 203,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "a0c4fb38208276de04a0249822577adb9cf02740267579c5e6a3697a3c036299",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.2536251840891798,
+              0.0,
+              0.27784700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.553006349389861e-17,
+              0.2536251840891798,
+              0.27784700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.2536251840891798,
+              3.106012698779722e-17,
+              0.27784700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.659019048169583e-17,
+              -0.2536251840891798,
+              0.27784700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      },
+      "launcher_module_battery_wh": 0
     },
     "2731": {
       "slot": 2731,
@@ -5511,7 +6427,90 @@
       "base_model": 304,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "ab3a450fce0af76c26d62129acfd7c8311db0799906334030b3388a22a491f88",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.21862518408917975,
+              0.0,
+              0.28284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.1549961396669711e-17,
+              0.18862518408917975,
+              0.28284700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.21862518408917975,
+              2.6773863190781483e-17,
+              0.28284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.464988419000913e-17,
+              -0.18862518408917975,
+              0.28284700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      }
     },
     "2732": {
       "slot": 2732,
@@ -5650,7 +6649,90 @@
       "base_model": 301,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "17e7b96876b77eb71d4db841733a9cd16eefba18bcc14cc1b012962f09da708e",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.20862518408917977,
+              0.0,
+              0.15284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.216228479624339e-17,
+              0.19862518408917976,
+              0.15284700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.20862518408917977,
+              2.5549216391634133e-17,
+              0.15284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.648685438873016e-17,
+              -0.19862518408917976,
+              0.15284700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      }
     },
     "2771": {
       "slot": 2771,
@@ -5794,7 +6876,90 @@
       "base_model": 303,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "a639446330c12b7dba227443c9a098252539530956ce22fc912b48550c0abe14",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.2536251840891798,
+              0.0,
+              0.17784700949612772
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.553006349389861e-17,
+              0.2536251840891798,
+              0.17784700949612772
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.2536251840891798,
+              3.106012698779722e-17,
+              0.17784700949612772
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -4.659019048169583e-17,
+              -0.2536251840891798,
+              0.17784700949612772
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      }
     },
     "2772": {
       "slot": 2772,
@@ -5962,7 +7127,90 @@
       "base_model": 305,
       "deploy_allowed": false,
       "charge_receiver": false,
-      "hero_profile": "ranged"
+      "hero_profile": "ranged",
+      "construction_inspection": {
+        "source": "built-in cardinal armor mounts; analytic chassis geometry; declared clearance cones",
+        "armor_geometry_sha256": "ca9615254d336159a5c6f32a0624c44c9ed5a900ca430b2343f1e4b8f44b5277",
+        "armor_mounts": [
+          {
+            "center_m": [
+              0.21862518408917975,
+              0.0,
+              0.28284700949612773
+            ],
+            "normal": [
+              0.9659258262890683,
+              0.0,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              1.1549961396669711e-17,
+              0.18862518408917975,
+              0.21784700949612773
+            ],
+            "normal": [
+              5.914589856893349e-17,
+              0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -0.21862518408917975,
+              2.6773863190781483e-17,
+              0.28284700949612773
+            ],
+            "normal": [
+              -0.9659258262890683,
+              1.1829179713786698e-16,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          },
+          {
+            "center_m": [
+              -3.464988419000913e-17,
+              -0.18862518408917975,
+              0.21784700949612773
+            ],
+            "normal": [
+              -1.7743769570680046e-16,
+              -0.9659258262890683,
+              0.25881904510252074
+            ],
+            "edge_tilt_deg": 0,
+            "unobstructed_cone_deg": {
+              "lower": 105,
+              "upper": 120,
+              "left": 145,
+              "right": 145
+            }
+          }
+        ],
+        "obstruction_boxes_m": []
+      }
     },
     "2761": {
       "slot": 2761,
@@ -12664,7 +13912,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_road_tunnel",
-          "order": 2
+          "order": 2,
+          "card_z_m": 0.244254207
         },
         {
           "id": "red_near_tunnel_0",
@@ -12675,7 +13924,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_near_tunnel",
-          "order": 0
+          "order": 0,
+          "card_z_m": 0.03993353
         },
         {
           "id": "red_near_tunnel_1",
@@ -12686,7 +13936,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_near_tunnel",
-          "order": 1
+          "order": 1,
+          "card_z_m": 0.03993353
         },
         {
           "id": "red_near_tunnel_2",
@@ -12697,7 +13948,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_near_tunnel",
-          "order": 2
+          "order": 2,
+          "card_z_m": 0.03993353
         },
         {
           "id": "red_far_tunnel_0",
@@ -12708,7 +13960,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_far_tunnel",
-          "order": 0
+          "order": 0,
+          "card_z_m": 0.214925975
         },
         {
           "id": "red_far_tunnel_1",
@@ -12719,7 +13972,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_far_tunnel",
-          "order": 1
+          "order": 1,
+          "card_z_m": 0.214925975
         },
         {
           "id": "red_far_tunnel_2",
@@ -12730,7 +13984,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "red_far_tunnel",
-          "order": 2
+          "order": 2,
+          "card_z_m": 0.214925975
         },
         {
           "id": "blue_high_point",
@@ -13054,7 +14309,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_road_tunnel",
-          "order": 2
+          "order": 2,
+          "card_z_m": 0.244254207
         },
         {
           "id": "blue_near_tunnel_0",
@@ -13065,7 +14321,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_near_tunnel",
-          "order": 0
+          "order": 0,
+          "card_z_m": 0.03993353
         },
         {
           "id": "blue_near_tunnel_1",
@@ -13076,7 +14333,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_near_tunnel",
-          "order": 1
+          "order": 1,
+          "card_z_m": 0.03993353
         },
         {
           "id": "blue_near_tunnel_2",
@@ -13087,7 +14345,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_near_tunnel",
-          "order": 2
+          "order": 2,
+          "card_z_m": 0.03993353
         },
         {
           "id": "blue_far_tunnel_0",
@@ -13098,7 +14357,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_far_tunnel",
-          "order": 0
+          "order": 0,
+          "card_z_m": 0.214925975
         },
         {
           "id": "blue_far_tunnel_1",
@@ -13109,7 +14369,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_far_tunnel",
-          "order": 1
+          "order": 1,
+          "card_z_m": 0.214925975
         },
         {
           "id": "blue_far_tunnel_2",
@@ -13120,7 +14381,8 @@
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
           "group": "blue_far_tunnel",
-          "order": 2
+          "order": 2,
+          "card_z_m": 0.214925975
         }
       ],
       "forbidden": [
@@ -15321,7 +16583,32 @@
             1.2,
             1.1
           ],
-          "extended_alternative": "requirement 2: 900 mm deep x 1800 wide x 1250 high, front or rear (table 2-5)",
+          "extended_alternative": {
+            "front_min_m": [
+              -0.9,
+              -0.9,
+              0
+            ],
+            "front_max_m": [
+              0,
+              0.9,
+              1.25
+            ],
+            "rear_min_m": [
+              0,
+              -0.9,
+              0
+            ],
+            "rear_max_m": [
+              0.9,
+              0.9,
+              1.25
+            ],
+            "pages": [
+              27,
+              28
+            ]
+          },
           "launcher": "modular_42mm",
           "must_grip_energy_units": true,
           "launcher_module": {
@@ -15742,38 +17029,8 @@
             "chassis_angular_speed_rad_s": 0.5,
             "min_upright": 0.96,
             "confirm_hold_s": 0.4,
-            "rotation_tolerance_deg": 5.0,
-            "attempt_timeout_s": 30.0,
-            "pose_ranges": {
-              "x": [
-                -0.05,
-                -0.05
-              ],
-              "y": [
-                0.0,
-                0.0
-              ],
-              "z": [
-                0.8,
-                0.8
-              ],
-              "theta": [
-                0.0,
-                0.0
-              ],
-              "phi": [
-                90.0,
-                90.0
-              ],
-              "alpha": [
-                0.0,
-                0.0
-              ]
-            },
-            "target_rotation_deg": [
-              0.0,
-              0.0
-            ]
+            "rotation_tolerance_deg": 5,
+            "attempt_timeout_s": null
           },
           {
             "name": "精密",
@@ -15782,39 +17039,9 @@
             "chassis_speed_mps": 0.12,
             "chassis_angular_speed_rad_s": 0.3,
             "min_upright": 0.97,
-            "confirm_hold_s": 0.6,
-            "rotation_tolerance_deg": 3.0,
-            "attempt_timeout_s": 35.0,
-            "pose_ranges": {
-              "x": [
-                -0.075,
-                -0.025
-              ],
-              "y": [
-                -0.06,
-                0.06
-              ],
-              "z": [
-                0.7,
-                0.78
-              ],
-              "theta": [
-                -25.0,
-                25.0
-              ],
-              "phi": [
-                70.0,
-                90.0
-              ],
-              "alpha": [
-                -10.0,
-                10.0
-              ]
-            },
-            "target_rotation_deg": [
-              0.0,
-              0.0
-            ]
+            "confirm_hold_s": 0.4,
+            "rotation_tolerance_deg": 5,
+            "attempt_timeout_s": null
           },
           {
             "name": "专家",
@@ -15823,39 +17050,9 @@
             "chassis_speed_mps": 0.05,
             "chassis_angular_speed_rad_s": 0.12,
             "min_upright": 0.985,
-            "confirm_hold_s": 0.8,
-            "rotation_tolerance_deg": 1.0,
-            "attempt_timeout_s": 40.0,
-            "pose_ranges": {
-              "x": [
-                -0.1,
-                0.0
-              ],
-              "y": [
-                -0.1,
-                0.1
-              ],
-              "z": [
-                0.7,
-                0.84
-              ],
-              "theta": [
-                -60.0,
-                60.0
-              ],
-              "phi": [
-                35.0,
-                90.0
-              ],
-              "alpha": [
-                -30.0,
-                30.0
-              ]
-            },
-            "target_rotation_deg": [
-              10.0,
-              70.0
-            ]
+            "confirm_hold_s": 0.4,
+            "rotation_tolerance_deg": 5,
+            "attempt_timeout_s": null
           },
           {
             "name": "极限",
@@ -15864,41 +17061,16 @@
             "chassis_speed_mps": 0.01,
             "chassis_angular_speed_rad_s": 0.025,
             "min_upright": 0.992,
-            "confirm_hold_s": 1.2,
-            "rotation_tolerance_deg": 0.25,
-            "attempt_timeout_s": 45.0,
-            "pose_ranges": {
-              "x": [
-                -0.1,
-                0.0
-              ],
-              "y": [
-                -0.1,
-                0.1
-              ],
-              "z": [
-                0.7,
-                0.9
-              ],
-              "theta": [
-                -90.0,
-                90.0
-              ],
-              "phi": [
-                0.0,
-                90.0
-              ],
-              "alpha": [
-                -45.0,
-                45.0
-              ]
-            },
-            "target_rotation_deg": [
-              0.0,
-              90.0
-            ]
+            "confirm_hold_s": 0.4,
+            "rotation_tolerance_deg": 5,
+            "attempt_timeout_s": 45
           }
         ],
+        "assembly_repeat_reset_s": 0,
+        "rune_motor": {
+          "profile": "official_2027",
+          "note": "Small and idle large runes rotate at pi/3 rad/s; active large runes use a*sin(omega*t)+2.090-a, reset on each new large activation; both faces share the shaft."
+        },
         "arm_lift_speed_mps": 0.15,
         "arm_flip_speed_deg_s": 180,
         "central_elevation_m": 0.3

@@ -57,6 +57,9 @@ ROAD_TUNNEL_ROOF_Y = (round(ROAD_SOUTH-.35, 6), ROAD_SOUTH)
 ROAD_TUNNEL_POST = .10
 # Cards: on the open part of the ramp, under the roof, and on the road beyond the portal.
 ROAD_TUNNEL_CARD_Y = (12.33, round(ROAD_SOUTH-.175, 6), 13.31)
+# Floor planes of the tunnel cards (card_z_m); the road tunnel's two cards on its ramp have
+# none and follow the ramp under the robot, as a horizontal plane would not.
+TUNNEL_CARD_PLANES = {'road_tunnel': (None, None, ROAD), 'near_tunnel': (0, 0, 0), 'far_tunnel': (ROAD, ROAD, ROAD)}
 # Figure 4-38: the far-highland tunnel (2900 long, 800 passage between 155 mm rails with
 # chamfered tops, 350 wide metal plate 250 mm above the passage and 270 to its top, flush
 # with the rails) runs from the end of the red road onto the tip of the blue trapezoid
@@ -154,13 +157,17 @@ def make_arena():
                           height=height, bottom=bottom+min((a[1]+b[1])/2, 15-(a[1]+b[1])/2)*math.tan(math.radians(FLOOR_SLOPE_DEG)),
                           kind=kind, source_page=page, **shape))
 
-    def add_zone(identifier, kind, point, radius, owner=None, points=None, group=None, order=None, crossing=None):
+    def add_zone(identifier, kind, point, radius, owner=None, points=None, group=None, order=None, crossing=None, card_elevation=None):
         value = dict(id=identifier, kind=kind, x=point[0], y=point[1], radius=radius, owner=owner,
                      source='2027 chapter 4 placement + figure 5-23 buff-card outline')
         if points: value['polygon'] = points
         if group: value['group'] = group
         if order is not None: value['order'] = order
         if crossing: value['crossing'] = crossing
+        if card_elevation is not None:
+            # Explicit floor plane for tunnel cards: a roof is a separate solid surface.
+            # Other cards follow their local terrain (including ramps) in the engine.
+            value['card_z_m'] = round(card_elevation + min(point[1], 15-point[1])*math.tan(math.radians(FLOOR_SLOPE_DEG)), 9)
         zones.append(value)
 
     # ---- Central highland (figures 4-27/4-28): 7740 between the fortress-facing rims, 10820
@@ -336,7 +343,8 @@ def make_arena():
                             ('near_tunnel', [[14.36, mid_y], [NEAR_TUNNEL_ROOF_X, mid_y], [15.50, mid_y]]),
                             ('far_tunnel', [[13.40, FAR_TUNNEL_Y], [14.0, FAR_TUNNEL_Y], [14.60, FAR_TUNNEL_Y]])):
             for order, pt in enumerate(cards):
-                add_zone(team+f'_{name}_{order}', 'tunnel', p(pt), .30 if order != 1 else .17, group=team+'_'+name, order=order)
+                add_zone(team+f'_{name}_{order}', 'tunnel', p(pt), .30 if order != 1 else .17,
+                         group=team+'_'+name, order=order, card_elevation=TUNNEL_CARD_PLANES[name][order])
         paint.extend([dict(team=team, kind='edge', points=list(map(p, trap)), closed=True),
                       dict(team=team, kind='edge', points=list(map(p, road)), closed=True),
                       dict(team=team, kind='spawn', points=hexagon(*base, 2.0225, math.pi/6), closed=True)])

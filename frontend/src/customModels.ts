@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {useGLTF} from '@react-three/drei';
 import {useMemo} from 'react';
 import type {Frame,Metadata,RobotSkin,TeamId} from './types';
+import {batchRigidMeshes} from './rigidMeshes';
 
 // Uploaded robot appearances (rmuc_arena/custom_models.py). The asset URL carries the base model's stowed
 // envelope and the mesh's forward axis, so any user GLB is turned to face +X, scaled into that envelope and
@@ -30,8 +31,8 @@ export function fitCustomModel(scene:THREE.Object3D,url:string){
 }
 // useGLTF plus the fitting above for uploaded appearances.
 export function useRobotScene(url:string){
-  const {scene}=useGLTF(url);
-  return useMemo(()=>isCustomAsset(url)?fitCustomModel(scene,url):scene,[scene,url]);
+  const {scene,animations}=useGLTF(url);
+  return useMemo(()=>isCustomAsset(url)?fitCustomModel(scene,url):/^\/assets\/(?:robot|drone)-/.test(url)&&!animations.length?batchRigidMeshes(scene):scene,[scene,animations,url]);
 }
 
 export const skinFor=(metadata:Metadata|null|undefined,team:TeamId,model:number|undefined):RobotSkin|undefined=>model===undefined?undefined:metadata?.skins?.[team]?.[String(model)];

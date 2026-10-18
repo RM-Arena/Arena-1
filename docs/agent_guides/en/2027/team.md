@@ -65,9 +65,11 @@ During a match your program runs in its own container, which holds only your `st
 - at most 16 KiB of actions per decision and 1 KiB per robot;
 - `new_state` must be JSON-serializable and at most 256 KiB.
 
-Any of the following **disables your program for the rest of the match** — the match goes on, but your robots receive no further commands:
+A single decision timeout skips that round's actions while retaining the program and its private state. Late actions are discarded; subsequent decisions use fresh observations. Each round still has a 200 ms wall-clock budget, including any wait for the previous response. A successful fresh decision resets the consecutive-timeout count. All policy errors, including recovered timeouts, remain in the replay and exclude the match from Elo rating.
 
-- a decision times out, or `act` raises an exception;
+Any of the following **disables your program for the rest of the match** — the match goes on, but the robots controlled by that process receive no further commands:
+
+- three consecutive decision rounds time out, or `act` raises an exception;
 - the return value is malformed, or an action contains an unsupported field or a non-finite number (NaN, Infinity);
 - you try to control a robot that is not yours;
 - you exceed one of the size limits above.
@@ -204,7 +206,7 @@ Your program controls all five of your robots. `observation["controlled_ids"]` l
 - Supply-zone healing: 10% × λ of max HP per second; 25% × λ while disengaged after 240 s. Healing on the card of an outpost your team fully controls runs at half that rate.
 - **Logistics factor λ = 1 − base HP lost / 20000** (`referee["logistics"]`). The more your base has lost, the slower you heal and respawn.
 - Respawn: a dead robot's progress rises by 1 per second (by 4 in your supply zone or while your base is below 4000 HP); it needs (10 + t/10 + 20 × instant respawns so far) / λ. A normal respawn returns 10% HP and 30 s of invulnerability, and the robot stays "weak" (cannot fire or receive buffs) until it touches your base or supply zone (or the card of a fully controlled outpost).
-- Instant respawn `revive=True`: costs ⌈t/60⌉ × 80 + level × 20 coins (the sentry counts as level 1); full HP, 3 s invulnerability and double power for 4 s.
+- Instant respawn `revive=True`: costs ⌈t/60⌉ × 80 + level × 20 coins (the sentry counts as level 1); full HP, weakness and invulnerability that both end after 3 s, and double power for 4 s.
 - Coins are shared by the team. Simultaneous purchases settle in slot order, and a request the balance cannot cover simply fails.
 
 ### 4.3 Control Positions and Control Degree
@@ -254,8 +256,8 @@ The core of the 2027 rules is four **control positions** (`observation["position
 The **heavy robot** assembles (2027 has no engineer): it picks energy units at your resource hub (6 per team, at most 2 carried), drives to your assembly zone and uses its arm to install a unit into the tech core.
 
 - Start times: level 1 at 0 s, level 2 at 60 s, level 3 at 120 s, level 4 at 180 s, each after completing the previous level.
-- Steps (commands settle every 0.1 s): level 1 insert → confirm; level 2 insert → lift → confirm; levels 3 and 4 insert → lift → flip 90° → rotate to the target angle (±5°) → confirm. Confirming needs the arm tool aligned with the core and held for a few hundred milliseconds.
-- Level 4 needs **two** cores (your own and one borrowed from the opponent), can be completed once per team, and has 45 s; each paired step must finish on both cores within 5 s. Dual-arm models use `assembly_core=2` to work both cores at once; single-arm models alternate `assembly_core=0/1`.
+- Steps (commands settle every 0.1 s): level 1 insert → confirm; level 2 insert → lift → confirm; levels 3 and 4 insert → lift → flip 90° → rotate to the target angle (±5°) → confirm. Every step checks actual tool position, direction and wrist roll. Levels 3 and 4 require 0.4 s at the target rotation before confirmation; an incorrect confirmation locks retries for 1 s.
+- Level 4 needs **two** cores (your own and one borrowed from the opponent), can be completed once per team, and has 45 s; insertion, lifting, rotation and confirmation must each finish on both cores within 5 s (the flip step is exempt). Dual-arm models use `assembly_core=2` to work both cores at once; single-arm models alternate `assembly_core=0/1`.
 - First-completion rewards:
 
 | Level | Reward | Repeat completions |
@@ -265,7 +267,7 @@ The **heavy robot** assembles (2027 has no engineer): it picks energy units at y
 | 3 | heavy level 10; infantry level cap 10; 25% team defense; **unlocks the heavy launcher**; income +20 | +12 per 10 s |
 | 4 | 50% team defense; income +40 | cannot repeat |
 
-- The heavy robot cannot fire during an assembly; the attempt fails if it dies or stays out of the assembly zone too long.
+- Levels 1–3 have no extra attempt timeout, and successful assemblies have no repeat cooldown. Level 4 has 45 s after the cores arrive. Failed retries retain the pose and target rotation; only success generates a new set. The heavy robot cannot fire during assembly; death or 15 s without detecting its assembly card fails the attempt.
 
 ### 4.7 Power Rune
 
@@ -274,18 +276,20 @@ The **heavy robot** assembles (2027 has no engineer): it picks energy units at y
 - Targets are in `observation["runes"][own]["targets"]` (`arm, x, y, z, radius, lit`); `lit=True` marks the target to hit now. Positions are reported only while an own observer is within vision range. Aim with `dict(target, kind="rune_target")` in `sdk.aim_pitch`.
 - Small rune (0–180 s, one chance at 0 s and one at 90 s): hit 5 different lit arms, each within 2.5 s; a wrong hit or timeout resets the progress, and the whole attempt has 20 s. Effect: 25% defense for the team and structures for 45 s, and infantry XP doubles (at most 1200 extra per team).
 - Large rune (one chance each at 180, 255 and 330 s): each round lights 2 targets; hit the first within 2.5 s and optionally the second within 1 s more; 5 rounds give 5–10 valid hits. The average ring decides an attack multiplier of 1.5–3, 25–50% defense and cooling ×1–×5 for 30–60 s; living infantry share 750 XP.
+- Motion: small runes and large runes outside activation rotate at π/3 rad/s. During a large activation the shared shaft follows a·sin(ωt)+2.090−a; each new large activation resets t, a and ω.
 - **2027 shrinking rule**: after your team's first large activation only hits on ring 4 or better (closer to the center) count; after the second, only ring 7 or better (one ring per 1.5 cm from the center, 10 at the center).
 
 ### 4.8 Levels, experience and performance
 
-- **Only infantry gain experience**: 1 per 17 mm shot fired, 4 per HP of robot damage, 2 per HP of outpost damage, 0.5 per HP of base damage; a kill gives 50 × victim level × (1 + 0.2 × level gap); first terrain crossings give 300.
+- **Only infantry gain experience**: 1 per 17 mm shot fired, 4 per HP of robot damage, 2 per HP of outpost damage, 1 per 2 HP of base damage, rounded up for odd damage; a kill gives 50 × victim level × (1 + 0.2 × level gap); first terrain crossings give 300.
+- When a damage or kill source cannot gain XP, eligible living infantry below their cap share it according to projectile caliber; non-projectile XP is shared among all eligible infantry. Shares are rounded to one decimal place.
 - The infantry level cap starts at 5, becomes 7 after a level-2 assembly and 10 after a level-3 assembly.
 
 | Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Total XP | 0 | 550 | 1100 | 1650 | 2200 | 2750 | 3300 | 3850 | 4400 | 5000 |
 
-- Infantry chassis and launcher profiles can only be chosen with `profile` at `tick == 0` and lock afterwards. Defaults come from the selected model.
+- Infantry chassis and launcher profiles can only be chosen with `profile` at `tick == 0` and lock afterwards. Without an explicit selection, all infantry use the HP chassis and cooling launcher. Model recommendations apply only when selected explicitly.
 
 Chassis (HP / power):
 
@@ -346,7 +350,7 @@ The heavy robot combines the 2026 hero and engineer: it starts without a launche
 - 50% defense from the start until 180 s (or until the launcher is installed). Invulnerable inside your supply zone; up to 45 s of invulnerability in the assembly zone during an assembly.
 - **Energy units**: near your resource hub (`zone_center(arena, "red_resource")`, mirrored for blue) send `pick_unit=True`; the arm reaches for the nearest unit. It carries at most 2 (`carried_units`). Each team has 6 units in total (`teams[own]["energy_units_left"]`) that are never replenished.
 - **Assembly**: drive into your assembly zone carrying a unit and send `assembly=level`. Once the core is in place, include the current step's command in every action: `assembly_insert=True` → `assembly_lift=True` → `assembly_flip=True` → `assembly_rotate=target angle (degrees)` → `assembly_confirm=True` (level 1 is insert and confirm only; level 2 adds the lift). An arm in automatic mode aligns itself with the core; the chassis must be still to confirm. `observation["assemblies"][own]` shows `operation`, `cores[k]["operation"]`, `target_rotation` and `blocked_reason`.
-- Level 4 needs 2 carried units. `assembly_core=0` works your own core, `1` the borrowed core, and dual-arm models may send `2` to work both; paired steps must finish on both cores within 5 s.
+- Level 4 needs 2 carried units. `assembly_core=0` works your own core, `1` the borrowed core, and dual-arm models may send `2` to work both. The cores have independent rotation targets: use `assembly_rotate` for the first arm and `assembly_rotate2` for the second when working simultaneously; a single arm uses `assembly_rotate` for its selected core. Paired steps must finish on both cores within 5 s (the flip is exempt).
 - **Launcher** (`launcher`): `locked` → `unlocked` → `installing` → `fitted` → `installed`.
   - Unlock: your team completes a level-3 assembly, or match time reaches 300 − M/50 − 2N/3 s (M is the opponent's largest base-HP lead over you this match, N its largest control-degree lead; the current value is `teams[own]["launcher_unlock_s"]`).
   - Fitting: park at your workbench (`sdk.workbench_point(robot, arena)`, within 0.45 m), stay still (< 0.05 m/s) and send `install_launcher=True` in **every action**; `launcher_progress` rises to 1 and the state becomes `fitted`. Moving or stopping the command returns it to `unlocked`.

@@ -12,7 +12,7 @@
 - 开局到 180 s（或装上发射机构为止）获得 50% 防御。在己方补给区内无敌；装配进行中在装配区内累计最多 45 s 无敌。
 - **能量单元**：在己方资源岛（`zone_center(arena, "red_resource")`，蓝方对称）附近发送 `pick_unit=True` 拾取，机械臂会自动伸向最近的单元；最多同时携带 2 枚（`carried_units`）。每队一共 6 枚（`teams[己方]["energy_units_left"]`），用完不再补充。
 - **装配**：载着能量单元开到己方装配区，发送 `assembly=等级` 开始；核心就位后每次动作带上当前步骤的命令：`assembly_insert=True` → `assembly_lift=True` → `assembly_flip=True` → `assembly_rotate=目标角度（度）` → `assembly_confirm=True`（1 级只有插入与确认，2 级多一个抬升）。机械臂处于自动模式时会自己对准核心；确认时底盘必须停稳。`observation["assemblies"][己方]` 的 `operation`、`cores[k]["operation"]`、`target_rotation`、`blocked_reason` 告诉你当前步骤和阻碍原因。
-- 4 级需要携带 2 枚单元，`assembly_core=0` 操作自己的核心，`1` 操作借用的核心，双臂型号可用 `2` 同时操作；成对步骤必须在 5 s 内在两个核心上完成。
+- 4 级需要携带 2 枚单元，`assembly_core=0` 操作自己的核心，`1` 操作借用的核心，双臂型号可用 `2` 同时操作。两个核心的目标角度独立；双臂同时工作时以 `assembly_rotate` 控制第一臂、`assembly_rotate2` 控制第二臂；单臂仍用 `assembly_rotate` 控制当前核心。成对步骤必须在 5 s 内在两个核心上完成（翻转除外）。
 - **发射机构**（`launcher`）：`locked` → `unlocked` → `installing` → `fitted` → `installed`。
   - 解锁：本队完成 3 级装配，或比赛时间到达 300 − M/50 − 2N/3 s（M 为本局对方基地血量领先己方的最大值，N 为对方控制度领先的最大值；当前值见 `teams[己方]["launcher_unlock_s"]`）。
   - 安装：开到己方工作台（`sdk.workbench_point(robot, arena)`，0.45 m 内）停稳（< 0.05 m/s），**每次动作**都发送 `install_launcher=True`，`launcher_progress` 涨到 1 后变为 `fitted`。中途移动或停发命令会退回 `unlocked`。

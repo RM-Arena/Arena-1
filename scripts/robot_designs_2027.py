@@ -106,7 +106,7 @@ def beside_gimbal(d):
 def heavy(designs):
     """Engineer chassis and arm(s) beside a central column carrying the 42 mm gimbal."""
     launcher = dict(launcher='modular_42mm', launcher_module_kg=5.2, launcher_module_stowed_m=[.38, .30, .26],
-                    launcher_module_voltage_v=24, launcher_capacitance_mf=40, launcher_install_s=6.0,
+                    launcher_module_voltage_v=24, launcher_module_battery_wh=0, launcher_capacitance_mf=40, launcher_install_s=6.0,
                     muzzle_speed_mps=15.6, turret_yaw_rate_rad_s=4.5, turret_pitch_rate_rad_s=2.2, trigger_interval_s=.2,
                     muzzle_z_m=.64, muzzle_reach_m=.30, armor_width_m=.135, carried_units_max=2,
                     referee_modules=['main_controller', 'power_management', 'light_bar', 'small_armor_x4', 'video_transmitter',

@@ -3,9 +3,11 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import queue
+from unittest.mock import patch
 
 from rmuc_arena.engine import Match
-from rmuc_arena.runner import Policy, Battle, FrameLog, CPU_LIMIT
+from rmuc_arena.runner import Policy, Battle, FrameLog, CPU_LIMIT, POLICY_TIMEOUT_LIMIT
 from rmuc_arena.worker import MEMORY_LIMIT
 from rmuc_arena.submissions import ROOT, save_submission
 from rmuc_arena.cli import verify_replay
@@ -61,9 +63,8 @@ class LocalRunnerTests(unittest.TestCase):
                 self.assertEqual(commands,{})
                 self.assertIsNotNone(error)
 
-    def test_timeout_crash_and_state_limits(self):
-        for code in ('def act(obs,state):\n while True: pass\n',
-                     'def act(obs,state):\n raise RuntimeError("broken")\n',
+    def test_crash_and_state_limits_disable_immediately(self):
+        for code in ('def act(obs,state):\n raise RuntimeError("broken")\n',
                      'def act(obs,state):\n return {}, "x"*300000\n'):
             with self.subTest(code=code):
                 p = self.policy(code, timeout=.03)
@@ -71,6 +72,87 @@ class LocalRunnerTests(unittest.TestCase):
                 self.assertEqual(actions, {})
                 self.assertIsNotNone(error)
                 self.assertTrue(p.disabled)
+
+    def test_hung_policy_is_disabled_after_consecutive_timeouts(self):
+        p = self.policy('def act(obs,state):\n while True: pass\n', timeout=.03)
+        with Match() as match:
+            obs = match.observation('red')
+        for attempt in range(1, POLICY_TIMEOUT_LIMIT + 1):
+            actions, error = p.decide(obs)
+            self.assertEqual(actions, {})
+            self.assertEqual(error, 'decision exceeded deadline')
+            self.assertEqual(p.consecutive_timeouts, attempt)
+            self.assertEqual(p.disabled, attempt == POLICY_TIMEOUT_LIMIT)
+        self.assertIsNotNone(p.process.poll())
+        self.assertEqual(p.decide(obs), ({}, None))
+
+    def test_transient_timeouts_discard_old_actions_preserve_state_and_reset_streak(self):
+        p = self.policy('def act(obs,state):\n n=(state or 0)+1\n return {"1":{"aim":obs["tick"],"pitch":n}},n\n')
+        with Match() as match:
+            obs = match.observation('red', [1])
+        pid = p.process.pid
+        # Inject a missed response deadline without relying on OS scheduling.
+        # Repeat with successful decisions between failures to test streak reset.
+        for attempt in range(POLICY_TIMEOUT_LIMIT + 1):
+            obs['tick'] = attempt * 2
+            with patch.object(p.lines, 'get', side_effect=queue.Empty):
+                self.assertEqual(p.decide(obs), ({}, 'decision exceeded deadline'))
+            self.assertFalse(p.disabled)
+            self.assertEqual(p.consecutive_timeouts, 1)
+            obs['tick'] += 1
+            actions, error = p.decide(obs)
+            self.assertIsNone(error)
+            self.assertEqual(actions['1'], {'aim': obs['tick'], 'pitch': (attempt + 1) * 2})
+            self.assertEqual(p.consecutive_timeouts, 0)
+            self.assertEqual(p.process.pid, pid)
+
+    def test_late_worker_error_still_disables_policy(self):
+        p = self.policy('def act(obs,state):\n raise RuntimeError("late failure")\n')
+        with Match() as match:
+            obs = match.observation('red')
+        with patch.object(p.lines, 'get', side_effect=queue.Empty):
+            self.assertEqual(p.decide(obs), ({}, 'decision exceeded deadline'))
+        actions, error = p.decide(obs)
+        self.assertEqual(actions, {})
+        self.assertEqual(error, 'late failure')
+        self.assertTrue(p.disabled)
+
+    def test_slow_decision_can_finish_during_the_next_budget(self):
+        p = self.policy('import time\ndef act(obs,state):\n if state is None: time.sleep(.3)\n return {"1":{"aim":obs["tick"]}},True\n')
+        with Match() as match:
+            obs = match.observation('red', [1])
+        self.assertEqual(p.decide(obs), ({}, 'decision exceeded deadline'))
+        self.assertFalse(p.disabled)
+        obs['tick'] = 2
+        self.assertEqual(p.decide(obs), ({'1': {'aim': 2}}, None))
+        self.assertFalse(p.disabled)
+        self.assertIsNone(p.pending_response)
+
+    def test_both_teams_recover_from_one_missed_decision_and_replay_verifies(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'strategy.py'
+            source.write_text('def act(obs,state):\n return {"1":{"aim":obs["tick"],"move":[.2,0]}},state\n')
+            for team in ('red', 'blue'):
+                save_submission(Path(temp) / team, 'team', {'team': source})
+            with Battle(Path(temp) / 'red', Path(temp) / 'blue', duration=1, sandbox=self.policy_sandbox()) as b:
+                red, blue = [p for _, _, p in b.policies]
+                with patch.object(red.lines, 'get', side_effect=queue.Empty), patch.object(blue.lines, 'get', side_effect=queue.Empty):
+                    b.step()
+                self.assertEqual(b.actions[0], {'red': {}, 'blue': {}})
+                self.assertEqual(len({d['id'] for d in b.diagnostics}), 2)
+                self.assertTrue(all(not d['disabled'] and d['time'] == 0 for d in b.diagnostics))
+                b.run()
+                self.assertTrue(all(not p.disabled for _, _, p in b.policies))
+                for team in ('red', 'blue'):
+                    self.assertEqual(b.actions[2][team]['1']['aim'], 2)
+                    self.assertEqual(b.actions[-1][team]['1']['aim'], 18)
+                self.assertEqual(b.result()['policy_errors'], 2)
+                replay = Path(temp) / 'replay.json'
+                b.save(replay)
+            self.assertEqual(verify_replay(replay)['verified_ticks'], 20)
+
+    def policy_sandbox(self):
+        return 'trusted-local'
 
     def test_state_may_reach_256_kib(self):
         p = self.policy('def act(obs,state):\n return {}, "x"*100000\n')
@@ -105,6 +187,9 @@ class LocalRunnerTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("RMUC_DOCKER_TESTS") == "1", "Set RMUC_DOCKER_TESTS=1 to verify real containers")
 class DockerIsolationTests(LocalRunnerTests):
+    def policy_sandbox(self):
+        return 'docker'
+
     def policy(self, text, sandbox="docker", timeout=.2):
         return super().policy(text, sandbox, timeout)
 

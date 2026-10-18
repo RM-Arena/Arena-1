@@ -1,0 +1,21 @@
+{
+  "api_version": 3,
+  "rules_profile": "rmuc-2026-v1.0.0-arena-v3",
+  "mode": "team",
+  "robot": null,
+  "entries": {
+    "team": "strategy.py"
+  },
+  "hashes": {
+    "strategy.py": "7849326ba576fe4f05769495f9a54d8bbfe0c274127c8e91d772acff24cdd14b"
+  },
+  "team_lineup": {
+    "1": 1,
+    "2": 2,
+    "3": 305,
+    "4": 305,
+    "6": 6,
+    "7": 301
+  },
+  "version": "dabd5223934a6ef7"
+}

@@ -105,6 +105,9 @@ pub struct Zone {
     /// Crossing kind when it differs from `kind` (the 2027 central card is also the highland's high card).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crossing: Option<String>,
+    /// Absolute height of the RFID card surface (2027); absent on legacy fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_z_m: Option<f64>,
     pub source: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub polygon: Vec<[f64; 2]>,
@@ -249,6 +252,8 @@ pub struct Robot {
     pub invulnerable_until: f64,
     pub invulnerable: bool,
     pub weak: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weak_until: Option<f64>,
     pub respawn_progress: f64,
     pub respawn_required: f64,
     pub instant_revives: u32,
@@ -950,8 +955,12 @@ impl Engine {
                     upgrades: BTreeMap::new(),
                     experience: 0.0,
                     profile: d["hero_profile"].as_str().unwrap().into(),
-                    chassis_profile: d["chassis_profile"].as_str().unwrap().into(),
-                    weapon_profile: d["weapon_profile"].as_str().unwrap().into(),
+                    chassis_profile: if season == 2027 && role == "infantry" {
+                        rules["profiles"]["defaults"]["infantry_chassis"].as_str().unwrap_or("hp").into()
+                    } else { d["chassis_profile"].as_str().unwrap().into() },
+                    weapon_profile: if season == 2027 && role == "infantry" {
+                        rules["profiles"]["defaults"]["infantry_weapon"].as_str().unwrap_or("cooling").into()
+                    } else { d["weapon_profile"].as_str().unwrap().into() },
                     profile_locked: false,
                     power_limit: if season == 2027 {
                         50.0
@@ -981,6 +990,7 @@ impl Engine {
                     invulnerable_until: 0.0,
                     invulnerable: false,
                     weak: false,
+                    weak_until: None,
                     respawn_progress: 0.0,
                     respawn_required: 0.0,
                     instant_revives: 0,
@@ -1862,9 +1872,10 @@ impl Engine {
         let projectiles = std::mem::take(&mut self.projectiles);
         let mut remaining = Vec::new();
         for mut p in projectiles {
-            let Some(_source) = self.robots.iter().position(|r| r.id == p.source) else {
+            let source = self.robots.iter().position(|r| r.id == p.source);
+            if source.is_none() && self.season != 2027 {
                 continue;
-            };
+            }
             let speed = p.vx.hypot(p.vy);
             let length = (speed * self.micro_dt).min(p.remaining);
             let ratio = if speed > 0.0 {
@@ -1895,7 +1906,7 @@ impl Engine {
                 self.physics
                     .as_ref()
                     .unwrap()
-                    .solid_hit(_source, [p.x, p.y, p.z], [dx, dy, dz])
+                    .solid_hit(source.unwrap_or(usize::MAX), [p.x, p.y, p.z], [dx, dy,dz])
             {
                 hits.push((t, 5, 0));
             }

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from chapter4_2027_layout import make_arena, RESOURCE_UNITS
 from exchange_difficulties import ASSEMBLY_DIFFICULTIES
-from robot_compliance import construction_2027, season_compliance
+from robot_compliance import construction_2027, season_compliance, add_builtin_construction_inspections
 from robot_designs_2027 import DEFAULT_LINEUP_2027, make_designs_2027
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -204,11 +204,18 @@ def simulation_2027(base_sim):
                          'launch_s': 1.0, 'dock_radius_m': .25, 'dock_speed_mps': .4},
         'hangar_recharge_w': 0, 'sentry_supply_card': 'supply zone polygon',
         'assembly_difficulties': copy.deepcopy(ASSEMBLY_DIFFICULTIES),
+        'assembly_repeat_reset_s': 0,
+        'rune_motor': {'profile': 'official_2027',
+                       'note': 'Small and idle large runes rotate at pi/3 rad/s; active large runes use a*sin(omega*t)+2.090-a, reset on each new large activation; both faces share the shaft.'},
         'arm_lift_speed_mps': .15, 'arm_flip_speed_deg_s': 180,
         'central_elevation_m': .3,
     }
     for profile in sim['assembly_difficulties']:
-        profile['pose_ranges'] = profile.get('pose_ranges', {})
+        profile.pop('pose_ranges', None)
+        profile.pop('target_rotation_deg', None)
+        profile['attempt_timeout_s'] = 45 if profile is sim['assembly_difficulties'][-1] else None
+        profile['confirm_hold_s'] = .4
+        profile['rotation_tolerance_deg'] = 5
     return sim
 
 
@@ -230,6 +237,7 @@ def main():
     for key in [k for k in designs if designs[k].get('season') == '2027']:
         del designs[key]
     make_designs_2027(designs)
+    add_builtin_construction_inspections(designs)
     official = official_2027()
     official['construction'] = construction_2027(SOURCES['construction'])
     rules['official_2027'] = official

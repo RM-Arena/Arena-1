@@ -291,6 +291,7 @@ def assemble(robot, ctx, core, work):
         if robot.get('arm_count', 1) >= 2:
             fields['assembly_core'] = 2
             fields['assembly_rotate'] = cores[0]['target_rotation']
+            fields['assembly_rotate2'] = cores[1]['target_rotation']
             return fields
         # One arm: work the core that is behind, finishing a confirmation before switching.
         def rank(c):

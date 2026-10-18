@@ -25,8 +25,13 @@ fn q(r: &Robot) -> UnitQuaternion<f64> {
 }
 
 pub(super) fn arm_direction(r: &Robot) -> [f64; 3] {
-    let yaw = r.arm_joints[0] + r.arm_joints[3];
-    let pitch = r.arm_joints[4];
+    arm_direction_for(r, false)
+}
+
+pub(super) fn arm_direction_for(r: &Robot, secondary: bool) -> [f64; 3] {
+    let joints = if secondary { &r.arm2_joints } else { &r.arm_joints };
+    let yaw = joints[0] + joints[3];
+    let pitch = joints[4];
     let v = q(r) * vector![yaw.cos() * pitch.cos(), yaw.sin() * pitch.cos(), -pitch.sin()];
     [v.x, v.y, v.z]
 }
@@ -2089,6 +2094,10 @@ impl PhysicsWorld {
         // Aerial robots are resolved by the engine (they are pushed, not walls).
         let drones: Vec<RigidBodyHandle> = self.drone_bodies.iter().flatten().copied().collect();
         let predicate = |_: ColliderHandle, c: &Collider| c.parent().map(|p| !drones.contains(&p)).unwrap_or(true);
+        let mut filter = QueryFilter::default().predicate(&predicate);
+        if let Some(handle) = self.handles.get(source) {
+            filter = filter.exclude_rigid_body(*handle);
+        }
         self.queries
             .cast_ray(
                 &self.bodies,
@@ -2099,7 +2108,7 @@ impl PhysicsWorld {
                 ),
                 1.0,
                 true,
-                QueryFilter::default().exclude_rigid_body(self.handles[source]).predicate(&predicate),
+                filter,
             )
             .map(|(_, t)| t)
     }

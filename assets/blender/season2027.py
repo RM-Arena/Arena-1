@@ -10,6 +10,12 @@ season == '2027' and maps with season == '2027' are built here.
 
 S27_ENV = CONFIG['official_2027']['construction']['envelope']
 S27_REPORT = {}
+# Use the same two S68 envelope alternatives as lineup inspection. Blender is
+# launched outside scripts/, so load the shared check by its explicit path.
+import importlib.util
+_s27_spec = importlib.util.spec_from_file_location('s27_construction', ROOT/'scripts/robot_compliance.py')
+_s27_construction = importlib.util.module_from_spec(_s27_spec)
+_s27_spec.loader.exec_module(_s27_construction)
 
 
 # ---------------------------------------------------------------------------- helpers
@@ -494,8 +500,8 @@ def s27_size(exclude=()):
 
 def verify_2027(slot, d):
     """Sampled-pose envelope check against the 2027 construction limits. The heavy's stowed
-    size excludes `LauncherModule` (rules: stowed_excludes_launcher_module). Problems that come
-    from the design parameters are reported, not fatal, and saved in the envelope JSON."""
+    size excludes `LauncherModule` (rules: stowed_excludes_launcher_module). Invalid
+    geometry is saved in the envelope JSON and then fails the asset build."""
     role = d['role']; env = S27_ENV[role]; issues = []
     stowed_limit = env['hangar']['stowed_m'] if role == 'aerial' else env['stowed_m']
     extended_limit = env['hangar']['extended_m'] if role == 'aerial' else env['extended_m']
@@ -535,7 +541,10 @@ def verify_2027(slot, d):
         pose_arm(arm, arm['stowed'])
         if d.get('arm_count') == 2:
             pose_arm(d['arm2'], d['arm2']['stowed'], 'Aux_')
-    if not all(a <= b+.002 for a, b in zip(maximum, extended_limit)):
+    measured = [max(0, value-.002) for value in maximum]  # mesh/export tolerance
+    extended_ok = (_s27_construction.extended_envelope_2027(d, env, measured) if role == 'heavy'
+                   else all(a <= b+.002 for a, b in zip(maximum, extended_limit)))
+    if not extended_ok:
         issues.append(f'articulated mesh {[round(v, 3) for v in maximum]} exceeds {extended_limit}')
     envelope = {'slot': slot, 'season': '2027', 'stowed_mesh_m': stowed, 'articulated_mesh_max_m': maximum,
                 'stowed_limit_m': stowed_limit, 'extended_limit_m': extended_limit,
@@ -562,6 +571,8 @@ def verify_2027(slot, d):
         print('S27 ENVELOPE', slot, issue, flush=True)
     S27_REPORT[slot] = envelope
     (OUT/f'robot-{slot}-envelope.json').write_text(json.dumps(envelope, indent=2))
+    if issues:
+        raise ValueError(f'2027 model {slot} failed construction envelope inspection: {issues}')
 
 
 def s27_with_base_builder(build, decorate):

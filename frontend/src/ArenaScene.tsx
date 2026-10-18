@@ -27,7 +27,10 @@ const toHeight=(frame:Frame,x:number,y:number)=>terrainHeight(frame.arena,x,y);
 
 function useAsset(url:string,team?:TeamId){
   const scene=useRobotScene(url);
-  return useMemo(()=>cloneForTeam(scene,team),[scene,team]);
+  const asset=useMemo(()=>cloneForTeam(scene,team),[scene,team]),gl=useThree(state=>state.gl);
+  // A newly loaded caster also invalidates the cached shadow while paused.
+  useEffect(()=>{gl.shadowMap.needsUpdate=true;},[gl,asset]);
+  return asset;
 }
 
 function RobotModel({id,role,team,url,feed,selected,onSelect}:{id:string;role:string;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>;selected:string;onSelect:(id:string)=>void}){
@@ -289,9 +292,11 @@ function introCamera(shot:IntroShot,u:number,frame:Frame,camera:THREE.Camera,loo
 }
 function Director({mode,selected,feed,audio,onCanvas,onRender,shot}:{mode:CameraMode;selected:string;feed:MutableRefObject<RenderFeed>;audio?:ArenaAudio;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null}){
   const {camera,gl}=useThree(),controls=useRef<Controls>(null),target=useMemo(()=>new THREE.Vector3(),[]);const previousMode=useRef('');
+  const shadow=useRef({slot:-1,frame:null as Frame|null,generation:'',paused:false});
   const look=useMemo(()=>new THREE.Vector3(),[]),cut=useRef({key:'',at:0});
   const ear=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),up=useMemo(()=>new THREE.Vector3(),[]),origin=useMemo(()=>new THREE.Vector3(),[]);
   useEffect(()=>onCanvas(gl.domElement),[gl,onCanvas]);
+  useEffect(()=>{const restore=()=>{gl.shadowMap.needsUpdate=true;};gl.domElement.addEventListener('webglcontextrestored',restore);return()=>gl.domElement.removeEventListener('webglcontextrestored',restore);},[gl]);
   useFrame(({clock},dt)=>{
     // The intro owns the camera; the chosen broadcast mode resumes from its default framing afterwards.
     if(shot){const f=feed.current.frame;if(cut.current.key!==shot.key)cut.current={key:shot.key,at:clock.elapsedTime};if(f)introCamera(shot,Math.min(1,(clock.elapsedTime-cut.current.at)/Math.max(.2,shot.length)),f,camera,look);previousMode.current='intro';return;}
@@ -300,7 +305,18 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot}:{mode:Camera
     if(mode==='follow'){const r=feed.current.frame?.robots.find(r=>r.id===selected);if(r){target.lerp(point(r,.40),Math.min(1,dt*6));const angle=r.heading;const desired=target.clone().add(new THREE.Vector3(-Math.cos(angle)*4,3.3,-Math.sin(angle)*4));const arena=feed.current.frame!.arena;desired.x=THREE.MathUtils.clamp(desired.x,-arena.width/2+.6,arena.width/2-.6);desired.z=THREE.MathUtils.clamp(desired.z,-arena.height/2+.6,arena.height/2-.6);camera.position.lerp(desired,Math.min(1,dt*3));camera.lookAt(target);}}
   });
   useFrame(()=>{if(!audio?.enabled)return;const focus=mode==='orbit'?controls.current?.target||origin:mode==='follow'?target:origin;ear.copy(camera.position).sub(focus);ear.setLength(Math.min(ear.length(),9)).add(focus);camera.getWorldDirection(ahead);up.set(0,1,0).applyQuaternion(camera.quaternion);audio.listen(ear,ahead,up,feed.current.frame?.arena);});
-  useFrame(()=>{audio?.drones(feed.current.frame);onRender();},-2);
+  useFrame(()=>{audio?.drones(feed.current.frame);},-2);
+  // A fixed directional light does not need new shadows for camera motion.
+  // Keep moving shadows at 30 Hz; a changed paused frame always refreshes them.
+  useFrame(({gl,scene,camera,clock})=>{
+    const f=feed.current,s=shadow.current,slot=Math.floor(clock.elapsedTime*30);
+    if(f.generation!==s.generation||f.paused!==s.paused||(f.paused?f.frame!==s.frame:slot!==s.slot)){
+      gl.shadowMap.needsUpdate=true;s.slot=slot;s.frame=f.frame;s.generation=f.generation;s.paused=f.paused;
+    }
+    gl.render(scene,camera);
+    // Copy the just-rendered frame synchronously, before WebGL releases its buffer.
+    onRender();
+  },1);
   return <OrbitControls ref={controls} enabled={mode==='orbit'&&!shot} enableDamping dampingFactor={.075} maxPolarAngle={Math.PI*.47} minDistance={4} maxDistance={72} target={BROADCAST_TARGET}/>;
 }
 
@@ -312,7 +328,7 @@ class SceneBoundary extends Component<{children:ReactNode;onRetry:()=>void;audio
 }
 export function ArenaScene({frame,feed,mode,selected,audio,onSelect,onCanvas,onRender,shot}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null}){
   function retry(){for(const url of new Set([frame.arena.asset,...Object.values(frame.arena.structure_assets||{}),...frame.robots.map(r=>r.model_asset||`/assets/robot-${r.role}.glb`),...frame.robots.filter(r=>r.drones?.length&&r.model_asset).map(r=>r.model_asset!.replace('/robot-','/drone-'))]))useGLTF.clear(url);}
-  return <SceneBoundary onRetry={retry} audio={audio}><Canvas shadows dpr={[1,1.6]} camera={{position:BROADCAST_EYE,fov:42,near:.1,far:220}} gl={{antialias:true,preserveDrawingBuffer:true}} onCreated={({gl,scene})=>{gl.toneMapping=THREE.ACESFilmicToneMapping;gl.toneMappingExposure=1.18;scene.background=new THREE.Color('#05070b');scene.fog=new THREE.Fog('#05070b',55,150);}}>
+  return <SceneBoundary onRetry={retry} audio={audio}><Canvas shadows dpr={[1,1.6]} camera={{position:BROADCAST_EYE,fov:42,near:.1,far:220}} gl={{antialias:true}} onCreated={({gl,scene})=>{gl.shadowMap.autoUpdate=false;gl.toneMapping=THREE.ACESFilmicToneMapping;gl.toneMappingExposure=1.18;scene.background=new THREE.Color('#05070b');scene.fog=new THREE.Fog('#05070b',55,150);}}>
     <hemisphereLight args={['#e4eefb','#1c2128',1.9]}/><ambientLight intensity={.22}/><directionalLight position={[4,26,9]} intensity={3.1} color="#f4f6ff" castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-28} shadow-camera-right={28} shadow-camera-top={24} shadow-camera-bottom={-24} shadow-bias={-.0004}/><directionalLight position={[-18,12,-14]} color="#9fb9ff" intensity={1.1}/><directionalLight position={[18,9,14]} color="#c9b8ff" intensity={.45}/>
     <Venue season={frameSeason(frame)}/>
     <Suspense fallback={<Html center><div className="scene-loading">加载 Blender / glTF 资产…</div></Html>}><ArenaMap frame={frame} feed={feed}/><BaseModel team="red" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/><BaseModel team="blue" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/>{frame.outposts&&<><OutpostModel team="red" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/><OutpostModel team="blue" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/></>}{frame.runes&&<><RuneModel team="red" feed={feed}/><RuneModel team="blue" feed={feed}/></>}{frame.arena.structure_assets?.core&&frame.arena.assembly_frames&&<><TechCore team="red" feed={feed} url={frame.arena.structure_assets.core}/><TechCore team="blue" feed={feed} url={frame.arena.structure_assets.core}/></>}{frame.robots.map(r=><RobotModel key={r.id} id={r.id} role={r.role} team={r.team} url={r.model_asset||`/assets/robot-${r.role}.glb`} feed={feed} selected={selected} onSelect={onSelect}/>)}{frame.robots.filter(r=>r.drones?.length&&r.model_asset).flatMap(r=>r.drones!.map((d,k)=><DroneModel key={d.id} robot={r.id} index={k} team={r.team} url={r.model_asset!.replace('/robot-','/drone-')} feed={feed}/>))}</Suspense>

@@ -29,6 +29,8 @@ IMAGE = "rmuc-arena-policy:0.5"
 CPU_LIMIT = 1.0
 # Seconds for module import and global initialization before the first decision.
 STARTUP_LIMIT = {"docker": 60, "trusted-local": 15}
+# A stalled process is stopped after three consecutive missed decision windows.
+POLICY_TIMEOUT_LIMIT = 3
 
 
 class FrameLog(Sequence):
@@ -106,6 +108,7 @@ class Policy:
         self.deadline, self.stop_event = deadline, stop_event
         self.dynamic_messages = dynamic_messages
         self.logs, self.lines, self.calls, self.errors = deque(maxlen=32), queue.Queue(maxsize=2), 0, 0
+        self.pending_response, self.consecutive_timeouts = None, 0
         self.name, self.temp = "rmuc-" + uuid.uuid4().hex[:16], tempfile.TemporaryDirectory(prefix="rmuc-policy-")
         stage = Path(self.temp.name)
         stage.chmod(0o755)
@@ -202,42 +205,63 @@ class Policy:
             started = time.monotonic()
             if (self.deadline is not None and started >= self.deadline) or (self.stop_event and self.stop_event.is_set()):
                 return {}, None
+            until = min(started + self.timeout, self.deadline if self.deadline is not None else float("inf"))
+            if self.pending_response is not None:
+                # Only one request may be in flight. Discard its late response before
+                # sending fresh observations, preserving private state without ever
+                # applying old actions to a new tick or building a stdin backlog.
+                self._receive(until)
+            if time.monotonic() >= until:
+                raise queue.Empty
+            self.pending_response = controlled, has_messages
             self.process.stdin.write(payload)
             self.process.stdin.flush()
-            remaining = self.timeout - (time.monotonic() - started)
-            if self.deadline is not None:
-                remaining = min(remaining, self.deadline - time.monotonic())
-            if remaining <= 0:
-                raise queue.Empty
-            raw = self.lines.get(timeout=remaining)
-            response = json.loads(raw, parse_constant=lambda s: (_ for _ in ()).throw(ValueError("non-finite JSON")))
-            if response.get("error"):
-                raise ValueError(response["error"])
-            actions = response.get("actions")
-            if not isinstance(actions, dict):
-                raise ValueError("Invalid action object")
-            if not set(actions) <= controlled:
-                raise ValueError("Attempt to control an unowned robot")
-            fields = {"move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support", "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform",
-                      # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
-                      "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "posture", "posture_enhanced", "drones"}
-            if has_messages:
-                fields.add("messages")
-            for slot, action in actions.items():
-                if not isinstance(action, dict) or not set(action) <= fields:
-                    raise ValueError("Action contains unsupported fields")
-                if len(json.dumps(action, allow_nan=False).encode()) > 1024:
-                    raise ValueError("Each robot action must be <=1 KiB")
-                if "messages" in action:
-                    validate_messages(action["messages"], slot, self.dynamic_messages)
+            actions = self._receive(until)
+            self.consecutive_timeouts = 0
             return actions, None
-        except (Exception, queue.Empty) as exc:
+        except queue.Empty:
             self.errors += 1
-            message = "decision exceeded deadline" if isinstance(exc, queue.Empty) else str(exc)
+            self.consecutive_timeouts += 1
+            message = "decision exceeded deadline"
             self.logs.append(message)
-            self.disabled = True
+            if self.consecutive_timeouts >= POLICY_TIMEOUT_LIMIT:
+                self.close()
+            return {}, message
+        except Exception as exc:
+            self.errors += 1
+            message = str(exc)
+            self.logs.append(message)
             self.close()
             return {}, message
+
+    def _receive(self, until):
+        remaining = until - time.monotonic()
+        if remaining <= 0:
+            raise queue.Empty
+        raw = self.lines.get(timeout=remaining)
+        controlled, has_messages = self.pending_response
+        self.pending_response = None
+        response = json.loads(raw, parse_constant=lambda s: (_ for _ in ()).throw(ValueError("non-finite JSON")))
+        if response.get("error"):
+            raise ValueError(response["error"])
+        actions = response.get("actions")
+        if not isinstance(actions, dict):
+            raise ValueError("Invalid action object")
+        if not set(actions) <= controlled:
+            raise ValueError("Attempt to control an unowned robot")
+        fields = {"move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support", "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform",
+                  # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
+                  "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture", "posture_enhanced", "drones"}
+        if has_messages:
+            fields.add("messages")
+        for slot, action in actions.items():
+            if not isinstance(action, dict) or not set(action) <= fields:
+                raise ValueError("Action contains unsupported fields")
+            if len(json.dumps(action, allow_nan=False).encode()) > 1024:
+                raise ValueError("Each robot action must be <=1 KiB")
+            if "messages" in action:
+                validate_messages(action["messages"], slot, self.dynamic_messages)
+        return actions
 
     def close(self):
         self.disabled = True
@@ -305,7 +329,7 @@ class Battle:
         self.deck_mode = decks is not None
         self.deadline, self.stop_event = deadline, stop_event
         self.pool = ThreadPoolExecutor(max_workers=24 if self.deck_mode else 12)
-        self.metadata = {"api_version": 3, "engine": "rust", "rules": rules_profile, "season": season, "decision_timeout_s":timeout, "roster":list(slot_ids), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
+        self.metadata = {"api_version": 3, "engine": "rust", "rules": rules_profile, "season": season, "decision_timeout_s":timeout, "policy_timeout_limit":POLICY_TIMEOUT_LIMIT, "roster":list(slot_ids), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
                          "map": map_name, "sandbox": sandbox, "match_mode":"deck" if self.deck_mode else "standard", "teams": {}}
         self.frames, self.actions, self.diagnostics = FrameLog(self.match.snapshot()), [], []
         self.metadata["rules_hash"] = self.frames[0]["rules_hash"]
@@ -410,7 +434,10 @@ class Battle:
                     outgoing.append((team, slot, messages))
                 commands[team][slot] = action
             if error:
-                detail = {"type": "policy_error", "tick": self.match.tick, "team": team, "slots": slots,
+                scope = "team" if slots is None else "-".join(map(str, slots))
+                detail = {"type": "policy_error", "id": f"policy:{team}:{scope}:{self.match.tick}",
+                          "tick": self.match.tick, "time": self.match.time, "team": team, "slots": slots,
+                          "disabled": p.disabled, "consecutive_timeouts": p.consecutive_timeouts,
                           "message": error, "logs": list(p.logs)[-8:]}
                 self.diagnostics.append(detail)
                 failures.append(detail)
