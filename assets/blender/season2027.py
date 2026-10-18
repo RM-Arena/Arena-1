@@ -179,17 +179,41 @@ def s27_local(root, name, point, yaw, z=None):
     return local
 
 
+def s27_profile_wall(w, frame):
+    """Tunnel rail or roof with bevelled top edges (figure 4-35 section A, figure 4-38): its
+    cross-section extruded along the wall. `chamfer` lists the bevelled top edges: -1/+1 for
+    the right/left side of the wall's a->b direction in field coordinates (the field's y is
+    flipped in Blender, so field-left is local -y) and 'ends' to slope the top at both ends."""
+    L, T, H = w['w'], w['h'], w['height']; c = w.get('chamfer_m', .04)
+    profile = [(-T/2, 0), (T/2, 0)]
+    profile += [(T/2, H-c), (T/2-c, H)] if -1 in w['chamfer'] else [(T/2, H)]
+    profile += [(-T/2+c, H), (-T/2, H-c)] if 1 in w['chamfer'] else [(-T/2, H)]
+    rings = [(-L/2, H), (L/2, H)]
+    if 'ends' in w['chamfer']:
+        rings = [(-L/2, H-c), (-L/2+c, H), (L/2-c, H), (L/2, H-c)]
+    n = len(profile)
+    vertices = [(x, y, min(z, top)) for x, top in rings for y, z in profile]
+    faces = [tuple(reversed(range(n))), tuple(range((len(rings)-1)*n, len(rings)*n))]
+    for r in range(len(rings)-1):
+        faces += [(r*n+i, r*n+(i+1) % n, (r+1)*n+(i+1) % n, (r+1)*n+i) for i in range(n)]
+    return c4_mesh(w['id']+'Body', vertices, faces, KERB, frame)
+
+
 def s27_wall(w, root):
     """Box obstacle (x/y top-left of the unrotated rectangle, rotated about its centre)."""
     cx, cy = w['x']+w['w']/2, w['y']+w['h']/2
     frame = empty(w['id'], root); frame.location = (cx-14, 7.5-cy, w['bottom']); frame.rotation_euler[2] = -w['rotation']
-    box(w['id']+'Body', (w['w'], w['h'], w['height']), (0, 0, w['height']/2), KERB, frame, min(.01, w['height']/4))
+    if w.get('chamfer'):
+        s27_profile_wall(w, frame)
+    else:
+        box(w['id']+'Body', (w['w'], w['h'], w['height']), (0, 0, w['height']/2), KERB, frame, min(.01, w['height']/4))
     L, T, H = w['w'], w['h'], w['height']
     if '_tunnel_roof' in w['id']:
-        # Hazard band round the roof's top edges (both tunnel portals are visible from either side).
+        # Hazard band round the roof's flat top (both tunnel portals are visible from either side).
+        flat = T-2*w.get('chamfer_m', 0) if w.get('chamfer') else T
         for s in (-1, 1):
-            box('RoofHazard', (L, .03, .004), (0, s*(T/2-.015), H+.002), AMBER, frame, 0)
-            box('RoofHazard', (.03, T, .004), (s*(L/2-.015), 0, H+.002), AMBER, frame, 0)
+            box('RoofHazard', (L, .03, .004), (0, s*(flat/2-.015), H+.002), AMBER, frame, 0)
+            box('RoofHazard', (.03, flat, .004), (s*(L/2-.015), 0, H+.002), AMBER, frame, 0)
     elif '_parapet_' in w['id']:
         box('ParapetCap', (L+.01, T+.02, .02), (0, 0, H+.01), STEEL, frame, .004)
     elif w['id'].startswith('central_') and '_kerb_' in w['id']:

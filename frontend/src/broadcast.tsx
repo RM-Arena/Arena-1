@@ -1,7 +1,7 @@
 import {strategyDisplayName,strategyName} from './strategyIdentity';
 import {useEffect,useLayoutEffect,useRef,useState,type ReactNode} from 'react';
 import type {Frame,MatchEvent,Metadata,Robot,TeamId} from './types';
-import {MODE_LABELS,frameSeason} from './types';
+import {MODE_LABELS,baseProtected,frameSeason,outpostHolder} from './types';
 import {TEAM_LABEL,TEAMS,other,robotName,type MatchStats} from './matchStats';
 import {clock} from './media';
 import {KillAnnouncer,type KillAnnouncement,type KillHighlight} from './killAnnouncements';
@@ -100,7 +100,7 @@ function MiniMap({frame,selected}:{frame:Frame;selected:string}){
   return <svg className="bc-minimap" viewBox={`0 0 ${W} ${H}`} aria-label="战术小地图"><rect width={W} height={H} fill="#0d1218"/>
     {a.terrain.filter(t=>t.elevation>0).map((t,i)=>t.polygon?<polygon key={i} points={t.polygon.map(([px,py])=>`${x(px)},${y(py)}`).join(' ')} fill="#3a4350" stroke="#56606d" strokeWidth=".6"/>:<rect key={i} x={x(t.x)} y={y(t.y)} width={x(t.w)} height={y(t.h)} fill="#3a4350"/>)}
     {a.obstacles.map((w,i)=><rect key={i} x={x(w.x)} y={y(w.y)} width={Math.max(1,x(w.w))} height={Math.max(1,y(w.h))} fill="#77818c" transform={`rotate(${(w.rotation||0)*180/Math.PI} ${x(w.x+w.w/2)} ${y(w.y+w.h/2)})`}/>)}
-    {TEAMS.map(t=>{const b=frame.bases[t],o=frame.outposts?.[t];return <g key={t}><polygon points={[0,1,2,3,4,5].map(k=>`${x(b.x)+11*Math.cos(k*Math.PI/3)},${y(b.y)+11*Math.sin(k*Math.PI/3)}`).join(' ')} className={`mm-base ${t}`}/>{o&&<rect x={x(o.x)-4} y={y(o.y)-4} width="8" height="8" className={`mm-outpost ${t} ${o.hp<=0?'down':''}`}/>}</g>;})}
+    {TEAMS.map(t=>{const b=frame.bases[t],o=frame.outposts?.[t];return <g key={t}><polygon points={[0,1,2,3,4,5].map(k=>`${x(b.x)+11*Math.cos(k*Math.PI/3)},${y(b.y)+11*Math.sin(k*Math.PI/3)}`).join(' ')} className={`mm-base ${t}`}/>{o&&<rect x={x(o.x)-4} y={y(o.y)-4} width="8" height="8" className={`mm-outpost ${outpostHolder(frame,t)} ${o.hp<=0?'down':''}`}/>}</g>;})}
     {frame.robots.filter(r=>r.alive||r.role==='aerial').map(r=><g key={r.id} transform={`translate(${x(r.x)},${y(r.y)})`} className={`mm-bot ${r.team} ${r.id===selected?'sel':''}`}><circle r={r.id===selected?9:7.5}/><text y="3.6" textAnchor="middle">{r.slot}</text></g>)}
   </svg>;
 }
@@ -124,11 +124,11 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
   const season=frameSeason(frame),position=(team:TeamId,kind:'outpost'|'base')=>frame.positions?.[`${team}_${kind}`];
   const control=(t:TeamId)=>Math.floor(frame.teams[t].control??0);
   const positionLabel=(team:TeamId)=>{const p=position(team,'outpost');if(!p)return null;const mine=p.controller===team;return <small className={`bc-position ${p.controller}`} title={`前哨控制点：${p.controller==='red'?'红方':'蓝方'}${p.control==='full'?'完全':'临时'}控制`}>{mine?'⚑':'⚐'} {p.control==='full'?'完全':'临时'}{mine?'':'·失守'}</small>;};
-  const invulnerable=(team:TeamId)=>season==='2027'?(()=>{const p=position(team,'outpost');return !!p&&p.controller===team&&p.control==='full';})():(frame.outposts?.[team]?.hp??0)>0;
+  const invulnerable=(team:TeamId)=>baseProtected(frame,team);
   return <Stage compactable>
     <div className="bc-top">
       {TEAMS.map(team=>{const base=frame.bases[team],op=frame.outposts?.[team],t=frame.teams[team] as {rebuild_credits?:number};return <div key={team} className={`bc-side ${team}`}>
-        <div className="bc-outpost"><span>前哨站 <i className="bc-tower"/></span><b className={op&&op.hp<=0?'down':''}>{op?Math.ceil(Math.max(0,op.hp)):'—'}</b>{season==='2027'?positionLabel(team):<small title="可用重建次数">⚒ {t.rebuild_credits??0}</small>}</div>
+        <div className="bc-outpost"><span>前哨站 <i className="bc-tower"/></span><b className={op&&op.hp<=0?'down':`held-${outpostHolder(frame,team)}`} title={outpostHolder(frame,team)===team?undefined:`已被${TEAM_LABEL[outpostHolder(frame,team)]}重建占领`}>{op?Math.ceil(Math.max(0,op.hp)):'—'}</b>{season==='2027'?positionLabel(team):<small title="可用重建次数">⚒ {t.rebuild_credits??0}</small>}</div>
         <div className="bc-team-main">
           <div className="bc-team-name"><span>{teamName(metadata,team)}</span><small>{teamEmblem(metadata,team)==='mixed'?`${teamAgents(metadata,team).length} 个 Agent 混合`:teamAgents(metadata,team).length?agentLabel(teamAgents(metadata,team)[0]):metadata?MODE_LABELS[metadata.teams[team].mode]:''}</small></div>
           <div className="bc-basebar"><i className="fill" style={{width:`${pct(base.hp,base.max_hp)}%`}}/><span className="bc-basebar-hex"/><b>{Math.ceil(Math.max(0,base.hp))}</b><i className="bc-base-icon"/></div>

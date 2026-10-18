@@ -10615,11 +10615,11 @@
             ],
             [
               13.276089,
-              13.94
+              13.875
             ],
             [
               12.57,
-              13.94
+              13.875
             ],
             [
               12.57,
@@ -10723,30 +10723,30 @@
           "slope_deg": 0
         },
         {
-          "id": "red_road_tunnel_floor",
+          "id": "red_road_tunnel_ramp",
           "x": 8.82,
-          "y": 12.17,
+          "y": 12.16359,
           "w": 1.0,
-          "h": 1.3599999999999994,
+          "h": 0.7464100000000009,
           "polygon": [
             [
               8.82,
-              12.17
-            ],
-            [
-              9.82,
-              12.17
-            ],
-            [
-              9.82,
-              13.53
+              12.16359
             ],
             [
               8.82,
-              13.53
+              12.91
+            ],
+            [
+              9.82,
+              12.91
+            ],
+            [
+              9.82,
+              12.16359
             ]
           ],
-          "kind": "platform",
+          "kind": "ramp",
           "elevation": 0.2,
           "speed_multiplier": 1,
           "direction": 0,
@@ -10756,30 +10756,38 @@
           "edge_ramp_m": 0,
           "bump_pitch": 0,
           "bump_height": 0,
-          "slope_deg": 0
+          "slope_deg": 15.000003099522207,
+          "ramp_start": [
+            9.32,
+            12.16359
+          ],
+          "ramp_end": [
+            9.32,
+            12.91
+          ]
         },
         {
           "id": "red_near_tunnel_access",
           "x": 13.276089,
-          "y": 12.995000000000001,
+          "y": 12.920000000000002,
           "w": 1.028910999999999,
-          "h": 0.9299999999999997,
+          "h": 0.9549999999999983,
           "polygon": [
             [
               14.305,
-              12.995000000000001
+              12.920000000000002
             ],
             [
               13.276089,
-              12.995000000000001
+              12.920000000000002
             ],
             [
               13.276089,
-              13.925
+              13.875
             ],
             [
               14.305,
-              13.925
+              13.875
             ]
           ],
           "kind": "ramp",
@@ -10795,35 +10803,35 @@
           "slope_deg": 10.999997947286012,
           "ramp_start": [
             14.305,
-            13.46
+            13.3975
           ],
           "ramp_end": [
             13.276089,
-            13.46
+            13.3975
           ]
         },
         {
           "id": "red_far_tunnel_floor",
           "x": 12.57,
-          "y": 13.94,
+          "y": 13.875,
           "w": 2.9000000000000004,
-          "h": 1.0,
+          "h": 1.1099999999999994,
           "polygon": [
             [
               12.57,
-              13.94
+              13.875
             ],
             [
               15.47,
-              13.94
+              13.875
             ],
             [
               15.47,
-              14.94
+              14.985
             ],
             [
               12.57,
-              14.94
+              14.985
             ]
           ],
           "kind": "platform",
@@ -11203,11 +11211,11 @@
             ],
             [
               14.723911,
-              1.06
+              1.125
             ],
             [
               15.43,
-              1.06
+              1.125
             ],
             [
               15.43,
@@ -11311,30 +11319,30 @@
           "slope_deg": 0
         },
         {
-          "id": "blue_road_tunnel_floor",
+          "id": "blue_road_tunnel_ramp",
           "x": 18.18,
-          "y": 1.47,
+          "y": 2.09,
           "w": 1.0,
-          "h": 1.36,
+          "h": 0.74641,
           "polygon": [
             [
               19.18,
-              2.83
-            ],
-            [
-              18.18,
-              2.83
-            ],
-            [
-              18.18,
-              1.47
+              2.83641
             ],
             [
               19.18,
-              1.47
+              2.09
+            ],
+            [
+              18.18,
+              2.09
+            ],
+            [
+              18.18,
+              2.83641
             ]
           ],
-          "kind": "platform",
+          "kind": "ramp",
           "elevation": 0.2,
           "speed_multiplier": 1,
           "direction": 0,
@@ -11344,30 +11352,38 @@
           "edge_ramp_m": 0,
           "bump_pitch": 0,
           "bump_height": 0,
-          "slope_deg": 0
+          "slope_deg": 15.000003099522226,
+          "ramp_start": [
+            18.68,
+            2.83641
+          ],
+          "ramp_end": [
+            18.68,
+            2.09
+          ]
         },
         {
           "id": "blue_near_tunnel_access",
           "x": 13.695,
-          "y": 1.0750000000000002,
+          "y": 1.125,
           "w": 1.028910999999999,
-          "h": 0.9299999999999997,
+          "h": 0.9550000000000001,
           "polygon": [
             [
               13.695,
-              2.005
+              2.08
             ],
             [
               14.723911,
-              2.005
+              2.08
             ],
             [
               14.723911,
-              1.0750000000000002
+              1.125
             ],
             [
               13.695,
-              1.0750000000000002
+              1.125
             ]
           ],
           "kind": "ramp",
@@ -11383,35 +11399,35 @@
           "slope_deg": 10.999997947286012,
           "ramp_start": [
             13.695,
-            1.54
+            1.6025
           ],
           "ramp_end": [
             14.723911,
-            1.54
+            1.6025
           ]
         },
         {
           "id": "blue_far_tunnel_floor",
           "x": 12.53,
-          "y": 0.06,
+          "y": 0.015,
           "w": 2.9000000000000004,
-          "h": 1.0,
+          "h": 1.11,
           "polygon": [
             [
               15.43,
-              1.06
+              1.125
             ],
             [
               12.53,
-              1.06
+              1.125
             ],
             [
               12.53,
-              0.06
+              0.015
             ],
             [
               15.43,
-              0.06
+              0.015
             ]
           ],
           "kind": "platform",
@@ -11751,108 +11767,120 @@
         {
           "id": "red_road_tunnel_roof",
           "x": 9.145,
-          "y": 12.434999999999999,
+          "y": 12.235,
           "w": 0.34999999999999964,
           "h": 1.0,
           "rotation": 1.5707963267948966,
           "height": 0.098,
-          "bottom": 0.5140739280403711,
+          "bottom": 0.5193111123542085,
+          "kind": "barrier",
+          "source_page": 57,
+          "chamfer": [
+            -1,
+            1
+          ],
+          "chamfer_m": 0.06
+        },
+        {
+          "id": "red_road_tunnel_post",
+          "x": 8.695,
+          "y": 12.684999999999999,
+          "w": 0.34999999999999964,
+          "h": 0.1,
+          "rotation": 1.5707963267948966,
+          "height": 0.35378223764419,
+          "bottom": 0.16552887471001843,
           "kind": "barrier",
           "source_page": 57
         },
         {
-          "id": "red_road_tunnel_side",
-          "x": 8.190000000000001,
-          "y": 12.799999999999999,
-          "w": 1.3599999999999994,
+          "id": "red_road_tunnel_post",
+          "x": 9.595000000000002,
+          "y": 12.684999999999999,
+          "w": 0.34999999999999964,
           "h": 0.1,
           "rotation": 1.5707963267948966,
-          "height": 0.358,
-          "bottom": 0.2562997313737519,
-          "kind": "barrier",
-          "source_page": 57
-        },
-        {
-          "id": "red_road_tunnel_side",
-          "x": 9.09,
-          "y": 12.799999999999999,
-          "w": 1.3599999999999994,
-          "h": 0.1,
-          "rotation": 1.5707963267948966,
-          "height": 0.358,
-          "bottom": 0.2562997313737519,
+          "height": 0.35378223764419,
+          "bottom": 0.16552887471001843,
           "kind": "barrier",
           "source_page": 57
         },
         {
           "id": "red_near_tunnel_roof",
-          "x": 14.54,
-          "y": 13.285,
-          "w": 0.7599999999999998,
+          "x": 14.442499999999999,
+          "y": 13.2225,
+          "w": 0.9550000000000001,
           "h": 0.35,
           "rotation": 1.5707963267948966,
           "height": 0.167,
-          "bottom": 0.29032631921654783,
+          "bottom": 0.291962939314622,
           "kind": "barrier",
-          "source_page": 57
+          "source_page": 57,
+          "chamfer": [
+            -1,
+            1
+          ],
+          "chamfer_m": 0.03
         },
         {
           "id": "red_near_tunnel_side",
-          "x": 14.305,
-          "y": 13.05,
-          "w": 2.1350000000000016,
-          "h": 0.06,
+          "x": 13.276089,
+          "y": 12.919999999999998,
+          "w": 2.193911,
+          "h": 0.155,
           "rotation": 0.0,
           "height": 0.417,
-          "bottom": 0.0502769694128389,
+          "bottom": 0.052437307942296854,
           "kind": "barrier",
-          "source_page": 57
-        },
-        {
-          "id": "red_near_tunnel_side",
-          "x": 14.305,
-          "y": 13.81,
-          "w": 2.1350000000000016,
-          "h": 0.06,
-          "rotation": 0.0,
-          "height": 0.417,
-          "bottom": 0.03037566902025684,
-          "kind": "barrier",
-          "source_page": 57
+          "source_page": 57,
+          "chamfer": [
+            -1
+          ],
+          "chamfer_m": 0.05
         },
         {
           "id": "red_far_tunnel_side",
           "x": 12.57,
-          "y": 13.94,
+          "y": 13.875,
           "w": 2.9000000000000004,
-          "h": 0.1,
+          "h": 0.155,
           "rotation": 0.0,
           "height": 0.27,
-          "bottom": 0.22644778078487882,
+          "bottom": 0.2274297528437233,
           "kind": "barrier",
-          "source_page": 59
+          "source_page": 59,
+          "chamfer": [
+            -1,
+            "ends"
+          ],
+          "chamfer_m": 0.05
         },
         {
           "id": "red_far_tunnel_side",
           "x": 12.57,
-          "y": 14.839999999999998,
+          "y": 14.829999999999998,
           "w": 2.9000000000000004,
-          "h": 0.1,
+          "h": 0.155,
           "rotation": 0.0,
           "height": 0.27,
-          "bottom": 0.2028804513726106,
+          "bottom": 0.20242219774514983,
           "kind": "barrier",
-          "source_page": 59
+          "source_page": 59,
+          "chamfer": [
+            1,
+            "ends"
+          ],
+          "chamfer_m": 0.05
         },
         {
           "id": "red_far_tunnel_roof",
-          "x": 13.5,
-          "y": 14.264999999999999,
-          "w": 1.0,
+          "x": 13.445,
+          "y": 14.254999999999999,
+          "w": 1.1099999999999994,
           "h": 0.35,
           "rotation": 1.5707963267948966,
           "height": 0.02,
-          "bottom": 0.4646641160787447,
+          "bottom": 0.4649259752944366,
           "kind": "barrier",
           "source_page": 59
         },
@@ -12027,108 +12055,120 @@
         {
           "id": "blue_road_tunnel_roof",
           "x": 18.505,
-          "y": 1.565,
-          "w": 0.3500000000000003,
+          "y": 1.7649999999999997,
+          "w": 0.3500000000000001,
           "h": 1.0,
           "rotation": -1.5707963267948966,
           "height": 0.098,
-          "bottom": 0.514073928040371,
+          "bottom": 0.5193111123542085,
+          "kind": "barrier",
+          "source_page": 57,
+          "chamfer": [
+            -1,
+            1
+          ],
+          "chamfer_m": 0.06
+        },
+        {
+          "id": "blue_road_tunnel_post",
+          "x": 18.955,
+          "y": 2.215,
+          "w": 0.3500000000000001,
+          "h": 0.1,
+          "rotation": -1.5707963267948966,
+          "height": 0.35378223764419,
+          "bottom": 0.16552887471001843,
           "kind": "barrier",
           "source_page": 57
         },
         {
-          "id": "blue_road_tunnel_side",
-          "x": 18.45,
-          "y": 2.1,
-          "w": 1.36,
+          "id": "blue_road_tunnel_post",
+          "x": 18.055,
+          "y": 2.215,
+          "w": 0.3500000000000001,
           "h": 0.1,
           "rotation": -1.5707963267948966,
-          "height": 0.358,
-          "bottom": 0.2562997313737519,
-          "kind": "barrier",
-          "source_page": 57
-        },
-        {
-          "id": "blue_road_tunnel_side",
-          "x": 17.55,
-          "y": 2.1,
-          "w": 1.36,
-          "h": 0.1,
-          "rotation": -1.5707963267948966,
-          "height": 0.358,
-          "bottom": 0.2562997313737519,
+          "height": 0.35378223764419,
+          "bottom": 0.16552887471001843,
           "kind": "barrier",
           "source_page": 57
         },
         {
           "id": "blue_near_tunnel_roof",
-          "x": 12.7,
-          "y": 1.365,
-          "w": 0.76,
+          "x": 12.6025,
+          "y": 1.4275,
+          "w": 0.9550000000000001,
           "h": 0.35,
           "rotation": -1.5707963267948966,
           "height": 0.167,
-          "bottom": 0.2903263192165479,
+          "bottom": 0.291962939314622,
           "kind": "barrier",
-          "source_page": 57
+          "source_page": 57,
+          "chamfer": [
+            -1,
+            1
+          ],
+          "chamfer_m": 0.03
         },
         {
           "id": "blue_near_tunnel_side",
-          "x": 11.560000000000002,
-          "y": 1.89,
-          "w": 2.135,
-          "h": 0.06,
+          "x": 12.53,
+          "y": 1.925,
+          "w": 2.193911,
+          "h": 0.155,
           "rotation": 3.141592653589793,
           "height": 0.417,
-          "bottom": 0.0502769694128389,
+          "bottom": 0.05243730794229682,
           "kind": "barrier",
-          "source_page": 57
-        },
-        {
-          "id": "blue_near_tunnel_side",
-          "x": 11.560000000000002,
-          "y": 1.13,
-          "w": 2.135,
-          "h": 0.06,
-          "rotation": 3.141592653589793,
-          "height": 0.417,
-          "bottom": 0.030375669020256835,
-          "kind": "barrier",
-          "source_page": 57
+          "source_page": 57,
+          "chamfer": [
+            -1
+          ],
+          "chamfer_m": 0.05
         },
         {
           "id": "blue_far_tunnel_side",
           "x": 12.530000000000001,
-          "y": 0.96,
+          "y": 0.9700000000000001,
           "w": 2.9000000000000004,
-          "h": 0.1,
+          "h": 0.155,
           "rotation": 3.141592653589793,
           "height": 0.27,
-          "bottom": 0.22644778078487882,
+          "bottom": 0.22742975284372333,
           "kind": "barrier",
-          "source_page": 59
+          "source_page": 59,
+          "chamfer": [
+            -1,
+            "ends"
+          ],
+          "chamfer_m": 0.05
         },
         {
           "id": "blue_far_tunnel_side",
           "x": 12.530000000000001,
-          "y": 0.06,
+          "y": 0.015,
           "w": 2.9000000000000004,
-          "h": 0.1,
+          "h": 0.155,
           "rotation": 3.141592653589793,
           "height": 0.27,
-          "bottom": 0.20288045137261057,
+          "bottom": 0.2024221977451498,
           "kind": "barrier",
-          "source_page": 59
+          "source_page": 59,
+          "chamfer": [
+            1,
+            "ends"
+          ],
+          "chamfer_m": 0.05
         },
         {
           "id": "blue_far_tunnel_roof",
-          "x": 13.5,
-          "y": 0.38500000000000006,
-          "w": 1.0,
+          "x": 13.445,
+          "y": 0.39499999999999996,
+          "w": 1.11,
           "h": 0.35,
           "rotation": -1.5707963267948966,
           "height": 0.02,
-          "bottom": 0.4646641160787447,
+          "bottom": 0.4649259752944366,
           "kind": "barrier",
           "source_page": 59
         },
@@ -12597,7 +12637,7 @@
           "id": "red_road_tunnel_0",
           "kind": "tunnel",
           "x": 9.32,
-          "y": 12.25,
+          "y": 12.33,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12608,7 +12648,7 @@
           "id": "red_road_tunnel_1",
           "kind": "tunnel",
           "x": 9.32,
-          "y": 12.934999999999999,
+          "y": 12.735,
           "radius": 0.17,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12619,7 +12659,7 @@
           "id": "red_road_tunnel_2",
           "kind": "tunnel",
           "x": 9.32,
-          "y": 13.42,
+          "y": 13.31,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12630,7 +12670,7 @@
           "id": "red_near_tunnel_0",
           "kind": "tunnel",
           "x": 14.36,
-          "y": 13.46,
+          "y": 13.475,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12641,7 +12681,7 @@
           "id": "red_near_tunnel_1",
           "kind": "tunnel",
           "x": 14.92,
-          "y": 13.46,
+          "y": 13.475,
           "radius": 0.17,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12652,7 +12692,7 @@
           "id": "red_near_tunnel_2",
           "kind": "tunnel",
           "x": 15.5,
-          "y": 13.46,
+          "y": 13.475,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12663,7 +12703,7 @@
           "id": "red_far_tunnel_0",
           "kind": "tunnel",
           "x": 13.4,
-          "y": 14.44,
+          "y": 14.43,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12674,7 +12714,7 @@
           "id": "red_far_tunnel_1",
           "kind": "tunnel",
           "x": 14.0,
-          "y": 14.44,
+          "y": 14.43,
           "radius": 0.17,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12685,7 +12725,7 @@
           "id": "red_far_tunnel_2",
           "kind": "tunnel",
           "x": 14.6,
-          "y": 14.44,
+          "y": 14.43,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12987,7 +13027,7 @@
           "id": "blue_road_tunnel_0",
           "kind": "tunnel",
           "x": 18.68,
-          "y": 2.75,
+          "y": 2.67,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -12998,7 +13038,7 @@
           "id": "blue_road_tunnel_1",
           "kind": "tunnel",
           "x": 18.68,
-          "y": 2.065,
+          "y": 2.265,
           "radius": 0.17,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13009,7 +13049,7 @@
           "id": "blue_road_tunnel_2",
           "kind": "tunnel",
           "x": 18.68,
-          "y": 1.58,
+          "y": 1.69,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13020,7 +13060,7 @@
           "id": "blue_near_tunnel_0",
           "kind": "tunnel",
           "x": 13.64,
-          "y": 1.54,
+          "y": 1.525,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13031,7 +13071,7 @@
           "id": "blue_near_tunnel_1",
           "kind": "tunnel",
           "x": 13.08,
-          "y": 1.54,
+          "y": 1.525,
           "radius": 0.17,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13042,7 +13082,7 @@
           "id": "blue_near_tunnel_2",
           "kind": "tunnel",
           "x": 12.5,
-          "y": 1.54,
+          "y": 1.525,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13053,7 +13093,7 @@
           "id": "blue_far_tunnel_0",
           "kind": "tunnel",
           "x": 14.6,
-          "y": 0.56,
+          "y": 0.57,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13064,7 +13104,7 @@
           "id": "blue_far_tunnel_1",
           "kind": "tunnel",
           "x": 14.0,
-          "y": 0.56,
+          "y": 0.57,
           "radius": 0.17,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13075,7 +13115,7 @@
           "id": "blue_far_tunnel_2",
           "kind": "tunnel",
           "x": 13.4,
-          "y": 0.56,
+          "y": 0.57,
           "radius": 0.3,
           "owner": null,
           "source": "2027 chapter 4 placement + figure 5-23 buff-card outline",
@@ -13215,6 +13255,7 @@
           3.6
         ]
       },
+      "outpost_plinth_m": 0.1,
       "pads": {
         "red": [
           13.010051,
@@ -13591,11 +13632,11 @@
               ],
               [
                 13.276089,
-                13.94
+                13.875
               ],
               [
                 12.57,
-                13.94
+                13.875
               ],
               [
                 12.57,
@@ -13696,11 +13737,11 @@
               ],
               [
                 14.723911,
-                1.06
+                1.125
               ],
               [
                 15.43,
-                1.06
+                1.125
               ],
               [
                 15.43,

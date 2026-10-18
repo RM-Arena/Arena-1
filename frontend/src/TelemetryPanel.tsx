@@ -1,6 +1,6 @@
 import {Activity,Shield,Target} from 'lucide-react';
 import {clock} from './media';
-import {ROLE_NAMES,TEAM_COLORS,type Frame,type Robot,type MatchEvent,type TeamId} from './types';
+import {ROLE_NAMES,TEAM_COLORS,baseProtected,outpostHolder,type Frame,type Robot,type MatchEvent,type TeamId} from './types';
 import {mechanismProgress,type MechanismKind} from './mechanismProgress';
 
 const hp=(value:number)=>Math.ceil(Math.max(0,value));
@@ -28,12 +28,12 @@ function RobotTelemetry({robot:r,selected,onSelect,time}:{robot:Robot;selected:s
 function StructureTelemetry({frame,team,kind}:{frame:Frame;team:TeamId;kind:'base'|'outpost'}){
   const value=(kind==='base'?frame.bases:frame.outposts)?.[team];
   if(!value)return null;
-  const ratio=percent(value.hp,value.max_hp);
-  const state=kind==='base'?(frame.outposts?.[team]?.hp>0?'前哨保护':value.armor_open?'装甲展开':'装甲闭合'):value.rebuild?'重建中':value.hp<=0?'已摧毁':value.ever_destroyed?'已重建':value.rotation_stopped?'停止转动':'旋转运行';
+  const ratio=percent(value.hp,value.max_hp),holder=kind==='outpost'?outpostHolder(frame,team):team;
+  const state=kind==='base'?(baseProtected(frame,team)?'前哨保护':value.armor_open?'装甲展开':'装甲闭合'):value.rebuild?'重建中':value.hp<=0?'已摧毁':holder!==team?`${holder==='red'?'红':'蓝'}方占领`:value.ever_destroyed?'已重建':value.rotation_stopped?'停止转动':'旋转运行';
   return <div className={`structure-data ${ratio<=20?'critical':''}`} data-structure={`${team}-${kind}`}>
     <div className="structure-data-label">{kind==='base'?<Shield size={12}/>:<Target size={12}/>}<span>{kind==='base'?'基地':'前哨站'}</span><small>{Math.round(ratio)}%</small></div>
     <strong data-structure-hp={`${team}-${kind}`}>{hp(value.hp)}<small> / {hp(value.max_hp)}</small></strong>
-    <span className="structure-hp-track"><i style={{width:`${ratio}%`,background:TEAM_COLORS[team]}}/></span>
+    <span className="structure-hp-track"><i style={{width:`${ratio}%`,background:TEAM_COLORS[holder]}}/></span>
     <div className="structure-data-state"><span>{state}</span>{kind==='base'&&(value.shield_hp||0)>0&&<b>盾 +{hp(value.shield_hp!)}</b>}</div>
     {kind==='outpost'&&<MechanismTelemetry frame={frame} team={team} kind="outpost"/>}
   </div>;

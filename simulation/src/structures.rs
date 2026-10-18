@@ -128,3 +128,146 @@ pub(crate) fn cover_geometry(x: f64, y: f64, z: f64, progress: f64) -> Vec<Wall>
     }
     walls
 }
+
+/// Solid proxies of the outpost that a 2027 micro aerial robot cannot fly into, from the
+/// outpost mesh (figure 4-34): the tapered tower, its rotating collar and the top housing
+/// as a radius profile about the axis, heights above the outpost datum `b.z`.
+fn outpost_column_radius(z: f64) -> Option<f64> {
+    let lerp = |z0: f64, z1: f64, r0: f64, r1: f64| r0 + (r1 - r0) * ((z - z0) / (z1 - z0)).clamp(0.0, 1.0);
+    let mut r: Option<f64> = None;
+    let mut grow = |v: f64| r = Some(r.map_or(v, |old: f64| old.max(v)));
+    if (0.0..=0.57).contains(&z) {
+        grow(lerp(0.05, 0.57, 0.22, 0.196)); // skirt, hexagon corners
+    }
+    if (0.57..=1.44).contains(&z) {
+        grow(lerp(0.57, 1.44, 0.173, 0.115)); // tower
+    }
+    if (1.065..=1.365).contains(&z) {
+        grow(0.158); // rotating collar and its bands
+    }
+    if (1.44..=OUTPOST_TOP_M).contains(&z) {
+        grow(0.148); // dart-detection housing (210 mm square)
+    }
+    r
+}
+const OUTPOST_TOP_M: f64 = 1.608;
+/// Rotating armor module with its arm, in the face's frame: radial span (the armor face is
+/// the plate centre radius), tangential and vertical half sizes.
+const OUTPOST_MODULE: ([f64; 2], f64, f64) = ([0.15, 0.2965], 0.105, 0.08);
+
+/// Where a flat drone (horizontal radius `r`, half height `hz`) at `p` overlaps the outpost:
+/// the push-out vector and whether the contact is with rotating armor.
+pub(crate) fn outpost_overlap(b: &Base, p: [f64; 3], r: f64, hz: f64) -> Option<([f64; 3], bool)> {
+    let (dx, dy, z) = (p[0] - b.x, p[1] - b.y, p[2] - b.z);
+    let mut best: Option<([f64; 3], bool)> = None;
+    let mut keep = |push: [f64; 3], armor: bool| {
+        let size = |v: &[f64; 3]| v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+        if best.as_ref().map_or(true, |(old, _)| size(&push) < size(old)) {
+            best = Some((push, armor));
+        }
+    };
+    // Column: widest section within the drone's height band, or the housing's top face.
+    let d = dx.hypot(dy);
+    let band = (0..=4)
+        .filter_map(|k| outpost_column_radius(z - hz + hz * 0.5 * k as f64))
+        .fold(None, |acc: Option<f64>, v| Some(acc.map_or(v, |a| a.max(v))));
+    if let Some(radius) = band {
+        if d < radius + r {
+            let (ux, uy) = if d > 1e-9 { (dx / d, dy / d) } else { (1.0, 0.0) };
+            let radial = radius + r - d;
+            let up = OUTPOST_TOP_M + hz - z;
+            if z > OUTPOST_TOP_M - hz && up < radial {
+                keep([0.0, 0.0, up], false);
+            } else {
+                keep([ux * radial, uy * radial, 0.0], false);
+            }
+        }
+    }
+    // Armor modules: the drone's footprint expanded box test in each face's frame.
+    let ([inner, outer], half_t, half_z) = OUTPOST_MODULE;
+    for face in 0..3 {
+        let a = b.rotation + face as f64 * std::f64::consts::TAU / 3.0;
+        let (c, s) = (a.cos(), a.sin());
+        let (rho, tau, zeta) = (dx * c + dy * s, -dx * s + dy * c, z - OUTPOST_MIDDLE_Z[face]);
+        let pen = [outer + r - rho, rho - (inner - r), half_t + r - tau, tau + half_t + r, half_z + hz - zeta, zeta + half_z + hz];
+        if pen.iter().any(|v| *v <= 0.0) {
+            continue;
+        }
+        // Leave by the shallowest face; never inward, where the collar is.
+        let (k, depth) = pen.iter().enumerate().filter(|(k, _)| *k != 1).fold((0, f64::MAX), |m, (k, v)| if *v < m.1 { (k, *v) } else { m });
+        let push = match k {
+            0 => [c * depth, s * depth, 0.0],
+            2 => [-s * depth, c * depth, 0.0],
+            3 => [s * depth, -c * depth, 0.0],
+            4 => [0.0, 0.0, depth],
+            _ => [0.0, 0.0, -depth],
+        };
+        keep(push, true);
+    }
+    best
+}
+
+impl Engine {
+    /// 2027 aerial robots stay outside the outposts' solid parts: each physics substep after
+    /// the strike checks, a drone overlapping the tower, collar, housing or a rotating armor
+    /// module is moved back to its surface and loses its approach speed relative to it (the
+    /// armor bounces with the strike restitution). Strikes themselves are judged before this.
+    pub(super) fn keep_drones_clear_2027(&mut self) {
+        let restitution = self.sim["drone_impact"]["restitution"].as_f64().unwrap_or(0.35);
+        let now = self.time();
+        for i in 0..self.robots.len() {
+            if self.robots[i].role != "aerial" || self.robots[i].drones.is_empty() {
+                continue;
+            }
+            let radius = self.robot_models[&self.robots[i].design_slot().to_string()]["drone"]["radius_m"].as_f64().unwrap_or(0.07);
+            // The guard ducts' corners reach about 1.23 radii; the frame is 0.4 radii high.
+            let (corner, hz) = (radius * 1.23, radius * 0.4);
+            for k in 0..self.robots[i].drones.len() {
+                if self.robots[i].drones[k].state == "docked" {
+                    continue;
+                }
+                let mut moved = false;
+                for _ in 0..3 {
+                    let d = &self.robots[i].drones[k];
+                    let p = [d.x, d.y, d.z];
+                    let mut contact = None;
+                    for team in ["red", "blue"] {
+                        let b = &self.outposts[team];
+                        // Plates use the strike radius so the strike window stays reachable.
+                        let hit = outpost_overlap(b, p, radius, hz)
+                            .filter(|(_, armor)| *armor)
+                            .or_else(|| outpost_overlap(b, p, corner, hz).filter(|(_, armor)| !*armor));
+                        if let Some((push, armor)) = hit {
+                            let spin = if armor && !b.rotation_stopped { 0.8 * std::f64::consts::PI * (now / 5.0).min(1.0) * self.rune_direction } else { 0.0 };
+                            contact = Some((push, armor, spin, b.x, b.y));
+                            break;
+                        }
+                    }
+                    let Some((push, armor, spin, cx, cy)) = contact else { break };
+                    let length = (push[0] * push[0] + push[1] * push[1] + push[2] * push[2]).sqrt().max(1e-12);
+                    let n = [push[0] / length, push[1] / length, push[2] / length];
+                    let d = &mut self.robots[i].drones[k];
+                    d.x += push[0];
+                    d.y += push[1];
+                    d.z += push[2];
+                    let surface = [-spin * (d.y - cy), spin * (d.x - cx), 0.0];
+                    let vn = (d.vx - surface[0]) * n[0] + (d.vy - surface[1]) * n[1] + (d.vz - surface[2]) * n[2];
+                    if vn < 0.0 {
+                        let e = if armor { restitution } else { 0.0 };
+                        d.vx -= (1.0 + e) * vn * n[0];
+                        d.vy -= (1.0 + e) * vn * n[1];
+                        d.vz -= (1.0 + e) * vn * n[2];
+                    }
+                    moved = true;
+                }
+                if moved {
+                    let d = &self.robots[i].drones[k];
+                    let (at, v) = ([d.x, d.y, d.z], [d.vx, d.vy, d.vz]);
+                    if let Some(world) = self.physics.as_mut() {
+                        world.place_drone(i, k, at, v);
+                    }
+                }
+            }
+        }
+    }
+}

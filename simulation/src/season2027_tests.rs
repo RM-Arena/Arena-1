@@ -360,3 +360,82 @@ fn launcher_fitting_restarts_when_the_heavy_robot_stops_asking_or_leaves_the_wor
     }
     assert_eq!((m.robots[h].launcher.as_str(), m.robots[h].launcher_progress), ("unlocked", 0.0));
 }
+
+#[test]
+fn tunnel_passages_match_the_road_area_plan() {
+    // Figure 4-35: the near-highland tunnel's 800 mm passage lies between its rail on the
+    // central highland's edge and the far tunnel's north rail, which the tunnels share; the
+    // road tunnel has only its portal posts, 800 mm apart, over the top of its ramp.
+    let m = match_();
+    let walls = |id: &str| m.arena.obstacles.iter().filter(|w| w.id == id).cloned().collect::<Vec<_>>();
+    let (near, far) = (walls("red_near_tunnel_side"), walls("red_far_tunnel_side"));
+    assert_eq!((near.len(), far.len()), (1, 2));
+    assert!((far[0].y - (near[0].y + near[0].h) - 0.8).abs() < 0.005, "near passage {}", far[0].y - near[0].y - near[0].h);
+    assert!((far[1].y - (far[0].y + far[0].h) - 0.8).abs() < 0.005);
+    assert!(walls("red_road_tunnel_side").is_empty());
+    let posts = walls("red_road_tunnel_post");
+    assert_eq!(posts.len(), 2);
+    // Posts run along y (rotated a quarter turn): their centres sit 0.8 + 0.1 m apart.
+    let centre = |w: &Wall| w.x + w.w / 2.0;
+    assert!(((centre(&posts[1]) - centre(&posts[0])).abs() - 0.9).abs() < 1e-6);
+    let ramp = m.arena.terrain.iter().find(|t| t.id == "red_road_tunnel_ramp").unwrap();
+    // Heights above the tilted floor (1.5 degrees toward the long sides).
+    let above = |y: f64| height_at(&m.arena, 9.32, y) - (15.0 - y) * m.arena.floor_slope_deg.to_radians().tan();
+    let (foot, top) = (above(ramp.y + 0.01), above(12.9));
+    assert!(foot < 0.01 && (top - 0.2).abs() < 0.01, "ramp {foot} .. {top}");
+}
+
+#[test]
+fn a_folded_infantry_drives_up_the_road_tunnel_ramp_under_its_portal() {
+    let mut m = Engine::new_with_lineups(42, 60.0, "rmuc2027", lineup(&[(1, 2711), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+    let i = robot(&m, "red-4");
+    let x = 9.32;
+    place(&mut m, i, x, 11.7);
+    let r = &mut m.robots[i];
+    r.heading = std::f64::consts::FRAC_PI_2;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    for _ in 0..60 {
+        m.step(&json!({"red":{"4":{"transform":true,"heading":std::f64::consts::FRAC_PI_2}}}));
+    }
+    for _ in 0..400 {
+        let r = &m.robots[i];
+        m.step(&json!({"red":{"4":{"move":[(x - r.x) * 1.5, 0.6],"heading":std::f64::consts::FRAC_PI_2,"transform":true,"power":120}}}));
+        if m.robots[i].y > 13.5 {
+            break;
+        }
+    }
+    let r = &m.robots[i];
+    assert!(r.y > 13.4 && r.z > 0.15 && r.upright > 0.8 && !r.tipped, "stopped at y {} z {} up {}", r.y, r.z, r.upright);
+    assert!(r.crossing_buffs.contains_key("tunnel_through"), "{:?}", r.crossing_buffs);
+}
+
+#[test]
+fn drones_pushed_into_a_spinning_outpost_stay_outside_its_armor_and_tower() {
+    // A drone steered at the outpost's axis, slower than a strike at first and then at full
+    // speed, never ends a tick inside an armor module, the collar or the tower.
+    let mut m = match_();
+    m.tick = 600;
+    let a = robot(&m, "blue-6");
+    m.step(&json!({"blue":{"6":{"drones":{"1":{"launch":true}}}}}));
+    let radius = m.robot_models["2761"]["drone"]["radius_m"].as_f64().unwrap();
+    let plate = Engine::structure_plates_2027(&m.outposts["red"], true)[1];
+    let n = plate.normal;
+    let start = [plate.center[0] + n[0] * 0.4, plate.center[1] + n[1] * 0.4, plate.center[2]];
+    m.robots[a].drones[0].state = "flying".into();
+    m.robots[a].drones[0].launch_until = 0.0;
+    m.physics.as_mut().unwrap().place_drone(a, 0, start, [-n[0] * 0.8, -n[1] * 0.8, 0.0]);
+    let mut contacts = 0;
+    for tick in 0..150 {
+        let (o, d) = (&m.outposts["red"], &m.robots[a].drones[0]);
+        let to = [o.x - d.x, o.y - d.y, plate.center[2] - d.z];
+        let length = (to[0] * to[0] + to[1] * to[1]).sqrt().max(1e-9);
+        let gain = if tick < 60 { 0.2 } else { 1.0 };
+        m.step(&json!({"blue":{"6":{"drones":{"1":{"move":[gain * to[0] / length, gain * to[1] / length, to[2]]}}}}}));
+        let (o, d) = (&m.outposts["red"], &m.robots[a].drones[0]);
+        let p = [d.x, d.y, d.z];
+        assert!(structures::outpost_overlap(o, p, radius * 0.98, radius * 0.39).is_none(), "tick {tick}: drone inside the outpost at {p:?}");
+        contacts += structures::outpost_overlap(o, p, radius * 1.3, radius * 0.6).is_some() as u32;
+    }
+    assert!(contacts > 20, "the drone should rest against the outpost, contacts {contacts}");
+}

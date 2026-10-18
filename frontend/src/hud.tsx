@@ -3,6 +3,7 @@ import {useFrame} from '@react-three/fiber';
 import {Html} from '@react-three/drei';
 import * as THREE from 'three';
 import type {MatchEvent,RenderFeed,TeamId} from './types';
+import {baseProtected,outpostHolder} from './types';
 import {feedAlpha,robotWorld,screenFit,toWorld} from './world';
 import {mechanismProgress,type MechanismKind} from './mechanismProgress';
 import {LED_COLORS} from './teamMaterials';
@@ -99,25 +100,34 @@ export function RobotHud({id,team,feed,focus,onSelect}:{id:string;team:TeamId;fe
 }
 
 // Floating structure plate: "前哨站 OUTPOST" / "基地 BASE" with a wide health bar, as on the broadcast.
+// A 2027 outpost rebuilt by the other team takes that team's colour and says who holds it.
 export function StructureHud({team,kind,feed}:{team:TeamId;kind:'base'|'outpost';feed:MutableRefObject<RenderFeed>}){
-  const root=useRef<THREE.Group>(null),state=useRef<BarState>({hp:-1,trail:1,hold:0,flash:0}),shieldRef=useRef<THREE.Mesh>(null);
-  const label=useMemo(()=>textTexture(kind==='base'?'基地 BASE':'前哨站 OUTPOST',{weight:700,size:72,width:12}),[kind]);
+  const root=useRef<THREE.Group>(null),state=useRef<BarState>({hp:-1,trail:1,hold:0,flash:0}),shieldRef=useRef<THREE.Mesh>(null),labelRef=useRef<THREE.Mesh>(null),holder=useRef<TeamId>(team);
+  const labels=useMemo(()=>{const style={weight:700,size:72,width:12};return {own:textTexture(kind==='base'?'基地 BASE':'前哨站 OUTPOST',style),
+    red:textTexture('前哨站 · 红方占领',style),blue:textTexture('前哨站 · 蓝方占领',style)};},[kind]);
   const shield=useMemo(()=>textTexture('⛨',{weight:700,size:72,width:10,pad:12}),[]);
-  const materials=useMemo(()=>({label:labelMaterial(label.texture,team),shield:overlayMaterial(shield.texture),bar:new THREE.ShaderMaterial({vertexShader:barVertex,fragmentShader:structureFragment,transparent:true,depthTest:false,depthWrite:false,
-    uniforms:{uColor:{value:new THREE.Color(LED_COLORS[team]).convertLinearToSRGB()},uHp:{value:1},uTrail:{value:1},uFlash:{value:0},uTime:{value:0},uAspect:{value:9}}})}),[label,shield,team]);
-  useEffect(()=>()=>{label.texture.dispose();shield.texture.dispose();Object.values(materials).forEach(m=>m.dispose());},[label,shield,materials]);
+  const materials=useMemo(()=>({label:labelMaterial(labels.own.texture,team),shield:overlayMaterial(shield.texture),bar:new THREE.ShaderMaterial({vertexShader:barVertex,fragmentShader:structureFragment,transparent:true,depthTest:false,depthWrite:false,
+    uniforms:{uColor:{value:new THREE.Color(LED_COLORS[team]).convertLinearToSRGB()},uHp:{value:1},uTrail:{value:1},uFlash:{value:0},uTime:{value:0},uAspect:{value:9}}})}),[labels,shield,team]);
+  useEffect(()=>()=>{Object.values(labels).forEach(l=>l.texture.dispose());shield.texture.dispose();Object.values(materials).forEach(m=>m.dispose());},[labels,shield,materials]);
+  useEffect(()=>{holder.current=team;},[team,materials]);
+  const h=.16,w=h*9,lh=.15;
   useFrame(({camera,size,clock},dt)=>{
     const f=feed.current.frame,g=root.current,s=(kind==='base'?f?.bases:f?.outposts)?.[team];if(!f||!g||!s)return;
     toWorld(f.arena,s.x,s.y,(s.z||0)+(kind==='base'?1.75:1.85),g.position);g.quaternion.copy(camera.quaternion);g.scale.setScalar(screenFit(g.position,camera,size,1.5,.13,.24));
     damp(state.current,THREE.MathUtils.clamp(s.hp/s.max_hp,0,1),dt);const u=materials.bar.uniforms;u.uHp.value=state.current.hp;u.uTrail.value=state.current.trail;u.uFlash.value=state.current.flash;u.uTime.value=clock.elapsedTime;
-    const invulnerable=kind==='base'&&(f.outposts?.[team]?.hp??0)>0&&s.hp>0;if(shieldRef.current)shieldRef.current.visible=invulnerable;
+    const held=kind==='outpost'?outpostHolder(f,team):team;
+    if(held!==holder.current){
+      holder.current=held;const label=held===team?labels.own:labels[held];
+      u.uColor.value.set(LED_COLORS[held]).convertLinearToSRGB();materials.label.color.copy(TINT[held]);materials.label.map=label.texture;materials.label.needsUpdate=true;
+      labelRef.current?.scale.set(lh*label.aspect,lh,1);
+    }
+    if(shieldRef.current)shieldRef.current.visible=kind==='base'&&s.hp>0&&baseProtected(f,team);
     materials.label.opacity=s.hp>0||kind==='outpost'?1:.6;
   });
-  const h=.16,w=h*9,lh=.15;
   return <group ref={root}>
     <mesh geometry={quad} material={materials.bar} position={[0,h/2,0]} scale={[w,h,1]} renderOrder={28}/>
-    <mesh geometry={quad} material={materials.label} position={[0,h+.03+lh/2,0]} scale={[lh*label.aspect,lh,1]} renderOrder={29}/>
-    <mesh ref={shieldRef} geometry={quad} material={materials.shield} position={[lh*label.aspect/2+lh*.55,h+.03+lh/2,0]} scale={[lh*shield.aspect,lh,1]} renderOrder={29}/>
+    <mesh ref={labelRef} geometry={quad} material={materials.label} position={[0,h+.03+lh/2,0]} scale={[lh*labels.own.aspect,lh,1]} renderOrder={29}/>
+    <mesh ref={shieldRef} geometry={quad} material={materials.shield} position={[lh*labels.own.aspect/2+lh*.55,h+.03+lh/2,0]} scale={[lh*shield.aspect,lh,1]} renderOrder={29}/>
   </group>;
 }
 

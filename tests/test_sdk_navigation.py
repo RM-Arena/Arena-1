@@ -49,6 +49,19 @@ class NavigationTests(unittest.TestCase):
         self.assertGreater(first, len(nodes))
         self.assertLess(tracked.call_count, first / 4)
 
+    def test_2027_tunnel_roofs_block_routes_unless_the_robot_is_folded(self):
+        # Only a folded turret fits under the 250-260 mm tunnel roofs: the road tunnel's
+        # portal over the top of its ramp stops an unfolded robot, which routes by the road.
+        arena = sdk.ARENAS_BY_SEASON["2027"]
+        start, goal = (9.32, 11.7), (9.32, 13.6)
+        for folded, open_ in ((False, False), (True, True)):
+            with self.subTest(folded=folded):
+                _, _, clear, _ = sdk._prepare_chapter4(arena, "red", folded)
+                self.assertEqual(clear(start, goal, (), True), open_)
+        robot = {"team": "red", "role": "infantry", "x": 9.32, "y": 11.7, "speed_reference_mps": 3.9, "transform_progress": 0.0}
+        move = sdk.navigate(robot, goal, arena)
+        self.assertLess(move[1] / math.hypot(*move), .9)
+
     def test_robot_pushed_inside_resource_margin_can_leave(self):
         robot = {"team": "red", "role": "engineer", "x": .43, "y": 13.7, "speed_reference_mps": 3.1}
         move = sdk.navigate(robot, (13.34, 6.84), sdk._REFERENCE_ARENA)

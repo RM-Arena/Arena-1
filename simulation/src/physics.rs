@@ -316,9 +316,9 @@ impl PhysicsWorld {
                     .build(),
             );
         }
-        for (map, height, radius) in [(&arena.bases, 0.913, 0.16), (&arena.outposts, 1.23, 0.09)] {
+        for (map, height, radius, datum) in [(&arena.bases, 0.913, 0.16, 0.0), (&arena.outposts, 1.23, 0.09, arena.outpost_plinth_m)] {
             for p in map.values() {
-                let z = height_at(arena, p[0], p[1]);
+                let z = height_at(arena, p[0], p[1]) - datum;
                 world.colliders.insert(
                     ColliderBuilder::cylinder(height / 2.0, radius)
                         .rotation(vector![std::f64::consts::FRAC_PI_2, 0.0, 0.0])

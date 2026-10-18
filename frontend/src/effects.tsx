@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,type MutableRefObject} from 'react';
 import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
 import type {Frame,MatchEvent,Projectile,RenderFeed,TeamId} from './types';
+import {baseProtected,outpostHolder} from './types';
 import {terrainHeight} from './terrain';
 import {feedAlpha,robotWorld,toWorld} from './world';
 
@@ -309,7 +310,8 @@ class FxWorld{
   }
 }
 
-// Hex-cell barrier around a base while its outpost stands (rule 5.5.1); it is only drawn when it appears or breaks.
+// Hex-cell barrier around a base while its outpost protects it (2026 rule 5.5.1: the outpost stands;
+// 2027 rule 5.6.1: the team fully controls its outpost position); drawn only when it appears or breaks.
 const domeVertex=`varying vec3 vPos;varying vec3 vNormal;varying vec3 vView;void main(){vPos=position;vec4 w=modelMatrix*vec4(position,1.);vNormal=normalize(mat3(modelMatrix)*normal);vView=normalize(cameraPosition-w.xyz);gl_Position=projectionMatrix*viewMatrix*w;}`;
 const domeFragment=`uniform vec3 uColor;uniform float uAlpha,uCrack,uTime,uFlash;varying vec3 vPos;varying vec3 vNormal;varying vec3 vView;
 float hexDist(vec2 p){p=abs(p);return max(dot(p,normalize(vec2(1.,1.732))),p.x);}
@@ -322,11 +324,11 @@ void main(){vec3 n=normalize(vPos);vec2 uv=vec2(atan(n.z,n.x)*2.6,asin(clamp(n.y
   vec3 c=uColor*(edge*1.8+cell+fres*1.2)+vec3(1.)*uFlash*(.35+edge);
   float alpha=uAlpha*clamp(edge*.85+cell+fres*.7+uFlash*.4,0.,1.)*(1.-smoothstep(.75,1.,uCrack+.2*rnd));
   gl_FragColor=vec4(c*alpha,alpha);}`;
-type DomeState={mode:'idle'|'break'|'form';age:number;hp:number;baseHp:number};
+type DomeState={mode:'idle'|'break'|'form';age:number;hp:number;baseHp:number;shield:number;holder:TeamId};
 
 export function Effects({feed}:{feed:MutableRefObject<RenderFeed>}){
   const fx=useMemo(()=>new FxWorld(),[]),seen=useRef(new Set<string>()),generation=useRef(''),debris=useRef<THREE.InstancedMesh>(null),balls=useRef<THREE.InstancedMesh>(null),rings=useRef<THREE.InstancedMesh>(null),lights=useRef<(THREE.PointLight|null)[]>([]);
-  const domes=useRef<Record<TeamId,THREE.Mesh|null>>({red:null,blue:null}),domeState=useRef<Record<TeamId,DomeState>>({red:{mode:'idle',age:0,hp:-1,baseHp:-1},blue:{mode:'idle',age:0,hp:-1,baseHp:-1}});
+  const domes=useRef<Record<TeamId,THREE.Mesh|null>>({red:null,blue:null}),domeState=useRef<Record<TeamId,DomeState>>({red:{mode:'idle',age:0,hp:-1,baseHp:-1,shield:-1,holder:'red'},blue:{mode:'idle',age:0,hp:-1,baseHp:-1,shield:-1,holder:'blue'}});
   const domeMaterials=useMemo(()=>({red:new THREE.ShaderMaterial({vertexShader:domeVertex,fragmentShader:domeFragment,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,uniforms:{uColor:{value:new THREE.Color('#ff3b30')},uAlpha:{value:0},uCrack:{value:0},uTime:{value:0},uFlash:{value:0}}}),
     blue:new THREE.ShaderMaterial({vertexShader:domeVertex,fragmentShader:domeFragment,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,uniforms:{uColor:{value:new THREE.Color('#2f8cff')},uAlpha:{value:0},uCrack:{value:0},uTime:{value:0},uFlash:{value:0}}})}),[]);
   const dome=useMemo(()=>new THREE.SphereGeometry(1.25,48,24,0,Math.PI*2,0,Math.PI/2),[]);
@@ -344,19 +346,22 @@ export function Effects({feed}:{feed:MutableRefObject<RenderFeed>}){
   useEffect(()=>()=>{for(const item of [assets.glow,assets.smoke,assets.spark,assets.chunk,assets.metal,assets.ball,assets.plastic,assets.plate,assets.ring,fx.glow.geometry,fx.smoke.geometry,fx.sparks.geometry])item.dispose();assets.ring.map?.dispose();},[assets,fx]);
   useFrame(({camera,size,gl},delta)=>{
     const dt=Math.min(delta,.05),current=feed.current,f=current.frame,alpha=feedAlpha(current);
-    if(generation.current!==current.generation){generation.current=current.generation;fx.clear();seen.current.clear();for(const d of Object.values(domeState.current))Object.assign(d,{mode:'idle',age:0,hp:-1,baseHp:-1});}
+    if(generation.current!==current.generation){generation.current=current.generation;fx.clear();seen.current.clear();for(const d of Object.values(domeState.current))Object.assign(d,{mode:'idle',age:0,hp:-1,baseHp:-1,shield:-1});}
     assets.uniforms.uScale.value=size.height*gl.getPixelRatio()/(2*Math.tan(((camera as THREE.PerspectiveCamera).fov||42)*Math.PI/360));
     if(f){fx.arena=f.arena;for(const e of current.events){const key=e.id||`${e.tick}:${e.type}:${e.robot}:${e.x}:${e.y}`;if(seen.current.has(key))continue;seen.current.add(key);fx.spawn(e,current,alpha);}}
     if(f)for(const team of ['red','blue'] as const){
       const d=domeState.current[team],outpost=f.outposts?.[team],base=f.bases[team],mesh=domes.current[team],u=domeMaterials[team].uniforms;
       if(!outpost||!mesh)continue;
       const where=toWorld(f.arena,base.x,base.y,base.z??0),top=toWorld(f.arena,outpost.x,outpost.y,(outpost.z??0)+1.1);
+      const shield=base.hp>0&&baseProtected(f,team)?1:0;
       if(d.hp>=0&&!current.paused){
-        if(d.hp>0&&outpost.hp<=0){fx.explode(top,team,1.35);for(let i=0;i<3;i++)fx.later.push({at:fx.time+.18+i*.22,run:()=>fx.burst(top.clone().add(new THREE.Vector3(rand(-.4,.4),rand(0,.8),rand(-.4,.4))),GLOW[team],22)});if(base.hp>0)Object.assign(d,{mode:'break',age:0});}
-        else if(d.hp<=0&&outpost.hp>0&&base.hp>0)Object.assign(d,{mode:'form',age:0});
+        // The outpost bursts in the colour of the team that held it.
+        if(d.hp>0&&outpost.hp<=0){const held=d.holder;fx.explode(top,held,1.35);for(let i=0;i<3;i++)fx.later.push({at:fx.time+.18+i*.22,run:()=>fx.burst(top.clone().add(new THREE.Vector3(rand(-.4,.4),rand(0,.8),rand(-.4,.4))),GLOW[held],22)});}
+        if(d.shield===1&&!shield&&base.hp>0)Object.assign(d,{mode:'break',age:0});
+        else if(d.shield===0&&shield)Object.assign(d,{mode:'form',age:0});
         if(d.baseHp>0&&base.hp<=0){fx.explode(where.clone().setY(where.y+.8),team,2.2);for(let i=0;i<6;i++)fx.later.push({at:fx.time+.25+i*.3,run:()=>fx.explode(where.clone().add(new THREE.Vector3(rand(-.9,.9),rand(.3,1.6),rand(-.9,.9))),team,.8)});fx.ring(where,.3,6,1.2,GLOW[team],.9);}
       }
-      d.hp=outpost.hp;d.baseHp=base.hp;
+      d.hp=outpost.hp;d.baseHp=base.hp;d.shield=shield;if(outpost.hp>0)d.holder=outpostHolder(f,team);
       if(d.mode==='idle'){mesh.visible=false;continue;}
       d.age+=dt;mesh.visible=true;mesh.position.copy(where);u.uTime.value+=dt;
       if(d.mode==='break'){const t=d.age;

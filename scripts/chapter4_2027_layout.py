@@ -47,21 +47,33 @@ ROAD_NORTH = 15-3.801
 ROAD_KERB_Y = ROAD_NORTH+1.561
 ROAD_SOUTH = ROAD_KERB_Y+.15
 NOTCH_X = (ROAD_X0+3.902, ROAD_X0+3.902+1.148)
-# Section A: road tunnel, 800 mm passage at road level, 260 mm clear under the roof.
+# Section A / plan of figure 4-35: road tunnel. The [2] 15 degree ramp climbs from the field
+# floor to the road's south strip (200 mm in a 746 mm run) through an 800 mm portal: two
+# 100 mm posts and a 350 mm deep roof over the top of the ramp, ending at the strip edge,
+# 260 mm clear above road level and 358 mm to its chamfered top. No side walls.
 ROAD_TUNNEL_X = 9.32
-ROAD_TUNNEL_Y = (12.17, 13.53)
-ROAD_TUNNEL_ROOF_Y = (ROAD_KERB_Y, ROAD_KERB_Y+.35)
-# Figure 4-38: the far-highland tunnel (2900 long, 800 passage, 350 wide roof 250 mm above
-# the passage, 270 to its top) runs from the end of the red road onto the tip of the blue
-# trapezoid highland's tongue, where 2026 had the fly slope.
+ROAD_TUNNEL_RAMP_Y = (round(ROAD_SOUTH-ROAD/math.tan(math.radians(15)), 6), ROAD_SOUTH)
+ROAD_TUNNEL_ROOF_Y = (round(ROAD_SOUTH-.35, 6), ROAD_SOUTH)
+ROAD_TUNNEL_POST = .10
+# Cards: on the open part of the ramp, under the roof, and on the road beyond the portal.
+ROAD_TUNNEL_CARD_Y = (12.33, round(ROAD_SOUTH-.175, 6), 13.31)
+# Figure 4-38: the far-highland tunnel (2900 long, 800 passage between 155 mm rails with
+# chamfered tops, 350 wide metal plate 250 mm above the passage and 270 to its top, flush
+# with the rails) runs from the end of the red road onto the tip of the blue trapezoid
+# highland's tongue, where 2026 had the fly slope. Its south rail meets the field edge.
 FAR_TUNNEL_X = (12.57, 15.47)
-FAR_TUNNEL_Y = 14.44
-FAR_TUNNEL_WALL = .10
+FAR_TUNNEL_Y = 14.43
+FAR_TUNNEL_WALL = .155
 # Section B / figure 4-35 [1]: near-highland tunnel; an 11 degree ramp drops from the road to
-# a floor-level passage under a 350 mm roof 250 mm high (417 mm to its top).
+# a floor-level 800 mm passage under a 350 mm roof 250 mm high (417 mm to its top), between a
+# 155 mm rail on the central highland's edge and the far tunnel's north rail, which the two
+# tunnels share (plan of figure 4-35).
 NEAR_TUNNEL_ROOF_X = 14.92
-NEAR_TUNNEL_Y = (13.08, 13.84)
-NEAR_TUNNEL_END_X = 16.44
+NEAR_TUNNEL_Y = (round(FAR_TUNNEL_Y-.4-FAR_TUNNEL_WALL-.8, 6), round(FAR_TUNNEL_Y-.4-FAR_TUNNEL_WALL, 6))
+NEAR_TUNNEL_RAIL = .155
+# Figure 4-34: the outpost's 100 mm base plate (650 wide) is the 400 mm pedestal's top on the
+# 300 mm deck; the outpost's own dimensions (armor 1116-1316, top 1578) start at its underside.
+OUTPOST_PLINTH = .10
 ACCESS_FOOT_X = round(NEAR_TUNNEL_ROOF_X-.175-.44, 6)
 ACCESS_TOP_X = round(ACCESS_FOOT_X-ROAD/math.tan(math.radians(11)), 6)
 # Figure 4-26: 6682+2717 long, 4131 deep, 4586 bottom edge, 1140 tongue, 23 degree slope.
@@ -134,12 +146,13 @@ def edge_ramp(identifier, a, b, outward, low, high, degrees, page):
 def make_arena():
     terrain, walls, zones, paint, fixtures = [], [], [], [], []
 
-    def line_wall(identifier, a, b, thickness, height, page, bottom=0, kind='barrier'):
+    def line_wall(identifier, a, b, thickness, height, page, bottom=0, kind='barrier', **shape):
+        # `shape` carries visual-only profile hints for the asset build (the engine ignores them).
         length = math.dist(a, b)
         walls.append(dict(id=identifier, x=(a[0]+b[0]-length)/2, y=(a[1]+b[1]-thickness)/2,
                           w=length, h=thickness, rotation=math.atan2(b[1]-a[1], b[0]-a[0]),
                           height=height, bottom=bottom+min((a[1]+b[1])/2, 15-(a[1]+b[1])/2)*math.tan(math.radians(FLOOR_SLOPE_DEG)),
-                          kind=kind, source_page=page))
+                          kind=kind, source_page=page, **shape))
 
     def add_zone(identifier, kind, point, radius, owner=None, points=None, group=None, order=None, crossing=None):
         value = dict(id=identifier, kind=kind, x=point[0], y=point[1], radius=radius, owner=owner,
@@ -239,26 +252,36 @@ def make_arena():
         ridge = polygon(team+'_road_bumps', list(map(p, [[x0r+1.5, south], [x0r+3.9, south], [x0r+3.9, 15], [x0r+1.5, 15]])), ROAD, 58)
         ridge.update(kind='bumps', bump_pitch=.24, bump_height=.07, speed_multiplier=.82)
         terrain.append(ridge)
-        # Road tunnel (section A): passage at road level, 260 mm under its roof.
-        rt = ROAD_TUNNEL_Y
-        terrain.append(polygon(team+'_road_tunnel_floor', list(map(p, [[ROAD_TUNNEL_X-.5, rt[0]], [ROAD_TUNNEL_X+.5, rt[0]],
-                                                                       [ROAD_TUNNEL_X+.5, rt[1]], [ROAD_TUNNEL_X-.5, rt[1]]])), ROAD, 57))
+        # Road tunnel (section A): 15 degree ramp from the floor onto the road through a portal
+        # whose roof covers the top 350 mm of the ramp. Local +y of a wall runs left of a->b, so
+        # `chamfer` names the top edges (-1/+1 across, 'ends' along) that are bevelled.
+        rx, (ry0, ry1) = ROAD_TUNNEL_X, ROAD_TUNNEL_RAMP_Y
+        half = .4+ROAD_TUNNEL_POST
+        terrain.append(ramp(team+'_road_tunnel_ramp', p([rx, ry0]), p([rx, ry1]), 2*half, 0, ROAD, 57))
         ry = ROAD_TUNNEL_ROOF_Y
-        line_wall(team+'_road_tunnel_roof', p([ROAD_TUNNEL_X, ry[0]]), p([ROAD_TUNNEL_X, ry[1]]), 1.0, .098, 57, bottom=ROAD+.26)
-        for x in (ROAD_TUNNEL_X-.45, ROAD_TUNNEL_X+.45):
-            line_wall(team+'_road_tunnel_side', p([x, rt[0]]), p([x, rt[1]]), .10, .358, 57, bottom=ROAD)
+        roof_z = ROAD+.26
+        line_wall(team+'_road_tunnel_roof', p([rx, ry[0]]), p([rx, ry[1]]), 2*half, .098, 57, bottom=roof_z,
+                  chamfer=[-1, 1], chamfer_m=.06)
+        post_bottom = ROAD*(ry[0]-ry0)/(ry1-ry0)
+        for x in (rx-.4-ROAD_TUNNEL_POST/2, rx+.4+ROAD_TUNNEL_POST/2):
+            line_wall(team+'_road_tunnel_post', p([x, ry[0]]), p([x, ry[1]]), ROAD_TUNNEL_POST, roof_z-post_bottom, 57, bottom=post_bottom)
         # Near-highland tunnel: 11 degree access ramp, floor-level passage, 350 mm roof.
         ny0, ny1 = NEAR_TUNNEL_Y
         mid_y = (ny0+ny1)/2
-        terrain.append(ramp(team+'_near_tunnel_access', p([ACCESS_FOOT_X, mid_y]), p([ACCESS_TOP_X, mid_y]), ny1-south, 0, ROAD, 57))
-        line_wall(team+'_near_tunnel_roof', p([NEAR_TUNNEL_ROOF_X, ny0]), p([NEAR_TUNNEL_ROOF_X, ny1]), .35, .167, 57, bottom=.25)
-        for y in (ny0, ny1):
-            line_wall(team+'_near_tunnel_side', p([ACCESS_FOOT_X, y]), p([NEAR_TUNNEL_END_X, y]), .06, .417, 57)
-        # Far-highland tunnel (figure 4-38): road-level passage between side walls, roof at x 14.
+        access_y0 = ny0-NEAR_TUNNEL_RAIL
+        terrain.append(ramp(team+'_near_tunnel_access', p([ACCESS_FOOT_X, (access_y0+ny1)/2]), p([ACCESS_TOP_X, (access_y0+ny1)/2]), ny1-access_y0, 0, ROAD, 57))
+        line_wall(team+'_near_tunnel_roof', p([NEAR_TUNNEL_ROOF_X, access_y0]), p([NEAR_TUNNEL_ROOF_X, ny1]), .35, .167, 57, bottom=.25,
+                  chamfer=[-1, 1], chamfer_m=.03)
+        # North rail on the central highland's edge, ending with the shared rail where the
+        # highland's edge turns away; the south side is the far tunnel's rail.
+        line_wall(team+'_near_tunnel_side', p([ACCESS_TOP_X, ny0-NEAR_TUNNEL_RAIL/2]), p([FAR_TUNNEL_X[1], ny0-NEAR_TUNNEL_RAIL/2]),
+                  NEAR_TUNNEL_RAIL, .417, 57, chamfer=[-1], chamfer_m=.05)
+        # Far-highland tunnel (figure 4-38): road-level passage between rails, plate at x 14.
         fx0, fx1 = FAR_TUNNEL_X
         terrain.append(polygon(team+'_far_tunnel_floor', list(map(p, [[fx0, tun[0]], [fx1, tun[0]], [fx1, tun[1]], [fx0, tun[1]]])), ROAD, 59))
-        for y in (tun[0]+FAR_TUNNEL_WALL/2, tun[1]-FAR_TUNNEL_WALL/2):
-            line_wall(team+'_far_tunnel_side', p([fx0, y]), p([fx1, y]), FAR_TUNNEL_WALL, .27, 59, bottom=ROAD)
+        for y, outer in ((tun[0]+FAR_TUNNEL_WALL/2, -1), (tun[1]-FAR_TUNNEL_WALL/2, 1)):
+            line_wall(team+'_far_tunnel_side', p([fx0, y]), p([fx1, y]), FAR_TUNNEL_WALL, .27, 59, bottom=ROAD,
+                      chamfer=[outer, 'ends'], chamfer_m=.05)
         line_wall(team+'_far_tunnel_roof', p([14.0, tun[0]]), p([14.0, tun[1]]), .35, .02, 59, bottom=ROAD+.25)
         # Low kerbs: road west wall and the trapezoid's north edge.
         for i, (a, b) in enumerate([([TRAPEZOID_X0, .05], [TRAPEZOID_TIP_X-.05, .05]), ([x0r, north], [x0r, 14.95]),
@@ -309,7 +332,7 @@ def make_arena():
         for order, pt in enumerate([[notch_mid-.25, 12.56], [notch_mid-.25, 13.40]]):
             add_zone(team+f'_road_{order}', 'road', p(pt), .35, group=team+'_road', order=order)
         # Tunnels: an end card, a card under the roof and the far end card (order 0, 1, 2).
-        for name, cards in (('road_tunnel', [[ROAD_TUNNEL_X, 12.25], [ROAD_TUNNEL_X, sum(ROAD_TUNNEL_ROOF_Y)/2], [ROAD_TUNNEL_X, 13.42]]),
+        for name, cards in (('road_tunnel', [[ROAD_TUNNEL_X, y] for y in ROAD_TUNNEL_CARD_Y]),
                             ('near_tunnel', [[14.36, mid_y], [NEAR_TUNNEL_ROOF_X, mid_y], [15.50, mid_y]]),
                             ('far_tunnel', [[13.40, FAR_TUNNEL_Y], [14.0, FAR_TUNNEL_Y], [14.60, FAR_TUNNEL_Y]])):
             for order, pt in enumerate(cards):
@@ -379,7 +402,7 @@ def make_arena():
     return dict(name=NAME, season='2027', ruleset='rmuc2027', layout_revision=REVISION, width=28, height=15, floor_slope_deg=FLOOR_SLOPE_DEG,
                 terrain=terrain, obstacles=walls, zones=zones, forbidden=forbidden, spawn_points=points,
                 bases={'red': BASE, 'blue': mirrored(BASE)},
-                outposts={'red': OUTPOST, 'blue': OUTPOST_BLUE},
+                outposts={'red': OUTPOST, 'blue': OUTPOST_BLUE}, outpost_plinth_m=OUTPOST_PLINTH,
                 pads={'red': [hangars['red']['x'], hangars['red']['y']], 'blue': [hangars['blue']['x'], hangars['blue']['y']]},
                 hangars=hangars, positions=positions,
                 flight_lanes={'red': dict(min_x=.3, max_x=27.7, center_y=7.5), 'blue': dict(min_x=.3, max_x=27.7, center_y=7.5)},

@@ -147,6 +147,10 @@ pub struct Arena {
     pub hangars: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub positions: Value,
+    /// 2027: the outpost's base plate is part of its pedestal terrain, and the outpost's own
+    /// dimensions (armor heights, top) start this far below the pedestal top (figure 4-34).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub outpost_plinth_m: f64,
 }
 fn season_2026() -> String {
     "2026".into()
@@ -1116,7 +1120,7 @@ impl Engine {
                 Base {
                     x: o[0],
                     y: o[1],
-                    z: height_at(&arena, o[0], o[1]),
+                    z: height_at(&arena, o[0], o[1]) - arena.outpost_plinth_m,
                     hp: outpost_hp,
                     max_hp: outpost_hp,
                     radius: 0.30,
@@ -1813,6 +1817,7 @@ impl Engine {
             if self.season == 2027 {
                 self.fire_2027(&actions);
                 self.drone_strikes();
+                self.keep_drones_clear_2027();
             } else {
                 self.official_fire(&actions);
             }
@@ -1839,6 +1844,8 @@ impl Engine {
             self.update_buffs_2027();
             self.advance_pickups();
             self.after_step_2027();
+            // The outposts turned this tick: keep the published drones clear of the armor.
+            self.keep_drones_clear_2027();
             self.micro_time = 0.0;
             self.tick += 1;
             self.check_winner_2027();

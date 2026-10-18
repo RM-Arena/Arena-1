@@ -10,7 +10,7 @@ import {TEAM_COLORS} from './types';
 import {terrainHeight} from './terrain';
 import {Effects,pulse} from './effects';
 import {CombatText,MechanismHud,PickupHud,RobotHud,RuneBoard,RuneBurst,StructureHud} from './hud';
-import {cloneForTeam,LED_COLORS} from './teamMaterials';
+import {cloneForTeam,LED_COLORS,SHELL} from './teamMaterials';
 import {Venue} from './venue';
 import type {ArenaAudio} from './media';
 import {feedAlpha} from './world';
@@ -129,9 +129,12 @@ function BaseModel({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed
   return <group ref={group}><primitive object={asset}/><pointLight color={LED_COLORS[team]} intensity={2.2} distance={3.2} decay={2} position={[0,.9,0]}/></group>;
 }
 
+// A 2027 outpost rebuilt by the other team carries that team's lights and shell tint.
 function OutpostModel({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>;url:string}){
   const asset=useAsset(url,team),group=useRef<THREE.Group>(null),rotor=asset.getObjectByName('ArmorRotor');
-  useFrame(()=>{const f=feed.current.frame,b=f?.outposts?.[team];if(!b||!group.current)return;group.current.position.copy(point(b,0,f!.arena.width,f!.arena.height));if(rotor)rotor.rotation.y=-(b.rotation||0);asset.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material]){if(m instanceof THREE.MeshStandardMaterial&&m.name.startsWith('TeamGlow')){m.emissiveIntensity=b.hp>0?(m.userData.glow??=m.emissiveIntensity)*(1+pulse('outpost-'+team,.25)*2.5):0;m.color.set(b.hp>0?LED_COLORS[b.owner??team]:'#1a1c20');}}});});
+  useFrame(()=>{const f=feed.current.frame,b=f?.outposts?.[team];if(!b||!group.current)return;group.current.position.copy(point(b,0,f!.arena.width,f!.arena.height));// The rotor turns between frames like the interpolated drones that strike it.
+    const was=feed.current.previous?.outposts?.[team]?.rotation??b.rotation??0,turn=(b.rotation||0)-was;
+    if(rotor)rotor.rotation.y=-(was+Math.atan2(Math.sin(turn),Math.cos(turn))*feedAlpha(feed.current));const held=b.owner??team;asset.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material]){if(!(m instanceof THREE.MeshStandardMaterial))continue;if(m.name.startsWith('TeamGlow')){m.emissiveIntensity=b.hp>0?(m.userData.glow??=m.emissiveIntensity)*(1+pulse('outpost-'+team,.25)*2.5):0;m.color.set(b.hp>0?LED_COLORS[held]:'#1a1c20');m.emissive.set(LED_COLORS[held]);}else if(m.name.startsWith('TeamPrimary'))m.color.set(SHELL[held]);}});});
   return <group ref={group}><primitive object={asset}/></group>;
 }
 

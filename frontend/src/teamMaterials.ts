@@ -3,7 +3,7 @@ import type {TeamId} from './types';
 
 // Broadcast palette: saturated referee-light colours for LEDs and HUD fills; TEAM_COLORS stays the softer UI tint.
 export const LED_COLORS:Record<TeamId,string>={red:'#ff3b30',blue:'#2f8cff'};
-const SHELL:Record<TeamId,string>={red:'#1c1517',blue:'#131922'};
+export const SHELL:Record<TeamId,string>={red:'#1c1517',blue:'#131922'};
 
 // Real robots, bases and outposts are black machines whose team identity is carried by light strips and armour lights.
 export function teamMaterial(source:THREE.Material,team?:TeamId){

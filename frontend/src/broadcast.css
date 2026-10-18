@@ -14,6 +14,9 @@
 .bc-outpost>b{font-size:30px;min-width:86px;text-align:center;padding:1px 10px;background:linear-gradient(90deg,rgba(130,14,22,.9),rgba(40,8,12,.6));clip-path:polygon(10% 0,100% 0,90% 100%,0 100%)}
 .blue .bc-outpost>b{background:linear-gradient(270deg,rgba(10,60,130,.9),rgba(6,18,40,.6))}
 .bc-outpost>b.down{color:#8a949c;background:rgba(30,34,40,.85)}
+/* A 2027 outpost rebuilt by the other team shows its holder's colour. */
+.bc-side.red .bc-outpost>b.held-blue{background:linear-gradient(90deg,rgba(10,60,130,.9),rgba(6,18,40,.6))}
+.bc-side.blue .bc-outpost>b.held-red{background:linear-gradient(270deg,rgba(130,14,22,.9),rgba(40,8,12,.6))}
 .bc-outpost>small{font-size:16px;color:#c2ccd4;padding:0 10px}
 .bc-team-main{width:440px;display:flex;flex-direction:column;gap:4px}
 .bc-team-name{display:flex;align-items:baseline;gap:12px;font-size:26px;font-weight:700;text-shadow:0 2px 6px #000;letter-spacing:.5px}

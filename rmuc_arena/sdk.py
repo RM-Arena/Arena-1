@@ -514,11 +514,14 @@ def terrain_height(arena,x,y):
 _NAV_GRAPHS={}
 
 
-def _prepare_chapter4(arena,team):
-    key=(arena['layout_revision'],team)
+def _prepare_chapter4(arena,team,folded=True):
+    # Roofs are overhead and do not block the route, except that in 2027 only a folded robot
+    # fits under the 250-260 mm tunnel roofs; others route around the tunnels.
+    under=folded or arena.get('season')!='2027'
+    key=(arena['layout_revision'],team,under)
     if key in _NAV_GRAPHS:return _NAV_GRAPHS[key]
     margin=.36
-    walls=[w for w in arena['obstacles'] if 'roof' not in w.get('id','')]
+    walls=[w for w in arena['obstacles'] if 'roof' not in w.get('id','') or (not under and '_tunnel_roof' in w['id'])]
     # The highway no-go area behind a fly slope is entered only by flying the ramp (R58).
     walls += [w for w in arena['forbidden'] if w['kind'] in ('base','pad','highway','dart_station') or w.get('owner') not in (None,team)]
     boxes=[]
@@ -604,7 +607,7 @@ def _physical_toward(robot,point):
 
 
 def _chapter4_navigate(robot,point,arena):
-    graph=_prepare_chapter4(arena,robot['team']);nodes,_,clear,inside=graph
+    graph=_prepare_chapter4(arena,robot['team'],robot.get('transform_progress',0.0)>=.99);nodes,_,clear,inside=graph
     start=(robot['x'],robot['y']);goal=tuple(point)
     # Obstacles the goal overlaps never block reaching it. A robot pushed inside an
     # obstacle's margin may leave or pass it but not close in on it (driving straight on
@@ -706,7 +709,8 @@ def _route(graph,start,goal,near_start,near_goal,strict,reached=0):
 # decision timer begins. This creates no threads, external reads or hidden data.
 for _arena in ARENAS_BY_SEASON.values():
     if _arena.get('layout_revision'):
-        for _team in ('red','blue'):_prepare_chapter4(_arena,_team)
+        for _team in ('red','blue'):
+            for _folded in ((False,True) if _arena.get('season')=='2027' else (True,)):_prepare_chapter4(_arena,_team,_folded)
 
 
 def resource_pickup_point(robot,arena):
