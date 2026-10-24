@@ -58,7 +58,7 @@ export interface StrategyDetail extends Omit<StrategySummary,'showcase'>{showcas
 export interface RobotSkin{id:string;name:string;base_model:number;forward:'+x'|'-x'|'+z'|'-z';asset:string;author?:string;bytes?:number;created_at?:number}
 export interface MatchRecord{has_video?:boolean;video_bytes?:number;video_status?:string|null;video_error?:string|null;id:string;created_at:string;status:string;metadata:Metadata;result:Replay['result']|null;has_replay:boolean;replay_bytes?:number;error:string|null}
 export interface Standing{identity:string;name:string;version:string;mode:ControlMode;rating:number;games:number;wins:number;losses:number;draws:number}
-export type CameraMode='orbit'|'top'|'follow'|'cinematic';
+export type CameraMode='orbit'|'top'|'follow'|'cinematic'|'fpv';
 export interface RenderFeed{frame:Frame|null;previous:Frame|null;received:number;speed:number;paused:boolean;events:MatchEvent[];generation:string;replay:boolean;alpha?:number}
 export const ROLE_NAMES:Record<Role,string>={hero:'英雄',engineer:'工程',infantry:'步兵',sentry:'哨兵',scout:'侦察',aerial:'空中',heavy:'重型'};
 export const TEAM_COLORS={red:'#e27c6d',blue:'#77bce2'};

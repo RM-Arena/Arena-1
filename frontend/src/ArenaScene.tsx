@@ -3,7 +3,7 @@ import {Component,Suspense,useEffect,useMemo,useRef,type MutableRefObject,type R
 import {Canvas,useFrame,useThree} from '@react-three/fiber';
 import {OrbitControls,useGLTF,Html} from '@react-three/drei';
 import * as THREE from 'three';
-import type {CameraMode,Drone,Frame,RenderFeed,TeamId} from './types';
+import type {CameraMode,Drone,Frame,RenderFeed,Robot,TeamId} from './types';
 import {frameSeason,is42} from './types';
 import type {IntroSegment} from './intro';
 import {TEAM_COLORS} from './types';
@@ -21,6 +21,8 @@ import {useRobotScene} from './customModels';
 type Controls=React.ElementRef<typeof OrbitControls>;
 // Default framing of the rulebook broadcast: elevated over the long side, field below the scoreboard.
 const BROADCAST_EYE:[number,number,number]=[0,15.5,18.5],BROADCAST_TARGET:[number,number,number]=[0,0,-1.2];
+// First-person view: robot and drone groups carry this name prefix so the director can mount the camera on them.
+const POV_PREFIX='pov:',BROADCAST_FOV=42,POV_FOV=72;
 const point=(r:{x:number;y:number;z?:number},h=0,width=28,height=15)=>new THREE.Vector3(r.x-width/2,(r.z||0)+h,r.y-height/2);
 const colors={red:new THREE.Color(LED_COLORS.red),blue:new THREE.Color(LED_COLORS.blue)},WHITE=new THREE.Color('#ffffff');
 const toHeight=(frame:Frame,x:number,y:number)=>terrainHeight(frame.arena,x,y);
@@ -33,7 +35,7 @@ function useAsset(url:string,team?:TeamId){
   return asset;
 }
 
-function RobotModel({id,role,team,url,feed,selected,onSelect}:{id:string;role:string;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>;selected:string;onSelect:(id:string)=>void}){
+function RobotModel({id,role,team,url,feed,selected,pov,onSelect}:{id:string;role:string;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>;selected:string;pov:boolean;onSelect:(id:string)=>void}){
   const asset=useAsset(url,team),group=useRef<THREE.Group>(null),body=asset.getObjectByName('Chassis'),turret=asset.getObjectByName('Turret'),pitch=asset.getObjectByName('GunPitch');
   const poseNow=useMemo(()=>new THREE.Quaternion(),[]),poseOld=useMemo(()=>new THREE.Quaternion(),[]);
   useEffect(()=>applyArmorNumber(asset,id.slice(id.lastIndexOf('-')+1)),[asset,id]);
@@ -50,6 +52,9 @@ function RobotModel({id,role,team,url,feed,selected,onSelect}:{id:string;role:st
   const materials=useMemo(()=>{const list:THREE.Material[]=[];asset.traverse(o=>{if(o instanceof THREE.Mesh)list.push(...(Array.isArray(o.material)?o.material:[o.material]));});return list;},[asset]);
   const glows=useMemo(()=>materials.filter((m):m is THREE.MeshStandardMaterial=>m instanceof THREE.MeshStandardMaterial&&m.name.startsWith('TeamGlow')).map(m=>({m,emissive:m.emissive.clone(),intensity:m.emissiveIntensity})),[materials]);
   const gunRest=useMemo(()=>pitch?.position.clone(),[pitch]);
+  // In first person only the gun stays drawn, so the onboard camera does not look out through its own chassis or wreck.
+  const bodyMeshes=useMemo(()=>{const gun=asset.getObjectByName('GunPitch'),list:THREE.Mesh[]=[];asset.traverse(o=>{if(!(o instanceof THREE.Mesh))return;let up:THREE.Object3D|null=o;while(up&&up!==gun)up=up.parent;if(!up)list.push(o);});return list;},[asset]);
+  useEffect(()=>{for(const m of bodyMeshes)m.visible=!pov;return()=>{for(const m of bodyMeshes)m.visible=true;};},[bodyMeshes,pov]);
   // RMUC 2027 heavy robots: the modular 42 mm launcher appears once it is fitted at the workbench.
   const launcherModule=asset.getObjectByName('LauncherModule');
   useFrame(({clock},dt)=>{const f=feed.current.frame;if(!f||!group.current)return;const r=f.robots.find(r=>r.id===id);if(!r)return;
@@ -92,23 +97,23 @@ function RobotModel({id,role,team,url,feed,selected,onSelect}:{id:string;role:st
     // Wrecks stay on the field as physical obstacles: dimmed, lamps off.
     for(const m of materials){m.transparent=!physicalAlive;m.opacity=physicalAlive?1:.62;}
     const hit=pulse(id,.18);for(const g of glows){g.m.emissive.copy(g.emissive).lerp(WHITE,hit*.7);g.m.emissiveIntensity=r.alive||r.role==='aerial'?g.intensity*(1+hit*3):g.intensity*.08;}
-    if(ring.current){ring.current.visible=selected===id;ring.current.rotation.z=clock.elapsedTime*.2;}
+    if(ring.current){ring.current.visible=selected===id&&!pov;ring.current.rotation.z=clock.elapsedTime*.2;}
     if(shield.current){shield.current.visible=r.alive&&r.shield>0;const material=shield.current.material as THREE.MeshBasicMaterial;material.opacity=.08+Math.sin(clock.elapsedTime*8)*.025;}
     if(light.current){const flash=feed.current.events.some(e=>e.type==='shot'&&e.robot===id);light.current.position.set(Math.cos(r.aim-r.heading)*Math.cos(r.pitch)*(r.muzzle_reach_m||.3),(r.muzzle_height_m||.55)+Math.sin(r.pitch)*(r.muzzle_reach_m||.3),Math.sin(r.aim-r.heading)*Math.cos(r.pitch)*(r.muzzle_reach_m||.3));light.current.intensity=flash?.15:Math.max(0,light.current.intensity-dt*30);}
   });
-  return <group ref={group} onClick={e=>{e.stopPropagation();onSelect(id);}}>
+  return <group ref={group} name={POV_PREFIX+id} onClick={e=>{e.stopPropagation();onSelect(id);}}>
     <primitive object={asset}/>
     {(role==='engineer'||role==='heavy')&&<><group ref={heldUnit} visible={false}>
       <primitive object={unitAsset} rotation={[0,0,-Math.PI/2]}/>
     </group><PickupHud id={id} feed={feed}/></>}
-    <mesh ref={ring} rotation={[-Math.PI/2,0,0]} position={[0,.024,0]} visible={selected===id}><ringGeometry args={[.75,.79,48]}/><meshBasicMaterial color="#edc27a" transparent opacity={.9} side={THREE.DoubleSide}/></mesh>
+    <mesh ref={ring} rotation={[-Math.PI/2,0,0]} position={[0,.024,0]} visible={selected===id&&!pov}><ringGeometry args={[.75,.79,48]}/><meshBasicMaterial color="#edc27a" transparent opacity={.9} side={THREE.DoubleSide}/></mesh>
     <mesh ref={shield} position={[0,.47,0]} visible={false}><sphereGeometry args={[.82,20,12]}/><meshBasicMaterial color={TEAM_COLORS[team]} transparent opacity={.1} depthWrite={false}/></mesh>
     <pointLight ref={light} position={[.75,.8,0]} color="#66ee55" intensity={0} distance={1}/>
   </group>;
 }
 
 // RMUC 2027 aerial robots: each hangar's drones fly as separate bodies (robot.drones).
-function DroneModel({robot,index,team,url,feed}:{robot:string;index:number;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>}){
+function DroneModel({id,robot,index,team,url,feed}:{id:string;robot:string;index:number;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>}){
   const asset=useAsset(url,team),group=useRef<THREE.Group>(null),now=useMemo(()=>new THREE.Quaternion(),[]),was=useMemo(()=>new THREE.Quaternion(),[]);
   const rotors=useMemo(()=>{const nodes:THREE.Object3D[]=[];asset.traverse(o=>{if(o.name.startsWith('Rotor_')&&!(o instanceof THREE.Mesh))nodes.push(o);});return nodes;},[asset]);
   const materials=useMemo(()=>{const list:THREE.Material[]=[];asset.traverse(o=>{if(o instanceof THREE.Mesh)list.push(...(Array.isArray(o.material)?o.material:[o.material]));});return list;},[asset]);
@@ -119,7 +124,7 @@ function DroneModel({robot,index,team,url,feed}:{robot:string;index:number;team:
     for(const node of rotors)node.rotation.y+=dt*(d.state==='flying'?120:0);
     for(const m of materials){m.transparent=d.state==='disabled';m.opacity=d.state==='disabled'?.45:1;}
   });
-  return <group ref={group}><primitive object={asset}/></group>;
+  return <group ref={group} name={POV_PREFIX+id}><primitive object={asset}/></group>;
 }
 
 function BaseModel({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>;url:string}){
@@ -290,21 +295,37 @@ function introCamera(shot:IntroShot,u:number,frame:Frame,camera:THREE.Camera,loo
   }
   camera.lookAt(look);
 }
-function Director({mode,selected,feed,audio,onCanvas,onRender,shot}:{mode:CameraMode;selected:string;feed:MutableRefObject<RenderFeed>;audio?:ArenaAudio;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null}){
-  const {camera,gl}=useThree(),controls=useRef<Controls>(null),target=useMemo(()=>new THREE.Vector3(),[]);const previousMode=useRef('');
+function Director({mode,selected,pov,feed,audio,onCanvas,onRender,shot}:{mode:CameraMode;selected:string;pov:string;feed:MutableRefObject<RenderFeed>;audio?:ArenaAudio;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null}){
+  const {camera,gl,scene}=useThree(),controls=useRef<Controls>(null),target=useMemo(()=>new THREE.Vector3(),[]);const previousMode=useRef('');
   const shadow=useRef({slot:-1,frame:null as Frame|null,generation:'',paused:false});
   const look=useMemo(()=>new THREE.Vector3(),[]),cut=useRef({key:'',at:0});
   const ear=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),up=useMemo(()=>new THREE.Vector3(),[]),origin=useMemo(()=>new THREE.Vector3(),[]);
+  const eye=useMemo(()=>new THREE.Vector3(),[]),gaze=useMemo(()=>new THREE.Vector3(),[]),aim=useMemo(()=>new THREE.Vector3(),[]),attitude=useMemo(()=>new THREE.Quaternion(),[]),povKey=useRef('');
   useEffect(()=>onCanvas(gl.domElement),[gl,onCanvas]);
   useEffect(()=>{const restore=()=>{gl.shadowMap.needsUpdate=true;};gl.domElement.addEventListener('webglcontextrestored',restore);return()=>gl.domElement.removeEventListener('webglcontextrestored',restore);},[gl]);
   useFrame(({clock},dt)=>{
     // The intro owns the camera; the chosen broadcast mode resumes from its default framing afterwards.
     if(shot){const f=feed.current.frame;if(cut.current.key!==shot.key)cut.current={key:shot.key,at:clock.elapsedTime};if(f)introCamera(shot,Math.min(1,(clock.elapsedTime-cut.current.at)/Math.max(.2,shot.length)),f,camera,look);previousMode.current='intro';return;}
-    if(previousMode.current!==mode){previousMode.current=mode;if(mode==='orbit'){camera.position.set(...BROADCAST_EYE);controls.current?.target.set(...BROADCAST_TARGET);}if(mode==='top'){camera.position.set(0,34,.01);target.set(0,0,0);camera.lookAt(target);}}
+    if(previousMode.current!==mode){previousMode.current=mode;const lens=camera as THREE.PerspectiveCamera;lens.fov=mode==='fpv'?POV_FOV:BROADCAST_FOV;lens.near=mode==='fpv'?.02:.1;lens.updateProjectionMatrix();povKey.current='';if(mode==='orbit'){camera.position.set(...BROADCAST_EYE);controls.current?.target.set(...BROADCAST_TARGET);}if(mode==='top'){camera.position.set(0,34,.01);target.set(0,0,0);camera.lookAt(target);}}
+    if(mode==='fpv'){const robots=feed.current.frame?.robots||[];povCamera(scene.getObjectByName(POV_PREFIX+pov),robots.find(r=>r.id===pov),robots.flatMap(r=>r.drones||[]).find(d=>d.id===pov),dt);}
     if(mode==='cinematic'){const a=clock.elapsedTime*.052;camera.position.set(Math.sin(a)*26,21,Math.cos(a)*24);camera.lookAt(0,0,0);}
     if(mode==='follow'){const r=feed.current.frame?.robots.find(r=>r.id===selected);if(r){target.lerp(point(r,.40),Math.min(1,dt*6));const angle=r.heading;const desired=target.clone().add(new THREE.Vector3(-Math.cos(angle)*4,3.3,-Math.sin(angle)*4));const arena=feed.current.frame!.arena;desired.x=THREE.MathUtils.clamp(desired.x,-arena.width/2+.6,arena.width/2-.6);desired.z=THREE.MathUtils.clamp(desired.z,-arena.height/2+.6,arena.height/2-.6);camera.position.lerp(desired,Math.min(1,dt*3));camera.lookAt(target);}}
   });
-  useFrame(()=>{if(!audio?.enabled)return;const focus=mode==='orbit'?controls.current?.target||origin:mode==='follow'?target:origin;ear.copy(camera.position).sub(focus);ear.setLength(Math.min(ear.length(),9)).add(focus);camera.getWorldDirection(ahead);up.set(0,1,0).applyQuaternion(camera.quaternion);audio.listen(ear,ahead,up,feed.current.frame?.arena);});
+  // The camera rides the gimbal (GunPitch node, so turret yaw, pitch and chassis tilt carry over) a little
+  // above the barrel; robots without one look over the chassis, drones ahead of their nose along their flight
+  // path. Gimbal yaw only updates with engine frames, so the gaze is eased; the horizon stays level.
+  function povCamera(node:THREE.Object3D|undefined,robot:Robot|undefined,drone:Drone|undefined,dt:number){
+    if(!node||!node.visible)return;
+    const gun=node.getObjectByName('GunPitch'),anchor=gun||node;anchor.updateWorldMatrix(true,false);anchor.getWorldPosition(eye);anchor.getWorldQuaternion(attitude);
+    aim.set(1,0,0).applyQuaternion(attitude);
+    if(gun){eye.addScaledVector(aim,.06);eye.y+=.12;}
+    else if(drone){if(Math.hypot(drone.vx,drone.vy)>.4)aim.set(drone.vx,drone.vz*.35,drone.vy);else if(povKey.current===pov)aim.copy(gaze);else aim.y=0;eye.addScaledVector(aim.normalize(),.22);eye.y-=.03;}
+    else{aim.y=0;eye.y+=Math.max(.35,(robot?.muzzle_height_m||.45)+.1);}
+    aim.normalize();
+    if(povKey.current!==pov){povKey.current=pov;gaze.copy(aim);}else gaze.lerp(aim,1-Math.exp(-dt*16)).normalize();
+    camera.position.copy(eye);camera.lookAt(look.copy(eye).add(gaze));
+  }
+  useFrame(()=>{if(!audio?.enabled)return;const focus=mode==='orbit'?controls.current?.target||origin:mode==='follow'?target:mode==='fpv'?camera.position:origin;ear.copy(camera.position).sub(focus);ear.setLength(Math.min(ear.length(),9)).add(focus);camera.getWorldDirection(ahead);up.set(0,1,0).applyQuaternion(camera.quaternion);audio.listen(ear,ahead,up,feed.current.frame?.arena);});
   useFrame(()=>{audio?.drones(feed.current.frame);},-2);
   // A fixed directional light does not need new shadows for camera motion.
   // Keep moving shadows at 30 Hz; a changed paused frame always refreshes them.
@@ -326,17 +347,18 @@ class SceneBoundary extends Component<{children:ReactNode;onRetry:()=>void;audio
   componentDidCatch(){this.props.audio?.drones(null);}
   render(){return this.state.failed?<div className="scene-recovery"><p>战场模型暂时无法加载</p><button onClick={()=>{this.props.onRetry();this.setState({failed:false});}}>重新加载战场</button></div>:this.props.children;}
 }
-export function ArenaScene({frame,feed,mode,selected,audio,onSelect,onCanvas,onRender,shot}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null}){
+export function ArenaScene({frame,feed,mode,selected,pov='',audio,onSelect,onCanvas,onRender,shot}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;pov?:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null}){
+  const firstPerson=mode==='fpv'&&!shot?pov:'';
   function retry(){for(const url of new Set([frame.arena.asset,...Object.values(frame.arena.structure_assets||{}),...frame.robots.map(r=>r.model_asset||`/assets/robot-${r.role}.glb`),...frame.robots.filter(r=>r.drones?.length&&r.model_asset).map(r=>r.model_asset!.replace('/robot-','/drone-'))]))useGLTF.clear(url);}
   return <SceneBoundary onRetry={retry} audio={audio}><Canvas shadows dpr={[1,1.6]} camera={{position:BROADCAST_EYE,fov:42,near:.1,far:220}} gl={{antialias:true}} onCreated={({gl,scene})=>{gl.shadowMap.autoUpdate=false;gl.toneMapping=THREE.ACESFilmicToneMapping;gl.toneMappingExposure=1.18;scene.background=new THREE.Color('#05070b');scene.fog=new THREE.Fog('#05070b',55,150);}}>
     <hemisphereLight args={['#e4eefb','#1c2128',1.9]}/><ambientLight intensity={.22}/><directionalLight position={[4,26,9]} intensity={3.1} color="#f4f6ff" castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-28} shadow-camera-right={28} shadow-camera-top={24} shadow-camera-bottom={-24} shadow-bias={-.0004}/><directionalLight position={[-18,12,-14]} color="#9fb9ff" intensity={1.1}/><directionalLight position={[18,9,14]} color="#c9b8ff" intensity={.45}/>
     <Venue season={frameSeason(frame)}/>
-    <Suspense fallback={<Html center><div className="scene-loading">加载 Blender / glTF 资产…</div></Html>}><ArenaMap frame={frame} feed={feed}/><BaseModel team="red" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/><BaseModel team="blue" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/>{frame.outposts&&<><OutpostModel team="red" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/><OutpostModel team="blue" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/></>}{frame.runes&&<><RuneModel team="red" feed={feed}/><RuneModel team="blue" feed={feed}/></>}{frame.arena.structure_assets?.core&&frame.arena.assembly_frames&&<><TechCore team="red" feed={feed} url={frame.arena.structure_assets.core}/><TechCore team="blue" feed={feed} url={frame.arena.structure_assets.core}/></>}{frame.robots.map(r=><RobotModel key={r.id} id={r.id} role={r.role} team={r.team} url={r.model_asset||`/assets/robot-${r.role}.glb`} feed={feed} selected={selected} onSelect={onSelect}/>)}{frame.robots.filter(r=>r.drones?.length&&r.model_asset).flatMap(r=>r.drones!.map((d,k)=><DroneModel key={d.id} robot={r.id} index={k} team={r.team} url={r.model_asset!.replace('/robot-','/drone-')} feed={feed}/>))}</Suspense>
-    <group visible={!shot}>{frame.robots.map(r=><RobotHud key={r.id} id={r.id} team={r.team} feed={feed} focus={selected===r.id} onSelect={onSelect}/>)}
+    <Suspense fallback={<Html center><div className="scene-loading">加载 Blender / glTF 资产…</div></Html>}><ArenaMap frame={frame} feed={feed}/><BaseModel team="red" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/><BaseModel team="blue" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/>{frame.outposts&&<><OutpostModel team="red" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/><OutpostModel team="blue" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/></>}{frame.runes&&<><RuneModel team="red" feed={feed}/><RuneModel team="blue" feed={feed}/></>}{frame.arena.structure_assets?.core&&frame.arena.assembly_frames&&<><TechCore team="red" feed={feed} url={frame.arena.structure_assets.core}/><TechCore team="blue" feed={feed} url={frame.arena.structure_assets.core}/></>}{frame.robots.map(r=><RobotModel key={r.id} id={r.id} role={r.role} team={r.team} url={r.model_asset||`/assets/robot-${r.role}.glb`} feed={feed} selected={selected} pov={firstPerson===r.id} onSelect={onSelect}/>)}{frame.robots.filter(r=>r.drones?.length&&r.model_asset).flatMap(r=>r.drones!.map((d,k)=><DroneModel key={d.id} id={d.id} robot={r.id} index={k} team={r.team} url={r.model_asset!.replace('/robot-','/drone-')} feed={feed}/>))}</Suspense>
+    <group visible={!shot}>{frame.robots.filter(r=>r.id!==firstPerson).map(r=><RobotHud key={r.id} id={r.id} team={r.team} feed={feed} focus={selected===r.id} onSelect={onSelect}/>)}
     {(['red','blue'] as const).map(team=><group key={team}><StructureHud team={team} kind="base" feed={feed}/>{frame.outposts&&<StructureHud team={team} kind="outpost" feed={feed}/>}</group>)}</group>
     <CombatText feed={feed}/>{frame.runes&&<><RuneBoard feed={feed}/><RuneBurst feed={feed}/></>}
     {(['red','blue'] as const).map(team=><group key={team}><MechanismHud team={team} kind="outpost" feed={feed}/><FortressWarning defender={team} feed={feed}/></group>)}
-    <Effects feed={feed}/><Director mode={mode} selected={selected} feed={feed} audio={audio} onCanvas={onCanvas} onRender={onRender} shot={shot}/>
+    <Effects feed={feed}/><Director mode={mode} selected={selected} pov={pov} feed={feed} audio={audio} onCanvas={onCanvas} onRender={onRender} shot={shot}/>
   </Canvas></SceneBoundary>;
 }
 for(const role of ['hero','engineer','infantry','aerial'])useGLTF.preload('/assets/robot-'+role+'.glb');
