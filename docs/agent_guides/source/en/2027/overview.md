@@ -29,7 +29,7 @@ Key places (red coordinates; mirror for blue):
 {{location_table}}
 
 - The central highland is a 0.3 m deck that runs from your outpost side to the field center, with 12° end slopes. On the fortress side a 0.2 m step band and a 0.4 m rim stop ordinary wheeled robots. The 0.4 m assembly plinth and the rune gantry stand in the middle of the deck; the hangar platforms sit above the gantry.
-- The trapezoid highland is 0.2 m high (23° slope); the high point is 0.8 m high and reachable only by its three steps (about 0.2 m each), so only step-climbing wheel-legged robots get up; the fortress platform is 0.15 m high (20° slope).
+- The trapezoid highland is 0.2 m high (23° slope); the high point is 0.8 m high and reachable only by steps (about 0.2 m each): three from the trapezoid highland on its east side, four from the field on its south side, so only step-climbing wheel-legged robots get up; the fortress platform is 0.15 m high (20° slope).
 - Roads are 0.2 m high with 11° and 15° entry ramps. The road tunnels have about 0.25 m of clearance: only robots that fold their turret **pass through**; robots that jump or climb steps can **cross over** the roofs. Some road sections carry 0.07 m bumps.
 - Forbidden areas: both base bodies, the enemy's supply zone and assembly zone, and the dart stations (no darts are used, but the stations remain solid no-go areas).
 - Full geometry is in `observation["arena"]` (the same as `map` in `arena.json`): `terrain` (each `polygon` is the real shape), `obstacles` (walls, possibly with `rotation` and `bottom` for tunnel roofs), `zones` (buff cards), `forbidden`, `navigation` (public road-map nodes), `hangars`, `positions` (control positions), `field_geometry.fixtures` (workbench, resource hub, hangar platforms) and `rune`.

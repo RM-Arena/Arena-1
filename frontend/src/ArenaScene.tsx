@@ -17,6 +17,8 @@ import {feedAlpha} from './world';
 import {legRig,poseLegs,applyArmorNumber} from './robotRig';
 import {runeActive,runeArmLight} from './runeLights';
 import {useRobotScene} from './customModels';
+import {concreteSurface,disposeSurface,floorSurface,type SurfaceSet} from './fieldSurfaces';
+import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 type Controls=React.ElementRef<typeof OrbitControls>;
 // Default framing of the rulebook broadcast: elevated over the long side, field below the scoreboard.
@@ -251,18 +253,32 @@ function concreteTexture(base:string,patches:string[],grain:number,blobs:number,
 }
 
 function ArenaMap({frame,feed}:{frame:Frame;feed:MutableRefObject<RenderFeed>}){
-  const asset=useAsset(frame.arena.asset||`/assets/map-${frame.arena.name}.glb`);
-  const concrete=useMemo(()=>({highland:concreteTexture('#86898d',['#6a6d71','#5a5e62','#9a9da0','#77797d'],18,150,2026),floor:concreteTexture('#2c2e32',['#232528','#36383c','#1e2023'],12,110,7)}),[]);
-  useEffect(()=>()=>{concrete.highland.dispose();concrete.floor.dispose();},[concrete]);
+  const asset=useAsset(frame.arena.asset||`/assets/map-${frame.arena.name}.glb`),season=frameSeason(frame);
+  const concrete=useMemo(()=>season==='2027'?null:{highland:concreteTexture('#86898d',['#6a6d71','#5a5e62','#9a9da0','#77797d'],18,150,2026),floor:concreteTexture('#2c2e32',['#232528','#36383c','#1e2023'],12,110,7)},[season]);
+  // 2027 follows manual figures 4-1 to 4-3: mottled grey concrete highlands and kerbs, a near-black speckled floor and
+  // matt paint. Colour, bump and roughness maps per surface; the GLB adds baked contact shadows (aoMap, second UV set).
+  const surfaces=useMemo<{highland:SurfaceSet;floor:SurfaceSet}|null>(()=>season==='2027'?{highland:concreteSurface('#605d59',2027),floor:floorSurface('#302e2b',7)}:null,[season]);
+  useEffect(()=>()=>{if(concrete){concrete.highland.dispose();concrete.floor.dispose();}if(surfaces){disposeSurface(surfaces.highland);disposeSurface(surfaces.floor);}},[concrete,surfaces]);
   useMemo(()=>asset.traverse(o=>{if(!(o instanceof THREE.Mesh))return;for(const m of (Array.isArray(o.material)?o.material:[o.material]) as THREE.MeshStandardMaterial[]){
     if(m.userData.broadcast)continue;m.userData.broadcast=true;
+    if(surfaces){
+      const surface=(set:SurfaceSet,tint:number,rough:number)=>{m.map=set.map;m.bumpMap=set.bump;m.bumpScale=1.2;m.roughnessMap=set.rough;m.roughness=rough;m.metalness=0;m.color.setScalar(tint);m.needsUpdate=true;};
+      if(m.name.startsWith('RedFieldPaint')){m.color.set('#b8352d');m.emissive.set('#b8352d');m.emissiveIntensity=.18;m.roughness=.55;m.metalness=0;}
+      else if(m.name.startsWith('BlueFieldPaint')){m.color.set('#2c55b6');m.emissive.set('#2c55b6');m.emissiveIntensity=.2;m.roughness=.55;m.metalness=0;}
+      else if(m.name.startsWith('WhiteFieldPaint')){m.color.set('#cfcfcb');m.emissive.set('#ffffff');m.emissiveIntensity=.03;m.roughness=.6;m.metalness=0;}
+      else if(m.name.startsWith('HighlandAsphalt'))surface(surfaces.highland,1,1);
+      else if(m.name.startsWith('FieldBlack'))surface(surfaces.floor,1,1);
+      else if(m.name.startsWith('ProtectiveMetal'))surface(surfaces.highland,1.32,1);
+      else if(m.name.startsWith('ConcreteSide'))surface(surfaces.highland,.86,1);
+      continue;
+    }
     if(m.name.startsWith('RedFieldPaint')){m.color.set('#ff3b30');m.emissive.set('#ff2a1c');m.emissiveIntensity=2.6;m.toneMapped=false;}
     else if(m.name.startsWith('BlueFieldPaint')){m.color.set('#1f6dff');m.emissive.set('#1450ff');m.emissiveIntensity=2.3;m.toneMapped=false;}
     else if(m.name.startsWith('WhiteFieldPaint')){m.emissive.set('#ffffff');m.emissiveIntensity=.22;}
-    else if(m.name.startsWith('HighlandAsphalt')){m.map=concrete.highland;m.color.set('#ffffff');m.roughness=.84;m.needsUpdate=true;}
-    else if(m.name.startsWith('FieldBlack')){m.map=concrete.floor;m.color.set('#ffffff');m.roughness=.88;m.needsUpdate=true;}
+    else if(m.name.startsWith('HighlandAsphalt')){m.map=concrete!.highland;m.color.set('#ffffff');m.roughness=.84;m.needsUpdate=true;}
+    else if(m.name.startsWith('FieldBlack')){m.map=concrete!.floor;m.color.set('#ffffff');m.roughness=.88;m.needsUpdate=true;}
     else if(m.name.startsWith('ProtectiveMetal')){m.color.multiplyScalar(1.25);}
-    else if(m.name.startsWith('ConcreteSide')){m.map=concrete.highland;m.color.set('#8a8c8e');m.roughness=.9;m.needsUpdate=true;}
+    else if(m.name.startsWith('ConcreteSide')){m.map=concrete!.highland;m.color.set('#8a8c8e');m.roughness=.9;m.needsUpdate=true;}
   }}),[asset]);
   const units=useMemo(()=>(['red','blue'] as const).map(team=>({team,node:asset.getObjectByName('AvailableUnit_'+team)})),[asset]);
   useFrame(()=>{const f=feed.current.frame;if(!f)return;for(const u of units)if(u.node)u.node.visible=!f.robots.some(r=>r.team===u.team&&r.unit_pickup?.held)&&((f.teams[u.team] as {energy_units_left?:number|null}).energy_units_left??1)>0;});
@@ -341,6 +357,17 @@ function Director({mode,selected,pov,feed,audio,onCanvas,onRender,shot}:{mode:Ca
   return <OrbitControls ref={controls} enabled={mode==='orbit'&&!shot} enableDamping dampingFactor={.075} maxPolarAngle={Math.PI*.47} minDistance={4} maxDistance={72} target={BROADCAST_TARGET}/>;
 }
 
+// RMUC 2027 lighting: the broadcast fill plus a faint studio environment for reflections, so the baked contact shadows
+// (which scale the fill) and the surfaces' bump and roughness read; the key light's shadow map covers only the field,
+// four times as finely.
+function FieldLights2027(){
+  const {gl,scene}=useThree();
+  useEffect(()=>{const pmrem=new THREE.PMREMGenerator(gl),env=pmrem.fromScene(new RoomEnvironment(),.04).texture;
+    scene.environment=env;scene.environmentIntensity=.14;
+    return()=>{scene.environment=null;scene.environmentIntensity=1;env.dispose();pmrem.dispose();};},[gl,scene]);
+  return <><hemisphereLight args={['#e4eefb','#1c2128',1.65]}/><ambientLight intensity={.12}/><directionalLight position={[4,26,9]} intensity={3.1} color="#f4f6ff" castShadow shadow-mapSize={[4096,4096]} shadow-camera-left={-17} shadow-camera-right={17} shadow-camera-top={17} shadow-camera-bottom={-17} shadow-bias={-.0002} shadow-normalBias={.015}/></>;
+}
+
 class SceneBoundary extends Component<{children:ReactNode;onRetry:()=>void;audio?:ArenaAudio},{failed:boolean}>{
   state={failed:false};
   static getDerivedStateFromError(){return {failed:true};}
@@ -351,7 +378,7 @@ export function ArenaScene({frame,feed,mode,selected,pov='',audio,onSelect,onCan
   const firstPerson=mode==='fpv'&&!shot?pov:'';
   function retry(){for(const url of new Set([frame.arena.asset,...Object.values(frame.arena.structure_assets||{}),...frame.robots.map(r=>r.model_asset||`/assets/robot-${r.role}.glb`),...frame.robots.filter(r=>r.drones?.length&&r.model_asset).map(r=>r.model_asset!.replace('/robot-','/drone-'))]))useGLTF.clear(url);}
   return <SceneBoundary onRetry={retry} audio={audio}><Canvas shadows dpr={[1,1.6]} camera={{position:BROADCAST_EYE,fov:42,near:.1,far:220}} gl={{antialias:true}} onCreated={({gl,scene})=>{gl.shadowMap.autoUpdate=false;gl.toneMapping=THREE.ACESFilmicToneMapping;gl.toneMappingExposure=1.18;scene.background=new THREE.Color('#05070b');scene.fog=new THREE.Fog('#05070b',55,150);}}>
-    <hemisphereLight args={['#e4eefb','#1c2128',1.9]}/><ambientLight intensity={.22}/><directionalLight position={[4,26,9]} intensity={3.1} color="#f4f6ff" castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-28} shadow-camera-right={28} shadow-camera-top={24} shadow-camera-bottom={-24} shadow-bias={-.0004}/><directionalLight position={[-18,12,-14]} color="#9fb9ff" intensity={1.1}/><directionalLight position={[18,9,14]} color="#c9b8ff" intensity={.45}/>
+    {frameSeason(frame)==='2027'?<FieldLights2027/>:<><hemisphereLight args={['#e4eefb','#1c2128',1.9]}/><ambientLight intensity={.22}/><directionalLight position={[4,26,9]} intensity={3.1} color="#f4f6ff" castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-28} shadow-camera-right={28} shadow-camera-top={24} shadow-camera-bottom={-24} shadow-bias={-.0004}/></>}<directionalLight position={[-18,12,-14]} color="#9fb9ff" intensity={1.1}/><directionalLight position={[18,9,14]} color="#c9b8ff" intensity={.45}/>
     <Venue season={frameSeason(frame)}/>
     <Suspense fallback={<Html center><div className="scene-loading">加载 Blender / glTF 资产…</div></Html>}><ArenaMap frame={frame} feed={feed}/><BaseModel team="red" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/><BaseModel team="blue" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/>{frame.outposts&&<><OutpostModel team="red" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/><OutpostModel team="blue" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/></>}{frame.runes&&<><RuneModel team="red" feed={feed}/><RuneModel team="blue" feed={feed}/></>}{frame.arena.structure_assets?.core&&frame.arena.assembly_frames&&<><TechCore team="red" feed={feed} url={frame.arena.structure_assets.core}/><TechCore team="blue" feed={feed} url={frame.arena.structure_assets.core}/></>}{frame.robots.map(r=><RobotModel key={r.id} id={r.id} role={r.role} team={r.team} url={r.model_asset||`/assets/robot-${r.role}.glb`} feed={feed} selected={selected} pov={firstPerson===r.id} onSelect={onSelect}/>)}{frame.robots.filter(r=>r.drones?.length&&r.model_asset).flatMap(r=>r.drones!.map((d,k)=><DroneModel key={d.id} id={d.id} robot={r.id} index={k} team={r.team} url={r.model_asset!.replace('/robot-','/drone-')} feed={feed}/>))}</Suspense>
     <group visible={!shot}>{frame.robots.filter(r=>r.id!==firstPerson).map(r=><RobotHud key={r.id} id={r.id} team={r.team} feed={feed} focus={selected===r.id} onSelect={onSelect}/>)}

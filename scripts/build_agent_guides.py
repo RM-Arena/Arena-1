@@ -447,7 +447,7 @@ def location_rows_2027(lang, arena):
         ["工作台" if zh else "Workbench", point(*bench["dock_point"]), "重型机器人停靠安装 42mm 发射模块" if zh else "the heavy robot docks here to fit its 42 mm launcher"],
         ["装配区" if zh else "Assembly zone", z("red_assembly"), "中央高地装配台上；对方禁入" if zh else "on the central assembly plinth; closed to the enemy"],
         ["机库" if zh else "Hangar", point(hangar["x"], hangar["y"]), f"空中机器人起降，高 {hangar['z']:.2f} m" if zh else f"aerial robots launch and dock, {hangar['z']:.2f} m high"],
-        ["制高点" if zh else "High point", z("red_high_point"), "高 0.8 m，三级台阶；防御增益与就地兑换" if zh else "0.8 m high with three steps; defense buff and local exchange"],
+        ["制高点" if zh else "High point", z("red_high_point"), "高 0.8 m，东侧三级、南侧四级台阶；防御增益与就地兑换" if zh else "0.8 m high, three steps on the east and four on the south; defense buff and local exchange"],
         ["能量机关" if zh else "Power rune", point(arena["rune"]["x"], arena["rune"]["y"]), f"中心高约 {arena['rune']['z']:.1f} m，红蓝两面共轴" if zh else f"centre about {arena['rune']['z']:.1f} m high; coaxial red and blue faces"],
     ]
     return table(["地点", "红方坐标", "说明"] if zh else ["Place", "Red coordinates", "Notes"], rows)
@@ -553,7 +553,7 @@ def model_controls_2027(lang, d):
     if d["chassis_type"] == "wheel_legged":
         text += ("支持 `leg_height`、`jump`、`lean`；不能直接横移。" if zh else "Supports `leg_height`, `jump` and `lean`, without direct strafing.")
         if d.get("step_climb_m"):
-            text += (f"可登上 {d['step_climb_m']:.2f} m 台阶（制高点三级台阶）。" if zh else f" Climbs {d['step_climb_m']:.2f} m steps (the high-point stairs).")
+            text += (f"可登上 {d['step_climb_m']:.2f} m 台阶（制高点台阶）。" if zh else f" Climbs {d['step_climb_m']:.2f} m steps (the high-point stairs).")
         text += "\n"
     if d.get("leg_type") == "serial":
         text += ("串联腿翻倒后会自动翻身（约 1–2 s）。\n" if zh else "Serial legs right the robot after a fall in about 1-2 s.\n")
