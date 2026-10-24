@@ -136,6 +136,38 @@ fn rune_has_rulebook_constant_and_reset_sine_motion() {
 }
 
 #[test]
+fn a_tool_line_the_arm_cannot_hold_does_not_deadlock_the_flip() {
+    // The heavy levers the unit up with the jaws; on a tilted core the wrist saturates and can no
+    // longer match the required tool line. Grade 3 used to freeze there — the flip that would have
+    // moved the goal waited for an alignment the arm could never reach. Only the tool's position is
+    // gated now, so the flip still ripples through to completion.
+    let (mut m, h) = setup(3);
+    ready(&mut m);
+    {
+        let s = m.assemblies.get_mut("red").unwrap();
+        s.inserted = 0.1;
+        s.lifted = 0.1;
+        s.flipped = 0.0;
+    }
+    align(&mut m, h, 0);
+    let before = m.assemblies["red"].core(0).flipped;
+    // Saturated wrist: the tip is still on the unit, the tool line is ~45° off the goal.
+    m.robots[h].arm_joints[4] = -1.0;
+    for _ in 0..6 {
+        m.assembly_rpc_2027(h, &json!({"assembly_flip":true}));
+    }
+    let after = m.assemblies["red"].core(0).flipped;
+    assert_eq!(before, 0.0);
+    assert!(after > 0.0, "the flip stalled while the tool line was out of reach");
+    // A tool that has left the core still blocks it.
+    let (point, _, _) = m.core_goal_2027("red", 0).unwrap();
+    m.robots[h].arm_tip = [point[0] + 0.5, point[1], point[2]];
+    let held = m.assemblies["red"].core(0).flipped;
+    m.assembly_rpc_2027(h, &json!({"assembly_flip":true}));
+    assert_eq!(m.assemblies["red"].core(0).flipped, held, "the unit left the core");
+}
+
+#[test]
 fn all_assembly_grades_accept_aligned_sequential_operations() {
     for difficulty in 1..=4 {
         let (mut m, h) = setup(difficulty);

@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from rmuc_arena.custom_models import inspect_glb
-from rmuc_arena.server import create_app, intro_seconds
+from rmuc_arena.server import create_app, intro_minimum_seconds, intro_seconds
 from rmuc_arena.showcase import detect_provider, load_profile, parse_showcase, validate_profile, validate_showcase
 from rmuc_arena.submissions import ROOT, load_submission, scaffold, start_training, submit
 from tests.showcase_fixture import SHOWCASE, SHOWCASE_TEXT, write_showcase
@@ -69,7 +69,10 @@ class ShowcaseFormatTests(unittest.TestCase):
     def test_intro_length_follows_the_lineup(self):
         self.assertEqual(intro_seconds(12), 43.1)
         self.assertEqual(intro_seconds(2), 19.1)
-        self.assertLess(intro_seconds(60), 75)
+        # Every card holds the screen for at least two seconds, so a long lineup lengthens the
+        # self-check instead of compressing its cuts.
+        self.assertEqual(intro_minimum_seconds(60), 128)
+        self.assertGreaterEqual(intro_seconds(60), intro_minimum_seconds(60))
 
 
 class WorkspaceShowcaseTests(unittest.TestCase):

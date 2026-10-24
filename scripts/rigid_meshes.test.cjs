@@ -23,13 +23,19 @@ test('rigid decorations merge without changing geometry, source assets or cache 
  assert.equal(batchRigidMeshes(scene),result);assert.notEqual(result,scene);
 });
 
-test('joints, unknown groups, armour numbers and visibility switches remain independent',()=>{
+test('posed joints, armour numbers and visibility switches survive the merge',()=>{
  const scene=group('Robot'),chassis=group('Chassis',scene);box(chassis);box(chassis,1);
- const names=['Turret','Wheel_0','LegR_Thigh','ArmLift','Aux_ArmReach','LauncherModule','CarriedUnit_0','ArmorNumber','FutureJoint'];
- for(const name of names){const joint=group(name,chassis);box(joint);box(joint,1);}
+ // Everything here is posed by the cockpit, so a merged batch may never swallow one of these.
+ const joints=['Turret','Wheel_0','LegR_Thigh','ArmLift','Aux_ArmReach','LauncherModule','CarriedUnit_0','ArmorNumber'];
+ for(const name of joints){const joint=group(name,chassis);box(joint);box(joint,1);}
+ // An unlisted group is a rigid part holder: it folds into its joint, which is why any *new*
+ // animated node has to be added to ROBOT_JOINT in rigidMeshes.ts.
+ const holder=group('FuturePart',chassis);box(holder);box(holder,1);
  const result=batchRigidMeshes(scene);
- for(const name of names){const original=scene.getObjectByName(name),batched=result.getObjectByName(name);assert.ok(batched);assert.equal(batched.parent.name,original.parent.name);original.rotation.y=batched.rotation.y=.65;original.position.z=batched.position.z=1.7;}
  assert.deepEqual(vertices(result),vertices(scene));
+ for(const name of joints){const original=scene.getObjectByName(name),batched=result.getObjectByName(name);assert.ok(batched);assert.equal(batched.parent.name,original.parent.name);original.rotation.y=batched.rotation.y=.65;original.position.z=batched.position.z=1.7;}
+ assert.deepEqual(vertices(result),vertices(scene));
+ assert.equal(result.getObjectByName('FuturePart').children.length,0);
  const carried=result.getObjectByName('CarriedUnit_0');assert.ok(carried.children.length);carried.visible=false;
  const labels=result.getObjectByName('ArmorNumber');assert.ok(labels.children.every(child=>child.isMesh));
 });
@@ -41,7 +47,8 @@ test('transparent, reflected, hidden and incompatible geometry are not folded in
  const hidden=group('Battery',chassis);hidden.visible=false;box(hidden);box(hidden,1);
  const different=box(chassis,4);different.geometry.deleteAttribute('uv');
  const result=batchRigidMeshes(scene);
- assert.equal(counts(result).meshes,5);assert.equal(result.getObjectByName('Battery').visible,false);
+ // Opaque batch + transparent + mirrored + one colour batch per hidden joint (two boxes -> one).
+ assert.equal(counts(result).meshes,4);assert.equal(result.getObjectByName('Battery').visible,false);
  assert.deepEqual(vertices(result),vertices(scene));assert.equal(counts(result).triangles,counts(scene).triangles);
 });
 
@@ -51,7 +58,8 @@ test('shipped robots keep all triangles, bounds and articulated groups while red
   const bytes=fs.readFileSync(file),{scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
   const result=batchRigidMeshes(scene),before=counts(scene),after=counts(result);
   assert.equal(after.triangles,before.triangles,name);assert.ok(after.meshes<=before.meshes,name);
-  if(name.startsWith('robot-'))assert.ok(after.meshes<before.meshes,name);
+  // Colour + surface baking folds each joint's parts into a batch: robots keep well under half.
+  if(name.startsWith('robot-'))assert.ok(after.meshes<=Math.ceil(before.meshes*.5),`${name} only reached ${after.meshes}/${before.meshes}`);
   const original=new THREE.Box3().setFromObject(scene,true),batched=new THREE.Box3().setFromObject(result,true);
   assert.ok(original.min.distanceTo(batched.min)<1e-5&&original.max.distanceTo(batched.max)<1e-5,name);
   scene.traverse(node=>{if(!node.isMesh)assert.ok(result.getObjectByName(node.name),'Missing joint: '+node.name);});

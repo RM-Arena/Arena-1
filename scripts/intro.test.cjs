@@ -15,10 +15,35 @@ test('the intro matches the server length and gives every robot one shot',()=>{
  assert.ok(Math.abs(cuts.at(-1).end-43.1)<1e-9);
  for(let i=1;i<cuts.length;i++)assert.ok(Math.abs(cuts[i].start-cuts[i-1].end)<1e-9);
 });
-test('uneven free-battle lineups scale to the announced duration and long lineups stay bounded',()=>{
- const cuts=intro.introSchedule(robots(4,1),10);assert.equal(cuts.length,1+2+5+1);assert.ok(Math.abs(cuts.at(-1).end-10)<1e-9);
+test('no segment is ever shown for less than two seconds',()=>{
+ // The floor is one entry per card: opening, both team cards, every chassis, the face-off.
+ assert.equal(intro.introMinimumSeconds(10),28);
+ const totals=[[3,3,10,20],[5,5,12,28],[6,6,43.1,43.1]].map(([red,blue,window,span])=>{
+  const cuts=intro.introSchedule(robots(red,blue),window);
+  assert.equal(cuts.length,red+blue+4,'every card is laid out');
+  for(const c of cuts)assert.ok(c.end-c.start>=2-1e-9,`${c.key} got ${(c.end-c.start).toFixed(2)}s`);
+  assert.ok(Math.abs(cuts.at(-1).end-span)<1e-9,`ends at ${cuts.at(-1).end}`);
+  return Math.round(cuts.at(-1).end*100)/100;
+ });
+ // A window shorter than the floor is stretched to it rather than compressed: the reel still ends on
+ // the face-off, which is what the extended self-check buys.
+ assert.deepEqual(totals,[20,28,43.1]);
+});
+test('uneven free-battle lineups stay inside the announced duration and long lineups stay bounded',()=>{
+ const cuts=intro.introSchedule(robots(4,1),30);assert.equal(cuts.length,1+2+5+1);assert.ok(Math.abs(cuts.at(-1).end-30)<1e-9);
  assert.equal(cuts.find(c=>c.segment.kind==='robot'&&c.segment.team==='blue').segment.count,1);
- assert.ok(intro.introSeconds(40)<60);
+ // Forty chassis cannot each hold two seconds inside a minute, so the floor wins over the window.
+ assert.equal(intro.introMinimumSeconds(40),88);assert.ok(intro.introSeconds(40)>=intro.introMinimumSeconds(40));
+});
+test('a late start stretches the reel instead of cutting the second team off',()=>{
+ // The picker can eat most of the self-check window; the schedule never drops below two seconds a
+ // segment, so the reel is longer than the window when the clock was not extended first.
+ const span=12,cuts=intro.introSchedule(robots(5,5),span);
+ assert.equal(cuts.length,1+2+10+1);
+ assert.deepEqual(Array.from(cuts.filter(c=>c.segment.kind==='robot'),c=>c.segment.team),Array(5).fill('red').concat(Array(5).fill('blue')));
+ for(const c of cuts)assert.ok(c.end-c.start>=2-1e-9,c.key);
+ assert.ok(Math.abs(cuts.at(-1).end-intro.introMinimumSeconds(10))<1e-9,'the last cut lands on the extended clock');
+ assert.equal(intro.introAt(cuts,intro.introMinimumSeconds(10)).cut.segment.kind,'faceoff');
 });
 test('the cut at a moment, before the start and after the end',()=>{
  const cuts=intro.introSchedule(robots(6,6),43.1);

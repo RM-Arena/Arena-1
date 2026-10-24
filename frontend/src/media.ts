@@ -12,7 +12,7 @@ const THROTTLE:Record<string,number>={'shot':.02,'shot-hero':.06,impact:.035,hit
 const IMPORTANT=new Set(['destroy','explosion','finish','respawn','rune_activated','base_hit','outpost_hit','level_up']);
 const rand=(a:number,b:number)=>a+Math.random()*(b-a);
 
-type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number};
+type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number;loop:boolean};
 type MusicRequest={cue:BgmCue;scope:string;remaining:number;rate:number;at:number};
 type DroneVoice={gain:GainNode;panner:PannerNode;noise:AudioBufferSourceNode;oscillators:OscillatorNode[];nodes:AudioNode[]};
 type AnnouncementRequest={announcement:KillAnnouncement;started:(seconds:number)=>void;queuedAt:number};
@@ -24,9 +24,12 @@ export type InterfaceCue='hover'|'click'|'select'|'confirm'|'back'|'open'|'succe
 export class ArenaAudio {
   enabled=false;context:AudioContext|null=null;master!:GainNode;destination!:MediaStreamAudioDestinationNode;
   private bus!:GainNode;private wet!:GainNode;private noise!:AudioBuffer;private last=new Map<string,number>();private voices:number[]=[];private arena={width:28,height:15};
-  private music!:GainNode;private tracks=new Map<string,AudioBuffer>();private loading=new Map<string,Promise<void>>();private source:Music|null=null;private saturation!:Float32Array<ArrayBuffer>;private musicError:string|null=null;private musicStarts=0;
+  private music!:GainNode;private buffers=new Map<string,AudioBuffer>();private loading=new Map<BgmCue,Promise<void>>();private resolved=new Map<BgmCue,string>();private failures=new Map<BgmCue,string[]>();private source:Music|null=null;private saturation!:Float32Array<ArrayBuffer>;private musicError:string|null=null;private musicStarts=0;
   // Every stage owns its track; match sources always start at zero.
   private wanted:MusicRequest|null=null;private paused=false;
+  // Which cue already played its opening recording out, per match/screen, so the hand-off to the
+  // looping track happens exactly once and survives speed changes, pause and re-renders.
+  private handedOver:{cue:BgmCue;scope:string}|null=null;
   private bgmVolume=.6;private rotorVoices=new Map<string,DroneVoice>();
   private announcementBus!:GainNode;private announcementBuffers=new Map<KillCue,AudioBuffer>();
   private announcementLoads=new Map<KillCue,Promise<boolean>>();private announcementQueue:AnnouncementRequest[]=[];
@@ -80,8 +83,9 @@ export class ArenaAudio {
     this.enabled=true;this.master.gain.cancelScheduledValues(this.context.currentTime);this.master.gain.setTargetAtTime(.8,this.context.currentTime,.025);
     if(this.paused)await this.context.suspend();else await this.context.resume();
     const cue=this.wanted?.cue;if(cue)await this.loadTrack(cue);
-    // Cache the competition and countdown tracks before their first transition.
-    void this.loadTrack('match');void this.loadTrack('countdown');this.sync();
+    // Cache the competition and countdown tracks before their first transition (the match opening has
+    // to hand over to the looping sting the moment it ends, four minutes into the match).
+    void this.loadTrack('match');void this.loadTrack('match_alt');void this.loadTrack('countdown');this.sync();
     for(const cue of Object.keys(KILL_CUES) as KillCue[])void this.loadAnnouncement(cue);
     this.syncAnnouncements();
   }
@@ -104,7 +108,9 @@ export class ArenaAudio {
   }
   get musicPlaying(){return !!this.source;}
   get diagnostics(){return {state:this.context?.state??'none',cue:this.source?.cue??null,wanted:this.wanted?.cue??null,
-    track:this.source?MUSIC[this.source.cue].url:null,scope:this.source?.scope??null,startOffset:this.source?.offset??null,
+    track:this.source?MUSIC[this.source.cue].url:null,file:this.source?this.resolved.get(this.source.cue)??null:null,
+    failed:this.source?this.failures.get(this.source.cue)??[]:[],
+    scope:this.source?.scope??null,startOffset:this.source?.offset??null,
     position:this.source&&this.context?Math.round(this.position(this.source)*100)/100:null,starts:this.musicStarts,error:this.musicError,bgmVolume:this.bgmVolume,drones:this.rotorVoices.size,interfaceSounds:this.interfaceCount,interfaceCue:this.interfaceCue,
     announcer:{cue:this.announcementVoice?.request.announcement.cue??null,starts:this.announcementStarts,queued:this.announcementQueue.map(r=>r.announcement.cue),loaded:this.announcementBuffers.size,error:this.announcementError}};}
   announce(announcement:KillAnnouncement,started:(seconds:number)=>void){
@@ -151,31 +157,70 @@ export class ArenaAudio {
     node.onended=()=>{node.disconnect();gain.disconnect();if(this.announcementVoice!==voice)return;this.announcementVoice=null;this.updateEffectsMix();this.syncAnnouncements();};
     node.start(c.currentTime);request.started(Math.max(3.4,buffer.duration+.2));
   }
-  // Decoded tracks are cached per file: several cues may share one soundtrack.
-  private loadTrack(cue:BgmCue):Promise<void>{
-    const url=MUSIC[cue].url;if(this.tracks.has(url))return Promise.resolve();const pending=this.loading.get(url);if(pending)return pending;
+  // A decoded buffer is cached per file (several cues can share one soundtrack) but the *choice* of
+  // file is cached per cue: `results` and `pick` both fall back to `home.mp3`, and a shared key
+  // would let the first one's fallback answer for the second and hide its own uploaded track.
+  private loadTrack(cue:BgmCue):Promise<void>{    const chosen=this.resolved.get(cue);
+    if(chosen&&this.buffers.has(chosen))return Promise.resolve();
+    const pending=this.loading.get(cue);if(pending)return pending;
     if(!this.context)return Promise.resolve();
-    const load=fetch(url).then(r=>{if(!r.ok)throw new Error(`Music unavailable: ${cue}`);return r.arrayBuffer();})
-      .then(data=>this.context!.decodeAudioData(data)).then(track=>{this.tracks.set(url,track);this.musicError=null;this.sync();})
-      .catch(e=>{this.musicError=String(e.message||e);this.loading.delete(url);});
-    this.loading.set(url,load);return load;
+    const url=MUSIC[cue].url;
+    // A cue may name a file that is not shipped (`highlight.m4a`, `<cue>-theme.*`): try it, then fall
+    // back to what the repository does ship, and remember the winner for this cue.
+    const fetchTrack=(source:string)=>fetch(source).then(r=>{if(!r.ok)throw new Error(`Music unavailable: ${cue}`);return r.arrayBuffer();}).then(data=>this.context!.decodeAudioData(data));
+    const listed=(value:string|string[]|undefined)=>Array.isArray(value)?value:value?[value]:[];
+    // Walk the chain in order: an uploaded track, then the shipped one, then a format this browser
+    // can actually decode. `used` remembers which file won and `failures` why the others did not, so
+    // a track that silently falls back can be explained in the diagnostics panel.
+    let used=url;
+    this.failures.delete(cue);
+    const attempt=(sources:string[]):Promise<AudioBuffer>=>{
+      const [next,...rest]=sources;
+      if(!next)return Promise.reject(new Error(`Music unavailable: ${cue}`));
+      return fetchTrack(next).then(track=>{used=next;return track;}).catch(e=>{
+        const list=this.failures.get(cue)??[];list.push(`${next} → ${String((e as Error)?.message||e).slice(0,90)}`);this.failures.set(cue,list);
+        return attempt(rest);
+      });
+    };
+    const load=attempt([...listed(MUSIC[cue].override),url,...listed(MUSIC[cue].fallback)])
+      .then(track=>{this.buffers.set(used,track);this.resolved.set(cue,used);this.musicError=null;this.sync();})
+      .catch(e=>{this.musicError=String(e.message||e);this.loading.delete(cue);});
+    this.loading.set(cue,load);return load;
   }
-  private position(m:Music){const p=m.offset+(this.context!.currentTime-m.startedAt)*m.rate;return MUSIC[m.cue].loop?p%m.duration:Math.min(p,m.duration);}
+  private position(m:Music){const p=m.offset+(this.context!.currentTime-m.startedAt)*m.rate;return m.loop?p%m.duration:Math.min(p,m.duration);}
+  // The track a cue is currently scoring with. A cue with a hand-off target (`match` → the repository
+  // sting) plays its own recording **once**, and from its end the target takes over on loop; a machine
+  // that has no installed recording at all falls straight through to the target instead of going quiet.
+  private scoring(want:MusicRequest):BgmCue{
+    const then=MUSIC[want.cue].then;
+    if(!then)return want.cue;
+    const handedOver=this.handedOver?.cue===want.cue&&this.handedOver.scope===want.scope;
+    const missing=!this.resolved.has(want.cue)&&!this.loading.has(want.cue);
+    return handedOver||missing?then:want.cue;
+  }
   private sync(){
     const want=this.wanted;if(!this.enabled||!this.context||!want||this.paused)return;
-    const buffer=this.tracks.get(MUSIC[want.cue].url);if(!buffer)return;
-    const countdown=want.cue==='countdown',rate=countdown?Math.max(.5,Math.min(8,want.rate)):1;
+    const cue=this.scoring(want);
+    const chosen=this.resolved.get(cue);
+    const buffer=chosen?this.buffers.get(chosen):undefined;if(!buffer)return;
+    const countdown=cue==='countdown',rate=countdown?Math.max(.5,Math.min(8,want.rate)):1;
     const target=countdown?Math.max(0,Math.min(buffer.duration-.001,5-Math.max(0,want.remaining-(this.context.currentTime-want.at)*rate))):0;
     const s=this.source;
-    if(s&&s.cue===want.cue&&s.scope===want.scope){
+    if(s&&s.cue===cue&&s.scope===want.scope){
       if(!countdown||Math.abs(this.position(s)-target)<.35&&s.rate===rate)return;
     }
     this.fadeOut(.12);const c=this.context,node=c.createBufferSource(),gain=c.createGain();node.buffer=buffer;
-    node.loop=MUSIC[want.cue].loop;node.loopStart=0;node.loopEnd=buffer.duration;node.playbackRate.value=rate;
-    gain.gain.setValueAtTime(.0001,c.currentTime);gain.gain.exponentialRampToValueAtTime(MUSIC[want.cue].gain,c.currentTime+.12);
+    // A hand-off cue runs to its end once, so the loop that follows is the other recording.
+    node.loop=MUSIC[cue].loop&&!MUSIC[cue].then;node.loopStart=0;node.loopEnd=buffer.duration;node.playbackRate.value=rate;
+    gain.gain.setValueAtTime(.0001,c.currentTime);gain.gain.exponentialRampToValueAtTime(MUSIC[cue].gain,c.currentTime+.12);
     node.connect(gain).connect(this.music);node.start(c.currentTime,target);
-    const current:Music={node,gain,offset:target,startedAt:c.currentTime,cue:want.cue,scope:want.scope,rate,duration:buffer.duration};this.source=current;this.musicStarts++;
-    node.onended=()=>{node.disconnect();gain.disconnect();if(this.source===current)this.source=null;};
+    const current:Music={node,gain,offset:target,startedAt:c.currentTime,cue,scope:want.scope,rate,duration:buffer.duration,loop:node.loop};this.source=current;this.musicStarts++;
+    node.onended=()=>{node.disconnect();gain.disconnect();if(this.source!==current)return;
+      this.source=null;
+      if(!MUSIC[cue].then)return;
+      this.handedOver={cue,scope:want.scope};
+      this.sync();
+    };
   }
   private fadeOut(seconds:number){
     const s=this.source;if(!s||!this.context)return;this.source=null;const t=this.context.currentTime;
@@ -302,7 +347,7 @@ export class ArenaAudio {
     }else if(e.type==='rune_activated'){
       const o=this.voice(e,.55,.5,2),pad=this.filter(o,'lowpass',400,3200,.9,t);
       for(const f of [220,277.18,329.63,440])this.tone(pad,t,'sawtooth',f,f,1.7,.16,.12);this.bell(o,t+.25,[[1760,.2,.8],[2637,.12,.6]],1);
-    }else if(e.type==='finish'&&!this.tracks.has(MUSIC.victory.url)){
+    }else if(e.type==='finish'&&!this.resolved.has('victory')){
       const o=this.voice(e,.8,.45,3),brass=this.filter(o,'lowpass',900,2400,.3,t),win=!!e.winner;
       for(const f of win?[196,246.94,293.66]:[196,233.08,293.66])for(const [d,a] of [[1,.14],[1.004,.08]])this.tone(brass,t,'sawtooth',f*d,f*d,.3,a,.02);
       for(const f of win?[261.63,329.63,392,523.25]:[220,261.63,329.63,440])for(const [d,a] of [[1,.14],[1.005,.08]])this.tone(brass,t+.28,'sawtooth',f*d,f*d,1.9,a,.04);

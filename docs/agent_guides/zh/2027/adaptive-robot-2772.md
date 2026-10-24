@@ -511,5 +511,5 @@ python3 -B arena.py test --opponent 版本号 --duration 420 --games 2 --seed 20
 ### 本型号的机构能力
 
 驱动：`wheel_legged`；机械臂：0只。
-支持 `leg_height`、`jump`、`lean`；不能直接横移。可登上 0.20 m 台阶（制高点三级台阶）。
+支持 `leg_height`、`jump`、`lean`；不能直接横移。`climb` 可登上 0.20 m 台阶（制高点三级台阶）。
 串联腿翻倒后会自动翻身（约 1–2 s）。

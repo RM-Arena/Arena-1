@@ -710,9 +710,22 @@ impl Engine {
                 let amount = order["amount"].as_u64().unwrap_or(batch as u64).min(1000) as u32;
                 let cost = if batch > 0 { amount as f64 / batch as f64 * n(&v, if remote { "remote_cost" } else { "local_cost" }) } else { f64::INFINITY };
                 let purchased = if kind == "42mm" { self.teams[&team].purchased_42 } else { self.teams[&team].purchased_17 };
-                if allowed && amount > 0 && batch > 0 && amount % batch == 0 && purchased + amount <= n(&v, "team_purchase_cap") as u32
-                    && self.teams[&team].resources >= cost
-                {
+                let cap = n(&v, "team_purchase_cap") as u32;
+                // Say why an order was refused: a silent refusal looks like a lost key press.
+                let refusal = if !allowed {
+                    Some(if remote { "远程补给需脱离交战 6 秒".to_string() } else { "需在本方基地 / 补给区 / 制高点或已完全控制的前哨站内".to_string() })
+                } else if amount == 0 || batch == 0 || (remote && amount % batch != 0) {
+                    Some(if remote { format!("远程弹药数量必须为 {} 的整数倍", batch) } else { "弹药数量必须大于 0".to_string() })
+                } else if purchased + amount > cap {
+                    Some(format!("本队 {} 弹购买量已达上限（{}/{}）", kind, purchased, cap))
+                } else if self.teams[&team].resources < cost {
+                    Some(format!("金币不足：需 {:.0}，现有 {:.0}", cost, self.teams[&team].resources))
+                } else {
+                    None
+                };
+                if let Some(reason) = refusal {
+                    self.event("ammo_refused", json!({"robot":r.id,"reason":reason}));
+                } else {
                     let t = self.teams.get_mut(&team).unwrap();
                     t.resources -= cost;
                     if kind == "42mm" { t.purchased_42 += amount } else { t.purchased_17 += amount }
@@ -723,6 +736,8 @@ impl Engine {
                     }
                     self.event("ammo_purchase", json!({"robot":r.id,"amount":amount,"cost":cost,"remote":remote}));
                 }
+            } else {
+                self.event("ammo_refused", json!({"robot":r.id,"reason":"该型号不能购买弹药"}));
             }
         }
         if r.role == "sentry" {
@@ -731,7 +746,7 @@ impl Engine {
         if r.role == "heavy" && rpc.get("install_launcher").and_then(Value::as_bool) == Some(true) {
             self.install_launcher(i);
         } else if r.role == "heavy" && self.robots[i].launcher == "installing" {
-            self.robots[i].launcher = "unlocked".into();
+            self.robots[i].launcher = self.launcher_idle_state(i);
             self.robots[i].launcher_progress = 0.0;
         }
         self.request_pickup(i, rpc);
@@ -775,14 +790,40 @@ impl Engine {
             z.kind == "workbench" && z.owner.as_deref() == Some(&r.team) && dist(r.x, r.y, z.x, z.y) <= n(tol, "dock_radius_m").max(z.radius)
         }) && r.vx.hypot(r.vy) <= n(tol, "max_speed_mps").max(0.01) + 1e-9
     }
+    /// What an abandoned install falls back to: the team's unlock state, so cancelling early does not
+    /// quietly hand out the rules' 42 mm unlock.
+    fn launcher_idle_state(&self, i: usize) -> String {
+        let team = self.robots[i].team.clone();
+        let unlocked = self
+            .teams
+            .get(&team)
+            .map(|t| {
+                t.completed_difficulties.contains(&3)
+                    || t.launcher_unlock_s.map_or(true, |s| self.time() + 1e-8 >= s)
+            })
+            .unwrap_or(true);
+        if unlocked { "unlocked".into() } else { "locked".into() }
+    }
+    /// True once the team has earned the 42 mm: difficulty 3, or 300 - M/50 - 2N/3 seconds.
+    fn launcher_unlocked(&self, team: &str) -> bool {
+        self.teams
+            .get(team)
+            .map(|t| {
+                t.completed_difficulties.contains(&3)
+                    || t.launcher_unlock_s.map_or(true, |s| self.time() + 1e-8 >= s)
+            })
+            .unwrap_or(true)
+    }
     fn install_launcher(&mut self, i: usize) {
         let r = self.robots[i].clone();
-        if !r.alive || r.weak || !["unlocked", "installing"].contains(&r.launcher.as_str()) {
+        // Bolting the module on is allowed at any point in the match; whether it may *shoot* is what
+        // the rules' unlock (difficulty 3 or 300 - M/50 - 2N/3 s) decides, in `fire_2027`.
+        if !r.alive || r.weak || !["locked", "unlocked", "installing"].contains(&r.launcher.as_str()) {
             return;
         }
         if !self.workbench_docked(i) {
             if r.launcher == "installing" {
-                self.robots[i].launcher = "unlocked".into();
+                self.robots[i].launcher = self.launcher_idle_state(i);
                 self.robots[i].launcher_progress = 0.0;
             }
             return;
@@ -798,7 +839,8 @@ impl Engine {
             self.event("launcher_fitted", json!({"robot":r.id,"team":r.team}));
         }
     }
-    /// Unlock path 2 (5.7.1): after 300 - M/50 - 2N/3 seconds.
+    /// Unlock path 2 (5.7.1): after 300 - M/50 - 2N/3 seconds, or as soon as difficulty 3 is done. The
+    /// unlock only drives the HUD/strategy surface now — the workbench install is allowed regardless.
     fn update_launcher_unlocks(&mut self) {
         let now = self.time();
         for team in ["red", "blue"] {
@@ -982,7 +1024,9 @@ impl Engine {
                         "high_point" if own => defense = defense.max(n(&self.rules["buffs"], "high_point_defense")),
                         "central" => defense = defense.max(n(&self.rules["buffs"], "central_defense")),
                         "assembly" => {
-                            if self.assembly_active_for(&team) && r.assembly_invulnerable_spent < n(&self.rules["buffs"], "assembly_invulnerability_budget_s") {
+                            // Protection is positional now, so the bay only records how long a heavy
+                            // spent working under it; nothing gates on this any more.
+                            if r.role == "heavy" {
                                 self.robots[i].assembly_invulnerable_spent += DT;
                             }
                         }
@@ -1045,9 +1089,11 @@ impl Engine {
             return false;
         }
         let supply = self.contacted_zone_2027(i, "supply", Some(&r.team));
-        let assembly = self.assembly_active_for(&r.team)
-            && self.contacted_zone_2027(i, "assembly", Some(&r.team))
-            && r.assembly_invulnerable_spent + 1e-8 < n(&self.rules["buffs"], "assembly_invulnerability_budget_s");
+        // The heavy works the assembly core from a fixed bay, so the bay itself protects it: standing
+        // on the team's own assembly card is invulnerable whether or not a core is being worked and
+        // whatever protection time has already been used, which is what a pilot expects when it
+        // parks there to fit a launcher or a core.
+        let assembly = self.contacted_zone_2027(i, "assembly", Some(&r.team));
         supply || assembly
     }
     fn process_crossing_2027(&mut self, i: usize, group: &str, order: u32, kind: &str) {
@@ -1133,7 +1179,10 @@ impl Engine {
         for i in 0..self.robots.len() {
             let r = self.robots[i].clone();
             let a = &actions[i];
-            let launcher_ready = r.role != "heavy" || ["fitted", "installed"].contains(&r.launcher.as_str());
+            // Hard rule: the 42 mm may be bolted on early, but it only shoots once the team has
+            // unlocked it (difficulty 3 or the 300 - M/50 - 2N/3 s timer).
+            let launcher_ready = r.role != "heavy"
+                || (["fitted", "installed"].contains(&r.launcher.as_str()) && self.launcher_unlocked(&r.team));
             let in_assembly = r.role == "heavy" && self.assembly_active_for(&r.team) && self.raw_zone(i, "assembly", Some(&r.team));
             if !a.fire || !r.alive || r.red_card || r.role == "aerial" || r.weak || !launcher_ready || in_assembly
                 || r.overspeed_permanent_lock || active_until(r.overspeed_lock_until, now) || r.overheated || r.heat_permanent_lock
@@ -1266,7 +1315,9 @@ impl Engine {
         r.last_damage_time = now;
         r.armor_hit_times[face] = now;
         self.record_damage_2027(source, &attacker, amount, n(&self.rules["experience"], "robot_damage_xp_per_hp"), caliber);
-        self.event("hit", json!({"robot":self.robots[index].id,"team":p.team,"x":x,"y":y,"z":z,"damage":amount}));
+        // `source` names the shooter so the post-match reel can credit a burst to one chassis;
+        // `robot` stays the victim, which is what the broadcast text reads.
+        self.event("hit", json!({"robot":self.robots[index].id,"source":p.source,"team":p.team,"x":x,"y":y,"z":z,"damage":amount}));
         if self.robots[index].hp <= 0.0 {
             let lambda = self.logistics(&self.robots[index].team.clone());
             let r = &mut self.robots[index];
@@ -1361,7 +1412,7 @@ impl Engine {
         }
         let xp = if outpost { actual * rate } else { (actual * rate).ceil() };
         self.award_damage_xp_2027(source, &attacker, xp, Some(if heavy { "42mm" } else { "17mm" }));
-        self.event(if outpost { "outpost_hit" } else { "base_hit" }, json!({"team":p.team,"target_team":team,"x":x,"y":y,"z":z,"damage":actual}));
+        self.event(if outpost { "outpost_hit" } else { "base_hit" }, json!({"team":p.team,"robot":p.source,"target_team":team,"x":x,"y":y,"z":z,"damage":actual}));
     }
     /// Applies structure damage and its consequences; returns the HP actually removed.
     fn damage_structure_2027(&mut self, team: &str, outpost: bool, face: usize, damage: f64, attacker: &str) -> f64 {
@@ -1462,7 +1513,10 @@ impl Engine {
                             let rate = n(&self.rules["experience"], if outpost { "outpost_damage_xp_per_hp" } else { "base_damage_xp_per_hp" });
                             let xp = if outpost { actual * rate } else { (actual * rate).ceil() };
                             self.award_damage_xp_2027(None, &team, xp, None);
-                            self.event(if outpost { "outpost_hit" } else { "base_hit" }, json!({"team":team,"target_team":owner,"x":dr.x,"y":dr.y,"z":dr.z,"damage":actual,"drone":id}));
+                            let hangar = self.robots[i].id.clone();
+                            // A drone strike belongs to the hangar that launched it: `robot` lets the
+                            // reel credit the aerial chassis, `drone` lets the camera ride that drone.
+                            self.event(if outpost { "outpost_hit" } else { "base_hit" }, json!({"team":team,"robot":hangar,"target_team":owner,"x":dr.x,"y":dr.y,"z":dr.z,"damage":actual,"drone":id}));
                         }
                         self.event("drone_strike", json!({"team":team,"drone":id,"target":if outpost {"outpost"} else {"base"},"target_team":owner,"valid":fresh,"damage":actual}));
                         break;
@@ -1531,7 +1585,7 @@ impl Engine {
             let time_ok = now + 1e-8 >= unlocks[(d - 1) as usize].as_f64().unwrap();
             let prev_ok = d == 1 || completed.contains(&(d - 1));
             let once_ok = d != 4 || !completed.contains(&4);
-            let stock = r.carried_units >= if d == 4 { 2 } else { 1 };
+            let stock = r.units_on_board() >= if d == 4 { 2 } else { 1 };
             let other = &self.assemblies[opponent(&team)];
             let other_active = ["moving", "inserting"].contains(&other.stage.as_str());
             // Level 4 needs the other core: never while the other team is assembling, and a
@@ -1630,13 +1684,18 @@ impl Engine {
         }
         let mut done_step: Option<usize> = None;
         if c.inserted < depth - 1e-8 {
-            if r.carried_units == 0 && c.inserted <= 1e-9 {
+            if r.units_on_board() == 0 && c.inserted <= 1e-9 {
                 return true;
             }
             if rpc.get("assembly_insert").and_then(Value::as_bool) == Some(true) {
                 if c.inserted <= 1e-9 {
-                    // The unit leaves the robot's storage for the core's pillar.
-                    self.robots[i].carried_units -= 1;
+                    // The unit leaves the robot's storage for the core's pillar. A unit clamped in
+                    // the gripper is already at the core, so it goes in before the stowed bays.
+                    if r.gripper_unit() {
+                        self.robots[i].unit_pickup = None;
+                    } else {
+                        self.robots[i].carried_units -= 1;
+                    }
                 }
                 c.inserted = (c.inserted + n(&self.sim, "arm_insert_speed_mps") * 0.1).min(depth);
                 if c.inserted >= depth - 1e-8 {
@@ -1798,14 +1857,21 @@ impl Engine {
             Value::Null
         };
     }
+    /// Whether the tool still holds the core. The tool's *line* is published but not gated: on a
+    /// tilted core the wrist saturates while levering the unit up, and gating on it deadlocked grade 3
+    /// at the flip — the step that would have moved the goal waited for an alignment the arm could
+    /// never reach. Position and the unit's roll still have to match, which is what "still gripping the
+    /// unit in the socket" means.
     fn assembly_alignment_error_2027(&self, i: usize, core: usize) -> Option<&'static str> {
         let r = &self.robots[i];
         let profile = self.assembly_difficulty(self.assemblies[&r.team].difficulty);
-        let Some((position, direction, roll)) = self.assembly_alignment_metrics_2027(i, core) else { return Some("arm_out_of_reach") };
+        let Some((position, _direction, roll)) = self.assembly_alignment_metrics_2027(i, core) else {
+            return Some("arm_out_of_reach");
+        };
         if position > n(profile, "tip_tolerance_m") {
             return Some("arm_out_of_reach");
         }
-        if direction > n(profile, "tool_tolerance_deg") || roll > n(profile, "tool_tolerance_deg") {
+        if roll > n(profile, "tool_tolerance_deg") {
             return Some("arm_misaligned");
         }
         None
@@ -2027,7 +2093,7 @@ impl Engine {
         }
         for i in 0..self.robots.len() {
             if self.robots[i].launcher == "installing" && !self.workbench_docked(i) {
-                self.robots[i].launcher = "unlocked".into();
+                self.robots[i].launcher = self.launcher_idle_state(i);
                 self.robots[i].launcher_progress = 0.0;
             }
         }

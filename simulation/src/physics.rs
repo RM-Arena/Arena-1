@@ -5,6 +5,28 @@ use rapier3d::na::{Quaternion, UnitQuaternion};
 use rapier3d::prelude::*;
 
 pub const PHYSICS_DT: f64 = 1.0 / 120.0;
+/// Step climb: how long the hull is carried onto the tread, and the pause before the next step of
+/// a flight. The carry is longer than the leg stroke because a chassis pressed against the face
+/// needs the whole body translated over the lip, not just unweighted.
+const CLIMB_CARRY_S: f64 = 1.30;
+/// A finished climb must settle before the next one may start: retracting the legs onto the tread
+/// briefly drops the hull, and re-probing during that drop made the chassis twitch.
+const CLIMB_COOLDOWN_S: f64 = 0.35;
+/// The carry is a velocity servo on the hull: it rises just past the tread, then moves forward at a
+/// walking pace. The gains stay low enough that the lift cannot launch the chassis — a hard lift
+/// over the lip rolled it over its nose.
+const CLIMB_RISE_MPS: f64 = 0.6;
+const CLIMB_FORWARD_MPS: f64 = 1.1;
+const CLIMB_SERVO_GAIN: f64 = 0.6;
+const CLIMB_SERVO_LIMIT: f64 = 5.0;
+/// Upright assist while the hull is carried over a lip: N·m per kg per radian of tilt and per
+/// rad/s of pitch/roll rate. The carry pulls on the centre of mass while the wheels still touch
+/// the step face, which would otherwise pitch the chassis over its nose.
+const CLIMB_UPRIGHT_GAIN: f64 = 10.0;
+const CLIMB_UPRIGHT_DAMP: f64 = 1.0;
+/// Fraction of the supercapacitor's stored energy that never reaches the motors (DC-DC and
+/// wiring losses). The capacitor must therefore drain 1/(1-LOSS) of the useful boost.
+const SUPERCAP_LOSS: f64 = 0.40;
 fn n(v: &Value, key: &str) -> f64 {
     v[key].as_f64().unwrap_or(0.0)
 }
@@ -68,6 +90,13 @@ pub struct PhysicsWorld {
     jump_ready: Vec<f64>,
     jump_strength: Vec<f64>,
     tuck_until: Vec<f64>,
+    /// Step climb: until when the hull is carried onto the tread, when the next step may be
+    /// attempted, and the rise the current climb is mounting.
+    climb_push_until: Vec<f64>,
+    climb_ready: Vec<f64>,
+    climb_rise: Vec<f64>,
+    /// Body height the current climb has to reach before it carries the hull forward.
+    climb_target_z: Vec<f64>,
     /// Serial-leg hip angle (see `Robot::hip_angle`) and self-righting state: when the robot
     /// was first seen upset, whether it is righting, since when, and the hip angle it ends
     /// on (decided once the floor lies in the legs' plane).
@@ -226,6 +255,10 @@ impl PhysicsWorld {
             jump_ready: Vec::new(),
             jump_strength: Vec::new(),
             tuck_until: Vec::new(),
+            climb_push_until: Vec::new(),
+            climb_ready: Vec::new(),
+            climb_rise: Vec::new(),
+            climb_target_z: Vec::new(),
             hip_angle: Vec::new(),
             upset_since: Vec::new(),
             righting: Vec::new(),
@@ -375,6 +408,10 @@ impl PhysicsWorld {
                 world.jump_ready.push(0.0);
                 world.jump_strength.push(0.0);
                 world.tuck_until.push(-1.0);
+                world.climb_push_until.push(-1.0);
+                world.climb_ready.push(0.0);
+                world.climb_rise.push(0.0);
+                world.climb_target_z.push(0.0);
                 world.hip_angle.push(0.0);
                 world.upset_since.push(-1.0);
                 world.righting.push(false);
@@ -438,6 +475,10 @@ impl PhysicsWorld {
             world.jump_ready.push(0.0);
             world.jump_strength.push(0.0);
             world.tuck_until.push(-1.0);
+            world.climb_push_until.push(-1.0);
+            world.climb_ready.push(0.0);
+            world.climb_rise.push(0.0);
+            world.climb_target_z.push(0.0);
             world.hip_angle.push(0.0);
             world.upset_since.push(-1.0);
             world.righting.push(false);
@@ -731,10 +772,19 @@ impl PhysicsWorld {
             ];
             let local = pose.rotation.inverse() * desired;
             let local_yaw = local.y.atan2(local.x);
+            // The mount's own elevation stops: the 2027 heavy lifts its launcher to a steep lob angle,
+            // so the clamp has to come from the design instead of a fixed 45°.
+            let (pitch_lo, pitch_hi) = {
+                let stops = &d["pitch_limits_rad"];
+                (
+                    stops[0].as_f64().unwrap_or(-0.261799),
+                    stops[1].as_f64().unwrap_or(0.785398),
+                )
+            };
             let local_pitch = local
                 .z
                 .atan2(local.x.hypot(local.y))
-                .clamp(-0.261799, 0.785398);
+                .clamp(pitch_lo, pitch_hi);
             r.aim = r.heading
                 + turn(
                     r.aim - r.heading,
@@ -1046,6 +1096,55 @@ impl PhysicsWorld {
             let planted_angle = down.y.abs() < 0.45
                 && floor_angle.is_some_and(|f| (f - self.hip_angle[i]).abs() < 0.35);
             if legged {
+                // Step climb: with a step the legs can reach in front, a short low push puts the
+                // wheels on the tread and the drive carries the hull on, then the legs retract.
+                // The push is a fraction of a jump, sized to the step it found.
+                let step_limit = n(d, "step_climb_m");
+                if powered
+                    && a.climb > 0.0
+                    && step_limit > 0.0
+                    && r.grounded
+                    && !righting
+                    && now >= self.climb_ready[i]
+                    && now >= self.jump_until[i]
+                {
+                    let heading = a.heading.unwrap_or(r.heading);
+                    let here = height_at(arena, r.x, r.y);
+                    // Probe from just past the nose outwards: a chassis pressed against a step
+                    // face must still see the tread, while a deeper probe would look over a
+                    // 0.3 m stair onto the next one and find a rise it cannot mount.
+                    let edge = r.radius.max(0.22);
+                    let rise = [edge + 0.02, edge + 0.16, edge + 0.32]
+                        .iter()
+                        .map(|reach| {
+                            height_at(
+                                arena,
+                                r.x + heading.cos() * reach,
+                                r.y + heading.sin() * reach,
+                            ) - here
+                        })
+                        .find(|rise| *rise > 0.04 && *rise <= step_limit + 0.01)
+                        .unwrap_or(0.0);
+                    // Only a real ledge within the legs' reach starts a climb; a curb lower than
+                    // the wheels, or a wall it cannot mount, leaves the drive in charge.
+                    if rise > 0.04 {
+                        // The legs extend to their full stroke and the carry below servos the hull
+                        // onto the tread. A climb never fires the leg thrusters: the servo is the
+                        // only thing lifting the hull, so the step face cannot lever it over.
+                        let share = (rise / step_limit).clamp(0.0, 1.0);
+                        self.jump_until[i] = now + n(d, "jump_duration_s");
+                        self.jump_strength[i] = 0.05 + 0.12 * share;
+                        self.jump_ready[i] = now + n(d, "jump_cooldown_s").min(0.55);
+                        self.climb_push_until[i] = self.jump_until[i] + CLIMB_CARRY_S;
+                        self.climb_ready[i] = self.climb_push_until[i] + CLIMB_COOLDOWN_S;
+                        self.climb_rise[i] = rise;
+                        // Just enough lift for the chassis skirt to clear the tread: any more and
+                        // the hull sails over the next step instead of settling on this one.
+                        self.climb_target_z[i] = r.z + rise + 0.08;
+                        self.arm_events
+                            .push(json!({"type":"step_climb","robot":r.id,"rise":rise}));
+                    }
+                }
                 // Jump: legs push at a fixed thrust until they reach full length, then tuck.
                 if powered && a.jump > 0.0 && r.grounded && !righting && now >= self.jump_ready[i] {
                     self.jump_until[i] = now + n(d, "jump_duration_s");
@@ -1055,12 +1154,23 @@ impl PhysicsWorld {
                         .push(json!({"type":"jump","robot":r.id,"strength":a.jump}));
                 }
                 if powered && now < self.jump_until[i] {
+                    // A step climb uses the same leg stroke as a jump but with a far smaller
+                    // strength, and the carry below only starts driving once the wheels are level
+                    // with the tread — that split is what stops the face from levering the hull
+                    // over its nose.
+                    let climbing = now < self.climb_push_until[i];
                     leg_thrust = r.mass_kg
                         * 9.81
                         * 0.5
-                        * (1.0 + n(d, "jump_thrust_gain") * self.jump_strength[i]);
+                        * (1.0 + n(d, "jump_thrust_gain") * self.jump_strength[i])
+                        * if climbing { 0.55 } else { 1.0 };
                     self.leg_cmd[i] = leg_max;
-                    if self.jump_until[i] - now <= PHYSICS_DT + 1e-9 {
+                    // A step climb keeps the legs long through the carry: tucking them at the end
+                    // of the stroke dropped the hull onto the step face, where it balanced out of
+                    // reach of the drive and no further climb could start.
+                    if self.jump_until[i] - now <= PHYSICS_DT + 1e-9
+                        && now >= self.climb_push_until[i]
+                    {
                         self.tuck_until[i] = now + n(d, "jump_tuck_s");
                     }
                 } else {
@@ -1069,6 +1179,10 @@ impl PhysicsWorld {
                     } else if righting {
                         // Tucked while swinging, then pushing the body off the floor.
                         if planted_angle { n(d, "leg_nominal_m") } else { leg_min }
+                    } else if now < self.climb_push_until[i] {
+                        // Climb carry: hold the stroke so the chassis clears the tread and the
+                        // wheels can reach it, instead of dropping back into the step face.
+                        leg_max
                     } else if now < self.tuck_until[i] {
                         leg_min + 0.01
                     } else {
@@ -1078,6 +1192,51 @@ impl PhysicsWorld {
                     };
                     let rate = n(d, "leg_speed_mps") * PHYSICS_DT * if powered { 1.0 } else { 3.0 };
                     self.leg_cmd[i] = approach(self.leg_cmd[i], wanted, rate);
+                }
+                // Carry: the wheels have no grip while the hull is over the lip, so the body is
+                // servoed onto the tread: rise just above it, then move along the heading at a
+                // walking pace until the wheels find the step.
+                if powered && now < self.climb_push_until[i] {
+                    let heading = a.heading.unwrap_or(r.heading);
+                    let body_z = self.bodies[h].position().translation.z;
+                    let velocity = *self.bodies[h].linvel();
+                    // Rise first, drive second. Pushing forward while the skirt is still below the
+                    // lip turns the step face into a pivot and rolls the hull over its nose, which
+                    // is what made a finished climb look like a twitch: climb, tip, fall, repeat.
+                    // Two thirds of the step is enough for the wheels to clear the lip; asking for
+                    // the full lift stalls the servo against the leg stroke.
+                    let start_z = self.climb_target_z[i] - self.climb_rise[i] - 0.08;
+                    let crossing = body_z >= start_z + self.climb_rise[i] * 0.9;
+                    // Keep lifting until the full clearance is reached — stopping at the crossing
+                    // point left the front wheel a centimetre under the lip, and the drive then
+                    // pressed into the face forever.
+                    let desired_z = if body_z >= self.climb_target_z[i] - 0.01 {
+                        0.0
+                    } else {
+                        CLIMB_RISE_MPS
+                    };
+                    let forward_target = if crossing { CLIMB_FORWARD_MPS } else { 0.0 };
+                    let forward = velocity.x * heading.cos() + velocity.y * heading.sin();
+                    let mut force = vector![
+                        heading.cos() * (forward_target - forward),
+                        heading.sin() * (forward_target - forward),
+                        desired_z - velocity.z
+                    ] * (r.mass_kg * CLIMB_SERVO_GAIN / PHYSICS_DT);
+                    let limit = r.mass_kg * 9.81 * CLIMB_SERVO_LIMIT;
+                    if force.norm() > limit {
+                        force *= limit / force.norm();
+                    }
+                    self.bodies[h].add_force(force, true);
+                    // The carry pulls on the centre of mass while the wheels are still against the
+                    // step face, so pitch would keep growing until the hull went over its nose.
+                    // Hold it upright and bleed the pitch/roll rate; the yaw of a spinning chassis
+                    // is left alone.
+                    let up = self.bodies[h].rotation() * vector![0.0, 0.0, 1.0];
+                    let tilt = up.cross(&vector![0.0, 0.0, 1.0]);
+                    let spin = *self.bodies[h].angvel();
+                    let torque = tilt * (r.mass_kg * CLIMB_UPRIGHT_GAIN)
+                        - vector![spin.x, spin.y, 0.0] * (r.mass_kg * CLIMB_UPRIGHT_DAMP);
+                    self.bodies[h].add_torque(torque, true);
                 }
             }
             let wheels: &[(f64, f64)] = if legged {
@@ -1181,7 +1340,29 @@ impl PhysicsWorld {
                 r.wheel_loads_n[2] = 0.0;
                 r.wheel_loads_n[3] = 0.0;
             }
-            r.grounded = !contacts.is_empty();
+            // A chassis straddling a step can hang both wheels over the tread edges: the casts find
+            // nothing, the drive loses its grip budget and the robot sits on its belly forever.
+            // Being within a step of the highest ground under the chassis while upright is still
+            // standing on it.
+            let upright = (pose.rotation * vector![0.0, 0.0, 1.0]).z > 0.86;
+            let side = r.heading + std::f64::consts::FRAC_PI_2;
+            let (fore, starboard) = (r.heading.cos(), r.heading.sin());
+            let underneath = [
+                height_at(arena, r.x + fore * 0.3, r.y + starboard * 0.3),
+                height_at(arena, r.x - fore * 0.3, r.y - starboard * 0.3),
+                height_at(arena, r.x + side.cos() * 0.2, r.y + side.sin() * 0.2),
+                height_at(arena, r.x - side.cos() * 0.2, r.y - side.sin() * 0.2),
+            ]
+            .into_iter()
+            .fold(height_at(arena, r.x, r.y), f64::max);
+            let straddling = contacts.is_empty()
+                && upright
+                && (r.z - underneath).abs() < 0.15
+                && r.z - underneath > -0.3;
+            if straddling {
+                normal_total = normal_total.max(r.mass_kg * 9.81);
+            }
+            r.grounded = !contacts.is_empty() || straddling;
             if legged {
                 self.colliders[self.hulls[i]].set_shape(
                     Self::leg_hull(d, r.legs, if serial { self.hip_angle[i] } else { 0.0 })
@@ -1207,8 +1388,14 @@ impl PhysicsWorld {
             let on_humps = self.hump_areas.iter().any(|h| {
                 pose.translation.x > h[0] && pose.translation.x < h[2] && pose.translation.y > h[1] && pose.translation.y < h[3]
             });
+            // The supercapacitor's DC-DC stage does not deliver all of its stored energy to the
+            // motors: 40 % is lost as heat, so the usable boost is only 60 % of the capacitor's
+            // rated output and the store drains 1/0.6 of the power the chassis actually gains.
+            let supercap_useful = n(d, "voltage_v")
+                * n(d, "supercap_max_current_a")
+                * (1.0 - SUPERCAP_LOSS);
             let default_budget = if on_humps && r.supercap_energy_j > 100.0 {
-                limit + n(d, "voltage_v") * n(d, "supercap_max_current_a")
+                limit + supercap_useful
             } else {
                 limit
             };
@@ -1220,17 +1407,27 @@ impl PhysicsWorld {
             let motor_budget = budget.min(
                 limit
                     + if r.supercap_energy_j > 0.0 {
-                        n(d, "voltage_v") * n(d, "supercap_max_current_a")
+                        supercap_useful
                     } else {
                         0.0
                     },
             );
             let speed = n(d, "speed_reference_mps") * if r.crouched { 0.5 } else { 1.0 };
+            // A climbing chassis drives itself onto the ledge along its own heading, whether or
+            // not the driver also holds a move command.
+            let climbing = powered && now < self.climb_push_until[i];
             let mut desired = if disabled || righting {
                 Vector::zeros()
             } else {
                 vector![a.mv[0] * speed, a.mv[1] * speed, 0.0]
             };
+            if climbing && desired.norm() < speed * 0.5 {
+                desired = vector![
+                    r.heading.cos() * speed * 0.8,
+                    r.heading.sin() * speed * 0.8,
+                    0.0
+                ];
+            }
             let wrap = |a: f64| {
                 (a + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU) - std::f64::consts::PI
             };
@@ -1245,7 +1442,7 @@ impl PhysicsWorld {
             };
             let side = vector![-forward.y, forward.x, 0.0];
             let planar = vector![velocity.x, velocity.y, 0.0];
-            let commanded = !righting && a.mv[0].hypot(a.mv[1]) >= 0.01;
+            let commanded = !righting && (climbing || a.mv[0].hypot(a.mv[1]) >= 0.01);
             // Yaw goal: explicit heading; otherwise mecanum robots face their motion and a
             // two-wheeled chassis turns its wheels (forward or reverse) onto the motion.
             let mut yaw_goal = if righting { None } else { a.heading };
@@ -1346,8 +1543,10 @@ impl PhysicsWorld {
                         * reach;
                     yaw_brake = (-angular.z * inertia_z * 12.0).clamp(-limit, limit);
                 }
-                let mut brake = -planar * r.mass_kg * 6.0;
+                let mut brake = -planar * r.mass_kg * 9.0;
                 let norm = brake.norm();
+                // Grip is the real limit: the tyre force the contact patch can carry caps the stop
+                // before the brake motors do, so a heavier chassis still sheds speed quickly.
                 let max = n(d, "brake_force_max_n").min(normal_total * n(d, "tire_friction"));
                 if norm > max {
                     brake *= max / norm;
@@ -1386,12 +1585,27 @@ impl PhysicsWorld {
                 let tangent = force - normal * force.dot(normal);
                 self.bodies[h].add_force_at_point(tangent, *point, true);
             }
+            // The supercapacitor feeds the drive and the yaw motors out of the same power budget
+            // (manual p.49), so a chassis asking for more than its own limit can turn harder while
+            // the capacitor is dumping. `yaw_boost` adds the pilot's own burst authority on top:
+            // without either, the rated yaw torque caps the spin far below what the wheels allow.
+            // Only a pilot's burst channel (`yaw_boost`) opens the extra yaw authority, so a
+            // strategy that simply asks for a higher power budget keeps the rated yaw torque.
+            let budget_boost = if a.yaw_boost > 0.0
+                && motor_budget > limit + 1e-9
+                && r.supercap_energy_j > 0.0
+            {
+                1.0 + ((motor_budget - limit) / limit.max(1.0)).min(1.0) * 1.4
+            } else {
+                1.0
+            };
             let max_yaw = if legged {
                 n(d, "yaw_torque_max_nm")
                     .min(n(d, "tire_friction") * normal_total * n(d, "track_m") * 0.5)
             } else {
                 n(d, "yaw_torque_max_nm")
-            };
+            } * budget_boost
+                * (1.0 + 1.6 * a.yaw_boost);
             let torque = if disabled || righting || normal_total < 1.0 {
                 0.0
             } else if let Some(rate) = a.yaw_rate {
@@ -1485,10 +1699,13 @@ impl PhysicsWorld {
                     + (torque * angular.z).abs() / 0.75
                     + (balance * angular.y).abs() / 0.75
             };
-            let cap_out = (r.motor_power_w - limit)
-                .max(0.0)
+            // Energy drawn from the store to cover the excess: the chassis only receives
+            // (1-LOSS) of it, so the drain is scaled up by the same factor.
+            let useful = (r.motor_power_w - limit).max(0.0);
+            let cap_out = (useful / (1.0 - SUPERCAP_LOSS))
                 .min(r.supercap_energy_j / PHYSICS_DT);
             r.supercap_energy_j = (r.supercap_energy_j - cap_out * PHYSICS_DT).max(0.0);
+            let useful_supercap = cap_out * (1.0 - SUPERCAP_LOSS);
             let recharge = (limit - r.motor_power_w)
                 .max(0.0)
                 .min(35.0)
@@ -1500,7 +1717,9 @@ impl PhysicsWorld {
             r.power_w = if disabled {
                 0.0
             } else {
-                r.motor_power_w - cap_out + recharge
+                // Reported chassis power is what the battery supplies; the capacitor's losses are
+                // not added to it.
+                r.motor_power_w - useful_supercap + recharge
             };
             // Leg joint motors are not chassis power (construction manual p.49) but drain the battery.
             r.battery_remaining_wh = (r.battery_remaining_wh

@@ -18,7 +18,7 @@ class BattleSettingsTests(unittest.TestCase):
             path = Path(directory) / 'settings.json'
             store = BattleSettings(path)
             self.assertEqual(store.get('2027')['overrides'], {})
-            self.assertEqual(defaults('2027')['projectile_spread_half_angle_deg.17mm'], 1.8)
+            self.assertEqual(defaults('2027')['projectile_spread_half_angle_deg.17mm'], 0.3)
             changed = {'projectile_spread_half_angle_deg.17mm': 0}
             store.save('2027', changed)
             self.assertEqual(BattleSettings(path).get('2027')['overrides'], changed)
@@ -50,7 +50,7 @@ class BattleSettingsTests(unittest.TestCase):
             replay = json.loads(path.read_text())
             self.assertEqual(replay['metadata']['battle_settings'], settings)
         with Match(map_name='rmuc2027') as match:
-            self.assertEqual(match.snapshot()['simulation_assumptions']['projectile_spread_half_angle_deg']['17mm'], 1.8)
+            self.assertEqual(match.snapshot()['simulation_assumptions']['projectile_spread_half_angle_deg']['17mm'], 0.3)
         with self.assertRaises(ValueError):
             Match(map_name='rmuc2027', battle_settings={'projectile_spread_half_angle_deg.17mm': 100})
 

@@ -13,7 +13,7 @@ class Context{
  createDynamicsCompressor(){const n=new Node();for(const p of ['threshold','knee','ratio','attack','release'])n[p]=new Param();return n;}
  createBuffer(channels,length,rate){return {duration:length/rate,getChannelData:()=>new Float32Array(length)};}
  createBufferSource(){const n=new Node();this.sources.push(n);return n;}createOscillator(){return new Node();}createWaveShaper(){return new Node();}createBiquadFilter(){return new Node();}
- decodeAudioData(data){return Promise.resolve({duration:data.url.includes('/announcer/')?3:data.url.includes('countdown')?5:data.url.includes('summoning')?113.92:32,url:data.url});}
+ decodeAudioData(data){return Promise.resolve({duration:data.url.includes('/announcer/')?3:data.url.includes('countdown')?5:(data.url.includes('summoning')||data.url.includes('match-theme'))?113.92:32,url:data.url});}
  resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}close(){this.state='closed';return Promise.resolve();}
  advance(seconds){if(this.state==='running')this.currentTime+=seconds;}
 }
@@ -34,31 +34,88 @@ test('recorded video headings use display names and the actual season and roster
 });
 const state={page:'arena',hangar:false,prematch:null,post:null,status:'ready'};
 
-test('all stage cues use shipped assets and reserve the competition track for the match',()=>{
- assert.equal(new Set(Object.values(MUSIC).map(t=>t.url)).size,9);
- for(const cue of Object.keys(MUSIC)){assert.ok(fs.existsSync(path.join(__dirname,'../frontend/public',MUSIC[cue].url)));if(cue!=='match')assert.notEqual(MUSIC[cue].url,MUSIC.match.url);}
+test('every cue resolves to a real file, and only the in-match theme is upload-only',()=>{
+ const exists=url=>fs.existsSync(path.join(__dirname,'../frontend/public',url));
+ const listed=value=>Array.isArray(value)?value:value?[value]:[];
+ assert.equal(new Set(Object.values(MUSIC).map(t=>t.url)).size,10);
+ const uploadOnly=Object.keys(MUSIC).filter(cue=>MUSIC[cue].uploadOnly);
+ assert.deepEqual(uploadOnly,['match'],'only the match theme is left to the operator');
+ for(const cue of Object.keys(MUSIC)){
+  const chain=[MUSIC[cue].url,...listed(MUSIC[cue].fallback)];
+  // A drop-in slot (`highlight.m4a`, `<cue>-theme.*`) may be absent, but a normal cue still has to
+  // name one file the repository ships, or it would be silent out of the box.
+  if(MUSIC[cue].uploadOnly)assert.ok(MUSIC[cue].url.includes('-theme.'),cue+' must point at its upload slot');
+  else assert.ok(chain.some(exists),cue+' has no shipped file');
+  // The opening is the operator's recording only; the sting is what looping falls back to.
+  assert.ok(!chain.some(url=>url.includes('summoning-glory')&&cue==='match'),'match must not fall back to the old track');
+  if(cue!=='match')assert.notEqual(MUSIC[cue].url,MUSIC.match.url);
+ }
+ assert.ok(MUSIC.match_alt.url.includes('summoning-glory'),'the looping hand-off is the repository sting');
 });
-test('menus, hangar, self-check, countdown and each result screen select their own cue',()=>{
- for(const [stage,cue] of [[{page:'home'},'home'],[{page:'history'},'lobby'],[{hangar:true},'hangar'],[{modal:true},'setup'],[{prematch:'self_check'},'self_check'],[{prematch:'countdown'},'countdown'],[{post:'victory'},'victory'],[{post:'results'},'results'],[{post:'mvp'},'mvp'],[{status:'running'},'match']])assert.equal(broadcastMusicCue({...state,...stage}),cue);
+test('menus, hangar, self-check, pick, countdown and each result screen select their own cue',()=>{
+ for(const [stage,cue] of [[{page:'home'},'home'],[{page:'history'},'lobby'],[{hangar:true},'hangar'],[{modal:true},'setup'],[{prematch:'self_check'},'pick'],[{prematch:'self_check',free:true},'self_check_free'],[{prematch:'self_check',picking:true},'pick'],[{prematch:'self_check',free:true,picking:true},'pick'],[{prematch:'countdown'},'match'],[{post:'victory'},'victory'],[{post:'results'},'results'],[{post:'mvp'},'mvp'],[{status:'running'},'match']])assert.equal(broadcastMusicCue({...state,...stage}),cue);
+ // The pick screen runs on top of the walk-on, but the countdown still owns the match theme.
+ assert.equal(broadcastMusicCue({...state,prematch:'countdown',picking:true}),'match');
+ // The installed recording scores the opening once; every loop after it is the repository's sting.
+ assert.equal(MUSIC.match.then,'match_alt');
+ assert.equal(MUSIC.match_alt.then,undefined,'the sting itself keeps looping');
+ // The match states still name one cue: which recording it is gets latched when the match starts.
+ assert.equal(broadcastMusicCue({...state,status:'running'}),'match');
+ assert.equal(broadcastMusicCue({...state,prematch:'countdown'}),'match');
+ assert.equal(MUSIC.pick.override[0],'/assets/audio/pick-theme.m4a');
+ assert.equal(MUSIC.pick.url,'/assets/audio/home.mp3','a machine without an installed pick track keeps the walk-on theme');
  assert.equal(broadcastMusicCue({...state,status:'running',page:'leaderboard'}),'lobby');
  assert.equal(broadcastMusicCue({...state,started:true}),'match');
  assert.equal(broadcastMusicCue({...state,busy:true}),'setup');
- assert.equal(broadcastMusicCue({...state,status:'finished',started:true}),'results');
+ // A finished live match hands back to the setup panel with no cue at all; a replay of one still
+ // reads as its data panel, and the ceremony keeps its own music until it is dismissed.
+ assert.equal(broadcastMusicCue({...state,status:'finished',started:true}),null);
+ assert.equal(broadcastMusicCue({...state,status:'finished',replay:true}),'results');
+ assert.equal(broadcastMusicCue({...state,status:'finished',post:'results'}),'results');
 });
-test('the lineup intro plays the setup theme in RM matches and the uploaded track in free battles',()=>{
+test('the settled setup screen after a finished match plays no music at all',async()=>{
+ const a=harness();a.bgm('results','game-1');await a.enable();await flush();
+ assert.equal(a.diagnostics.cue,'results');
+ a.bgm(broadcastMusicCue({...state,status:'finished'}),'game-1');await flush();
+ assert.equal(a.diagnostics.cue,null,'the next-match setup panel is silent');
+ assert.equal(a.diagnostics.wanted,null,'and nothing is queued to come back');
+});
+test('the RM pre-match plays the pick cue while free battles keep their own walk-on track',()=>{
+ // Without an installed `pick-theme.*` the RM pre-match still names a shipped file (the intro theme).
+ assert.equal(broadcastMusicCue({...state,prematch:'self_check'}),'pick');
  assert.equal(MUSIC[broadcastMusicCue({...state,prematch:'self_check'})].url,'/assets/audio/home.mp3');
  assert.equal(broadcastMusicCue({...state,prematch:'self_check',free:true}),'self_check_free');
  assert.equal(MUSIC.self_check_free.url,'/assets/audio/intro-free.m4a');
- assert.equal(broadcastMusicCue({...state,prematch:'countdown',free:true}),'countdown');
+ // The 5-4-3-2-1 countdown is already scored with the competition theme: the beeps are layered on it.
+ assert.equal(broadcastMusicCue({...state,prematch:'countdown',free:true}),'match');
 });
 test('the judged plate hit replaces the generic contact, without hiding other impacts',()=>{
  const hit={type:'hit',tick:12,team:'red',x:2,y:3,z:.4},duplicate={...hit,type:'impact'},wall={...duplicate,x:4},later={...duplicate,tick:13};
  const list=audibleEvents([hit,duplicate,wall,later]);assert.equal(list.length,3);assert.ok(!list.includes(duplicate));assert.ok(list.includes(wall));assert.ok(list.includes(later));
 });
-test('formal music starts at zero after the countdown, with the full original track loop',async()=>{
- const a=harness();a.bgm('countdown','game-1',5);await a.enable();await flush();a.context.advance(2);a.bgm('match','game-1');await flush();
+test('formal music starts at zero after the countdown and loops the installed track',async()=>{
+ // A browser only serves the files that exist: the drop-in slots answer 404 unless installed, and the
+ // in-match theme is exactly one of those, so only `match-theme.mp3` is served here.
+ const a=harness(async url=>({ok:url==='/assets/audio/match-theme.mp3',arrayBuffer:async()=>({url})}));
+ a.bgm('countdown','game-1',5);await a.enable();await flush();a.context.advance(2);a.bgm('match','game-1');await flush();
  assert.equal(a.diagnostics.cue,'match');assert.equal(a.diagnostics.startOffset,0);assert.equal(a.diagnostics.track,MUSIC.match.url);
+ assert.equal(a.diagnostics.file,'/assets/audio/match-theme.mp3','the installed theme is the only in-match source');
  const s=a.context.sources.at(-1);assert.equal(s.loopStart,0);assert.equal(s.loopEnd,113.92);assert.equal(s.playbackRate.value,1);
+});
+test('the opening recording plays once, then the repository sting loops for the rest of the match',async()=>{
+ const a=harness();a.bgm('match','game-1');await a.enable();await flush();
+ assert.equal(a.diagnostics.cue,'match');assert.equal(a.diagnostics.track,MUSIC.match.url);
+ const opening=a.context.sources.at(-1);
+ assert.equal(opening.loop,false,'the opening has to reach its own end, not wrap around');
+ a.context.advance(113.92);opening.onended();await flush();
+ assert.equal(a.diagnostics.cue,'match_alt');assert.equal(a.diagnostics.track,MUSIC.match_alt.url);
+ assert.equal(a.context.sources.at(-1).loop,true,'the sting is what loops afterwards');
+ // A speed change or a re-render after the hand-off must not bring the opening back.
+ const starts=a.diagnostics.starts;a.bgm('match','game-1',5,4);await flush();
+ assert.equal(a.diagnostics.cue,'match_alt');assert.equal(a.diagnostics.starts,starts);
+ // The next match opens on the installed recording again.
+ a.bgm('match','game-2');await flush();
+ assert.equal(a.diagnostics.cue,'match');assert.equal(a.diagnostics.track,MUSIC.match.url);
 });
 test('repeated render updates and playback-speed controls do not restart match music',async()=>{
  const a=harness();a.bgm('match','game-1');await a.enable();await flush();const starts=a.diagnostics.starts;a.context.advance(3);
@@ -87,9 +144,22 @@ test('home and match setup swap music while match, post-match and archive tracks
  assert.equal(a.diagnostics.track,'/assets/audio/lobby.m4a');
  a.bgm(broadcastMusicCue(state),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/home.mp3');
  a.bgm(broadcastMusicCue({...state,page:'history'}),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/lobby.m4a');
- for(const [post,url] of [[null,'/assets/audio/summoning-glory.m4a'],['victory','/assets/audio/victory.m4a'],['results','/assets/audio/results.m4a'],['mvp','/assets/audio/mvp.m4a']]){
+ for(const [post,url] of [[null,MUSIC.match.url],['victory','/assets/audio/victory.m4a'],['results','/assets/audio/home.mp3'],['mvp','/assets/audio/mvp.m4a']]){
   a.bgm(broadcastMusicCue({...state,page:'arena',status:'running',post}),'preview');await flush();assert.equal(a.diagnostics.track,url);
  }
+});
+test('an uploaded theme wins over the shipped file, and a browser without AAC falls back to mp3',async()=>{
+ // An uploaded `mvp-theme.mp3` is tried first and wins over the shipped `mvp.m4a`.
+ const b=harness(async url=>({ok:url==='/assets/audio/mvp-theme.mp3',arrayBuffer:async()=>({url})}));
+ b.bgm('mvp','result');await b.enable();await flush();
+ assert.equal(b.diagnostics.cue,'mvp');
+ assert.equal(b.diagnostics.file,'/assets/audio/mvp-theme.mp3');
+ // A browser that only decodes MP3 skips every .m4a in the chain, including the reel's drop-in slot.
+ const asked=[];const a=harness(async url=>{asked.push(url);return {ok:url.endsWith('.mp3'),arrayBuffer:async()=>({url})};});
+ a.bgm('highlight','reel');await a.enable();await flush();
+ assert.equal(a.diagnostics.file,'/assets/audio/highlight-theme.mp3','the first decodable file wins');
+ assert.equal(asked[0],'/assets/audio/highlight-theme.m4a','the drop-in slot is tried before the shipped file');
+ assert.equal(MUSIC.pick.url,'/assets/audio/home.mp3','the pre-match screen keeps the shipped intro theme without an install');
 });
 test('a late asset response cannot replace the requested match with lobby music',async()=>{
  let release;const a=harness(url=>url===MUSIC.lobby.url?new Promise(r=>{release=()=>r({ok:true,arrayBuffer:async()=>({url})});}):Promise.resolve({ok:true,arrayBuffer:async()=>({url})}));

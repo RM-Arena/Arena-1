@@ -31,6 +31,27 @@ fn place_on_card(m: &mut Engine, i: usize, id: &str) {
 }
 
 #[test]
+fn a_heavy_standing_in_its_assembly_bay_is_invulnerable() {
+    let mut m = arena();
+    let heavy = robot(&m, "red-1");
+    assert_eq!(m.robots[heavy].role, "heavy");
+    place_on_card(&mut m, heavy, "red_assembly");
+    m.update_buffs_2027();
+    assert!(m.robot_invulnerable_2027(heavy), "the bay itself protects the heavy");
+    // Protection is positional, not a budget: a heavy that already burned the old protection time
+    // stays safe, and an assembly does not have to be running.
+    m.robots[heavy].assembly_invulnerable_spent = 999.0;
+    m.update_buffs_2027();
+    assert!(m.robot_invulnerable_2027(heavy));
+    // Driving out of the bay ends it, and the enemy bay never protects.
+    place_on_card(&mut m, heavy, "blue_assembly");
+    m.robots[heavy].zone_contacts.clear();
+    m.tick += 400;
+    m.update_buffs_2027();
+    assert!(!m.robot_invulnerable_2027(heavy));
+}
+
+#[test]
 fn temporary_position_progress_pauses_when_both_teams_activate() {
     let mut m = arena();
     let blue = robot(&m, "blue-3");

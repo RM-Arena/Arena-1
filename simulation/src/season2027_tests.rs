@@ -206,6 +206,44 @@ fn launcher_unlocks_earlier_for_the_team_that_falls_behind() {
 }
 
 #[test]
+fn a_locked_heavy_fits_early_but_cannot_fire_until_the_unlock() {
+    let mut m = match_();
+    let h = robot(&m, "red-1");
+    m.step(&json!({}));
+    assert_eq!(m.robots[h].launcher, "locked");
+    let dock = m.arena.zones.iter().find(|z| z.id == "red_workbench").map(|z| [z.x, z.y]).unwrap();
+    place(&mut m, h, dock[0], dock[1]);
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    // Installing is allowed at any time in the match, before the rules' unlock.
+    for _ in 0..200 {
+        m.step(&json!({"red":{"1":{"install_launcher":true,"brake":true}}}));
+        if m.robots[h].launcher == "fitted" {
+            break;
+        }
+    }
+    assert_eq!(m.robots[h].launcher, "fitted");
+    assert!(m.teams["red"].launcher_unlock_s.unwrap() > 200.0);
+    // …but the trigger stays dead while the team has not unlocked it: no round leaves the magazine.
+    m.robots[h].ammo = 5;
+    for _ in 0..40 {
+        m.step(&json!({"red":{"1":{"fire":true,"aim":0.0,"pitch":0.1,"brake":true}}}));
+    }
+    assert_eq!(m.robots[h].ammo, 5);
+    assert!(!m.events.iter().any(|e| e["type"] == "shot" && e["robot"] == "red-1"));
+    assert_eq!(m.robots[h].launcher, "fitted");
+    // Finish difficulty 3 and the same trigger fires, installing the module on its first shot.
+    m.teams.get_mut("red").unwrap().completed_difficulties = vec![1, 2, 3];
+    for _ in 0..20 {
+        m.step(&json!({"red":{"1":{"fire":true,"aim":0.0,"pitch":0.1,"brake":true}}}));
+        if m.robots[h].ammo < 5 {
+            break;
+        }
+    }
+    assert!(m.events.iter().any(|e| e["type"] == "shot" && e["robot"] == "red-1"));
+    assert_eq!(m.robots[h].launcher, "installed");
+}
+
+#[test]
 fn sentry_postures_trade_power_cooling_and_protection() {
     let mut m = match_();
     let s = robot(&m, "red-7");
@@ -261,6 +299,60 @@ fn lost_base_hp_slows_respawn_and_remote_healing() {
     m.robot_hit_2027(i, &Projectile { x: face[0] + 0.2, y: face[1], z: face[2], ..p }, face[0], face[1], face[2]);
     assert!(!m.robots[i].alive);
     assert_eq!(m.robots[i].respawn_required, 25.0);
+}
+
+#[test]
+fn a_fully_controlled_outpost_heals_at_half_the_supply_rate_and_clears_weakness() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    let spot = zone_center(&m, "red_outpost");
+    place(&mut m, i, spot[0], spot[1]);
+    m.robots[i].last_shot_time = -1000.0;
+    m.robots[i].last_damage_time = -1000.0;
+    for _ in 0..4 {
+        m.step(&json!({}));
+    }
+    assert!(m.contacted_zone_2027(i, "outpost", Some("red")));
+    let cap = m.robots[i].max_hp;
+    m.tick = 20;
+    m.robots[i].hp = (cap * 0.25).round();
+    let low = m.robots[i].hp;
+    m.step(&json!({}));
+    let gained = m.robots[i].hp - low;
+    let expected = cap * 0.05;
+    assert!((gained - expected).abs() <= 2.0, "outpost healed {gained:+}, expected about {expected:+} (half of the supply rate)");
+    // The buff card also lifts weakness and the protection that came with it.
+    m.robots[i].weak = true;
+    m.robots[i].respawned_at = m.time() - 20.0;
+    m.robots[i].invulnerable_until = m.time() + 30.0;
+    for _ in 0..4 {
+        m.step(&json!({}));
+    }
+    assert!(!m.robots[i].weak);
+    assert!(m.robots[i].invulnerable_until <= m.time() + 1e-6);
+}
+
+#[test]
+fn supercap_drain_includes_the_forty_percent_conversion_loss() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    place(&mut m, i, 5.0, 7.5);
+    m.robots[i].supercap_energy_j = 1500.0;
+    let order = json!({"red": {"3": {"move": [1.0, 0.0], "heading": 0.0, "power": 200.0}}});
+    for _ in 0..10 {
+        m.step(&order);
+    }
+    let limit = m.robots[i].power_limit;
+    let e0 = m.robots[i].supercap_energy_j;
+    let before = m.robots[i].motor_power_w;
+    m.step(&order);
+    let drop = e0 - m.robots[i].supercap_energy_j;
+    let motor = (before + m.robots[i].motor_power_w) / 2.0;
+    let excess = motor - limit;
+    assert!(excess > 10.0, "chassis drew only {motor} W against a {limit} W limit");
+    let ideal = excess * DT;
+    assert!(drop > ideal * 1.25, "supercap dropped {drop} J, near the loss-free {ideal} J");
+    assert!(drop < ideal / 0.5, "supercap dropped {drop} J, beyond the 40% loss model of {ideal}");
 }
 
 #[test]
@@ -339,6 +431,47 @@ fn every_heavy_picks_two_energy_units_at_the_resource_hub() {
         assert_eq!(m.robots[h].carried_units, 2, "{model}: {:?}", m.robots[h].unit_pickup.as_ref().map(|p| p.stage.clone()));
         assert_eq!(m.teams["red"].energy_units_left, Some(4), "{model}");
     }
+}
+
+#[test]
+fn a_heavy_carries_a_third_unit_in_its_gripper() {
+    // Two bays fill first; the third unit the rules allow rides clamped in the gripper until a core
+    // takes it, so the heavy can shuttle three cores back to back.
+    let model = 2711;
+    let mut m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, model), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+    let h = robot(&m, "red-1");
+    let station = m.arena.field_geometry["fixtures"].as_array().unwrap().iter()
+        .find(|f| f["kind"] == "resource" && f["team"] == "red").unwrap().clone();
+    let (point, dir) = (&station["pick_point"], &station["pick_dir"]);
+    let (dx, dy) = (dir[0].as_f64().unwrap(), dir[1].as_f64().unwrap());
+    let reach = if model == 2712 { 0.48 } else { 0.60 };
+    place(&mut m, h, point[0].as_f64().unwrap() - dx * reach, point[1].as_f64().unwrap() - dy * reach);
+    let r = &mut m.robots[h];
+    r.heading = dy.atan2(dx);
+    r.aim = r.heading;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    let command = json!({"red":{"1":{"pick_unit":true,"brake":true,"heading":dy.atan2(dx)}}});
+    for _ in 0..900 {
+        m.step(&command);
+        if m.robots[h].units_on_board() == 3 {
+            break;
+        }
+    }
+    assert_eq!(m.robots[h].carried_units, 2, "the bays fill before the gripper: {:?}", m.robots[h].unit_pickup.as_ref().map(|p| p.stage.clone()));
+    assert!(m.robots[h].gripper_unit(), "the third unit has to stay in the gripper");
+    assert_eq!(m.robots[h].unit_pickup.as_ref().map(|p| p.stage.as_str()), Some("carrying"));
+    assert!(m.robots[h].unit_pickup.as_ref().unwrap().held);
+    assert_eq!(m.robots[h].units_on_board(), 3);
+    assert_eq!(m.teams["red"].energy_units_left, Some(3), "the third unit comes out of the team's stock");
+    // Carrying across the field must not cancel the third unit, and asking again must not restart it.
+    m.robots[h].x += 3.0;
+    for _ in 0..20 {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+    }
+    assert_eq!(m.robots[h].units_on_board(), 3, "a carried unit survives leaving the resource zone");
+    m.step(&command);
+    assert_eq!(m.robots[h].units_on_board(), 3, "a full robot cannot grab a fourth unit");
 }
 
 #[test]

@@ -222,6 +222,8 @@ python scripts/project.py desktop   # 或者以桌面窗口运行
 
 `run` 默认以“可信本地策略”模式执行 Python 策略，只运行你信任的代码。要用 Docker 隔离，先执行 `python scripts/project.py setup --docker` 构建沙箱镜像，再用 `python scripts/project.py run --docker` 启动。
 
+端口 8765 被别的程序占着启动会直接退出（Windows 上输入法、Hyper-V 端口保留都可能占它），换一个端口即可：`python scripts/project.py run --port 8800`，然后打开 `http://127.0.0.1:8800`。
+
 **2. 开发循环**
 
 ```sh

@@ -825,6 +825,87 @@ fn wheel_legged_infantry_jumps_a_step_and_lands_upright() {
 }
 
 #[test]
+fn a_step_climbing_infantry_walks_up_the_high_point_stairs() {
+    let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
+    // The red high point rises in three 200 mm steps off the trapezoid (0.2 -> 0.4 -> 0.6 -> 0.8 m).
+    // The wheel-legged infantry (slot 3) holds F, so the legs mount each step without jumping.
+    place(&mut m, 1, 3.55, 2.9, std::f64::consts::PI);
+    for _ in 0..30 {
+        m.step(&json!({}));
+    }
+    let floor = m.robots[1].z;
+    let mut climbed = false;
+    let mut jumped = false;
+    // Height of the hull above the ground it stands on: a stride keeps it under a step height,
+    // while a jump would throw it much higher.
+    let mut clearance: f64 = 0.0;
+    for _ in 0..600 {
+        m.step(&json!({"red":{"3":{
+            "move":[-0.6,0.0],"heading":std::f64::consts::PI,"climb":1.0}}}));
+        climbed |= m.events.iter().any(|e| e["type"] == "step_climb");
+        jumped |= m.events.iter().any(|e| e["type"] == "jump");
+        let r = &m.robots[1];
+        clearance = clearance.max(r.z - height_at(&m.arena, r.x, r.y));
+        if r.x < 2.4 {
+            break;
+        }
+    }
+    // Let the last step settle before reading the pose, as a pilot would.
+    for _ in 0..40 {
+        m.step(&json!({"red":{"3":{"heading":std::f64::consts::PI}}}));
+    }
+    let r = &m.robots[1];
+    assert!(climbed, "no step_climb event at x {}", r.x);
+    assert!(!jumped, "the climb fired a jump instead of stepping");
+    assert!(
+        r.z > floor + 0.33 && r.x < 3.0,
+        "did not mount the stairs: x {} dz {}",
+        r.x,
+        r.z - floor
+    );
+    // A step is a low hop, not a jump: a full jump throws the hull ~0.9 m off its own ground.
+    // The first riser of this flight is 0.4 m, so mounting it while the centre is still over the
+    // lower tread reads higher on this metric than a 0.2 m stair; keep it well under a jump.
+    assert!(clearance < 0.78, "the climb became a jump {clearance}");
+    assert!(r.upright > 0.85 && r.grounded, "upright {} grounded {}", r.upright, r.grounded);
+}
+
+#[test]
+fn a_step_climb_starts_even_when_the_nose_already_touches_the_face() {
+    let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
+    // Nose against the first 200 mm step of the red high point: a pilot who drives up to the
+    // kerb and then holds F must still get the tread into view of the probe.
+    place(&mut m, 1, 3.43, 2.9, std::f64::consts::PI);
+    for _ in 0..30 {
+        m.step(&json!({}));
+    }
+    let floor = m.robots[1].z;
+    let mut climbed = false;
+    for _ in 0..120 {
+        m.step(&json!({"red":{"3":{"move":[-0.4,0.0],"heading":std::f64::consts::PI,"climb":1.0}}}));
+        climbed |= m.events.iter().any(|e| e["type"] == "step_climb");
+        if m.robots[1].z > floor + 0.12 {
+            break;
+        }
+    }
+    let r = &m.robots[1];
+    assert!(climbed, "a pressed chassis did not start a climb at x {}", r.x);
+    assert!(r.z > floor + 0.12, "did not mount the step: dz {}", r.z - floor);
+    assert!(r.upright > 0.7, "upright {}", r.upright);
+}
+
+#[test]
+fn only_step_climbing_chassis_accept_the_climb_command() {
+    let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
+    // Slot 4 is the folding mecanum infantry: no legs, so `climb` is rejected outright.
+    m.step(&json!({"red":{"4":{"climb":1.0}}}));
+    assert!(m
+        .events
+        .iter()
+        .any(|e| e["type"] == "invalid_action" && e["reason"].as_str().unwrap_or("").contains("wheel-legged")));
+}
+
+#[test]
 fn central_steps_stop_ordinary_wheels_but_the_end_slope_climbs() {
     let mut m = Engine::new(42, 30.0, "rmuc2026").unwrap();
     let floor = |y: f64| y.min(15.0 - y) * 1.5_f64.to_radians().tan();

@@ -4,6 +4,7 @@ from collections import deque
 from collections.abc import Sequence
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -31,6 +32,193 @@ CPU_LIMIT = 1.0
 STARTUP_LIMIT = {"docker": 60, "trusted-local": 15}
 # A stalled process is stopped after three consecutive missed decision windows.
 POLICY_TIMEOUT_LIMIT = 3
+# A pilot owns the robot until their commands stop: brief gaps coast, long silence hands back.
+PLAYER_COAST = 0.35
+PLAYER_TIMEOUT = 2.5
+# First-person focus: the eye sits FPV_EYE_LIFT muzzle heights above the barrel (the camera in
+# `ArenaScene.tsx` uses the same lift), and the aim assist only considers plates inside the lens.
+# 1.27 is 15 % below the previous 1.495, matching the lowered cockpit camera.
+FPV_EYE_LIFT = 1.27
+# A lobbed shell only lands on the reticle once the launcher has climbed to the solved elevation:
+# the gun slews in the engine (turret_pitch_rate_rad_s), so the trigger is held until it is there.
+LOB_READY_RAD = 0.012
+ASSIST_YAW = 0.80
+ASSIST_PITCH = 0.56
+# Beyond this range the assist still solves the elevation, but only applies 80 % of it: the
+# normal assisted aim point is 20 % higher than the far shot wants, and a full long-range arc
+# reads as a floating crosshair instead of a stable aim point.
+ASSIST_PITCH_RANGE_M = 10.0
+ASSIST_FAR_PITCH_SCALE = 0.8
+# Every field a strategy or a pilot may send for one robot.
+ACTION_FIELDS = frozenset({
+    "move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support",
+    "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm",
+    "rune_start", "heading", "crouch", "rescue", "yaw_rate", "yaw_boost", "brake", "leg_height", "jump", "climb", "lean", "arm", "arm2",
+    "pickup_arm", "transform",
+    # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
+    "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture",
+    "posture_enhanced", "drones",
+    # A pilot's lobbed shot: the world point under the crosshair, solved into a high arc server-side.
+    "aim_point",
+})
+
+
+def validate_action(action, has_messages=False):
+    """Reject unknown fields and payloads larger than the 1 KiB action budget."""
+    if not isinstance(action, dict):
+        raise ValueError("Invalid action object")
+    allowed = ACTION_FIELDS | {"messages"} if has_messages else ACTION_FIELDS
+    if not set(action) <= allowed:
+        raise ValueError("Action contains unsupported fields")
+    if len(json.dumps(action, allow_nan=False).encode()) > 1024:
+        raise ValueError("Each robot action must be <=1 KiB")
+    return action
+
+
+def sight_blocked(arena, start, end):
+    """True when a wall, a deck or a ramp stands on the line between two 3-D points.
+
+    Walls are the referee's own obstacle boxes and the ground is the same height field the
+    simulation runs on, so an assist can never reach through cover — or through the central
+    highland — that the pilot cannot see past.
+    """
+    if not arena:
+        return False
+    from . import sdk
+    (ax, ay, az), (bx, by, bz) = start, end
+    dx, dy, dz = bx - ax, by - ay, bz - az
+    # Exact segment/box test for every barrier: walking the ray in fixed steps could step over a
+    # 0.15 m wall and report a plate behind it as visible.
+    for w in arena.get("obstacles", ()):
+        angle = w.get("rotation", 0.0)
+        c, s = math.cos(angle), math.sin(angle)
+        cx, cy = w["x"] + w["w"] / 2, w["y"] + w["h"] / 2
+        x0, y0 = (ax - cx) * c + (ay - cy) * s, -(ax - cx) * s + (ay - cy) * c
+        x1, y1 = (bx - cx) * c + (by - cy) * s, -(bx - cx) * s + (by - cy) * c
+        bottom = w.get("bottom", 0.0)
+        t0, t1 = 0.0, 1.0
+        for p0, p1, lo, hi in (
+            (x0, x1, -w["w"] / 2, w["w"] / 2),
+            (y0, y1, -w["h"] / 2, w["h"] / 2),
+            (az, bz, bottom, bottom + w.get("height", 1.0)),
+        ):
+            delta = p1 - p0
+            if abs(delta) < 1e-9:
+                if not lo <= p0 <= hi:
+                    break
+            else:
+                near, far = (lo - p0) / delta, (hi - p0) / delta
+                if near > far:
+                    near, far = far, near
+                t0, t1 = max(t0, near), min(t1, far)
+                if t0 > t1:
+                    break
+        else:
+            return True
+    # Terrain has no simple box form, so sample it; the step is small enough for the 0.15 m rims.
+    steps = max(1, int(math.ceil(math.sqrt(dx * dx + dy * dy + dz * dz) / 0.1)))
+    for i in range(1, steps):
+        t = i / steps
+        x, y, z = ax + dx * t, ay + dy * t, az + dz * t
+        if sdk.terrain_height(arena, x, y) > z + 0.12:
+            return True
+    return False
+
+
+def next_shot_overheats(robot):
+    """True when firing one more round would push the barrel past its published heat limit.
+
+    The engine adds the round's heat after the shot and locks the gun once the total crosses the
+    limit, so a held trigger can overheat on a frame the cockpit has not received yet. A sentry in
+    enhanced attack posture and a heavy's launcher-install shot add no heat, exactly as in the
+    engine.
+    """
+    if robot.get("posture") == "attack" and robot.get("posture_enhanced"):
+        return False
+    if robot.get("role") == "heavy" and robot.get("launcher") == "fitted":
+        return False
+    from . import sdk
+    heat = 100.0 if sdk.is_42(robot) else 10.0
+    return robot.get("heat", 0.0) + heat > robot.get("max_heat", 0.0) + 1e-8
+
+
+def lob_climb_seconds(robot, elevation):
+    """How long the launcher needs to slew onto a solved lob elevation, plus a settling margin.
+
+    The gun climbs at the design's `turret_pitch_rate_rad_s`, and the published elevation it starts
+    from is accurate enough for timing: a couple of degrees of chassis attitude is a few hundredths
+    of a second.
+    """
+    from . import sdk
+    rate = float(sdk._design(robot).get("turret_pitch_rate_rad_s") or 2.5)
+    return abs(elevation - float(robot.get("pitch") or 0.0)) / max(rate, 0.2) + 0.12
+
+
+def aim_assist(robot, target_id, robots, arena=None, view=None, structures=None, pitch=None):
+    """World yaw and ballistic pitch that put `robot`'s muzzle on `target_id`'s armour plate.
+
+    Uses the same solver the public SDK gives policies, so a pilot's assisted shot obeys
+    the engine's ballistics and aims at the plate facing the shooter rather than the hull
+    centre. Robots, outposts and bases all carry armour plates. The plate must be inside the
+    pilot's lens and clear of cover — a target behind a wall, a deck or the camera is not
+    assisted at all.
+
+    An outpost belongs to whichever team last rebuilt it (`owner`), not to the half of the
+    field it stands on, so a red outpost rebuilt by blue is never locked by a red pilot.
+
+    Inside ten metres the assist solves yaw and elevation; past that it still solves the elevation
+    but returns 80 % of it, 20 % below the normal assisted aim point, so a distant shot does not
+    float above the target.
+    """
+    if not robot:
+        return None
+    target = None
+    parts = target_id.rsplit("_", 1)
+    if structures and target_id in structures:
+        target = structures[target_id]
+        owner = (target.get("owner") if target.get("kind") == "outpost" else None) or parts[0]
+        if owner == robot["team"] or target.get("hp", 0.0) <= 0.0:
+            target = None
+    else:
+        tokens = target_id.split("-")
+        target = robots.get((tokens[0], tokens[1])) if len(tokens) > 1 else None
+        if target and (target["team"] == robot["team"] or not target.get("alive", True)):
+            target = None
+    if not target:
+        return None
+    from . import sdk
+    try:
+        plate = sdk._aim_target(robot, target)
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return None
+    muzzle_height = robot.get("muzzle_height_m", 0.45)
+    # The pilot looks from the raised first-person eye; the barrel sits lower. The plate has to
+    # be visible from the eye and reachable from the muzzle.
+    eye = (robot["x"], robot["y"], robot.get("z", 0.0) + muzzle_height * FPV_EYE_LIFT)
+    muzzle = (robot["x"], robot["y"], robot.get("z", 0.0) + muzzle_height + 0.08)
+    dx, dy = plate[0] - robot["x"], plate[1] - robot["y"]
+    distance = math.hypot(dx, dy)
+    bearing = math.atan2(dy, dx)
+    if view is not None:
+        offset = (bearing - view + math.pi) % math.tau - math.pi
+        if abs(offset) > ASSIST_YAW:
+            return None
+        if pitch is not None and distance > 1e-6:
+            elevation = math.atan2(plate[2] - eye[2], distance)
+            if abs(elevation - pitch) > ASSIST_PITCH:
+                return None
+    if sight_blocked(arena, eye, plate) or sight_blocked(arena, muzzle, plate):
+        return None
+    try:
+        yaw = sdk.aim_at(robot, target)
+        elevation = sdk.aim_pitch(robot, target)
+        # Past ten metres the assist trims the solved elevation instead of handing the aim back to
+        # the pilot: keeping the pitch fully solved made the crosshair float above a far target.
+        if distance > ASSIST_PITCH_RANGE_M:
+            elevation *= ASSIST_FAR_PITCH_SCALE
+        return yaw, elevation
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return None
 
 
 class FrameLog(Sequence):
@@ -94,6 +282,19 @@ class FrameLog(Sequence):
                 self.file.seek(offset)
                 raw = self.file.read(size)
             yield raw
+
+    def encoded_range(self, start, count=None):
+        """Static-free frames in `[start, start+count)`, for callers that merge the static half once.
+
+        A highlight reel only needs the handful of five-second windows it plays, so it must not be
+        handed a whole match: a full seven-minute replay is hundreds of megabytes.
+        """
+        stop = len(self.offsets) if count is None else min(len(self.offsets), start + max(0, count))
+        with self.lock:
+            for index in range(max(0, start), stop):
+                offset, size = self.offsets[index]
+                self.file.seek(offset)
+                yield self.file.read(size)
 
 
 class EncodedObservation:
@@ -249,16 +450,8 @@ class Policy:
             raise ValueError("Invalid action object")
         if not set(actions) <= controlled:
             raise ValueError("Attempt to control an unowned robot")
-        fields = {"move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support", "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform",
-                  # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
-                  "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture", "posture_enhanced", "drones"}
-        if has_messages:
-            fields.add("messages")
         for slot, action in actions.items():
-            if not isinstance(action, dict) or not set(action) <= fields:
-                raise ValueError("Action contains unsupported fields")
-            if len(json.dumps(action, allow_nan=False).encode()) > 1024:
-                raise ValueError("Each robot action must be <=1 KiB")
+            validate_action(action, has_messages)
             if "messages" in action:
                 validate_messages(action["messages"], slot, self.dynamic_messages)
         return actions
@@ -339,6 +532,15 @@ class Battle:
         self.metadata["rules_hash"] = self.frames[0]["rules_hash"]
         self.metadata["engine_hash"] = self.frames[0]["engine_hash"]
         self.held_commands = {"red": {}, "blue": {}}
+        # A human pilot's live commands, keyed (team, slot) and re-applied until they go stale.
+        self.manual, self.manual_lock = {}, threading.Lock()
+        # Ammunition orders wait here until a tick the rulebook actually reads (every second tick).
+        self.pending_orders = {}
+        # Last published gun elevation per piloted robot: a lobbed round is only released once the
+        # launcher has stopped climbing, otherwise the frame's one-tick lag is a few degrees of arc.
+        self.lob_ready = {}
+        # The solved lob aim a `lob_ready` deadline belongs to, so a moving reticle re-arms the climb.
+        self.lob_ready_aim = {}
         self.communication = TeamCommunication({team:[d["slot"] for d in items] for team, items in lineups.items()} if lineups else None, slot_ids)
         if lineups:
             self.metadata.update({"lineups":lineups,"test_match":True,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
@@ -385,6 +587,108 @@ class Battle:
 
     def cancelled(self):
         return (self.deadline is not None and time.monotonic() >= self.deadline) or bool(self.stop_event and self.stop_event.is_set())
+
+    def set_manual(self, team, slot, action, assist=None):
+        """Hold `action` for one robot of `team`; `action=None` hands it back to its strategy.
+
+        `assist` names an enemy robot the pilot is locking onto: the gimbal then follows the
+        engine's own ballistic solution, exactly like `sdk.aim_at`/`sdk.aim_pitch` in a policy.
+        """
+        if action is None:
+            with self.manual_lock:
+                self.manual.pop((team, str(slot)), None)
+            return
+        robot = next((item for item in self.match.robots
+                      if item["team"] == team and str(item["slot"]) == str(slot)), None)
+        if robot is None:
+            raise ValueError("Robot is not on the field")
+        if robot.get("role") == "aerial":
+            raise ValueError("空中机器人由自动飞行系统控制，不能手动驾驶")
+        validated = validate_action(action)
+        # The rulebook reads orders every second tick, so an order that only rides on one 50 ms
+        # command would be dropped half the time. Queue it and let `_manual_commands` deliver it on
+        # a tick the engine reads, exactly once.
+        key = (team, str(slot))
+        order = validated.pop("buy_ammo", None)
+        if order is not None:
+            with self.manual_lock:
+                self.pending_orders[key] = (order, time.monotonic())
+        with self.manual_lock:
+            self.manual[key] = (validated, time.monotonic(), assist)
+
+    def _manual_commands(self):
+        """Live pilot actions by team. A piloted robot never falls back to its strategy while the
+        pilot is still connected: a brief gap only brakes it, and silence for `PLAYER_TIMEOUT`
+        hands it back."""
+        now = time.monotonic()
+        with self.manual_lock:
+            for key, (_, sent, _assist) in list(self.manual.items()):
+                if now - sent > PLAYER_TIMEOUT:
+                    del self.manual[key]
+            held = dict(self.manual)
+        if not held:
+            return {}
+        robots = {(item["team"], str(item["slot"])): item for item in self.match.robots}
+        # Outposts and bases are targets too: their published armour plates are ordinary plates.
+        structures = {f"{team}_base": {**base, "kind": "base"} for team, base in self.match.bases.items()}
+        for team, outpost in (self.match.outposts or {}).items():
+            structures[f"{team}_outpost"] = {**outpost, "kind": "outpost"}
+        commands = {}
+        for (team, slot), (action, sent, assist) in held.items():
+            if now - sent > PLAYER_COAST:
+                # Keep the gun where the pilot left it, but stop driving and shooting.
+                action = {key: action[key] for key in ("aim", "pitch") if key in action}
+                action.update({"move": [0.0, 0.0], "fire": False, "brake": True})
+            else:
+                action = dict(action)
+            live = robots.get((team, slot))
+            if live is not None and action.get("fire") and next_shot_overheats(live):
+                # The engine adds heat after a shot and locks the barrel when the total crosses its
+                # limit, so a held trigger could overheat on a frame the cockpit has not seen yet.
+                # Drop the shot before that round: the last line of defence behind the cockpit's
+                # own heat guard.
+                action["fire"] = False
+            if assist:
+                aimed = aim_assist(robots.get((team, slot)), assist, robots, self.match.arena,
+                                   action.get("aim"), structures, action.get("pitch"))
+                if aimed:
+                    action["aim"], action["pitch"] = aimed
+            # Lobbed fire: the cockpit sends the world point under its crosshair and the shell has to
+            # land there, so the elevation is solved on the steep branch. The engine never reads the
+            # point itself, so it is dropped before the action reaches it.
+            point = action.pop("aim_point", None)
+            if point:
+                from . import sdk
+                solved = sdk.lob_aim(live, point) if live is not None else None
+                if solved:
+                    action["aim"], action["pitch"] = solved
+                    # The launcher still has to arrive on the solved elevation: a round fired on the
+                    # same tick would leave at the angle the gun still had, and the drop solve would
+                    # be wrong — that is the shell that falls into the ground a few metres short. A
+                    # reticle that moves solves a new arc, so the climb clock starts over.
+                    key = (team, slot)
+                    issued = self.lob_ready_aim.get(key)
+                    if issued is None or abs(issued[0] - solved[0]) > LOB_READY_RAD or abs(issued[1] - solved[1]) > LOB_READY_RAD:
+                        self.lob_ready_aim[key] = solved
+                        self.lob_ready[key] = now + lob_climb_seconds(live, solved[1])
+                    ready = self.lob_ready.get(key)
+                    if action.get("fire") and ready is not None and now < ready:
+                        action["fire"] = False
+                else:
+                    # No elevation puts the shell on that point any more: the flat arc is out of
+                    # reach there, so the trigger waits instead of lobbing a round into the ground.
+                    action["fire"] = False
+            # An ammunition order waits for a tick the rulebook reads (`tick % 2 == 0`), so a single
+            # 50 ms command can never be skipped, and it is delivered only once.
+            order = self.pending_orders.get((team, slot))
+            if order is not None:
+                if now - order[1] > 2.0:
+                    del self.pending_orders[(team, slot)]
+                elif self.match.tick % 2 == 0:
+                    action["buy_ammo"] = order[0]
+                    del self.pending_orders[(team, slot)]
+            commands.setdefault(team, {})[slot] = action
+        return commands
 
     def queue_referee(self, command):
         value = validate_referee(command, [robot["id"] for robot in self.match.robots])
@@ -446,6 +750,11 @@ class Battle:
                 self.diagnostics.append(detail)
                 failures.append(detail)
         self.held_commands = commands
+        # A pilot overrides the strategy for their own robot only, every tick, so the
+        # policy's held actions keep driving the rest of the team.
+        manual = self._manual_commands()
+        if manual:
+            commands = {team: {**slots, **manual.get(team, {})} for team, slots in commands.items()}
         communications = self.communication.route(outgoing, self.match.tick, self.match.tick + POLICY_INTERVAL) if policy_tick else []
         if self.pending_referee:
             commands = {**commands, "referee": self.pending_referee}
@@ -499,6 +808,9 @@ class Battle:
             return
         self._digest_cache = self.match.digest()
         self.closed = True
+        with self.manual_lock:
+            self.manual.clear()
+            self.pending_orders.clear()
         self.pool.shutdown(wait=True, cancel_futures=True)
         if self.policies:
             with ThreadPoolExecutor(max_workers=12) as pool:

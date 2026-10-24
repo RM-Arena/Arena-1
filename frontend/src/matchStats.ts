@@ -21,8 +21,8 @@ export class MatchStats{
     for(const team of TEAMS){
       const t=this.teams[team],now=f.teams[team],before=last?.teams[team];
       if(!before)t.economy+=Math.max(0,now.resources);else if(now.resources>before.resources)t.economy+=now.resources-before.resources;
-      const a=(now as Record<string,number>).next_tech_income,b=(before as Record<string,number>|undefined)?.next_tech_income;
-      if(b!==undefined&&b>0&&a>b+1e-6)t.assemblyEconomy+=(before as Record<string,number>).tech_income||0;
+      const a=now.next_tech_income,b=before?.next_tech_income;
+      if(b!==undefined&&b>0&&a!==undefined&&a>b+1e-6)t.assemblyEconomy+=before?.tech_income||0;
       if(last&&(last.outposts?.[team]?.hp??0)>0&&(f.outposts?.[team]?.hp??1)<=0)t.outpostsLost++;
     }
     for(const r of f.robots){if(r.level>(this.levels.get(r.id)||0))this.levels.set(r.id,r.level);const t=this.teams[r.team];t.levelMax=Math.max(t.levelMax,r.level);}

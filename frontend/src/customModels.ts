@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {useGLTF} from '@react-three/drei';
 import {useMemo} from 'react';
 import type {Frame,Metadata,RobotSkin,TeamId} from './types';
-import {batchRigidMeshes} from './rigidMeshes';
+import {batchFlyingBody,batchRigidMeshes} from './rigidMeshes';
 
 // Uploaded robot appearances (rmuc_arena/custom_models.py). The asset URL carries the base model's stowed
 // envelope and the mesh's forward axis, so any user GLB is turned to face +X, scaled into that envelope and
@@ -30,9 +30,14 @@ export function fitCustomModel(scene:THREE.Object3D,url:string){
   cache.set(url,group);return group;
 }
 // useGLTF plus the fitting above for uploaded appearances.
+// Drones are flown by the engine, not by their GLTF clips: a hangar of four is otherwise ~55 separate
+// parts each (and as many draw calls, twice over with the shadow pass), so their rigid parts are
+// merged per material — rotor subgroups keep their own node, so the spin still works.
+const DRONE_ASSET=/^\/assets\/drone-/;
 export function useRobotScene(url:string){
   const {scene,animations}=useGLTF(url);
-  return useMemo(()=>isCustomAsset(url)?fitCustomModel(scene,url):/^\/assets\/(?:robot|drone)-/.test(url)&&!animations.length?batchRigidMeshes(scene):scene,[scene,animations,url]);
+  const drone=DRONE_ASSET.test(url),rigid=/^\/assets\/(?:robot|drone)-/.test(url)&&!animations.length;
+  return useMemo(()=>isCustomAsset(url)?fitCustomModel(scene,url):drone?batchFlyingBody(scene):rigid?batchRigidMeshes(scene):scene,[scene,animations,url,drone,rigid]);
 }
 
 export const skinFor=(metadata:Metadata|null|undefined,team:TeamId,model:number|undefined):RobotSkin|undefined=>model===undefined?undefined:metadata?.skins?.[team]?.[String(model)];

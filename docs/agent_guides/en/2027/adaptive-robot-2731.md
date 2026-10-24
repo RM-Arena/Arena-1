@@ -501,4 +501,4 @@ python3 -B arena.py test --opponent VERSION --duration 420 --games 2 --seed 200
 ### Model capabilities
 
 Drive: `wheel_legged`; arms: 0.
-Supports `leg_height`, `jump` and `lean`, without direct strafing. Climbs 0.20 m steps (the high-point stairs).
+Supports `leg_height`, `jump` and `lean`, without direct strafing. `climb` mounts 0.20 m steps (the high-point stairs).

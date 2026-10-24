@@ -553,7 +553,7 @@ def model_controls_2027(lang, d):
     if d["chassis_type"] == "wheel_legged":
         text += ("支持 `leg_height`、`jump`、`lean`；不能直接横移。" if zh else "Supports `leg_height`, `jump` and `lean`, without direct strafing.")
         if d.get("step_climb_m"):
-            text += (f"可登上 {d['step_climb_m']:.2f} m 台阶（制高点三级台阶）。" if zh else f" Climbs {d['step_climb_m']:.2f} m steps (the high-point stairs).")
+            text += (f"`climb` 可登上 {d['step_climb_m']:.2f} m 台阶（制高点三级台阶）。" if zh else f" `climb` mounts {d['step_climb_m']:.2f} m steps (the high-point stairs).")
         text += "\n"
     if d.get("leg_type") == "serial":
         text += ("串联腿翻倒后会自动翻身（约 1–2 s）。\n" if zh else "Serial legs right the robot after a fall in about 1-2 s.\n")

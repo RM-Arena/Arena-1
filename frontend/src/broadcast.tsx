@@ -75,15 +75,21 @@ export function TeamCrest({metadata,team,size}:{metadata:Metadata|null;team:Team
 }
 function Chevrons({level}:{level:number}){const n=level>=10?3:Math.ceil(level/3);return <span className={`bc-chev ${level>=10?'max':''}`} title={`Lv.${level}`}>{Array.from({length:n},(_,i)=><i key={i}/>)}</span>;}
 
-function RobotCard({r,image,selected,onSelect,assemblies,metadata}:{r:Robot;image?:string;selected:boolean;onSelect:(id:string)=>void;assemblies:number[];metadata:Metadata|null}){
+// `hidden` is a pilot looking at the other team: the card keeps its normal look, but the enemy
+// robot's health, ammunition and level are not published.
+function RobotCard({r,image,selected,onSelect,assemblies,metadata,hidden=false,player=false}:{r:Robot;image?:string;selected:boolean;onSelect:(id:string)=>void;assemblies:number[];metadata:Metadata|null;hidden?:boolean;player?:boolean}){
   const agent=robotAgent(metadata,r.team,r.slot);
   const air=r.role==='aerial',fleet=r.drones,dead=!air&&!r.alive,hp=air?(fleet?pct(fleet.reduce((sum,d)=>sum+Math.max(0,d.integrity),0),fleet.length*Math.max(1,...fleet.map(d=>d.integrity),3)):r.support_active?100:0):pct(r.hp,r.max_hp),respawn=r.respawn_required>0?Math.floor(Math.min(1,r.respawn_progress/r.respawn_required)*100):0;
-  return <button className={`bc-card ${r.team} ${dead?'dead':''} ${selected?'selected':''}`} onClick={()=>onSelect(r.id)} aria-label={`${TEAM_LABEL[r.team]}${r.slot}号${robotName(r)}${agent?` · 策略来自 ${agentLabel(agent)}`:''}`}>
-    {agent&&<span className="bc-card-agent" title={`${agentLabel(agent)}${agent.strategy?` · ${strategyName(agent.strategy)}`:''}`}><AgentLogo provider={providerOf(agent)} size={20}/></span>}
-    <span className="bc-card-art">{image?<img src={image} alt=""/>:<span className="bc-card-ph"/>}{r.role==='hero'&&<i className="bc-mode">{(r as Robot&{profile?:string}).profile==='melee'?'近':'远'}</i>}{dead&&<b className="bc-respawn">{respawn}%</b>}</span>
-    <span className="bc-card-id"><em>{r.slot}</em><span>{robotName(r)}</span><Chevrons level={r.level||1}/></span>
-    <span className="bc-card-hp"><i style={{width:`${hp}%`}}/>{Array.from({length:4},(_,k)=><s key={k} style={{left:`${(k+1)*20}%`}}/>)}</span>
-    <span className="bc-card-meta">{r.role==='engineer'||(r.role==='heavy'&&r.launcher!=='installed'&&r.launcher!=='fitted')?<span className="bc-stars">{[0,1,2,3].map(k=><i key={k} className={assemblies[k]?'on':''}>★</i>)}</span>:fleet?<span>✈ {fleet.filter(d=>d.state==='flying').length}/{fleet.filter(d=>d.state!=='disabled').length}</span>:<span>≡ {r.ammo}</span>}{air&&!fleet&&<small>{r.support_active?'空中支援':'待命'}</small>}{r.role==='sentry'&&r.posture&&<small>{({attack:'进攻',defense:'防御',move:'移动'} as const)[r.posture]}{r.posture_enhanced?'·强化':''}</small>}</span>
+  return <button className={`bc-card ${r.team} ${dead?'dead':''} ${selected?'selected':''} ${player?'player':''}`} onClick={()=>onSelect(r.id)} aria-label={`${TEAM_LABEL[r.team]}${r.slot}号${robotName(r)}${player?' · 玩家操控':agent?` · 策略来自 ${agentLabel(agent)}`:''}`}>
+    {/* A chassis the player is driving publishes itself instead of the strategy that is no longer
+        steering it: the badge above the card reads P1 rather than an agent logo. */}
+    {player?<span className="bc-card-agent pilot" title="玩家操控 P1">P1</span>:agent&&<span className="bc-card-agent" title={`${agentLabel(agent)}${agent.strategy?` · ${strategyName(agent.strategy)}`:''}`}><AgentLogo provider={providerOf(agent)} size={20}/></span>}
+    <span className="bc-card-art">{image?<img src={image} alt=""/>:<span className="bc-card-ph"/>}{r.role==='hero'&&<i className="bc-mode">{(r as Robot&{profile?:string}).profile==='melee'?'近':'远'}</i>}{dead&&!hidden&&<b className="bc-respawn">{respawn}%</b>}</span>
+    <span className="bc-card-id"><em>{r.slot}</em><span>{robotName(r)}</span>{!hidden&&<Chevrons level={r.level||1}/>}</span>
+    {/* A pilot sees the normal card, but an enemy's health is a flat grey bar: the bar keeps the
+        row's shape without publishing the value, and ammunition/level are not shown. */}
+    <span className={`bc-card-hp${hidden?' muted':''}`} title={hidden?'对方血量不公开':undefined}><i style={{width:hidden?'100%':`${hp}%`}}/>{Array.from({length:4},(_,k)=><s key={k} style={{left:`${(k+1)*20}%`}}/>)}</span>
+    <span className={`bc-card-meta${hidden?' muted':''}`}>{hidden?<span>· · ·</span>:r.role==='engineer'||(r.role==='heavy'&&r.launcher!=='installed'&&r.launcher!=='fitted')?<span className="bc-stars">{[0,1,2,3].map(k=><i key={k} className={assemblies[k]?'on':''}>★</i>)}</span>:fleet?<span>✈ {fleet.filter(d=>d.state==='flying').length}/{fleet.filter(d=>d.state!=='disabled').length}</span>:<span>≡ {r.ammo}</span>}{!hidden&&air&&!fleet&&<small>{r.support_active?'空中支援':'待命'}</small>}{!hidden&&r.role==='sentry'&&r.posture&&<small>{({attack:'进攻',defense:'防御',move:'移动'} as const)[r.posture]}{r.posture_enhanced?'·强化':''}</small>}</span>
   </button>;
 }
 
@@ -113,7 +119,7 @@ function ToastIcon({kind}:{kind?:Callout['icon']}){
 }
 
 // ---------------------------------------------------------------- HUD
-export function BroadcastHud({frame,metadata,stats,director,images,selected,onSelect,round}:{frame:Frame;metadata:Metadata|null;stats:MatchStats;director:BroadcastDirector;images:Record<string,string>;selected:string;onSelect:(id:string)=>void;round:string}){
+export function BroadcastHud({frame,metadata,stats,director,images,selected,onSelect,round,pilot=null,player=null}:{frame:Frame;metadata:Metadata|null;stats:MatchStats;director:BroadcastDirector;images:Record<string,string>;selected:string;onSelect:(id:string)=>void;round:string;pilot?:TeamId|null;player?:string|null}){
   const now=performance.now(),[,tick]=useState(0);
   useEffect(()=>{const id=window.setInterval(()=>tick(n=>n+1),500);return()=>window.clearInterval(id);},[]);
   const damage=(t:TeamId)=>Math.floor((frame.teams[t] as {attack_damage?:number}).attack_damage??frame.teams[t].score),share=damage('red')+damage('blue')>0?damage('red')/(damage('red')+damage('blue'))*100:50;
@@ -146,7 +152,7 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
       </div>
     </div>
     {TEAMS.map(team=>{const list=[...frame.robots.filter(r=>r.team===team)].sort((a,b)=>team==='red'?b.slot-a.slot:a.slot-b.slot);return <div key={team} className={`bc-cards ${team}`}>
-      {list.map(r=><RobotCard key={r.id} r={r} image={image(r)} selected={selected===r.id} onSelect={onSelect} assemblies={stats.teams[team].assemblies} metadata={metadata}/>)}
+      {list.map(r=><RobotCard key={r.id} r={r} image={image(r)} selected={selected===r.id} onSelect={onSelect} assemblies={stats.teams[team].assemblies} metadata={metadata} hidden={pilot!==null&&pilot!==team} player={r.id===player}/>)}
     </div>;})}
     {TEAMS.map(team=><Tickers key={team} frame={frame} team={team}/>)}
     {banner&&<div key={banner.key} className={`bc-banner ${banner.team}`}><span>{banner.title}</span></div>}
@@ -154,7 +160,6 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
       <span className={`bc-kill-bot ${killer?.team||other(k.team)}`}>{image(killer)&&<img src={image(killer)} alt=""/>}<em>{killer?.slot??'?'}</em></span><b>摧毁</b>
       <span className={`bc-kill-bot ${victim?.team||other(k.team)}`}>{image(victim)&&<img src={image(victim)} alt=""/>}<em>{victim?.slot??'?'}</em></span></div>;})}</div>
     {toast&&<div key={toast.key} className={`bc-toast ${toast.team}`}><span className="bc-toast-icon"><ToastIcon kind={toast.icon}/></span><div><strong>{toast.title}</strong><div className="bc-chips">{toast.chips?.map(c=><span key={c}>{c}</span>)}</div></div></div>}
-    <div className="bc-mini"><MiniMap frame={frame} selected={selected}/></div>
-    <div className="bc-plate"><span>对抗赛 · 策略联赛</span><b>ROBOMASTER {season}</b></div>
+    {!pilot&&<div className="bc-mini"><MiniMap frame={frame} selected={selected}/></div>}    <div className="bc-plate"><span>对抗赛 · 策略联赛</span><b>ROBOMASTER {season}</b></div>
   </Stage>;
 }

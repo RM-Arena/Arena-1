@@ -1,7 +1,15 @@
-const {app, BrowserWindow, Menu, dialog, shell, session} = require('electron');
+const electron = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const {Backend, runtimeLayout} = require('./backend.cjs');
+
+// Under `ELECTRON_RUN_AS_NODE` the module resolves to the binary path, so the app would crash on the
+// first `app` call; say what went wrong instead.
+if (typeof electron === 'string') {
+  console.error('Arena-1 needs the Electron runtime, not Node. Start it with `python scripts/project.py desktop` or `bun run desktop:dev`.');
+  process.exit(1);
+}
+const {app, BrowserWindow, Menu, dialog, shell, session} = electron;
 
 app.setName('Arena-1');
 if (process.env.RMUC_DESKTOP_DATA) app.setPath('userData', path.resolve(process.env.RMUC_DESKTOP_DATA));
@@ -79,8 +87,12 @@ else {
     if (!stopped) {event.preventDefault(); stopped = true; Promise.resolve(backend?.stop()).finally(()=>app.quit());}
   });
   app.whenReady().then(async()=>{
+    // The cockpit captures the mouse with the Pointer Lock API. Electron routes that through the
+    // permission handlers, so denying everything but fullscreen left desktop aiming on the
+    // pointer-capture fallback: the cursor stayed visible and could leave the window. Grant
+    // `pointerLock` to the app's own page; the OS then hides and confines the cursor while piloting.
     const permitted = (contents, permission) => !!backend?.url &&
-      contents?.getURL().startsWith(backend.url + '/') && ['fullscreen','clipboard-sanitized-write'].includes(permission);
+      contents?.getURL().startsWith(backend.url + '/') && ['fullscreen','pointerLock','clipboard-sanitized-write'].includes(permission);
     session.defaultSession.setPermissionRequestHandler((contents,permission,callback)=>callback(permitted(contents,permission)));
     session.defaultSession.setPermissionCheckHandler((contents,permission)=>permitted(contents,permission));
     session.defaultSession.on('will-download', (_event,item)=>{
