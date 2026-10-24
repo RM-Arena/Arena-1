@@ -871,6 +871,41 @@ fn a_step_climbing_infantry_walks_up_the_high_point_stairs() {
 }
 
 #[test]
+fn a_step_ahead_never_reads_as_the_ground_under_a_parked_chassis() {
+    let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
+    // This approach pose used to stall: the carry parked the hull on the first tread with the
+    // second step 0.3 m ahead, the step in front counted as "underneath", the chassis read as
+    // airborne, and the next climb — gated on `grounded` — could never start. The robot sat on the
+    // edge of the tread with no wheel contact for the rest of the match.
+    place(&mut m, 1, 3.505, 2.9, std::f64::consts::PI);
+    for _ in 0..30 {
+        m.step(&json!({}));
+    }
+    let floor = m.robots[1].z;
+    let mut climbs = 0;
+    for _ in 0..600 {
+        m.step(&json!({"red":{"3":{
+            "move":[-0.6,0.0],"heading":std::f64::consts::PI,"climb":1.0}}}));
+        climbs += m.events.iter().filter(|e| e["type"] == "step_climb").count();
+        if m.robots[1].x < 2.4 {
+            break;
+        }
+    }
+    for _ in 0..40 {
+        m.step(&json!({"red":{"3":{"heading":std::f64::consts::PI}}}));
+    }
+    let r = &m.robots[1];
+    assert!(climbs >= 3, "stalled on the tread after {climbs} climbs at x {}", r.x);
+    assert!(
+        r.grounded && r.upright > 0.9,
+        "left hanging on the edge: grounded {} upright {}",
+        r.grounded,
+        r.upright
+    );
+    assert!(r.z > floor + 0.55, "did not reach the top tread: dz {}", r.z - floor);
+}
+
+#[test]
 fn a_step_climb_starts_even_when_the_nose_already_touches_the_face() {
     let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
     // Nose against the first 200 mm step of the red high point: a pilot who drives up to the
