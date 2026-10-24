@@ -2,6 +2,7 @@ const electron = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const {Backend, runtimeLayout} = require('./backend.cjs');
+const {AppUpdates} = require('./updates.cjs');
 
 // Under `ELECTRON_RUN_AS_NODE` the module resolves to the binary path, so the app would crash on the
 // first `app` call; say what went wrong instead.
@@ -9,7 +10,7 @@ if (typeof electron === 'string') {
   console.error('Arena-1 needs the Electron runtime, not Node. Start it with `python scripts/project.py desktop` or `bun run desktop:dev`.');
   process.exit(1);
 }
-const {app, BrowserWindow, Menu, dialog, shell, session} = electron;
+const {app, BrowserWindow, Menu, dialog, shell, session, net} = electron;
 
 app.setName('Arena-1');
 if (process.env.RMUC_DESKTOP_DATA) app.setPath('userData', path.resolve(process.env.RMUC_DESKTOP_DATA));
@@ -23,6 +24,9 @@ else {
   try {if (JSON.parse(fs.readFileSync(settingsFile, 'utf8')).sandbox === 'docker') sandbox = 'docker';} catch {}
   const docs = 'https://rm-arena.github.io/Arena-1/';
   const layout = runtimeLayout({packaged: app.isPackaged, resourcesPath: process.resourcesPath, projectRoot: path.resolve(__dirname, '..')});
+  const updates = new AppUpdates({version: app.getVersion(), fetch: (...args) => net.fetch(...args),
+    showMessageBox: options => dialog.showMessageBox(window, options), openExternal: url => shell.openExternal(url),
+    onCheckingChange: () => {if (!quitting && window && !window.isDestroyed()) menu();}});
 
   function menu() {
     const execution = value => ({label: value === 'docker' ? 'Docker 隔离 / Container isolation' : '可信本地策略 / Trusted local policies', type: 'radio', checked: sandbox === value,
@@ -42,6 +46,9 @@ else {
       {label:'编辑 / Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
       {label:'视图 / View',submenu:[{role:'reload'},{role:'togglefullscreen'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},
       {label:'帮助 / Help',submenu:[{label:'项目文档 / Documentation',click:()=>shell.openExternal(docs)},
+        {id:'check-for-updates', label:updates.checking ? '正在检查更新… / Checking for updates…' : '检查更新 / Check for updates',
+          enabled:!updates.checking, click:()=>void updates.check({manual:true})},
+        {type:'separator'},
         {label:'许可证 / License',click:()=>shell.openPath(path.join(layout.root,'LICENSE'))},
         {label:'关于 / About',click:()=>dialog.showMessageBox(window,{message:`Arena-1 ${app.getVersion()}`,detail:'非商业学习专用 / Non-commercial learning only\nRust simulation · Python policies · React Three Fiber\nDefault local mode executes trusted code on this computer.'})}]},
     ]));
@@ -73,6 +80,8 @@ else {
       const health = await window.webContents.executeJavaScript('fetch("/api/health").then(response=>response.json())');
       result.season = health.season;
       result.version = health.version;
+      result.updateMenu = Menu.getApplicationMenu()?.getMenuItemById('check-for-updates')?.enabled === true;
+      if (!result.updateMenu) throw new Error('Desktop update menu is missing or disabled');
       if (result.robots !== health.team_size * 2 || !result.webgl) throw new Error('Desktop renderer failed: '+JSON.stringify(result));
       if (process.env.RMUC_SMOKE_SCREENSHOT) {
         await new Promise(resolve=>setTimeout(resolve,2500));
@@ -84,6 +93,7 @@ else {
   app.on('second-instance',()=>{if(window){if(window.isMinimized())window.restore();window.focus();}});
   app.on('before-quit', event => {
     quitting = true;
+    updates.stop();
     if (!stopped) {event.preventDefault(); stopped = true; Promise.resolve(backend?.stop()).finally(()=>app.quit());}
   });
   app.whenReady().then(async()=>{
@@ -99,5 +109,6 @@ else {
       item.setSaveDialogOptions({defaultPath:path.join(app.getPath('downloads'),path.basename(item.getFilename()))});
     });
     await start();
+    if (app.isPackaged && !smoke) updates.start();
   }).catch(async error=>{console.error(error);if(!smoke)dialog.showErrorBox('Arena-1 could not start',error.message);quitting=true;await backend?.stop();app.exit(1);});
 }
