@@ -1,4 +1,6 @@
-"""Compose original non-match broadcast themes using synthesized instruments.
+"""Compose the hangar, self-check, victory and countdown cues using synthesized instruments.
+
+The menu, results and MVP themes come from compose_score.py.
 
 Requires NumPy and ffmpeg only at asset-build time. Runtime playback uses the
 exported AAC files. No audio is sampled from the competition soundtrack.
@@ -65,12 +67,9 @@ def drum(kind,rng):
     return np.column_stack((y,y))
 
 THEMES={
- 'lobby':dict(bpm=86,bars=16,key=52,chords=[(0,[0,3,7,14]),(3,[0,4,7,11]),(-2,[0,4,7,14]),(5,[0,3,7,12])],style='lounge',seed=101),
  'hangar':dict(bpm=100,bars=16,key=45,chords=[(0,[0,3,7,14]),(5,[0,4,7,12]),(7,[0,3,7,14]),(3,[0,4,7,11])],style='mechanical',seed=202),
  'self-check':dict(bpm=118,bars=16,key=50,chords=[(0,[0,3,7,12]),(-2,[0,4,7,12]),(-5,[0,4,7,11]),(-7,[0,4,7,12])],style='tension',seed=303),
  'victory':dict(bpm=126,bars=8,key=48,chords=[(0,[0,4,7,12]),(5,[0,4,7,12]),(9,[0,3,7,12]),(7,[0,4,7,14])],style='anthem',seed=404),
- 'results':dict(bpm=82,bars=16,key=53,chords=[(0,[0,4,7,11]),(7,[0,4,7,14]),(9,[0,3,7,12]),(5,[0,4,7,11])],style='reflection',seed=505),
- 'mvp':dict(bpm=110,bars=12,key=49,chords=[(0,[0,3,7,12]),(-4,[0,4,7,11]),(3,[0,4,7,14]),(-2,[0,4,7,12])],style='spotlight',seed=606),
 }
 
 def compose(config):
@@ -154,4 +153,5 @@ if __name__=='__main__':
     for name,config in THEMES.items():
         info[name]={**config,**export(name,compose(config),args.output)};print('Composed',name,info[name]['seconds'],flush=True)
     info['countdown']=export('countdown',countdown(),args.output)
-    (args.output/'broadcast-themes.json').write_text(json.dumps(info,indent=2)+'\n')
+    meta=args.output/'broadcast-themes.json'
+    meta.write_text(json.dumps({**(json.loads(meta.read_text()) if meta.exists() else {}),**info},indent=2)+'\n')

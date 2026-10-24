@@ -96,10 +96,10 @@ test('each post-match stage changes the actual source buffer',async()=>{
 });
 test('home and match setup swap music while match, post-match and archive tracks stay original',async()=>{
  const a=harness();a.bgm(broadcastMusicCue({...state,page:'home',post:'mvp',status:'finished'}),'preview');await a.enable();await flush();
- assert.equal(a.diagnostics.track,'/assets/audio/lobby.m4a');
+ assert.equal(a.diagnostics.track,'/assets/audio/arena-theme.m4a');
  a.bgm(broadcastMusicCue(state),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/home.mp3');
- a.bgm(broadcastMusicCue({...state,page:'history'}),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/lobby.m4a');
- for(const [post,url] of [[null,'/assets/audio/summoning-glory.m4a'],['victory','/assets/audio/victory.m4a'],['results','/assets/audio/results.m4a'],['mvp','/assets/audio/mvp.m4a']]){
+ a.bgm(broadcastMusicCue({...state,page:'history'}),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/arena-theme.m4a');
+ for(const [post,url] of [[null,'/assets/audio/summoning-glory.m4a'],['victory','/assets/audio/victory.m4a'],['results','/assets/audio/results-summary.m4a'],['mvp','/assets/audio/mvp-fanfare.m4a']]){
   a.bgm(broadcastMusicCue({...state,page:'arena',status:'running',post}),'preview');await flush();assert.equal(a.diagnostics.track,url);
  }
 });

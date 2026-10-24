@@ -1,51 +1,4 @@
 {
-  "lobby": {
-    "bpm": 86,
-    "bars": 16,
-    "key": 52,
-    "chords": [
-      [
-        0,
-        [
-          0,
-          3,
-          7,
-          14
-        ]
-      ],
-      [
-        3,
-        [
-          0,
-          4,
-          7,
-          11
-        ]
-      ],
-      [
-        -2,
-        [
-          0,
-          4,
-          7,
-          14
-        ]
-      ],
-      [
-        5,
-        [
-          0,
-          3,
-          7,
-          12
-        ]
-      ]
-    ],
-    "style": "lounge",
-    "seed": 101,
-    "seconds": 44.651,
-    "peak_before_mastering": 0.50246
-  },
   "hangar": {
     "bpm": 100,
     "bars": 16,
@@ -187,102 +140,69 @@
     "seconds": 15.238,
     "peak_before_mastering": 0.58878
   },
-  "results": {
-    "bpm": 82,
-    "bars": 16,
-    "key": 53,
-    "chords": [
-      [
-        0,
-        [
-          0,
-          4,
-          7,
-          11
-        ]
-      ],
-      [
-        7,
-        [
-          0,
-          4,
-          7,
-          14
-        ]
-      ],
-      [
-        9,
-        [
-          0,
-          3,
-          7,
-          12
-        ]
-      ],
-      [
-        5,
-        [
-          0,
-          4,
-          7,
-          11
-        ]
-      ]
-    ],
-    "style": "reflection",
-    "seed": 505,
-    "seconds": 46.829,
-    "peak_before_mastering": 0.46436
-  },
-  "mvp": {
-    "bpm": 110,
-    "bars": 12,
-    "key": 49,
-    "chords": [
-      [
-        0,
-        [
-          0,
-          3,
-          7,
-          12
-        ]
-      ],
-      [
-        -4,
-        [
-          0,
-          4,
-          7,
-          11
-        ]
-      ],
-      [
-        3,
-        [
-          0,
-          4,
-          7,
-          14
-        ]
-      ],
-      [
-        -2,
-        [
-          0,
-          4,
-          7,
-          12
-        ]
-      ]
-    ],
-    "style": "spotlight",
-    "seed": 606,
-    "seconds": 26.182,
-    "peak_before_mastering": 0.55173
-  },
   "countdown": {
     "seconds": 5.0,
     "peak_before_mastering": 0.59925
+  },
+  "arena-theme": {
+    "style": "hybrid-orchestral",
+    "key": "D minor",
+    "bpm": 110,
+    "bars": 40,
+    "seconds": 87.273,
+    "lufs": -18.0,
+    "true_peak_dbtp": -4.23,
+    "bus_rms_db": {
+      "strings": -17.1,
+      "spiccato": -19.6,
+      "brass": -14.3,
+      "choir": -19.1,
+      "piano": -19.8,
+      "bell": -31.0,
+      "arp": -21.8,
+      "bass": -18.5,
+      "drums": -16.7,
+      "perc": -18.5,
+      "fx": -41.7
+    }
+  },
+  "results-summary": {
+    "style": "piano-ostinato",
+    "key": "E-flat major",
+    "bpm": 90,
+    "bars": 32,
+    "seconds": 85.333,
+    "lufs": -18.0,
+    "true_peak_dbtp": -4.61,
+    "bus_rms_db": {
+      "piano": -13.7,
+      "pad": -16.6,
+      "strings": -22.0,
+      "mallet": -15.5,
+      "bell": -29.2,
+      "choir": -27.8,
+      "bass": -17.9,
+      "drums": -23.5
+    }
+  },
+  "mvp-fanfare": {
+    "style": "fanfare",
+    "key": "B-flat major",
+    "bpm": 96,
+    "bars": 20,
+    "seconds": 50.0,
+    "lufs": -18.0,
+    "true_peak_dbtp": -1.99,
+    "bus_rms_db": {
+      "strings": -16.3,
+      "spiccato": -18.9,
+      "brass": -13.2,
+      "choir": -18.1,
+      "bell": -27.6,
+      "bass": -19.8,
+      "drums": -24.2,
+      "perc": -16.4,
+      "fx": -41.1
+    }
   }
 }

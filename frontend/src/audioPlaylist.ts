@@ -1,9 +1,9 @@
 import type {MatchEvent} from './types';
 export type BgmCue='home'|'setup'|'lobby'|'hangar'|'self_check'|'self_check_free'|'countdown'|'match'|'victory'|'results'|'mvp';
 export const MUSIC:Record<BgmCue,{url:string;loop:boolean;gain:number}>={
-  home:{url:'/assets/audio/lobby.m4a',loop:true,gain:.68},
+  home:{url:'/assets/audio/arena-theme.m4a',loop:true,gain:.68},
   setup:{url:'/assets/audio/home.mp3',loop:true,gain:.68},
-  lobby:{url:'/assets/audio/lobby.m4a',loop:true,gain:.68},
+  lobby:{url:'/assets/audio/arena-theme.m4a',loop:true,gain:.68},
   hangar:{url:'/assets/audio/hangar.m4a',loop:true,gain:.62},
   // The lineup intro: RM matches use the setup theme, free battles their own track.
   self_check:{url:'/assets/audio/home.mp3',loop:true,gain:.74},
@@ -11,8 +11,8 @@ export const MUSIC:Record<BgmCue,{url:string;loop:boolean;gain:number}>={
   countdown:{url:'/assets/audio/countdown.m4a',loop:false,gain:.88},
   match:{url:'/assets/audio/summoning-glory.m4a',loop:true,gain:.88},
   victory:{url:'/assets/audio/victory.m4a',loop:true,gain:.85},
-  results:{url:'/assets/audio/results.m4a',loop:true,gain:.66},
-  mvp:{url:'/assets/audio/mvp.m4a',loop:true,gain:.78},
+  results:{url:'/assets/audio/results-summary.m4a',loop:true,gain:.66},
+  mvp:{url:'/assets/audio/mvp-fanfare.m4a',loop:true,gain:.78},
 };
 export interface AudioStage {page:string;hangar:boolean;modal?:boolean;free?:boolean;prematch:'self_check'|'countdown'|null;post:'victory'|'results'|'mvp'|null;status?:string|null;replay?:boolean;busy?:boolean;started?:boolean}
 export function broadcastMusicCue(stage:AudioStage):BgmCue{
