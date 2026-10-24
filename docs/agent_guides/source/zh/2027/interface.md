@@ -114,7 +114,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `TEAM_SLOTS_2027`、`DESIGNS` | 2027 编号与机器人设计 |
 | `position(obs, name)`、`controls(obs, name, team=None)`、`control_degree(obs, team=None)` | 控制点与控制度 |
 | `zone_center(arena, zone_id)` | 增益卡中心，例如 `"blue_central"`、`"red_supply"` |
-| `workbench_point(robot, arena)`、`launcher_ready(robot)` | 工作台停靠点；发射机构是否已解锁待安装 |
+| `workbench_point(robot, arena)`、`launcher_ready(robot)` | 工作台停靠点；发射机构是否已解锁待安装（未解锁时也可提前安装，见「重型机器人」） |
 | `resource_pickup_point(robot, arena)`、`assembly_work_point(robot, arena)` | 资源岛拾取点、装配停车点 |
 | `drones(robot)`、`strike_plan(drone, plate)`、`hostile_plates(obs, kind)` | 空中机器人列表、撞击规划、可撞击的装甲 |
 

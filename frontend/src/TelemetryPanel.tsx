@@ -10,7 +10,7 @@ function RobotTelemetry({robot:r,selected,onSelect,time}:{robot:Robot;selected:s
   const air=r.role==='aerial',fleet=r.drones;
   // RMUC 2027: hangar fleets, the heavy robot's launcher and the sentry posture.
   const flying=fleet?.filter(d=>d.state==='flying').length??0,usable=fleet?.filter(d=>d.state!=='disabled').length??0;
-  const launcher=r.role==='heavy'?({locked:'发射机构未解锁',unlocked:'待装 42mm',installing:`装 42mm ${Math.round((r.launcher_progress||0)*100)}%`,fitted:'42mm 待确认',installed:''} as Record<string,string>)[r.launcher||'locked']:'';
+  const launcher=r.role==='heavy'?({locked:'发射机构未解锁',unlocked:'待装 42mm',installing:`装 42mm ${Math.round((r.launcher_progress||0)*100)}%`,fitted_locked:'42mm 已装 · 待解锁',fitted:'42mm 待确认',installed:''} as Record<string,string>)[r.launcher||'locked']:'';
   const posture=r.role==='sentry'&&r.posture?`${({attack:'进攻',defense:'防御',move:'移动'} as Record<string,string>)[r.posture]}姿态${r.posture_enhanced?'·强化':''}`:'';
   const armText:Record<string,string>={rescue:'机械臂·救援',assembly:'机械臂·装配',pick:'机械臂·夹取',manual:'机械臂·手动'};
   const pickup=r.unit_pickup?({approaching:'夹取·对准',gripping:'夹取·闭爪',lifting:'夹取·抬升',stowing:'夹取·入仓',carrying:'夹爪携带'}[r.unit_pickup.stage]||'夹取中'):null;

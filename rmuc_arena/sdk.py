@@ -331,7 +331,8 @@ def can_fire(robot):
     if 0.0<robot.get('transform_progress',0.0)<1.0:return False
     if robot["role"]=="engineer" or robot.get("drones") is not None and robot["role"]=="aerial":
         return False
-    # The 2027 heavy robot fires only with its modular launcher on board.
+    # The 2027 heavy robot fires only with its modular launcher on board and powered;
+    # a module fitted before the usage right (fitted_locked) stays unpowered.
     if robot["role"]=="heavy" and robot.get("launcher") not in ("fitted","installed"):
         return False
     if not robot["alive"] or robot.get("weak") or robot.get("overheated") or robot.get("heat_permanent_lock") or robot.get("overspeed_locked") or robot.get("overspeed_permanent_lock") or robot.get("launcher_fault") or robot.get("red_card"):
@@ -812,7 +813,10 @@ def workbench_point(robot, arena):
 
 
 def launcher_ready(robot):
-    """The heavy robot's launcher is unlocked (by level-3 assembly or the time rule) but not yet fitted."""
+    """The heavy robot's launcher is unlocked (by level-3 assembly or the time rule) but not yet fitted.
+
+    Fitting may also start while still locked; the module then waits as fitted_locked.
+    """
     return robot.get('launcher') in ('unlocked','installing')
 
 

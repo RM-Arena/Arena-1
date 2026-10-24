@@ -193,6 +193,45 @@ fn the_heavy_launcher_unlocks_fits_at_the_workbench_and_installs_with_its_first_
 }
 
 #[test]
+fn the_heavy_launcher_can_be_fitted_before_its_usage_right_but_stays_unpowered() {
+    let mut m = match_();
+    let h = robot(&m, "red-1");
+    let dock = m.arena.zones.iter().find(|z| z.id == "red_workbench").map(|z| [z.x, z.y]).unwrap();
+    place(&mut m, h, dock[0], dock[1]);
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    for _ in 0..6 {
+        m.step(&json!({"red":{"1":{"install_launcher":true,"brake":true}}}));
+    }
+    assert_eq!(m.robots[h].launcher, "installing");
+    m.step(&json!({"red":{"1":{"brake":true}}}));
+    assert_eq!((m.robots[h].launcher.as_str(), m.robots[h].launcher_progress), ("locked", 0.0));
+    for _ in 0..160 {
+        m.step(&json!({"red":{"1":{"install_launcher":true,"brake":true}}}));
+        if m.robots[h].launcher == "fitted_locked" {
+            break;
+        }
+    }
+    assert_eq!(m.robots[h].launcher, "fitted_locked");
+    assert!(m.events.iter().any(|e| e["type"] == "launcher_fitted" && e["powered"] == false));
+    m.robots[h].ammo = 3;
+    for _ in 0..10 {
+        m.step(&json!({"red":{"1":{"fire":true,"aim":0.0,"pitch":0.1,"brake":true}}}));
+        assert!(!m.events.iter().any(|e| e["type"] == "shot" && e["robot"] == "red-1"));
+    }
+    assert_eq!((m.robots[h].launcher.as_str(), m.robots[h].ammo), ("fitted_locked", 3));
+    m.teams.get_mut("red").unwrap().completed_difficulties = vec![1, 2, 3];
+    m.step(&json!({"red":{"1":{"brake":true}}}));
+    assert_eq!(m.robots[h].launcher, "fitted");
+    for _ in 0..10 {
+        m.step(&json!({"red":{"1":{"fire":true,"aim":0.0,"pitch":0.1,"brake":true}}}));
+        if m.robots[h].launcher == "installed" {
+            break;
+        }
+    }
+    assert_eq!(m.robots[h].launcher, "installed");
+}
+
+#[test]
 fn launcher_unlocks_earlier_for_the_team_that_falls_behind() {
     let mut m = match_();
     m.bases.get_mut("red").unwrap().hp = 7500.0; // blue leads by 2500 HP: 300 - 50 = 250 s

@@ -746,8 +746,7 @@ impl Engine {
         if r.role == "heavy" && rpc.get("install_launcher").and_then(Value::as_bool) == Some(true) {
             self.install_launcher(i);
         } else if r.role == "heavy" && self.robots[i].launcher == "installing" {
-            self.robots[i].launcher = self.launcher_idle_state(i);
-            self.robots[i].launcher_progress = 0.0;
+            self.abort_launcher_install(i);
         }
         self.request_pickup(i, rpc);
         self.assembly_rpc_2027(i, rpc);
@@ -790,59 +789,46 @@ impl Engine {
             z.kind == "workbench" && z.owner.as_deref() == Some(&r.team) && dist(r.x, r.y, z.x, z.y) <= n(tol, "dock_radius_m").max(z.radius)
         }) && r.vx.hypot(r.vy) <= n(tol, "max_speed_mps").max(0.01) + 1e-9
     }
-    /// What an abandoned install falls back to: the team's unlock state, so cancelling early does not
-    /// quietly hand out the rules' 42 mm unlock.
-    fn launcher_idle_state(&self, i: usize) -> String {
-        let team = self.robots[i].team.clone();
-        let unlocked = self
-            .teams
-            .get(&team)
-            .map(|t| {
-                t.completed_difficulties.contains(&3)
-                    || t.launcher_unlock_s.map_or(true, |s| self.time() + 1e-8 >= s)
-            })
-            .unwrap_or(true);
-        if unlocked { "unlocked".into() } else { "locked".into() }
+    /// Launcher usage right (5.7.1): level-3 assembly done or the timed unlock reached. It never
+    /// lapses, since M and N are running maxima.
+    fn launcher_rights(&self, team: &str) -> bool {
+        let t = &self.teams[team];
+        t.completed_difficulties.contains(&3) || self.time() + 1e-8 >= t.launcher_unlock_s.unwrap_or(300.0)
     }
-    /// True once the team has earned the 42 mm: difficulty 3, or 300 - M/50 - 2N/3 seconds.
-    fn launcher_unlocked(&self, team: &str) -> bool {
-        self.teams
-            .get(team)
-            .map(|t| {
-                t.completed_difficulties.contains(&3)
-                    || t.launcher_unlock_s.map_or(true, |s| self.time() + 1e-8 >= s)
-            })
-            .unwrap_or(true)
+    fn abort_launcher_install(&mut self, i: usize) {
+        let rights = self.launcher_rights(&self.robots[i].team);
+        self.robots[i].launcher = if rights { "unlocked" } else { "locked" }.into();
+        self.robots[i].launcher_progress = 0.0;
     }
+    /// Rules Q&A clarification on 5.7.1: the module may be fitted before the usage right is
+    /// unlocked; it stays unpowered (fitted_locked, cannot fire, 42 mm damage stays shielded)
+    /// until the right arrives.
     fn install_launcher(&mut self, i: usize) {
         let r = self.robots[i].clone();
-        // Bolting the module on is allowed at any point in the match; whether it may *shoot* is what
-        // the rules' unlock (difficulty 3 or 300 - M/50 - 2N/3 s) decides, in `fire_2027`.
         if !r.alive || r.weak || !["locked", "unlocked", "installing"].contains(&r.launcher.as_str()) {
             return;
         }
         if !self.workbench_docked(i) {
             if r.launcher == "installing" {
-                self.robots[i].launcher = self.launcher_idle_state(i);
-                self.robots[i].launcher_progress = 0.0;
+                self.abort_launcher_install(i);
             }
             return;
         }
+        let rights = self.launcher_rights(&r.team);
         let duration = self.robot_models[&r.design_slot().to_string()]["launcher_install_s"]
             .as_f64().unwrap_or(n(&self.sim["launcher_install"], "stationary_s")).max(0.5);
         let actor = &mut self.robots[i];
         actor.launcher = "installing".into();
         actor.launcher_progress = (actor.launcher_progress + 0.1 / duration).min(1.0);
         if actor.launcher_progress >= 1.0 - 1e-9 {
-            actor.launcher = "fitted".into();
+            actor.launcher = if rights { "fitted" } else { "fitted_locked" }.into();
             actor.launcher_progress = 1.0;
-            self.event("launcher_fitted", json!({"robot":r.id,"team":r.team}));
+            self.event("launcher_fitted", json!({"robot":r.id,"team":r.team,"powered":rights}));
         }
     }
     /// Unlock path 2 (5.7.1): after 300 - M/50 - 2N/3 seconds, or as soon as difficulty 3 is done. The
     /// unlock only drives the HUD/strategy surface now — the workbench install is allowed regardless.
     fn update_launcher_unlocks(&mut self) {
-        let now = self.time();
         for team in ["red", "blue"] {
             let other = opponent(team);
             let gap = self.bases[other].hp - self.bases[team].hp;
@@ -855,11 +841,15 @@ impl Engine {
             t.launcher_unlock_s = Some(300.0 - m / 50.0 - 2.0 * c / 3.0);
             let low = t.base_lowest_hp.unwrap_or(f64::INFINITY).min(self.bases[team].hp);
             t.base_lowest_hp = Some(low);
-            let unlocked = self.teams[team].completed_difficulties.contains(&3) || now + 1e-8 >= self.teams[team].launcher_unlock_s.unwrap();
-            if unlocked {
+            if self.launcher_rights(team) {
                 for k in 0..self.robots.len() {
-                    if self.robots[k].team == team && self.robots[k].launcher == "locked" {
-                        self.robots[k].launcher = "unlocked".into();
+                    let next = match self.robots[k].launcher.as_str() {
+                        "locked" => "unlocked",
+                        "fitted_locked" => "fitted",
+                        _ => continue,
+                    };
+                    if self.robots[k].team == team {
+                        self.robots[k].launcher = next.into();
                         self.event("launcher_unlocked", json!({"robot":self.robots[k].id,"team":team}));
                     }
                 }
@@ -1169,7 +1159,8 @@ impl Engine {
     // ---- Firing, hits and damage ------------------------------------------------------
     fn heavy_42_enabled(&self, team: &str) -> bool {
         let now = self.time();
-        self.robots.iter().filter(|r| r.team == team && r.role == "heavy").any(|h| {
+        // Before the usage right the launcher is unpowered and 42 mm damage stays shielded.
+        self.launcher_rights(team) && self.robots.iter().filter(|r| r.team == team && r.role == "heavy").any(|h| {
             now - h.last_shot_time < n(&self.rules["damage"], "heavy_idle_42_mask_s") - 1e-9
                 && (h.alive || now - h.death_time < n(&self.rules["damage"], "heavy_dead_42_mask_s") - 1e-9)
         })
@@ -1182,7 +1173,7 @@ impl Engine {
             // Hard rule: the 42 mm may be bolted on early, but it only shoots once the team has
             // unlocked it (difficulty 3 or the 300 - M/50 - 2N/3 s timer).
             let launcher_ready = r.role != "heavy"
-                || (["fitted", "installed"].contains(&r.launcher.as_str()) && self.launcher_unlocked(&r.team));
+                || (["fitted", "installed"].contains(&r.launcher.as_str()) && self.launcher_rights(&r.team));
             let in_assembly = r.role == "heavy" && self.assembly_active_for(&r.team) && self.raw_zone(i, "assembly", Some(&r.team));
             if !a.fire || !r.alive || r.red_card || r.role == "aerial" || r.weak || !launcher_ready || in_assembly
                 || r.overspeed_permanent_lock || active_until(r.overspeed_lock_until, now) || r.overheated || r.heat_permanent_lock
@@ -2093,8 +2084,7 @@ impl Engine {
         }
         for i in 0..self.robots.len() {
             if self.robots[i].launcher == "installing" && !self.workbench_docked(i) {
-                self.robots[i].launcher = self.launcher_idle_state(i);
-                self.robots[i].launcher_progress = 0.0;
+                self.abort_launcher_install(i);
             }
         }
     }
