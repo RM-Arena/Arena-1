@@ -92,7 +92,7 @@
 | 7 | 哨兵 | S27-O 全向自动哨兵 · 全向底盘、快速云台与大弹仓，自主巡防 | 17mm | 400 | 300 |
 
 - “弹量”指允许发射的弹丸数。重型和步兵开局弹量为 0，必须先用金币兑换；哨兵开局有 300 发，并每分钟在补给区领取 100 发。
-- 重型机器人开局**没有发射机构**：只有在完成 3 级装配或到达时间规则解锁后，在工作台装上模块化 42mm 发射机构才能射击。
+- 重型机器人开局**没有发射机构**：只有在完成 3 级装配或到达时间规则解锁使用权、并在工作台装上模块化 42mm 发射机构后才能射击（可以在解锁前先装好，解锁后才上电）。
 - 空中机器人不能被击毁，只能用撞击方式攻击建筑装甲；它们没有血量，也不能射击。
 
 各地面机器人的硬件参数（完整数据见 `sdk.DESIGNS`）：
@@ -470,7 +470,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `TEAM_SLOTS_2027`、`DESIGNS` | 2027 编号与机器人设计 |
 | `position(obs, name)`、`controls(obs, name, team=None)`、`control_degree(obs, team=None)` | 控制点与控制度 |
 | `zone_center(arena, zone_id)` | 增益卡中心，例如 `"blue_central"`、`"red_supply"` |
-| `workbench_point(robot, arena)`、`launcher_ready(robot)` | 工作台停靠点；发射机构是否已解锁待安装 |
+| `workbench_point(robot, arena)`、`launcher_ready(robot)` | 工作台停靠点；发射机构是否已解锁待安装（未解锁时也可提前安装，见「重型机器人」） |
 | `resource_pickup_point(robot, arena)`、`assembly_work_point(robot, arena)` | 资源岛拾取点、装配停车点 |
 | `drones(robot)`、`strike_plan(drone, plate)`、`hostile_plates(obs, kind)` | 空中机器人列表、撞击规划、可撞击的装甲 |
 
@@ -603,7 +603,7 @@ def decide(robot, obs):
 ## 附录：常见错误
 
 - 用 2026 的思路：以为编号有 2 号工程、以为到时先比基地血量、以为 6 号可以 `support=True` 开火。2027 的空中机器人只能撞击。
-- 重型在发射机构 `fitted` 之前发送 `fire=True`：不会发射。装上后的第一发不造成伤害。
+- 重型在发射机构 `fitted` 之前（包括提前装好但未解锁的 `fitted_locked`）发送 `fire=True`：不会发射。装上后的第一发不造成伤害。
 - 安装发射机构时只发一次 `install_launcher=True`：必须在工作台停稳并**每次动作**都发送。
 - 装配时没有携带能量单元，或 4 级只带了 1 枚。
 - 在对方前哨控制点仍被对方完全控制时猛攻基地——基地此时无敌。

@@ -7,7 +7,7 @@ Each team fields five robots: the slot 1 heavy robot, slot 3 and 4 infantry, the
 {{roster_table}}
 
 - "Ammo" is the number of projectiles a robot may fire. The heavy robot and infantry start with 0 and must buy ammo with coins; the sentry starts with 300 rounds and collects 100 more per minute at its supply zone.
-- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench.
+- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench (fitting may come first; the launcher powers up at the unlock).
 - Aerial robots cannot be destroyed and can only attack structure armor by ramming it; they have no HP and cannot shoot.
 
 Ground robot hardware (full data in `sdk.DESIGNS`):

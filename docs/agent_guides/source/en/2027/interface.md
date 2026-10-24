@@ -114,7 +114,7 @@ Operations that do not apply to the robot or its current state have no effect; s
 | `TEAM_SLOTS_2027`, `DESIGNS` | 2027 slots and robot designs |
 | `position(obs, name)`, `controls(obs, name, team=None)`, `control_degree(obs, team=None)` | control positions and control degree |
 | `zone_center(arena, zone_id)` | a buff card's center, e.g. `"blue_central"`, `"red_supply"` |
-| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted |
+| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted (fitting before the unlock is also allowed, see "Heavy Robot") |
 | `resource_pickup_point(robot, arena)`, `assembly_work_point(robot, arena)` | resource-hub pickup point and assembly parking point |
 | `drones(robot)`, `strike_plan(drone, plate)`, `hostile_plates(obs, kind)` | aerial robots, ramming plan and rammable plates |
 

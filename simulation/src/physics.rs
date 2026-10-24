@@ -844,7 +844,7 @@ impl PhysicsWorld {
                 // About 2.4 kg of boom and wrist hang off the mast; carried units sit aft.
                 let held_unit = r.unit_pickup.as_ref().is_some_and(|s| s.held);
                 // A fitted modular 42 mm launcher adds its own mass to the heavy robot.
-                let module = if ["fitted", "installed"].contains(&r.launcher.as_str()) { n(d, "launcher_module_kg") } else { 0.0 };
+                let module = if ["fitted_locked", "fitted", "installed"].contains(&r.launcher.as_str()) { n(d, "launcher_module_kg") } else { 0.0 };
                 let payload = 0.45 * (r.carried_units as f64 + if held_unit {1.0} else {0.0}) + module;
                 let mass = n(d, "mass_kg") + payload;
                 let mut com = p3(&d["com_m"]);
@@ -878,7 +878,7 @@ impl PhysicsWorld {
                 let second=arm_points(arm,&r.arm2_joints);let first=arm_points(&d["arm"],&r.arm_joints);
                 let tip=pose*second[3];r.arm2_tip=[tip.x,tip.y,tip.z];r.arm2_mode=if r.alive {goal.map(|g|g.mode.clone()).unwrap_or_else(||"stow".into())} else {"stow".into()};
                 let held=r.unit_pickup.as_ref().filter(|s|s.held);
-                let module=if ["fitted","installed"].contains(&r.launcher.as_str()) {n(d,"launcher_module_kg")} else {0.0};
+                let module=if ["fitted_locked","fitted","installed"].contains(&r.launcher.as_str()) {n(d,"launcher_module_kg")} else {0.0};
                 let payload=0.45*(r.carried_units as f64+if held.is_some(){1.0}else{0.0})+module;let mass=n(d,"mass_kg")+payload;
                 let held_tip=if held.is_some_and(|s|s.arm==1){second[3]}else{first[3]};
                 let lever=(first[1].coords+first[2].coords+second[1].coords+second[2].coords)*0.5*1.8;

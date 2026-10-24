@@ -61,7 +61,7 @@ function RobotModel({id,role,team,url,feed,selected,onSelect}:{id:string;role:st
     if(turret)turret.rotation.y=-(r.aim-r.heading);
     if(pitch)pitch.rotation.z=r.pitch||0;
     if(pitch&&gunRest)pitch.position.x=gunRest.x-pulse('shot:'+id,is42(r.role)?.22:.08)*(is42(r.role)?.06:.015);
-    if(launcherModule)launcherModule.visible=r.launcher==='fitted'||r.launcher==='installed';
+    if(launcherModule)launcherModule.visible=r.launcher==='fitted_locked'||r.launcher==='fitted'||r.launcher==='installed';
     // Mirrored model: engine wheel index k sits at model index k^1 (four wheels) or 1-k (two).
     const hardware=f.robot_models?.[String(r.model_slot??r.slot)];
     steering.forEach((node,i)=>{if(node&&r.steering_angles)node.rotation.y=-r.steering_angles[i^1];});

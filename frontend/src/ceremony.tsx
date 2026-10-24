@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState,type CSSProperties} from 'react';
 import type {Frame,Metadata,Robot,RobotHardware,Standing,TeamId} from './types';
-import {MODE_LABELS} from './types';
+import {MODE_LABELS,frameSeason} from './types';
 import {TEAM_LABEL,TEAMS,nickname,robotName,verdict,type MatchStats,type Mvp} from './matchStats';
 import {Stage,TeamCrest,teamName} from './broadcast';
 import {LineupIntro} from './LineupIntro';
@@ -71,6 +71,7 @@ export function Results({frame,metadata,stats,images,onMvp,onClose,auto,locked=f
         <div className="res-reason"><b>{v.headline}</b><span>{v.detail}</span></div></div>
     </section>
     <section className="res-detail"><h3>详细数据</h3>
+      {frameSeason(frame)==='2027'&&<Diverge label="累计控制度" red={Math.floor(frame.teams.red.control??0)} blue={Math.floor(frame.teams.blue.control??0)}/>}
       <Diverge label="经济总量" red={stats.teams.red.economy} blue={stats.teams.blue.economy}/>
       <Diverge label="总伤害量" red={dmg('red')} blue={dmg('blue')}/>
       <Diverge label="击杀对手" red={frame.teams.red.kills} blue={frame.teams.blue.kills}/>

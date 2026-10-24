@@ -362,8 +362,9 @@ pub struct Robot {
     /// A serial-leg robot is swinging its legs round to flip itself back upright.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub self_righting: bool,
-    /// 2027 heavy robot's modular 42 mm launcher: locked, unlocked, installing, fitted
-    /// (on the robot, waiting for its first detected shot) or installed.
+    /// 2027 heavy robot's modular 42 mm launcher: locked, unlocked, installing, fitted_locked
+    /// (fitted before the usage right, unpowered), fitted (on the robot, waiting for its first
+    /// detected shot) or installed.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub launcher: String,
     #[serde(default, skip_serializing_if = "is_zero")]

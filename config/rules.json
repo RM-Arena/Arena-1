@@ -15672,6 +15672,7 @@
         "N": "max over the game of (opponent control - own control)"
       },
       "launcher_install": "at the own workbench; the first referee-detected 42 mm shot completes the installation and counts no heat, speed or damage",
+      "launcher_install_before_unlock": "allowed (official clarification); the fitted launcher stays unpowered and the opponent shields 42 mm damage until the usage right is unlocked",
       "supply_invulnerable": true,
       "source_pages": [
         22,

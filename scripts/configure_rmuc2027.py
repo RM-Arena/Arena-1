@@ -93,6 +93,7 @@ def rulebook_2027():
                   'launcher_unlock': {'assembly_difficulty': 3, 'elapsed_s': '300 - M/50 - 2N/3',
                                       'M': 'max over the game of (opponent base hp - own base hp)', 'N': 'max over the game of (opponent control - own control)'},
                   'launcher_install': 'at the own workbench; the first referee-detected 42 mm shot completes the installation and counts no heat, speed or damage',
+                  'launcher_install_before_unlock': 'allowed (official clarification); the fitted launcher stays unpowered and the opponent shields 42 mm damage until the usage right is unlocked',
                   'supply_invulnerable': True, 'source_pages': [22, 23, 91, 92, 107, 108]},
         'sentry': {'mode': 'automatic', 'automatic': {'hp': 400, 'max_heat': 260, 'cooling': 30, 'power_w': 100},
                    'semi_automatic': {'hp': 200, 'max_heat': 100, 'cooling': 10, 'power_w': 60}, 'initial_ammo': 300,

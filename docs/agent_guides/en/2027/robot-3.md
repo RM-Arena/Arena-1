@@ -92,7 +92,7 @@ Each team fields five robots: the slot 1 heavy robot, slot 3 and 4 infantry, the
 | 7 | sentry | S27-O Omni Automatic Sentry · Omni chassis, fast gimbal and a large magazine for autonomous patrol | 17mm | 400 | 300 |
 
 - "Ammo" is the number of projectiles a robot may fire. The heavy robot and infantry start with 0 and must buy ammo with coins; the sentry starts with 300 rounds and collects 100 more per minute at its supply zone.
-- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench.
+- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench (fitting may come first; the launcher powers up at the unlock).
 - Aerial robots cannot be destroyed and can only attack structure armor by ramming it; they have no HP and cannot shoot.
 
 Ground robot hardware (full data in `sdk.DESIGNS`):
@@ -461,7 +461,7 @@ Operations that do not apply to the robot or its current state have no effect; s
 | `TEAM_SLOTS_2027`, `DESIGNS` | 2027 slots and robot designs |
 | `position(obs, name)`, `controls(obs, name, team=None)`, `control_degree(obs, team=None)` | control positions and control degree |
 | `zone_center(arena, zone_id)` | a buff card's center, e.g. `"blue_central"`, `"red_supply"` |
-| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted |
+| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted (fitting before the unlock is also allowed, see "Heavy Robot") |
 | `resource_pickup_point(robot, arena)`, `assembly_work_point(robot, arena)` | resource-hub pickup point and assembly parking point |
 | `drones(robot)`, `strike_plan(drone, plate)`, `hostile_plates(obs, kind)` | aerial robots, ramming plan and rammable plates |
 
@@ -594,7 +594,7 @@ def decide(robot, obs):
 ## Appendix: Common Mistakes
 
 - Thinking in 2026 terms: expecting a slot 2 engineer, base HP as the first timeout criterion, or slot 6 firing with `support=True`. 2027 aerial robots only ram.
-- Sending `fire=True` with the heavy robot before its launcher is `fitted`: nothing fires. The first shot after fitting deals no damage.
+- Sending `fire=True` with the heavy robot before its launcher is `fitted` (including an early-fitted but still locked `fitted_locked`): nothing fires. The first shot after fitting deals no damage.
 - Sending `install_launcher=True` once: park still at the workbench and send it in **every action**.
 - Starting an assembly without a carried energy unit, or level 4 with only one.
 - Pounding a base while its outpost position is still fully controlled by its owner — the base is invulnerable then.

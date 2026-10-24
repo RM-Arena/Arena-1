@@ -32,6 +32,18 @@ test('recorded video headings use display names and the actual season and roster
  assert.ok(labels.some(t=>t.includes('5v5 / RMUC 2027')));
  assert.doesNotMatch(labels.join('\n'),/rulebook|赛事|6v6|RMUC 2026/i);
 });
+test('2027 recordings carry both control degrees, which decide timeouts, and 2026 ones do not',()=>{
+ const labels=[],ctx={fillRect(){},drawImage(){},fillText(text,x){labels.push([String(text),x]);}};
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const recorder=new BroadcastRecorder({});recorder.source={width:1920,height:1080};recorder.recorder={state:'recording'};
+ const bases={red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}};
+ recorder.draw({season:'2027',remaining:200,seed:42,status:'running',arena:{name:'rmuc2027'},robots:[],teams:{red:{score:0,control:37.8},blue:{score:0,control:12.2}},bases},null);
+ assert.ok(labels.some(([t])=>t==='控制度'));
+ assert.ok(labels.some(([t,x])=>t==='37'&&x<960)&&labels.some(([t,x])=>t==='12'&&x>960));
+ labels.length=0;
+ recorder.draw({remaining:200,seed:42,status:'running',arena:{name:'rmuc2026'},robots:[],teams:{red:{score:0},blue:{score:0}},bases},null);
+ assert.ok(!labels.some(([t])=>t==='控制度'));
+});
 const state={page:'arena',hangar:false,prematch:null,post:null,status:'ready'};
 
 test('all stage cues use shipped assets and reserve the competition track for the match',()=>{
