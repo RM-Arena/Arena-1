@@ -120,8 +120,12 @@ class FastApiTests(unittest.TestCase):
                 if not seen or seen[-1]!=state['prematch']['stage']:
                     seen.append(state['prematch']['stage'])
                 if state['prematch']['stage']=='self_check':
-                    # The walk-on is skippable, and skipping it must not skip the countdown.
-                    self.assertEqual(self.client.post('/api/control',json={'command':'skip_prematch'}).status_code,200)
+                    # The walk-on is skippable, and skipping it must not skip the countdown. A skip
+                    # that lands just as the countdown starts is refused instead of cutting into it,
+                    # so a slow runner can lose that race without failing the walk-on itself.
+                    skipped=self.client.post('/api/control',json={'command':'skip_prematch'})
+                    if skipped.status_code!=200:
+                        self.assertEqual(arena.state()['prematch']['stage'],'countdown',skipped.text)
                 if state['prematch']['stage']=='countdown':
                     break
             time.sleep(.02)
