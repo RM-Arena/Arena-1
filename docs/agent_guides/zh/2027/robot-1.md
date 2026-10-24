@@ -390,7 +390,7 @@
 - **发射机构**（`launcher`）：`locked` → `unlocked` → `installing` → `fitted` → `installed`；也可以在解锁前先装：`locked` → `installing` → `fitted_locked`，获得使用权后自动变为 `fitted`。
   - 解锁：本队完成 3 级装配，或比赛时间到达 300 − M/50 − 2N/3 s（M 为本局对方基地血量领先己方的最大值，N 为对方控制度领先的最大值；当前值见 `teams[己方]["launcher_unlock_s"]`）。
   - 安装：开到己方工作台（`sdk.workbench_point(robot, arena)`，0.45 m 内）停稳（< 0.05 m/s），**每次动作**都发送 `install_launcher=True`，`launcher_progress` 涨到 1 后变为 `fitted`。中途移动或停发命令会退回 `unlocked`（未解锁时退回 `locked`）。
-  - 提前安装（官方答疑）：未解锁使用权时也可以在工作台安装，装好后为 `fitted_locked`。此时发射机构不上电，`fire` 无效，对方装甲也屏蔽 42mm 伤害；使用权解锁后变为 `fitted`。模块重量从装上起计入底盘，50% 防御仍保留到 `installed` 或 180 s。
+  - 提前安装（规则答疑）：未解锁使用权时也可以在工作台安装，装好后为 `fitted_locked`。此时发射机构不上电，`fire` 无效，对方装甲也屏蔽 42mm 伤害；使用权解锁后变为 `fitted`。模块重量从装上起计入底盘，50% 防御仍保留到 `installed` 或 180 s。
   - 装上后的第一发 42mm 用于裁判系统确认（变为 `installed`），不造成伤害。之后才是有效火力。
 - 42mm 弹量只能兑换获得（就地 1 发 / 10 金币，远程 10 发 / 150 金币），全队上限 100 发。
 - **扶正队友**：2027 没有工程机器人，重型的机械臂可以扶正翻倒的队友：停在 `sdk.rescue_point(robot, target)` 并发送 `rescue=队友编号`（串联腿型号会自己翻身）。

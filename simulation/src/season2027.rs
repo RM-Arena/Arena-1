@@ -785,7 +785,7 @@ impl Engine {
         self.robots[i].launcher = if rights { "unlocked" } else { "locked" }.into();
         self.robots[i].launcher_progress = 0.0;
     }
-    /// Official clarification on 5.7.1: the module may be fitted before the usage right is
+    /// Rules Q&A clarification on 5.7.1: the module may be fitted before the usage right is
     /// unlocked; it stays unpowered (fitted_locked, cannot fire, 42 mm damage stays shielded)
     /// until the right arrives.
     fn install_launcher(&mut self, i: usize) {
