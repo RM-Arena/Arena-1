@@ -827,9 +827,9 @@ fn wheel_legged_infantry_jumps_a_step_and_lands_upright() {
 #[test]
 fn a_step_climbing_infantry_walks_up_the_high_point_stairs() {
     let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
-    // The red high point rises in three 200 mm steps off the trapezoid (0.2 -> 0.4 -> 0.6 -> 0.8 m).
-    // The wheel-legged infantry (slot 3) holds F, so the legs mount each step without jumping.
-    place(&mut m, 1, 3.55, 2.9, std::f64::consts::PI);
+    // The south flight rises in four 200 mm steps off the field (0.2 -> 0.4 -> 0.6 -> 0.8 m).
+    // Start on the first tread and hold F, so the legs mount the rest without jumping.
+    place(&mut m, 1, 1.4, 4.7, -std::f64::consts::FRAC_PI_2);
     for _ in 0..30 {
         m.step(&json!({}));
     }
@@ -841,26 +841,26 @@ fn a_step_climbing_infantry_walks_up_the_high_point_stairs() {
     let mut clearance: f64 = 0.0;
     for _ in 0..600 {
         m.step(&json!({"red":{"3":{
-            "move":[-0.6,0.0],"heading":std::f64::consts::PI,"climb":1.0}}}));
+            "move":[0.0,-0.6],"heading":-std::f64::consts::FRAC_PI_2,"climb":1.0}}}));
         climbed |= m.events.iter().any(|e| e["type"] == "step_climb");
         jumped |= m.events.iter().any(|e| e["type"] == "jump");
         let r = &m.robots[1];
         clearance = clearance.max(r.z - height_at(&m.arena, r.x, r.y));
-        if r.x < 2.4 {
+        if r.y < 3.8 {
             break;
         }
     }
     // Let the last step settle before reading the pose, as a pilot would.
     for _ in 0..40 {
-        m.step(&json!({"red":{"3":{"heading":std::f64::consts::PI}}}));
+        m.step(&json!({"red":{"3":{"heading":-std::f64::consts::FRAC_PI_2}}}));
     }
     let r = &m.robots[1];
-    assert!(climbed, "no step_climb event at x {}", r.x);
+    assert!(climbed, "no step_climb event at y {}", r.y);
     assert!(!jumped, "the climb fired a jump instead of stepping");
     assert!(
-        r.z > floor + 0.33 && r.x < 3.0,
-        "did not mount the stairs: x {} dz {}",
-        r.x,
+        r.z > floor + 0.5 && r.y < 4.0,
+        "did not mount the stairs: y {} dz {}",
+        r.y,
         r.z - floor
     );
     // A step is a low hop, not a jump: a full jump throws the hull ~0.9 m off its own ground.
@@ -873,11 +873,11 @@ fn a_step_climbing_infantry_walks_up_the_high_point_stairs() {
 #[test]
 fn a_step_ahead_never_reads_as_the_ground_under_a_parked_chassis() {
     let mut m = Engine::new(42, 30.0, "rmuc2027").unwrap();
-    // This approach pose used to stall: the carry parked the hull on the first tread with the
-    // second step 0.3 m ahead, the step in front counted as "underneath", the chassis read as
-    // airborne, and the next climb — gated on `grounded` — could never start. The robot sat on the
-    // edge of the tread with no wheel contact for the rest of the match.
-    place(&mut m, 1, 3.505, 2.9, std::f64::consts::PI);
+    // This approach pose used to stall: the carry parked the hull on the first tread of the south
+    // flight with the next step 0.2 m ahead, the step in front counted as "underneath", the chassis
+    // read as airborne, and the next climb — gated on `grounded` — could never start. The robot sat
+    // on the edge of the tread with no wheel contact for the rest of the match.
+    place(&mut m, 1, 1.4, 4.7, -std::f64::consts::FRAC_PI_2);
     for _ in 0..30 {
         m.step(&json!({}));
     }
@@ -885,17 +885,17 @@ fn a_step_ahead_never_reads_as_the_ground_under_a_parked_chassis() {
     let mut climbs = 0;
     for _ in 0..600 {
         m.step(&json!({"red":{"3":{
-            "move":[-0.6,0.0],"heading":std::f64::consts::PI,"climb":1.0}}}));
+            "move":[0.0,-0.6],"heading":-std::f64::consts::FRAC_PI_2,"climb":1.0}}}));
         climbs += m.events.iter().filter(|e| e["type"] == "step_climb").count();
-        if m.robots[1].x < 2.4 {
+        if m.robots[1].y < 3.8 {
             break;
         }
     }
     for _ in 0..40 {
-        m.step(&json!({"red":{"3":{"heading":std::f64::consts::PI}}}));
+        m.step(&json!({"red":{"3":{"heading":-std::f64::consts::FRAC_PI_2}}}));
     }
     let r = &m.robots[1];
-    assert!(climbs >= 3, "stalled on the tread after {climbs} climbs at x {}", r.x);
+    assert!(climbs >= 3, "stalled on the tread after {climbs} climbs at y {}", r.y);
     assert!(
         r.grounded && r.upright > 0.9,
         "left hanging on the edge: grounded {} upright {}",

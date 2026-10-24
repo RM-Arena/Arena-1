@@ -1344,25 +1344,25 @@ impl PhysicsWorld {
             // nothing, the drive loses its grip budget and the robot sits on its belly forever.
             // Being within a step of the highest ground under the chassis while upright is still
             // standing on it.
-            let upright = (pose.rotation * vector![0.0, 0.0, 1.0]).z > 0.86;
+            let upright = (pose.rotation * vector![0.0, 0.0, 1.0]).z > 0.80;
             let side = r.heading + std::f64::consts::FRAC_PI_2;
             let (fore, starboard) = (r.heading.cos(), r.heading.sin());
             let centre = height_at(arena, r.x, r.y);
             // A tread *above* the hull is the next step, not the ground holding the chassis up.
             // Counting it made a robot parked against a stair read as airborne, which then blocked
             // the step climb (`grounded` is its gate) and froze it on the edge of the tread.
-            let underneath = [
-                height_at(arena, r.x + fore * 0.3, r.y + starboard * 0.3),
-                height_at(arena, r.x - fore * 0.3, r.y - starboard * 0.3),
-                height_at(arena, r.x + side.cos() * 0.2, r.y + side.sin() * 0.2),
-                height_at(arena, r.x - side.cos() * 0.2, r.y - side.sin() * 0.2),
-            ]
-            .into_iter()
-            .filter(|h| *h <= r.z + 0.05)
-            .fold(centre, f64::max);
+            let underneath = std::iter::once(centre)
+                .chain([
+                    height_at(arena, r.x + fore * 0.3, r.y + starboard * 0.3),
+                    height_at(arena, r.x - fore * 0.3, r.y - starboard * 0.3),
+                    height_at(arena, r.x + side.cos() * 0.2, r.y + side.sin() * 0.2),
+                    height_at(arena, r.x - side.cos() * 0.2, r.y - side.sin() * 0.2),
+                ])
+                .filter(|h| *h <= r.z + 0.05)
+                .fold(f64::NEG_INFINITY, f64::max);
             let straddling = contacts.is_empty()
                 && upright
-                && (r.z - underneath).abs() < 0.15
+                && (r.z - underneath).abs() < 0.25
                 && r.z - underneath > -0.3;
             if straddling {
                 normal_total = normal_total.max(r.mass_kg * 9.81);
