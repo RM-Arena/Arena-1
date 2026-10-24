@@ -85,7 +85,7 @@
 用户确认阵容后，工作区会动态生成五个位置的型号、性能和机构能力。当前通用规则不指定出战型号。
 
 - “弹量”指允许发射的弹丸数。重型和步兵开局弹量为 0，必须先用金币兑换；哨兵开局有 300 发，并每分钟在补给区领取 100 发。
-- 重型机器人开局**没有发射机构**：只有在完成 3 级装配或到达时间规则解锁后，在工作台装上模块化 42mm 发射机构才能射击。
+- 重型机器人开局**没有发射机构**：只有在完成 3 级装配或到达时间规则解锁使用权、并在工作台装上模块化 42mm 发射机构后才能射击（可以在解锁前先装好，解锁后才上电）。
 - 空中机器人不能被击毁，只能用撞击方式攻击建筑装甲；它们没有血量，也不能射击。
 
 各地面机器人的硬件参数（完整数据见 `sdk.DESIGNS`）：
@@ -113,11 +113,11 @@
 | 工作台 | (1.22, 12.82) | 重型机器人停靠安装 42mm 发射模块 |
 | 装配区 | (13.34, 6.84) | 中央高地装配台上；对方禁入 |
 | 机库 | (13.01, 8.49) | 空中机器人起降，高 1.77 m |
-| 制高点 | (1.30, 2.90) | 高 0.8 m，三级台阶；防御增益与就地兑换 |
+| 制高点 | (1.42, 2.82) | 高 0.8 m，东侧三级、南侧四级台阶；防御增益与就地兑换 |
 | 能量机关 | (14.00, 7.50) | 中心高约 2.9 m，红蓝两面共轴 |
 
 - 中央高地是一块从己方前哨一侧延伸到场地中心的 0.3 m 台面，两端有 12° 端坡；靠堡垒一侧有 0.2 m 的台阶带和 0.4 m 的护边，普通轮式机器人从那里上不去。台面正中是 0.4 m 高的装配台和能量机关龙门，机库平台在龙门上方。
-- 梯形高地高 0.2 m（23° 坡）；制高点高 0.8 m，只能走三级台阶上去（每级约 0.2 m），能登阶的轮足机器人才能上；堡垒台高 0.15 m（20° 坡）。
+- 梯形高地高 0.2 m（23° 坡）；制高点高 0.8 m，只能走台阶上去：东侧从梯形高地上三级、南侧从场地上四级（每级约 0.2 m），能登阶的轮足机器人才能上；堡垒台高 0.15 m（20° 坡）。
 - 公路高 0.2 m，入口是 11° 与 15° 的坡；公路上有隧道：净高约 0.25 m，只有能折叠炮塔的型号才能**钻过**；也可以从隧道顶**越过**（需要跳跃或登阶能力）。路面上有 0.07 m 的起伏段。
 - 禁入区：双方基地本体、对方的补给区与装配区、飞镖发射站（本场地不使用飞镖，但发射站仍是实体禁区）。
 - 完整几何在 `observation["arena"]`（与 `arena.json` 中的 `map` 相同）：`terrain` 是地形（`polygon` 是实际形状），`obstacles` 是墙体，可能带 `rotation` 与 `bottom`（隧道顶）；`zones` 是增益点与卡片；`forbidden` 是禁入区；`navigation` 是公开路网节点；`hangars` 是机库；`positions` 是控制点；`field_geometry.fixtures` 含工作台、资源岛与机库平台；`rune` 是能量机关。
@@ -351,9 +351,10 @@
 - **能量单元**：在己方资源岛（`zone_center(arena, "red_resource")`，蓝方对称）附近发送 `pick_unit=True` 拾取，机械臂会自动伸向最近的单元；最多同时携带 2 枚（`carried_units`）。每队一共 6 枚（`teams[己方]["energy_units_left"]`），用完不再补充。
 - **装配**：载着能量单元开到己方装配区，发送 `assembly=等级` 开始；核心就位后每次动作带上当前步骤的命令：`assembly_insert=True` → `assembly_lift=True` → `assembly_flip=True` → `assembly_rotate=目标角度（度）` → `assembly_confirm=True`（1 级只有插入与确认，2 级多一个抬升）。机械臂处于自动模式时会自己对准核心；确认时底盘必须停稳。`observation["assemblies"][己方]` 的 `operation`、`cores[k]["operation"]`、`target_rotation`、`blocked_reason` 告诉你当前步骤和阻碍原因。
 - 4 级需要携带 2 枚单元，`assembly_core=0` 操作自己的核心，`1` 操作借用的核心，双臂型号可用 `2` 同时操作。两个核心的目标角度独立；双臂同时工作时以 `assembly_rotate` 控制第一臂、`assembly_rotate2` 控制第二臂；单臂仍用 `assembly_rotate` 控制当前核心。成对步骤必须在 5 s 内在两个核心上完成（翻转除外）。
-- **发射机构**（`launcher`）：`locked` → `unlocked` → `installing` → `fitted` → `installed`。
+- **发射机构**（`launcher`）：`locked` → `unlocked` → `installing` → `fitted` → `installed`；也可以在解锁前先装（`locked` → `installing` → `fitted`），但获得使用权前不能发射。
   - 解锁：本队完成 3 级装配，或比赛时间到达 300 − M/50 − 2N/3 s（M 为本局对方基地血量领先己方的最大值，N 为对方控制度领先的最大值；当前值见 `teams[己方]["launcher_unlock_s"]`）。
-  - 安装：开到己方工作台（`sdk.workbench_point(robot, arena)`，0.45 m 内）停稳（< 0.05 m/s），**每次动作**都发送 `install_launcher=True`，`launcher_progress` 涨到 1 后变为 `fitted`。中途移动或停发命令会退回 `unlocked`。
+  - 安装：开到己方工作台（`sdk.workbench_point(robot, arena)`，0.45 m 内）停稳（< 0.05 m/s），**每次动作**都发送 `install_launcher=True`，`launcher_progress` 涨到 1 后变为 `fitted`。中途移动或停发命令会退回 `unlocked`（未解锁时退回 `locked`）。
+  - 提前安装（规则答疑）：未解锁使用权时也可以在工作台安装，装好后为 `fitted`，但解锁前发射机构不上电，`fire` 无效；重装还没有发射过 42mm，对方装甲因此继续屏蔽 42mm 伤害。模块重量从装上起计入底盘，50% 防御仍保留到 `installed` 或 180 s。
   - 装上后的第一发 42mm 用于裁判系统确认（变为 `installed`），不造成伤害。之后才是有效火力。
 - 42mm 弹量只能兑换获得（就地 1 发 / 10 金币，远程 10 发 / 150 金币），全队上限 100 发。
 - **扶正队友**：2027 没有工程机器人，重型的机械臂可以扶正翻倒的队友：停在 `sdk.rescue_point(robot, target)` 并发送 `rescue=队友编号`（串联腿型号会自己翻身）。
@@ -401,7 +402,7 @@
 - 唯一获得经验的兵种，等级上限受装配进度限制（5 / 7 / 10）。
 - 可发起能量机关激活；首次完成公路、高地、隧道跨越与首次登上制高点各 +300 经验。
 - 适合占领控制点：步兵在对方前哨或中央高地卡上 5 s 即可夺取对方前哨控制点，是开启控制度和打基地的前提。
-- 轮足型号支持 `leg_height`、`jump`、`lean`，不能直接横移；登阶型号（`step_climb_m` > 0）可以登上制高点三级台阶、跳上隧道顶。
+- 轮足型号支持 `leg_height`、`jump`、`lean`，不能直接横移；登阶型号（`step_climb_m` > 0）可以登上制高点台阶、跳上隧道顶。
 - 折叠型号用 `transform=True` 折叠炮塔，`transform_progress` 到 1 后可以钻过 0.25 m 的隧道，取得 120 s 的冷却 ×1.5 增益；变形中不能射击。
 
 ## 6. 接口参考
@@ -506,7 +507,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `TEAM_SLOTS_2027`、`DESIGNS` | 2027 编号与机器人设计 |
 | `position(obs, name)`、`controls(obs, name, team=None)`、`control_degree(obs, team=None)` | 控制点与控制度 |
 | `zone_center(arena, zone_id)` | 增益卡中心，例如 `"blue_central"`、`"red_supply"` |
-| `workbench_point(robot, arena)`、`launcher_ready(robot)` | 工作台停靠点；发射机构是否已解锁待安装 |
+| `workbench_point(robot, arena)`、`launcher_ready(robot)` | 工作台停靠点；发射机构是否已解锁待安装（未解锁时也可提前安装，见「重型机器人」） |
 | `resource_pickup_point(robot, arena)`、`assembly_work_point(robot, arena)` | 资源岛拾取点、装配停车点 |
 | `drones(robot)`、`strike_plan(drone, plate)`、`hostile_plates(obs, kind)` | 空中机器人列表、撞击规划、可撞击的装甲 |
 
@@ -643,7 +644,7 @@ def decide(robot, obs):
 ## 附录：常见错误
 
 - 用 2026 的思路：以为编号有 2 号工程、以为到时先比基地血量、以为 6 号可以 `support=True` 开火。2027 的空中机器人只能撞击。
-- 重型在发射机构 `fitted` 之前发送 `fire=True`：不会发射。装上后的第一发不造成伤害。
+- 重型在发射机构 `fitted` 之前，或已装好但本队尚未获得使用权时发送 `fire=True`：不会发射。装上后的第一发不造成伤害。
 - 安装发射机构时只发一次 `install_launcher=True`：必须在工作台停稳并**每次动作**都发送。
 - 装配时没有携带能量单元，或 4 级只带了 1 枚。
 - 在对方前哨控制点仍被对方完全控制时猛攻基地——基地此时无敌。

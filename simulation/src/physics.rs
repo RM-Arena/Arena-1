@@ -1343,8 +1343,9 @@ impl PhysicsWorld {
             // A chassis straddling a step can hang both wheels over the tread edges: the casts find
             // nothing, the drive loses its grip budget and the robot sits on its belly forever.
             // Being within a step of the highest ground under the chassis while upright is still
-            // standing on it.
-            let upright = (pose.rotation * vector![0.0, 0.0, 1.0]).z > 0.86;
+            // standing on it. A hull parked on a 0.31 m high-point tread with its wheels over the edge
+            // leans about 32°, so the bound sits a little past that.
+            let upright = (pose.rotation * vector![0.0, 0.0, 1.0]).z > 0.80;
             let side = r.heading + std::f64::consts::FRAC_PI_2;
             let (fore, starboard) = (r.heading.cos(), r.heading.sin());
             let centre = height_at(arena, r.x, r.y);

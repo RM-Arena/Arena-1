@@ -85,7 +85,7 @@ Each team fields five robots: the slot 1 heavy robot, slot 3 and 4 infantry, the
 After the user confirms a lineup, the workspace dynamically receives the selected models, performance and capabilities. These general rules do not select deployed models.
 
 - "Ammo" is the number of projectiles a robot may fire. The heavy robot and infantry start with 0 and must buy ammo with coins; the sentry starts with 300 rounds and collects 100 more per minute at its supply zone.
-- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench.
+- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench (fitting may come first; the launcher powers up at the unlock).
 - Aerial robots cannot be destroyed and can only attack structure armor by ramming it; they have no HP and cannot shoot.
 
 Ground robot hardware (full data in `sdk.DESIGNS`):
@@ -113,11 +113,11 @@ Key places (red coordinates; mirror for blue):
 | Workbench | (1.22, 12.82) | the heavy robot docks here to fit its 42 mm launcher |
 | Assembly zone | (13.34, 6.84) | on the central assembly plinth; closed to the enemy |
 | Hangar | (13.01, 8.49) | aerial robots launch and dock, 1.77 m high |
-| High point | (1.30, 2.90) | 0.8 m high with three steps; defense buff and local exchange |
+| High point | (1.42, 2.82) | 0.8 m high, three steps on the east and four on the south; defense buff and local exchange |
 | Power rune | (14.00, 7.50) | centre about 2.9 m high; coaxial red and blue faces |
 
 - The central highland is a 0.3 m deck that runs from your outpost side to the field center, with 12° end slopes. On the fortress side a 0.2 m step band and a 0.4 m rim stop ordinary wheeled robots. The 0.4 m assembly plinth and the rune gantry stand in the middle of the deck; the hangar platforms sit above the gantry.
-- The trapezoid highland is 0.2 m high (23° slope); the high point is 0.8 m high and reachable only by its three steps (about 0.2 m each), so only step-climbing wheel-legged robots get up; the fortress platform is 0.15 m high (20° slope).
+- The trapezoid highland is 0.2 m high (23° slope); the high point is 0.8 m high and reachable only by steps (about 0.2 m each): three from the trapezoid highland on its east side, four from the field on its south side, so only step-climbing wheel-legged robots get up; the fortress platform is 0.15 m high (20° slope).
 - Roads are 0.2 m high with 11° and 15° entry ramps. The road tunnels have about 0.25 m of clearance: only robots that fold their turret **pass through**; robots that jump or climb steps can **cross over** the roofs. Some road sections carry 0.07 m bumps.
 - Forbidden areas: both base bodies, the enemy's supply zone and assembly zone, and the dart stations (no darts are used, but the stations remain solid no-go areas).
 - Full geometry is in `observation["arena"]` (the same as `map` in `arena.json`): `terrain` (each `polygon` is the real shape), `obstacles` (walls, possibly with `rotation` and `bottom` for tunnel roofs), `zones` (buff cards), `forbidden`, `navigation` (public road-map nodes), `hangars`, `positions` (control positions), `field_geometry.fixtures` (workbench, resource hub, hangar platforms) and `rune`.
@@ -351,9 +351,10 @@ The heavy robot combines the 2026 hero and engineer: it starts without a launche
 - **Energy units**: near your resource hub (`zone_center(arena, "red_resource")`, mirrored for blue) send `pick_unit=True`; the arm reaches for the nearest unit. It carries at most 2 (`carried_units`). Each team has 6 units in total (`teams[own]["energy_units_left"]`) that are never replenished.
 - **Assembly**: drive into your assembly zone carrying a unit and send `assembly=level`. Once the core is in place, include the current step's command in every action: `assembly_insert=True` → `assembly_lift=True` → `assembly_flip=True` → `assembly_rotate=target angle (degrees)` → `assembly_confirm=True` (level 1 is insert and confirm only; level 2 adds the lift). An arm in automatic mode aligns itself with the core; the chassis must be still to confirm. `observation["assemblies"][own]` shows `operation`, `cores[k]["operation"]`, `target_rotation` and `blocked_reason`.
 - Level 4 needs 2 carried units. `assembly_core=0` works your own core, `1` the borrowed core, and dual-arm models may send `2` to work both. The cores have independent rotation targets: use `assembly_rotate` for the first arm and `assembly_rotate2` for the second when working simultaneously; a single arm uses `assembly_rotate` for its selected core. Paired steps must finish on both cores within 5 s (the flip is exempt).
-- **Launcher** (`launcher`): `locked` → `unlocked` → `installing` → `fitted` → `installed`.
+- **Launcher** (`launcher`): `locked` → `unlocked` → `installing` → `fitted` → `installed`; it may also be fitted before the unlock (`locked` → `installing` → `fitted`), but it cannot fire until the usage right arrives.
   - Unlock: your team completes a level-3 assembly, or match time reaches 300 − M/50 − 2N/3 s (M is the opponent's largest base-HP lead over you this match, N its largest control-degree lead; the current value is `teams[own]["launcher_unlock_s"]`).
-  - Fitting: park at your workbench (`sdk.workbench_point(robot, arena)`, within 0.45 m), stay still (< 0.05 m/s) and send `install_launcher=True` in **every action**; `launcher_progress` rises to 1 and the state becomes `fitted`. Moving or stopping the command returns it to `unlocked`.
+  - Fitting: park at your workbench (`sdk.workbench_point(robot, arena)`, within 0.45 m), stay still (< 0.05 m/s) and send `install_launcher=True` in **every action**; `launcher_progress` rises to 1 and the state becomes `fitted`. Moving or stopping the command returns it to `unlocked` (`locked` before the unlock).
+  - Early fitting (rules Q&A clarification): you may fit the module at the workbench before your team has the usage right; it reads `fitted`, but the launcher stays unpowered until the unlock: `fire` does nothing, and enemy armor keeps shielding 42 mm damage because no heavy round has been fired. The module's mass counts from the moment it is fitted, and the 50% defense still lasts until `installed` or 180 s.
   - The first 42 mm shot after fitting is the referee check (state becomes `installed`) and deals no damage. Real firepower starts after it.
 - 42 mm ammo can only be bought (local 1 round / 10 coins, remote 10 rounds / 150 coins); the team cap is 100 rounds.
 - **Righting teammates**: 2027 has no engineer, so the heavy robot's arm rights tipped teammates: park at `sdk.rescue_point(robot, target)` and send `rescue=teammate slot` (serial-leg models right themselves).
@@ -506,7 +507,7 @@ Operations that do not apply to the robot or its current state have no effect; s
 | `TEAM_SLOTS_2027`, `DESIGNS` | 2027 slots and robot designs |
 | `position(obs, name)`, `controls(obs, name, team=None)`, `control_degree(obs, team=None)` | control positions and control degree |
 | `zone_center(arena, zone_id)` | a buff card's center, e.g. `"blue_central"`, `"red_supply"` |
-| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted |
+| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted (fitting before the unlock is also allowed, see "Heavy Robot") |
 | `resource_pickup_point(robot, arena)`, `assembly_work_point(robot, arena)` | resource-hub pickup point and assembly parking point |
 | `drones(robot)`, `strike_plan(drone, plate)`, `hostile_plates(obs, kind)` | aerial robots, ramming plan and rammable plates |
 
@@ -643,7 +644,7 @@ def decide(robot, obs):
 ## Appendix: Common Mistakes
 
 - Thinking in 2026 terms: expecting a slot 2 engineer, base HP as the first timeout criterion, or slot 6 firing with `support=True`. 2027 aerial robots only ram.
-- Sending `fire=True` with the heavy robot before its launcher is `fitted`: nothing fires. The first shot after fitting deals no damage.
+- Sending `fire=True` with the heavy robot before its launcher is `fitted`, or while a fitted launcher still waits for the team's usage right: nothing fires. The first shot after fitting deals no damage.
 - Sending `install_launcher=True` once: park still at the workbench and send it in **every action**.
 - Starting an assembly without a carried energy unit, or level 4 with only one.
 - Pounding a base while its outpost position is still fully controlled by its owner — the base is invulnerable then.

@@ -87,6 +87,10 @@ def beam(name,a,b,width,material,parent=None):
     return o
 
 
+# Per-asset steps that need the joined meshes (e.g. the 2027 map's ambient-occlusion bake) and exporter options.
+PRE_EXPORT={};EXPORT_OPTIONS={}
+
+
 def export(name):
     # Merge static pieces per parent/material, preserving articulated nodes.
     groups={}
@@ -100,11 +104,12 @@ def export(name):
         bpy.context.view_layer.objects.active=objects[0]
         bpy.ops.object.join()
         bpy.context.object.name=(parent.name if parent else 'Asset')+'_'+material_name
+    if name in PRE_EXPORT:PRE_EXPORT[name]()
     # Keep editable native sources as well as the runtime binary glTF assets.
     bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE / (name+".blend")))
     bpy.ops.export_scene.gltf(filepath=str(OUT / (name+".glb")), export_format='GLB',
                               export_yup=True, export_apply=True, export_cameras=False,
-                              export_lights=False, export_animations=False, export_extras=True)
+                              export_lights=False, export_animations=False, export_extras=True, **EXPORT_OPTIONS.get(name,{}))
     print("EXPORTED",name,flush=True)
 
 

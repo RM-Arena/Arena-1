@@ -84,7 +84,7 @@ Each team fields five robots: the slot 1 heavy robot, slot 3 and 4 infantry, the
 | 7 | sentry | S27-O Omni Automatic Sentry · Omni chassis, fast gimbal and a large magazine for autonomous patrol | 17mm | 400 | 300 |
 
 - "Ammo" is the number of projectiles a robot may fire. The heavy robot and infantry start with 0 and must buy ammo with coins; the sentry starts with 300 rounds and collects 100 more per minute at its supply zone.
-- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench.
+- The heavy robot **starts without a launcher**: it can fire only after its modular 42 mm launcher is unlocked (level-3 assembly or the time rule) and fitted at the workbench (fitting may come first; the launcher powers up at the unlock).
 - Aerial robots cannot be destroyed and can only attack structure armor by ramming it; they have no HP and cannot shoot.
 
 Ground robot hardware (full data in `sdk.DESIGNS`):
@@ -121,11 +121,11 @@ Key places (red coordinates; mirror for blue):
 | Workbench | (1.22, 12.82) | the heavy robot docks here to fit its 42 mm launcher |
 | Assembly zone | (13.34, 6.84) | on the central assembly plinth; closed to the enemy |
 | Hangar | (13.01, 8.49) | aerial robots launch and dock, 1.77 m high |
-| High point | (1.30, 2.90) | 0.8 m high with three steps; defense buff and local exchange |
+| High point | (1.42, 2.82) | 0.8 m high, three steps on the east and four on the south; defense buff and local exchange |
 | Power rune | (14.00, 7.50) | centre about 2.9 m high; coaxial red and blue faces |
 
 - The central highland is a 0.3 m deck that runs from your outpost side to the field center, with 12° end slopes. On the fortress side a 0.2 m step band and a 0.4 m rim stop ordinary wheeled robots. The 0.4 m assembly plinth and the rune gantry stand in the middle of the deck; the hangar platforms sit above the gantry.
-- The trapezoid highland is 0.2 m high (23° slope); the high point is 0.8 m high and reachable only by its three steps (about 0.2 m each), so only step-climbing wheel-legged robots get up; the fortress platform is 0.15 m high (20° slope).
+- The trapezoid highland is 0.2 m high (23° slope); the high point is 0.8 m high and reachable only by steps (about 0.2 m each): three from the trapezoid highland on its east side, four from the field on its south side, so only step-climbing wheel-legged robots get up; the fortress platform is 0.15 m high (20° slope).
 - Roads are 0.2 m high with 11° and 15° entry ramps. The road tunnels have about 0.25 m of clearance: only robots that fold their turret **pass through**; robots that jump or climb steps can **cross over** the roofs. Some road sections carry 0.07 m bumps.
 - Forbidden areas: both base bodies, the enemy's supply zone and assembly zone, and the dart stations (no darts are used, but the stations remain solid no-go areas).
 - Full geometry is in `observation["arena"]` (the same as `map` in `arena.json`): `terrain` (each `polygon` is the real shape), `obstacles` (walls, possibly with `rotation` and `bottom` for tunnel roofs), `zones` (buff cards), `forbidden`, `navigation` (public road-map nodes), `hangars`, `positions` (control positions), `field_geometry.fixtures` (workbench, resource hub, hangar platforms) and `rune`.
@@ -436,7 +436,7 @@ Operations that do not apply to the robot or its current state have no effect; s
 | `TEAM_SLOTS_2027`, `DESIGNS` | 2027 slots and robot designs |
 | `position(obs, name)`, `controls(obs, name, team=None)`, `control_degree(obs, team=None)` | control positions and control degree |
 | `zone_center(arena, zone_id)` | a buff card's center, e.g. `"blue_central"`, `"red_supply"` |
-| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted |
+| `workbench_point(robot, arena)`, `launcher_ready(robot)` | workbench parking point; launcher unlocked and waiting to be fitted (fitting before the unlock is also allowed, see "Heavy Robot") |
 | `resource_pickup_point(robot, arena)`, `assembly_work_point(robot, arena)` | resource-hub pickup point and assembly parking point |
 | `drones(robot)`, `strike_plan(drone, plate)`, `hostile_plates(obs, kind)` | aerial robots, ramming plan and rammable plates |
 
