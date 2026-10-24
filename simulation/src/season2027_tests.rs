@@ -256,11 +256,11 @@ fn a_locked_heavy_fits_early_but_cannot_fire_until_the_unlock() {
     // Installing is allowed at any time in the match, before the rules' unlock.
     for _ in 0..200 {
         m.step(&json!({"red":{"1":{"install_launcher":true,"brake":true}}}));
-        if m.robots[h].launcher == "fitted" {
+        if ["fitted", "fitted_locked"].contains(&m.robots[h].launcher.as_str()) {
             break;
         }
     }
-    assert_eq!(m.robots[h].launcher, "fitted");
+    assert_eq!(m.robots[h].launcher, "fitted_locked");
     assert!(m.teams["red"].launcher_unlock_s.unwrap() > 200.0);
     // …but the trigger stays dead while the team has not unlocked it: no round leaves the magazine.
     m.robots[h].ammo = 5;
@@ -269,7 +269,7 @@ fn a_locked_heavy_fits_early_but_cannot_fire_until_the_unlock() {
     }
     assert_eq!(m.robots[h].ammo, 5);
     assert!(!m.events.iter().any(|e| e["type"] == "shot" && e["robot"] == "red-1"));
-    assert_eq!(m.robots[h].launcher, "fitted");
+    assert_eq!(m.robots[h].launcher, "fitted_locked");
     // Finish difficulty 3 and the same trigger fires, installing the module on its first shot.
     m.teams.get_mut("red").unwrap().completed_difficulties = vec![1, 2, 3];
     for _ in 0..20 {

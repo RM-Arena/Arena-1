@@ -78,7 +78,7 @@ def s27_badge(parent, location, rot_z=0, text='27', width=.075, depth=.048):
 
 # ---------------------------------------------------------------------------- field
 
-S27_FIXTURE_WALLS = ('_dart_station', '_workbench', '_resource_frame', '_hangar_platform_roof', '_road_guard_end', '_road_guard_taper')
+S27_FIXTURE_WALLS = ('_dart_station', '_workbench', '_resource_frame', '_hangar_platform_roof')
 
 
 def s27_support(arena, t):
@@ -342,43 +342,35 @@ def s27_hangar_platform(fixture, gantry, root, color):
 
 
 def s27_field_paint(arena, root):
-    """Floor markings exactly as listed in field_geometry.paint (measured on the manual's
-    module drawings): team lines in the team colour, the rest white, each at its own width."""
-    colour = {'red': RED_PAINT, 'blue': BLUE_PAINT, None: WHITE_PAINT}
-    for m in arena['field_geometry']['paint']:
-        s27_paint(arena, m['points'], colour[m['team']], root, m.get('width', .03), m.get('closed', False))
-    # Crossing icons (figure 4-35): filled shapes lying on the surface under them, the road tunnel's on its ramp.
-    for icon in arena['field_geometry'].get('icons', []):
-        pts = icon['points']
-        c4_mesh('CrossingIcon', [(x-14, 7.5-y, c4_ground(arena, x, y)+.009) for x, y in pts], [tuple(range(len(pts)))], WHITE_PAINT, root)
+    geometry = arena['field_geometry']; colour = {'red': RED_PAINT, 'blue': BLUE_PAINT}
+    painted = []
+    for p in geometry['paint']:
+        s27_paint(arena, p['points'], colour[p['team']], root, .04, p.get('closed', True))
+        painted.append([[round(a, 3), round(b, 3)] for a, b in p['points']])
+    for z in arena['zones']:
+        material = colour.get(z.get('owner'), WHITE_PAINT)
+        if z.get('polygon'):
+            if [[round(a, 3), round(b, 3)] for a, b in z['polygon']] in painted:
+                continue
+            s27_paint(arena, z['polygon'], material, root, .035, True)
+        elif z['kind'] in ('resource', 'workbench', 'assembly'):
+            ring = [[z['x']+z['radius']*math.cos(a), z['y']+z['radius']*math.sin(a)] for a in [k*math.tau/36 for k in range(36)]]
+            s27_paint(arena, ring, material, root, .03, True)
+    # Crossing-point glyphs, as on the 2026 field: step for road/highland, -v- for tunnels.
+    glyphs = {'road': [[[-.08, -.035], [0, -.035], [0, .035], [.08, .035]]], 'highland': [[[-.08, -.035], [0, -.035], [0, .035], [.08, .035]]],
+              'tunnel': [[[-.13, 0], [-.06, 0]], [[-.04, .04], [0, -.03], [.04, .04]], [[.06, 0], [.13, 0]]]}
+    for z in arena['zones']:
+        if z['kind'] not in glyphs:
+            continue
+        flip = -1 if (z.get('group') or z['id']).startswith('blue') else 1
+        for stroke in glyphs[z['kind']]:
+            c4_paint(arena, [[z['x']+flip*u, z['y']-flip*v] for u, v in stroke], WHITE_PAINT, root, .028)
     for team, sign in (('red', 1), ('blue', -1)):
-        # The R logo on the high-point floor and one "ROBOMASTER 2027" line filling its measured footprint on the
-        # trapezoid (figures 4-8 and 4-26: x 3.35..7.91, y 0.22..0.43).
-        hp = next(z for z in arena['zones'] if z['id'] == team+'_high_point')
-        c4_text(arena, 'R', hp['x'], hp['y'], .7, WHITE_PAINT, root)
-        s27_fit_text(arena, 'ROBOMASTER 2027', (3.35, .22, 7.91, .43), WHITE_PAINT, root, sign < 0)
-
-
-def s27_fit_text(arena, text, box, material, parent, flip=False):
-    """Floor lettering stretched to fill box (x0, y0, x1, y1) in field metres, read from the field's top edge;
-    `flip` turns it 180 degrees about the field centre for the blue half."""
-    curve = bpy.data.curves.new('FieldMark', 'FONT'); curve.body = text; curve.size = 1; curve.extrude = .0005
-    obj = bpy.data.objects.new('FieldMark', curve); bpy.context.collection.objects.link(obj); curve.materials.append(material)
-    bpy.context.view_layer.objects.active = obj; obj.select_set(True); bpy.ops.object.convert(target='MESH'); obj.select_set(False)
-    xs = [v.co.x for v in obj.data.vertices]; ys = [v.co.y for v in obj.data.vertices]
-    sx, sy = (box[2]-box[0])/(max(xs)-min(xs)), (box[3]-box[1])/(max(ys)-min(ys))
-    cx, cy, mx, my = (max(xs)+min(xs))/2, (max(ys)+min(ys))/2, (box[0]+box[2])/2, (box[1]+box[3])/2
-    for v in obj.data.vertices:
-        u, w = (v.co.x-cx)*sx, (v.co.y-cy)*sy
-        x, y = (mx+u, my-w) if not flip else (28-mx-u, 15-my+w)
-        v.co = (x-14, 7.5-y, c4_ground(arena, x, y)+.009)
-    obj.parent = parent
-
-
-def s27_road_guard(arena, fixture, root):
-    """Tapered guard block ending the road's north wall beside the slope's top (figure 4-35)."""
-    pts = fixture['polygon']
-    s27_prism('RoadGuard', pts, [fixture['top_m']]*len(pts), KERB, root, 0)
+        def p(x, y):
+            return (x, y) if sign > 0 else (28-x, 15-y)
+        c4_text(arena, 'R', *p(4.32, 3.70), .7, WHITE_PAINT, root)
+        c4_text(arena, 'ROBOMASTER', *p(5.6, .55), .36, WHITE_PAINT, root, 0 if sign > 0 else math.pi)
+        c4_text(arena, '2027', *p(8.9, .55), .36, colour[team], root, 0 if sign > 0 else math.pi)
 
 
 def s27_flatten_map(root, keep=('AvailableUnit_',)):
@@ -404,139 +396,6 @@ def s27_flatten_map(root, keep=('AvailableUnit_',)):
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 
 
-# Contact shadows for the 2027 field (the manual's renders, figures 4-1..4-3): ambient occlusion baked per joined
-# floor/concrete/kerb mesh into its own non-overlapping UV set and exported as the glTF occlusion map, so walls,
-# kerbs, steps and fixtures darken the surfaces around them under the broadcast's ambient and sky light.
-S27_AO_MATERIALS = ('FieldBlack', 'HighlandAsphalt', 'ConcreteSide', 'ProtectiveMetal')
-S27_AO_SIZE, S27_AO_DISTANCE_M, S27_AO_SAMPLES = 2048, .45, 64
-
-
-def s27_gltf_output():
-    group = bpy.data.node_groups.get('glTF Material Output')
-    if group is None:
-        group = bpy.data.node_groups.new('glTF Material Output', 'ShaderNodeTree')
-        group.interface.new_socket(name='Occlusion', in_out='INPUT', socket_type='NodeSocketFloat')
-    return group
-
-
-def s27_bump_surface(t, root):
-    """Smooth 70 mm humps (figures 4-36/4-37) as one surface, sixteen facets per 240 mm pitch, with skirts down
-    to the road on all four sides."""
-    n = round(t['w']/t['bump_pitch'])*16; m = n+1
-    xs = [t['x']+i*t['bump_pitch']/16 for i in range(m)]; ys = (t['y'], t['y']+t['h'])
-    top = [(x-14, 7.5-y, floor_z(y)+c4_height(t, x, y)) for y in ys for x in xs]
-    base = [(x-14, 7.5-y, floor_z(y)+t['elevation']) for y in ys for x in xs]
-    T0, T1, B0, B1 = 0, m, 2*m, 3*m
-    faces = [(T0+i, T0+i+1, T1+i+1, T1+i) for i in range(n)]
-    faces += [(B0+i, B0+i+1, T0+i+1, T0+i) for i in range(n)] + [(T1+i, T1+i+1, B1+i+1, B1+i) for i in range(n)]
-    faces += [(B0, T0, T1, B1), (T0+n, B0+n, B1+n, T1+n)]
-    c4_mesh('RoadBumps', top+base, faces, ROAD, root)
-
-
-def s27_orient_open(objects, rays=24, reach=1.5):
-    """Turn every face toward the side it is seen from: the hemisphere with more unobstructed rays. Single top
-    faces and side bands come out of c4_mesh with arbitrary windings, which the baked occlusion depends on."""
-    import random
-    from mathutils import Vector
-    rng = random.Random(2027); local = []
-    while len(local) < rays:
-        v = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(0, 1)))
-        if .05 < v.length <= 1:
-            local.append(v.normalized())
-    scene = bpy.context.scene; depsgraph = bpy.context.evaluated_depsgraph_get()
-    def open_rays(origin, normal):
-        tangent = normal.orthogonal().normalized(); bitangent = normal.cross(tangent)
-        start = origin+normal*.003
-        return sum(not scene.ray_cast(depsgraph, start, tangent*d.x+bitangent*d.y+normal*d.z, distance=reach)[0] for d in local)
-    flipped = 0
-    for obj in objects:
-        mw = obj.matrix_world; rot = mw.to_3x3()
-        bm = bmesh.new(); bm.from_mesh(obj.data); bm.faces.ensure_lookup_table()
-        turn = []
-        for face in bm.faces:
-            c = mw @ face.calc_center_median(); n = (rot @ face.normal).normalized()
-            if n.length < .5:
-                continue
-            if open_rays(c, -n) > open_rays(c, n)+2:
-                turn.append(face)
-        if turn:
-            bmesh.ops.reverse_faces(bm, faces=turn); flipped += len(turn)
-        bm.to_mesh(obj.data); bm.free(); obj.data.update()
-    return flipped
-
-
-def s27_wall_uvs(objects):
-    """The field UVs are a top-down projection (0.4 per metre), which streaks textures down vertical faces: map faces
-    steeper than 45 degrees along their own horizontal direction and height instead, at the same scale."""
-    for obj in objects:
-        mesh = obj.data; mw = obj.matrix_world; rot = mw.to_3x3(); layer = mesh.uv_layers[0]
-        for poly in mesh.polygons:
-            n = (rot @ poly.normal).normalized()
-            if abs(n.z) > .7:
-                continue
-            along = Vector((-n.y, n.x, 0)).normalized()
-            for k in poly.loop_indices:
-                v = mw @ mesh.vertices[mesh.loops[k].vertex_index].co
-                layer.data[k].uv = (v.dot(along)*.4, v.z*.4)
-
-
-def s27_bake_ao():
-    scene = bpy.context.scene
-    scene.render.engine = 'CYCLES'; scene.cycles.device = 'CPU'; scene.cycles.samples = S27_AO_SAMPLES; scene.cycles.seed = 2027
-    if scene.world is None:
-        scene.world = bpy.data.worlds.new('BakeWorld')
-    scene.world.light_settings.distance = S27_AO_DISTANCE_M
-    root = bpy.data.objects['ArenaChapter4']
-    # Paint and floor text lie 8 mm above the surfaces: keep them out of the occlusion so lines get no dark halo.
-    paint = [o for o in scene.objects if o.type == 'MESH' and o.data.materials and o.data.materials[0] and 'FieldPaint' in o.data.materials[0].name]
-    for o in paint:
-        o.hide_render = True; o.hide_viewport = True
-    groups = {}
-    for obj in scene.objects:
-        if obj.type != 'MESH' or len(obj.data.materials) != 1 or obj.data.materials[0].name not in S27_AO_MATERIALS:
-            continue
-        if obj.parent != root:
-            # Props under toggled nodes (the available energy units) keep an AO-free copy of the material.
-            obj.data.materials[0] = obj.data.materials[0].copy()
-            continue
-        groups.setdefault(obj.data.materials[0].name, []).append(obj)
-    print('S27 AO oriented', s27_orient_open([o for objects in groups.values() for o in objects]), 'faces', flush=True)
-    s27_wall_uvs([o for objects in groups.values() for o in objects])
-    for name, objects in groups.items():
-        for obj in objects:
-            layers = obj.data.uv_layers
-            while len(layers) > 1:
-                layers.remove(layers[-1])
-            layers.active = layers.new(name='AmbientOcclusion')  # TEXCOORD_1 in the GLB
-        bpy.ops.object.select_all(action='DESELECT')
-        for obj in objects:
-            obj.select_set(True)
-        bpy.context.view_layer.objects.active = objects[0]
-        # Multi-object editing packs every object's islands into one shared UV square.
-        bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=.003, area_weight=0, correct_aspect=True, scale_to_bounds=False)
-        bpy.ops.object.mode_set(mode='OBJECT')
-        mat = objects[0].data.materials[0]
-        image = bpy.data.images.new('AO_'+name, S27_AO_SIZE, S27_AO_SIZE, alpha=False)
-        image.colorspace_settings.name = 'Non-Color'
-        nodes, links = mat.node_tree.nodes, mat.node_tree.links
-        uv = nodes.new('ShaderNodeUVMap'); uv.uv_map = 'AmbientOcclusion'
-        tex = nodes.new('ShaderNodeTexImage'); tex.image = image; links.new(uv.outputs['UV'], tex.inputs['Vector'])
-        for node in nodes:
-            node.select = False
-        tex.select = True; nodes.active = tex
-        bpy.ops.object.bake(type='AO', margin=8, margin_type='EXTEND', use_clear=True)
-        image.pack()
-        split = nodes.new('ShaderNodeSeparateColor'); links.new(tex.outputs['Color'], split.inputs['Color'])
-        out = nodes.new('ShaderNodeGroup'); out.node_tree = s27_gltf_output(); links.new(split.outputs['Red'], out.inputs['Occlusion'])
-        for obj in objects:
-            obj.data.uv_layers.active_index = 0; obj.data.uv_layers[0].active_render = True
-        print('S27 AO', name, len(objects), sum(len(o.data.polygons) for o in objects), flush=True)
-    for o in paint:
-        o.hide_render = False; o.hide_viewport = False
-    bpy.ops.object.select_all(action='DESELECT')
-
-
 def chapter4_2027_arena(arena):
     """RMUC 2027 field from maps.rmuc2027: terrain prisms at the engine heights (sides drop to
     the terrain they stand on), walls/kerbs/tunnels/parapets from the obstacles, the 2027
@@ -550,7 +409,11 @@ def chapter4_2027_arena(arena):
     for t in arena['terrain']:
         pts = t['polygon']; material = KERB if 'pedestal' in t['id'] else ROAD
         if t['kind'] == 'bumps':
-            s27_bump_surface(t, root)
+            # Smooth 70 mm humps (figures 4-36/4-37), sixteen facets per 240 mm pitch.
+            for i in range(round(t['w']/t['bump_pitch'])*16):
+                x = t['x']+i*t['bump_pitch']/16; xn = x+t['bump_pitch']/16
+                p = [[x, t['y']], [xn, t['y']], [xn, t['y']+t['h']], [x, t['y']+t['h']]]
+                c4_prism('RoadRidge', p, [floor_z(y)+c4_height(t, xx, y) for xx, y in p], ROAD, root, t['elevation'])
         elif t.get('edge_ramp_m', 0):
             # Fortress (20 deg) and assembly plinth (12 deg on the deck): flat top, sloped skirt.
             inner = s27_inset(pts, t['edge_ramp_m'])
@@ -559,6 +422,8 @@ def chapter4_2027_arena(arena):
                 p = [pts[i], pts[(i+1) % len(pts)], inner[(i+1) % len(pts)], inner[i]]
                 base = t.get('base_elevation', 0)
                 s27_prism(t['id']+'Slope', p, [base, base, t['elevation'], t['elevation']], material, root)
+        elif t['kind'] == 'ramp' and t['id'].endswith('_trapezoid_23'):
+            c4_stepped_ramp(arena, t, ROAD, SIDE, root)
         else:
             elevations = [c4_height(t, x, y) for x, y in pts]
             s27_prism(t['id'], pts, elevations, material, root)
@@ -586,12 +451,7 @@ def chapter4_2027_arena(arena):
             s27_workbench(fixture, root, color)
         elif kind == 'hangar_platform':
             s27_hangar_platform(fixture, gantry, root, color)
-        elif kind == 'road_guard':
-            s27_road_guard(arena, fixture, root)
     s27_flatten_map(root)
-    if os.environ.get('RMUC_AO', '1') != '0':
-        PRE_EXPORT[Path(arena['asset']).stem] = s27_bake_ao
-        EXPORT_OPTIONS[Path(arena['asset']).stem] = dict(export_image_format='JPEG', export_jpeg_quality=90)
     export(Path(arena['asset']).stem)
 
 
