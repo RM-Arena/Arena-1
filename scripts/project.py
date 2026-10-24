@@ -40,6 +40,7 @@ def main():
     parser.add_argument("command", choices=("setup", "run", "desktop", "test"))
     parser.add_argument("--docker", action="store_true")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--lan", action="store_true", help="Open the LAN lobby on every interface")
     args = parser.parse_args()
     if args.command == "setup":
         run("uv", "sync", "--locked")
@@ -58,7 +59,7 @@ def main():
                 f"或本机已有一个服务在运行）。\n换一个端口：python scripts/project.py run --port {free_port(args.port)}"
             )
         run("uv", "run", "--locked", "python", "-X", "utf8", "-m", "rmuc_arena", "serve", "--port", str(args.port),
-            *([] if args.docker else ["--trusted-local"]))
+            *([] if args.docker else ["--trusted-local"]), *(["--lan"] if args.lan else []))
     elif args.command == "desktop":
         run("node", "desktop/launch.cjs")
     else:

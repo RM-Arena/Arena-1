@@ -35,17 +35,22 @@ def main():
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--sandbox", choices=("trusted-local", "docker"), default="trusted-local")
     parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--lan", action="store_true", help="Open the LAN lobby on every interface")
+    parser.add_argument("--lan-name", action="append", default=[])
     args = parser.parse_args()
     args.data_dir.mkdir(parents=True, exist_ok=True)
     os.environ["RMUC_USER_DATA"] = str(args.data_dir.resolve())
     import uvicorn
+    from .lan import local_urls
     from .server import create_app
 
     with socket.socket() as listener:
-        listener.bind(("127.0.0.1", args.port))
+        listener.bind(("0.0.0.0" if args.lan else "127.0.0.1", args.port))
         port = listener.getsockname()[1]
         reconnect_workspaces(args.data_dir, f"http://127.0.0.1:{port}")
-        config = uvicorn.Config(create_app(sandbox=args.sandbox), log_level="warning")
+        urls = local_urls(port) if args.lan else []
+        app = create_app(sandbox=args.sandbox, lan=args.lan, lan_urls=urls, lan_names=args.lan_name)
+        config = uvicorn.Config(app, log_level="warning")
         server = uvicorn.Server(config)
 
         def parent_commands():
@@ -55,7 +60,9 @@ def main():
             server.should_exit = True
 
         threading.Thread(target=parent_commands, daemon=True).start()
-        print(json.dumps({"desktop_ready": True, "url": f"http://127.0.0.1:{port}"}), flush=True)
+        ready = {"desktop_ready": True, "url": f"http://127.0.0.1:{port}", "lan": bool(args.lan),
+                 "lan_urls": urls, "pin": app.state.arena.lan.pin if args.lan else None}
+        print(json.dumps(ready), flush=True)
         server.run(sockets=[listener])
 
 

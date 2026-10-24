@@ -1,0 +1,53 @@
+.lan-page{max-width:1240px;margin:0 auto;padding:26px 22px 64px;color:#dce8f2;display:flex;flex-direction:column;gap:16px}
+.lan-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.lan-kicker{font-size:10px;letter-spacing:2px;color:#7fa6bb}
+.lan-head h1{margin:4px 0 6px;font-size:clamp(26px,3vw,40px);letter-spacing:.02em}
+.lan-head p{margin:0;color:#9ab4c3;font-size:13px}
+.lan-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lan-ping{font-variant-numeric:tabular-nums;color:#7fe0a8;font-size:12px;border:1px solid #7fe0a833;border-radius:999px;padding:4px 9px}
+.lan-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.9fr);gap:16px;align-items:start}
+.lan-column{display:flex;flex-direction:column;gap:16px;min-width:0}
+.lan-card{border:1px solid #24404f;border-radius:14px;padding:16px 18px;background:linear-gradient(160deg,#0d1d27,#0a161e);min-width:0}
+.lan-card h2{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14px;color:#eaf5fc}
+.lan-card h3{margin:0 0 8px;font-size:12px;color:#9ab4c3;letter-spacing:.06em}
+.lan-card p{margin:6px 0;font-size:12px;line-height:1.7;color:#9ab4c3}
+.lan-card code{display:block;margin:4px 0;padding:7px 9px;border:1px solid #1d3441;border-radius:8px;background:#07131a;color:#86d8f0;font-size:12px;user-select:all}
+.lan-card button,.lan-card select,.lan-card input{font:inherit;color:#dce8f2;background:#0a1a24;border:1px solid #2a4a5b;border-radius:8px;padding:7px 10px;font-size:12px}
+.lan-card button{cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.lan-card button:hover:not(:disabled){border-color:#4d8aa8;background:#102b39}
+.lan-card button:disabled{opacity:.45;cursor:not-allowed}
+.lan-card button.lan-primary{border-color:#2f8cff;background:#14385c;color:#eaf5fc}
+.lan-card button.lan-primary:hover:not(:disabled){background:#1b4a78}
+.lan-card select{min-width:0;max-width:100%}
+.lan-card input{min-width:0}
+.lan-actions,.lan-join-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.lan-join-row input{flex:1 1 130px}
+.lan-join-row select{flex:1 1 160px}
+.lan-teams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.lan-seat{display:grid;grid-template-columns:auto 1fr auto;gap:5px 10px;align-items:center;margin-bottom:6px;padding:9px 10px;border:1px solid #1f3843;border-radius:10px;background:#0a1720;min-width:0}
+.lan-seat b{font-size:15px;letter-spacing:.02em;color:#9ab4c3;font-variant-numeric:tabular-nums}
+.lan-seat.red b{color:#ff8a80}.lan-seat.blue b{color:#7fc2ff}
+.lan-seat span{font-size:11px;color:#7fa6bb;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lan-seat em{grid-column:2/4;font-style:normal;font-size:11px;color:#9ab4c3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lan-seat i{display:block}
+.lan-seat button{padding:4px 8px;font-size:11px}
+.lan-seat.taken{background:#0d202b;border-color:#274857}
+.lan-seat.mine{border-color:#7fe0a877;box-shadow:inset 0 0 0 1px #7fe0a833}
+.lan-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lan-config label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#7fa6bb;min-width:0}
+.lan-muted{color:#6f8ea1!important;font-size:11px!important}
+.lan-pin{color:#ffd479;letter-spacing:3px;font-variant-numeric:tabular-nums}
+.lan-notice{border:1px solid #f2c35b55;background:#2a2314;color:#ffd479;border-radius:10px;padding:9px 12px;font-size:12px}
+.lan-actions select{max-width:150px}
+.lan-off{display:flex;gap:14px;align-items:flex-start}
+.lan-off h2{margin-top:0}
+.lan-empty{display:flex;align-items:center;justify-content:center;gap:10px;padding:48px;color:#9ab4c3}
+.lan-you h2{color:#eaf5fc}
+/* A remote operator/spectator gets the field and the data panel, not the host's match setup. */
+.lan-camera-bar{display:flex;justify-content:flex-end;gap:8px;padding:2px 2px 1px}
+.arena-layout.lan-viewer .setup-panel{display:none}
+.arena-layout.lan-viewer{grid-template-columns:minmax(0,1fr) 310px}
+@media(max-width:1280px){.arena-layout.lan-viewer{grid-template-columns:minmax(0,1fr) 232px}}
+@media(max-width:1000px){.arena-layout.lan-viewer{grid-template-columns:minmax(0,1fr)}.arena-layout.lan-viewer .robot-inspector{display:none}}
+@media(max-width:680px){.arena-layout.lan-viewer{display:block}}
+@media(max-width:980px){.lan-grid{grid-template-columns:minmax(0,1fr)}.lan-teams{grid-template-columns:minmax(0,1fr)}.lan-config{grid-template-columns:minmax(0,1fr)}}

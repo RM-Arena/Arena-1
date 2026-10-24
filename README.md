@@ -224,6 +224,14 @@ python scripts/project.py desktop   # 或者以桌面窗口运行
 
 端口 8765 被别的程序占着启动会直接退出（Windows 上输入法、Hyper-V 端口保留都可能占它），换一个端口即可：`python scripts/project.py run --port 8800`，然后打开 `http://127.0.0.1:8800`。
 
+**局域网联机（8 名操作手 + 1 名主机裁判 + 观众）**
+
+```sh
+python scripts/project.py run --lan      # 监听所有网卡，日志打印联机地址与 6 位 PIN
+```
+
+打开「联机」页即可看到地址/PIN：主机裁判选赛季、双方策略并开始比赛；8 名操作手凭 PIN 各占一台地面机器人（RMUC 2027，每方 4 台，空中机器人由自动飞行系统控制），观众直接打开同一地址观战。驾驶输入走 WebSocket、20 Hz；非主机无法开始/暂停/上传，局域网比赛不计策略 Elo。桌面版可在菜单「执行模式 → 局域网联机」开启。详见[局域网联机指南](https://rm-arena.github.io/Arena-1/guide/lan)。
+
 **2. 开发循环**
 
 ```sh

@@ -11,8 +11,9 @@ import threading
 import time
 import uuid
 from typing import Literal
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +22,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.background import BackgroundTask
 
 from .paths import data_path
+from .lan import COOKIE as LAN_COOKIE, LanLobby, host_names, local_urls
 from .engine import DT, Match, arena_map, SLOT_IDS, RULES_PROFILE, STATIC_FRAME_KEYS, _config as rules_config
 from .runner import Battle
 from .store import Store
@@ -196,6 +198,35 @@ class RefereeRequest(BaseModel):
     reason: str = Field(default="referee_decision", max_length=128)
 
 
+class LanJoinRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(default="操作手", max_length=24)
+    pin: str | None = Field(default=None, max_length=16)
+    role: Literal["operator", "spectator"] = "operator"
+
+
+class LanSeatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: Literal["claim", "release"] = "claim"
+    team: Literal["red", "blue"] = "red"
+    slot: int = Field(default=1, ge=1, le=64)
+    force: bool = False
+
+
+class LanReadyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ready: bool = True
+
+
+class LanConfigRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    season: Literal["2026", "2027"] | None = None
+    red: str | None = Field(default=None, max_length=128)
+    blue: str | None = Field(default=None, max_length=128)
+    seed: int = Field(default=42, ge=-(2**31), le=2**31 - 1)
+    duration: int = Field(default=420, ge=1, le=420)
+
+
 class PracticeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     opponent: str = Field(default="baseline", pattern=r"^(baseline|self|[a-f0-9]{16})$")
@@ -206,8 +237,10 @@ class PracticeRequest(BaseModel):
 
 
 class ArenaService:
-    def __init__(self, sandbox="docker", submission_root=None, data_root=None, test_mode=False, workspace_registry=None):
+    def __init__(self, sandbox="docker", submission_root=None, data_root=None, test_mode=False, workspace_registry=None,
+                 lan=False, lan_pin=None, lan_urls=(), lan_season=None):
         self.sandbox = sandbox
+        self.lan = LanLobby(enabled=lan, pin=lan_pin, urls=lan_urls, season=lan_season or season_rules.DEFAULT_SEASON)
         self.submission_root = Path(submission_root or data_path("submissions"))
         self.workspace_registry = Path(workspace_registry or data_path(".arena_host/workspaces.json"))
         self.store = Store(data_root or data_path(".arena_data"))
@@ -319,6 +352,7 @@ class ArenaService:
             return {"frame": self.public_frame if slim else self.frame, "revision": self.revision, "paused": self.paused,
                     "speed": self.speed, "error": self.error, "metadata": self.metadata, "sandbox": self.sandbox,
                     "match_id": self.match_id, "events": events, "player": self.pilot(),
+                    "players": self.lan.player_summary() if self.lan.enabled else [],
                     "busy": self.busy, "prematch": copy.copy(self.prematch), "strategy_version": strategy_version}
 
     def static_state(self):
@@ -353,7 +387,10 @@ class ArenaService:
             elif key:raise ValueError("Independent control does not use a team strategy")
         return controllers
 
-    def start(self, data):
+    def start(self, data, lan_match=False):
+        # Every match started while the lobby is open is a LAN match: human seats decide the result,
+        # so it stays off the strategy leaderboard and the lobby reflects its phase.
+        lan_match = lan_match or self.lan.enabled
         args, season = self.resolve_season(StartRequest.model_validate(data))
         args.battle_settings = normalize_settings(args.battle_settings if args.battle_settings is not None else self.settings.get(season)["overrides"], season)
         if args.duration!=420 and not self.test_mode:
@@ -396,6 +433,10 @@ class ArenaService:
             self.metadata.update({"battle_settings": args.battle_settings, "save_mp4": args.save_mp4})
             if args.battle_settings:
                 self.metadata["test_match"] = True
+            if lan_match:
+                # Human operators decide the result, so a LAN match never feeds the strategy Elo.
+                self.metadata.update({"test_match": True, "lan": True,
+                                      "operators": self.lan.player_summary()})
             if decks:
                 self.metadata.update({"lineups":lineups,"test_match":True,"match_mode":"deck"})
             if any(skins.values()):
@@ -405,6 +446,8 @@ class ArenaService:
             self.busy = True
             self.thread = threading.Thread(target=self._run, args=(self.match_id,None if decks else choices[args.red]["path"],None if decks else choices[args.blue]["path"],args,decks,free_team_strategies,skins), daemon=True)
             self.thread.start()
+            if lan_match:
+                self.lan.match_started(self.match_id)
             return self.match_id
 
     def _run(self, match_id, red, blue, args, decks=None, free_team_strategies=None, skins=None):
@@ -412,6 +455,13 @@ class ArenaService:
             with Battle(red,blue,args.seed,args.duration,args.map,self.sandbox,decks=decks,team_lineup=args.team_lineup,free_team_strategies=free_team_strategies,battle_settings=args.battle_settings) as battle:
                 battle.metadata["match_id"] = match_id
                 battle.metadata["save_mp4"] = args.save_mp4
+                # The Battle builds its own metadata; keep the lobby's operator list and unranked
+                # marker with the record that the store and the UI read afterwards.
+                with self.lock:
+                    lobby_meta = {key: self.metadata[key] for key in ("lan", "operators") if self.metadata and key in self.metadata}
+                if lobby_meta:
+                    battle.metadata.update(lobby_meta)
+                    battle.metadata["test_match"] = True
                 if skins and any(skins.values()):
                     battle.metadata["skins"] = skins
                 with self.lock:
@@ -458,6 +508,7 @@ class ArenaService:
                 # finishing late must not clobber the busy flag of the match that replaced it.
                 if self.match_id == match_id:
                     self.busy = False
+                    self.lan.match_finished(match_id)
                     self.prematch = None
                 self.revision += 1
 
@@ -572,6 +623,89 @@ class ArenaService:
             self.revision += 1
             return self.pilot()
 
+    # ---- LAN lobby ------------------------------------------------------------------------
+    def lan_status(self, session, local=False):
+        return self.lan.status(session, local)
+
+    def lan_join(self, data, local=False):
+        session = self.lan.session_from_cookie(data.pop("_token", None))
+        if session and session.role != "host":
+            self.lan.leave(session)
+        return self.lan.join(data.get("name", ""), data.get("pin"), data.get("role", "operator"), local=local)
+
+    def lan_claim(self, session, team, slot, force=False):
+        return self.lan.claim(session, team, slot, force=force)
+
+    def lan_release(self, session, team=None, slot=None, force=False):
+        key = self.lan.release(session, team, slot, force=force)
+        if key and self.battle:
+            try:
+                self.battle.set_manual(key[0], key[1], None)
+            except ValueError:
+                pass
+        return key
+
+    def lan_ready(self, session, ready):
+        self.lan.set_ready(session, ready)
+
+    def lan_configure(self, session, values):
+        return self.lan.configure(session, values)
+
+    def lan_start(self, session):
+        if not self.lan.enabled:
+            raise ValueError("局域网联机未开启")
+        if session is None or session.role != "host":
+            raise ValueError("只有主机裁判可以开始比赛")
+        with self.lan.lock:
+            config = dict(self.lan.config)
+        return self.start({"red": config["red"], "blue": config["blue"], "seed": config["seed"],
+                           "duration": config["duration"], "map": config["map"], "mode": "standard"},
+                          lan_match=True)
+
+    def lan_control(self, session, data):
+        if session is None or session.role != "host":
+            raise ValueError("只有主机裁判可以控制比赛")
+        self.control(data)
+        return self.state()
+
+    def lan_referee(self, session, data):
+        if session is None or session.role != "host":
+            raise ValueError("只有主机裁判可以做出判罚")
+        with self.lock:
+            if self.stopping or not self.battle or self.battle.match.status == "finished":
+                raise ValueError("No running match")
+            self.battle.queue_referee(data)
+        return True
+
+    def lan_input(self, session, message):
+        """Apply one cockpit input. The seat, not the client body, decides the robot."""
+        if not self.lan.enabled:
+            return False, "局域网联机未开启"
+        if session is None or session.role not in ("host", "operator"):
+            return False, "只有操作手可以驾驶"
+        if not session.seat:
+            return False, "请先在联机大厅选择机体"
+        if not self.lan.allow_input(session):
+            return False, "输入过快"
+        action = message.get("action")
+        assist = message.get("assist")
+        if assist is not None and (not isinstance(assist, str) or len(assist) > 32):
+            return False, "无效的锁定目标"
+        team, slot = session.seat
+        with self.lock:
+            battle = self.battle
+            if not battle or not self.busy:
+                return False, "比赛尚未开始"
+            if battle.match.status == "finished":
+                return False, "比赛已结束"
+            try:
+                battle.set_manual(team, slot, None if action is None else action, assist)
+            except ValueError as exc:
+                return False, str(exc)
+            if action is not None and self.speed != 1:
+                self.speed = 1
+        return True, ""
+
     def strategies(self):
         """Every playable strategy with its classification, presentation summary and Elo, for the gallery."""
         standings = {(s["name"], s["version"]): s for s in self.store.leaderboard()}
@@ -597,8 +731,19 @@ class ArenaService:
             self.thread.join(timeout=30)
 
 
-def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=False,workspace_registry=None):
-    service = ArenaService(sandbox,submission_root,data_root,test_mode,workspace_registry)
+def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=False,workspace_registry=None,
+               lan=False,lan_pin=None,lan_urls=(),lan_season=None,lan_names=()):
+    urls = list(lan_urls)
+    service = ArenaService(sandbox,submission_root,data_root,test_mode,workspace_registry,
+                           lan=lan,lan_pin=lan_pin,lan_urls=urls,lan_season=lan_season)
+    allowed_hosts = ["127.0.0.1","localhost","testserver"]
+    if lan:
+        allowed_hosts = sorted(set(allowed_hosts) | set(host_names(urls)) | {str(name) for name in lan_names if name})
+    dev_origins = ["http://127.0.0.1:5173","http://localhost:5173"]
+    if lan:
+        # The Vite dev server is a separate origin; a LAN developer reaches it through the same host.
+        dev_origins += [f"http://{name}:5173" for name in allowed_hosts
+                        if name not in ("127.0.0.1","localhost","testserver")]
     training = TrainingService(service.store.directory/"practice",workspace_registry,service.submission_root,sandbox,service.strategy_library)
     @asynccontextmanager
     async def lifespan(app):
@@ -614,8 +759,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     app.state.training = training
     video_exporter = VideoExporter(service.store.directory / "video-exports")
     app.state.video_exporter = video_exporter
-    app.add_middleware(TrustedHostMiddleware,allowed_hosts=["127.0.0.1","localhost","testserver"])
-    app.add_middleware(CORSMiddleware,allow_origins=["http://127.0.0.1:5173","http://localhost:5173"],allow_methods=["GET","POST","DELETE"],allow_headers=["Content-Type"])
+    app.add_middleware(TrustedHostMiddleware,allowed_hosts=allowed_hosts)
+    app.add_middleware(CORSMiddleware,allow_origins=dev_origins,allow_methods=["GET","POST","DELETE"],allow_headers=["Content-Type"])
 
     @app.middleware("http")
     async def boundary(request:Request,call_next):
@@ -625,9 +770,11 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             if origin and origin not in allowed:
                 return JSONResponse({"error":"Invalid origin"},status_code=403)
         if request.method == "POST":
+            # Lobby actions with no payload (start / leave) are ordinary JSON-less POSTs.
+            bodyless = request.url.path in ("/api/lan/start", "/api/lan/leave")
             video = request.url.path == "/api/video-export" or (request.url.path.startswith("/api/matches/") and request.url.path.endswith("/video"))
             expected_type = "video/webm" if video else "application/json"
-            if request.headers.get("content-type","").split(";")[0] != expected_type:
+            if not bodyless and request.headers.get("content-type","").split(";")[0] != expected_type:
                 return JSONResponse({"error": f"{expected_type} required"},status_code=415)
             try:
                 size=int(request.headers.get("content-length",0))
@@ -638,6 +785,147 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             except ValueError:
                 return JSONResponse({"error":"Invalid body size"},status_code=400)
         return await call_next(request)
+
+    # ---- LAN lobby ------------------------------------------------------------------------
+    # A browser opened on the host itself through its LAN URL has that interface address as its
+    # source; it is the same referee as the loopback window, not a remote player.
+    local_addresses = {urlparse(url).hostname for url in urls if urlparse(url).hostname}
+
+    def local_client(request):
+        host = request.client.host if request.client else ""
+        return host in ("127.0.0.1", "::1", "localhost", "testclient") or host in local_addresses
+
+    def lan_session(request):
+        return service.lan.session_from_cookie(request.cookies.get(LAN_COOKIE))
+
+    def set_lan_cookie(response, session):
+        response.set_cookie(LAN_COOKIE, session.token, max_age=12 * 3600, httponly=True,
+                            samesite="strict", path="/")
+
+    def lan_actor(request, response):
+        """The caller's session; loopback gets (and keeps) the single host/referee session."""
+        session = lan_session(request)
+        if local_client(request) and (session is None or session.role != "host"):
+            session = service.lan.ensure_host()
+            set_lan_cookie(response, session)
+        return session
+
+    def require_lan_host(request):
+        if not service.lan.enabled:
+            return None
+        session = lan_session(request)
+        if local_client(request):
+            return session if session and session.role == "host" else service.lan.ensure_host()
+        if session and session.role == "host":
+            return session
+        raise HTTPException(403, "只有主机裁判可以执行此操作")
+
+    @app.get("/api/lan/status")
+    def lan_status(request: Request, response: Response):
+        if not service.lan.enabled:
+            return service.lan.status(None, local=False)
+        return service.lan.status(lan_actor(request, response), local_client(request))
+
+    @app.post("/api/lan/join")
+    def lan_join(data: LanJoinRequest, request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        local = local_client(request)
+        current = lan_session(request)
+        try:
+            session = service.lan_join({"name": data.name, "pin": data.pin, "role": data.role,
+                                        "_token": current.token if current and current.role != "host" else None},
+                                       local=local)
+        except ValueError as exc:
+            raise HTTPException(403, str(exc)) from exc
+        set_lan_cookie(response, session)
+        return service.lan.status(session, local)
+
+    @app.post("/api/lan/leave")
+    def lan_leave(request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_session(request)
+        if session:
+            service.lan_release(session)
+            service.lan.leave(session)
+        response.delete_cookie(LAN_COOKIE, path="/")
+        return service.lan.status(None, local_client(request))
+
+    @app.post("/api/lan/seat")
+    def lan_seat(data: LanSeatRequest, request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_actor(request, response)
+        if not session:
+            raise HTTPException(403, "请先加入联机")
+        try:
+            if data.action == "claim":
+                service.lan_claim(session, data.team, data.slot, force=data.force)
+            else:
+                service.lan_release(session, data.team, data.slot, force=data.force)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return service.lan.status(session, local_client(request))
+
+    @app.post("/api/lan/ready")
+    def lan_ready(data: LanReadyRequest, request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_actor(request, response)
+        if not session:
+            raise HTTPException(403, "请先加入联机")
+        try:
+            service.lan_ready(session, data.ready)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return service.lan.status(session, local_client(request))
+
+    @app.post("/api/lan/config")
+    def lan_config(data: LanConfigRequest, request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_actor(request, response)
+        if not session:
+            raise HTTPException(403, "请先加入联机")
+        try:
+            service.lan_configure(session, data.model_dump())
+        except ValueError as exc:
+            raise HTTPException(403, str(exc)) from exc
+        return service.lan.status(session, local_client(request))
+
+    @app.post("/api/lan/start")
+    def lan_start(request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_actor(request, response)
+        try:
+            match_id = service.lan_start(session)
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"ok": True, "match_id": match_id, "lobby": service.lan.snapshot()}
+
+    @app.post("/api/lan/control")
+    def lan_control(data: ControlRequest, request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_actor(request, response)
+        try:
+            service.lan_control(session, data.model_dump())
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"ok": True, "lobby": service.lan.snapshot()}
+
+    @app.post("/api/lan/referee")
+    def lan_referee(data: RefereeRequest, request: Request, response: Response):
+        if not service.lan.enabled:
+            raise HTTPException(400, "局域网联机未开启")
+        session = lan_actor(request, response)
+        try:
+            service.lan_referee(session, data.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"ok": True}
 
     @app.get("/api/health")
     def health():
@@ -667,6 +955,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.post("/api/video-export")
     async def video_export(request: Request, duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+        require_lan_host(request)
         try:
             path, temporary = await video_exporter.export(request.stream(), duration=duration)
         except VideoExportError as exc:
@@ -679,7 +968,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return service.settings.get(season)
 
     @app.post("/api/battle-settings")
-    def save_battle_settings(data: BattleSettingsRequest):
+    def save_battle_settings(data: BattleSettingsRequest, request: Request):
+        require_lan_host(request)
         try:
             return service.settings.save(data.season, data.values)
         except ValueError as exc:
@@ -695,6 +985,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     @app.post("/api/matches/{match_id}/video")
     async def save_match_video(match_id: str, request: Request,
                                duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+        require_lan_host(request)
         with service.store.lock:
             record = service.store.match(match_id)
             if not record:
@@ -745,6 +1036,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.post('/api/team-workspaces')
     def team_workspace(data:TeamWorkspaceRequest,request:Request):
+        require_lan_host(request)
         from .submissions import scaffold,start_training
         try:
             season=data.season or season_rules.infer_season(data.team_lineup.keys())
@@ -758,6 +1050,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.post('/api/training-workspaces')
     def training_workspace(data:TrainingWorkspaceRequest,request:Request):
+        require_lan_host(request)
         from .submissions import scaffold,start_training
         try:
             root=service.store.directory/'workspaces' if service.test_mode else data_path('workspaces')
@@ -802,7 +1095,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return presets
 
     @app.post("/api/deck-presets")
-    def save_deck_preset(data:DeckPresetRequest):
+    def save_deck_preset(data:DeckPresetRequest, request: Request):
+        require_lan_host(request)
         data.decks = {team: [canonical_key(key) for key in cards] for team, cards in data.decks.items()}
         for controller in data.controllers.values():
             controller.strategy = canonical_key(controller.strategy)
@@ -841,7 +1135,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return service.strategy_library.status()
 
     @app.post("/api/strategy-library/sync")
-    def strategy_library_sync():
+    def strategy_library_sync(request: Request):
+        require_lan_host(request)
         return service.strategy_library.request_sync()
 
     @app.get("/api/strategies/{key}")
@@ -856,7 +1151,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return {**item, "showcase": load_showcase(path), "files": files}
 
     @app.post("/api/strategies/{key}/profile")
-    def classify(key:str, data:ProfileRequest):
+    def classify(key:str, data:ProfileRequest, request: Request):
+        require_lan_host(request)
         found = service.strategies().get(key)
         if not found:
             raise HTTPException(404, "Unknown strategy")
@@ -876,7 +1172,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return service.custom_models.list()
 
     @app.post("/api/custom-models")
-    def upload_model(data:CustomModelRequest):
+    def upload_model(data:CustomModelRequest, request: Request):
+        require_lan_host(request)
         import base64, binascii
         try:
             raw = base64.b64decode(data.glb_base64, validate=True)
@@ -892,7 +1189,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return FileResponse(path, media_type="model/gltf-binary", headers={"Cache-Control": "public, max-age=86400, immutable"})
 
     @app.delete("/api/custom-models/{model_id}")
-    def delete_model(model_id:str):
+    def delete_model(model_id:str, request: Request):
+        require_lan_host(request)
         if not service.custom_models.delete(model_id):
             raise HTTPException(404, "Model not found")
         return {"deleted": model_id}
@@ -906,14 +1204,16 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return service.state(since)
 
     @app.post("/api/start")
-    def start(data:StartRequest):
+    def start(data:StartRequest, request: Request):
+        require_lan_host(request)
         try:
             return {"ok":True,"match_id":service.start(data.model_dump())}
         except (ValueError,RuntimeError) as exc:
             raise HTTPException(409,str(exc)) from exc
 
     @app.post("/api/control")
-    def control(data:ControlRequest):
+    def control(data:ControlRequest, request: Request):
+        require_lan_host(request)
         try:
             service.control(data.model_dump())
             return {"ok":True}
@@ -921,7 +1221,13 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             raise HTTPException(400,str(exc)) from exc
 
     @app.post("/api/player")
-    def player(data:PlayerRequest):
+    def player(data:PlayerRequest, request: Request):
+        if service.lan.enabled and not local_client(request):
+            session = lan_session(request)
+            if not session or session.role != "operator":
+                raise HTTPException(403, "只有已加入联机的操作手可以驾驶")
+            if session.seat != (data.team, data.slot):
+                raise HTTPException(403, "这台机体不属于你的席位，请先在联机大厅选择机体")
         try:
             return {"ok":True,"player":service.player_control(data.model_dump())}
         except ValueError as exc:
@@ -949,12 +1255,27 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             await websocket.close(code=1008)
             return
         await websocket.accept()
+        # The session is anonymous for a plain spectator. Loopback always has the host/referee
+        # session, so the local cockpit keeps working even if the status call lost its cookie.
+        session = None
+        if service.lan.enabled:
+            session = service.lan.session_from_cookie(websocket.cookies.get(LAN_COOKIE))
+            local = (websocket.client.host if websocket.client else "") in ("127.0.0.1", "::1", "localhost", "testclient") or \
+                    (websocket.client.host if websocket.client else "") in local_addresses
+            if session is None and local:
+                session = service.lan.ensure_host()
+            service.lan.viewer_open(session)
         # `match_id` is None before the first match starts, so the initial sentinel must be
         # something else or the idle arena never receives its static frame.
         revision,since,match_id=-1,-1,object()
+        lobby_revision=-1
         last_send=time.monotonic()
+        last_error,last_error_at=None,0.0
         try:
             while True:
+                if service.lan.enabled and service.lan.revision != lobby_revision:
+                    lobby_revision = service.lan.revision
+                    await websocket.send_json({"type":"lobby","state":service.lan.snapshot()})
                 current=await asyncio.to_thread(service.state,since,True)
                 if current["match_id"]!=match_id:
                     match_id=current["match_id"]
@@ -976,11 +1297,32 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
                     await websocket.send_json({"type":"heartbeat"})
                     last_send=time.monotonic()
                 try:
-                    await asyncio.wait_for(websocket.receive_text(),timeout=.025)
+                    text=await asyncio.wait_for(websocket.receive_text(),timeout=.025)
                 except asyncio.TimeoutError:
-                    pass
+                    continue
+                if len(text) > 8192:
+                    continue
+                try:
+                    message=json.loads(text)
+                except ValueError:
+                    continue
+                if not isinstance(message, dict):
+                    continue
+                kind=message.get("type")
+                if kind=="ping":
+                    await websocket.send_json({"type":"pong","t":message.get("t")})
+                elif kind=="input":
+                    if service.lan.enabled:
+                        service.lan.touch(session)
+                        ok,error=service.lan_input(session,message)
+                        if not ok and error and (error!=last_error or time.monotonic()-last_error_at>1):
+                            last_error,last_error_at=error,time.monotonic()
+                            await websocket.send_json({"type":"input_error","message":error})
         except (WebSocketDisconnect,RuntimeError,ConnectionError):
             pass
+        finally:
+            if service.lan.enabled:
+                service.lan.viewer_close(session)
 
     @app.get("/api/matches")
     def matches():
@@ -994,7 +1336,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return value
 
     @app.delete("/api/matches/{match_id}")
-    def delete_match(match_id:str):
+    def delete_match(match_id:str, request: Request):
+        require_lan_host(request)
         with service.lock:
             if service.busy and service.match_id==match_id:
                 raise HTTPException(409,"Stop the match before deleting it")
@@ -1046,7 +1389,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
                                 background=BackgroundTask(path.unlink, missing_ok=True))
 
     @app.post("/api/submissions")
-    def upload(data:SubmissionRequest):
+    def upload(data:SubmissionRequest, request: Request):
+        require_lan_host(request)
         if data.name.startswith("entry-"):
             raise HTTPException(400,"This name prefix is reserved for timed competition entries")
         try:
@@ -1114,6 +1458,11 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     return app
 
 
-def serve(port=8765,sandbox="docker",submission_root=None):
+def serve(port=8765,sandbox="docker",submission_root=None,host="127.0.0.1",lan=False,lan_names=()):
     import uvicorn
-    uvicorn.run(create_app(sandbox,submission_root),host="127.0.0.1",port=port,log_level="warning")
+    urls=local_urls(port) if lan else []
+    app=create_app(sandbox,submission_root,lan=lan,lan_urls=urls,lan_names=lan_names)
+    if lan:
+        app.state.arena.lan.urls=urls
+        print(f"Arena-1 LAN lobby: {', '.join(urls)}  PIN: {app.state.arena.lan.pin}", flush=True)
+    uvicorn.run(app,host=host,port=port,log_level="warning")

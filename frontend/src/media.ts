@@ -1,6 +1,6 @@
 import type {Frame,Metadata,MatchEvent} from './types';
 import {strategyDisplayName} from './strategyIdentity';
-import {MUSIC,type BgmCue} from './audioPlaylist';
+import {FALLBACK_LUFS,MUSIC,musicGain,type BgmCue} from './audioPlaylist';
 import {KILL_CUES,type KillCue,type KillAnnouncement,type KillHighlight} from './killAnnouncements';
 import {checkVideoExport,prepareVideoExport,saveMatchVideo,type VideoFormat} from './videoExport';
 export type {BgmCue} from './audioPlaylist';
@@ -12,12 +12,20 @@ const THROTTLE:Record<string,number>={'shot':.02,'shot-hero':.06,impact:.035,hit
 const IMPORTANT=new Set(['destroy','explosion','finish','respawn','rune_activated','base_hit','outpost_hit','level_up']);
 const rand=(a:number,b:number)=>a+Math.random()*(b-a);
 
-type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number;loop:boolean};
+type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number;loop:boolean;handoff?:number};
 type MusicRequest={cue:BgmCue;scope:string;remaining:number;rate:number;at:number};
 type DroneVoice={gain:GainNode;panner:PannerNode;noise:AudioBufferSourceNode;oscillators:OscillatorNode[];nodes:AudioNode[]};
 type AnnouncementRequest={announcement:KillAnnouncement;started:(seconds:number)=>void;queuedAt:number};
 type AnnouncementVoice={node:AudioBufferSourceNode;gain:GainNode;request:AnnouncementRequest};
 const ANNOUNCEMENT_DURATION:Record<KillCue,number>={'first-blood':3.142,'double-kill':3.671,'triple-kill':2.134,'quadra-kill':2.646,'penta-kill':3.650,aced:2.793};
+// A cue change is a crossfade, not a cut: the outgoing recording keeps playing under the incoming
+// one, so the seams inside a match and the ceremony read as one continuous piece.
+const CUE_FADE=1.2;
+// The opening theme hands over to the looping sting before its last sample, so the two recordings
+// overlap instead of leaving a hole where the four-minute opening ends.
+const HANDOFF_FADE=2.4;
+// The countdown lands on the whistle, so its hand-off stays tight without clipping the tail.
+const MATCH_FADE=.5;
 export type InterfaceCue='hover'|'click'|'select'|'confirm'|'back'|'open'|'success'|'error';
 
 // Procedural match audio: layered noise/tone voices, 3D panned around the camera, with a shared room reverb and limiter.
@@ -100,9 +108,10 @@ export class ArenaAudio {
     if(paused)void this.context.suspend();else void this.context.resume().then(()=>{this.sync();this.syncAnnouncements();});
   }
   bgm(cue:BgmCue|null,scope='default',remaining=5,rate=1){
-    if(cue===null){this.wanted=null;this.fadeOut(.2);return;}
+    if(cue===null){this.wanted=null;this.fadeOut(CUE_FADE);return;}
     const changed=this.wanted?.cue!==cue||this.wanted?.scope!==scope;
-    if(changed){this.fadeOut(.16);this.wanted={cue,scope,remaining,rate,at:this.context?.currentTime??0};}
+    // The old track keeps playing until the new one is decoded, then sync() crossfades between them.
+    if(changed){this.wanted={cue,scope,remaining,rate,at:this.context?.currentTime??0};}
     else if(cue==='countdown'){this.wanted={cue,scope,remaining,rate,at:this.context?.currentTime??0};}
     if(this.enabled){void this.loadTrack(cue);this.sync();}
   }
@@ -209,12 +218,25 @@ export class ArenaAudio {
     if(s&&s.cue===cue&&s.scope===want.scope){
       if(!countdown||Math.abs(this.position(s)-target)<.35&&s.rate===rate)return;
     }
-    this.fadeOut(.12);const c=this.context,node=c.createBufferSource(),gain=c.createGain();node.buffer=buffer;
+    const fade=!s?0:s.cue===cue?.12:s.cue==='match'&&cue==='match_alt'?HANDOFF_FADE:
+      s.cue==='countdown'&&cue==='match'?MATCH_FADE:CUE_FADE;
+    this.fadeOut(fade);
+    const c=this.context,node=c.createBufferSource(),gain=c.createGain();node.buffer=buffer;
     // A hand-off cue runs to its end once, so the loop that follows is the other recording.
-    node.loop=MUSIC[cue].loop&&!MUSIC[cue].then;node.loopStart=0;node.loopEnd=buffer.duration;node.playbackRate.value=rate;
-    gain.gain.setValueAtTime(.0001,c.currentTime);gain.gain.exponentialRampToValueAtTime(MUSIC[cue].gain,c.currentTime+.12);
+    node.loop=MUSIC[cue].loop&&!MUSIC[cue].then;node.loopStart=0;
+    node.loopEnd=Math.min(buffer.duration,MUSIC[cue].loopEnd??buffer.duration);node.playbackRate.value=rate;
+    gain.gain.setValueAtTime(0,c.currentTime);
+    gain.gain.linearRampToValueAtTime(this.level(cue,chosen),c.currentTime+(fade||MATCH_FADE));
     node.connect(gain).connect(this.music);node.start(c.currentTime,target);
     const current:Music={node,gain,offset:target,startedAt:c.currentTime,cue,scope:want.scope,rate,duration:buffer.duration,loop:node.loop};this.source=current;this.musicStarts++;
+    // The hand-off does not wait for the final sample either: the sting starts HANDOFF_FADE early
+    // and the crossfade covers the end of the opening. `onended` remains the fallback for a source
+    // that was paused through its scheduled hand-off.
+    if(MUSIC[cue].then)current.handoff=window.setTimeout(()=>{
+      if(this.source!==current||!this.enabled||this.paused)return;
+      this.handedOver={cue,scope:want.scope};
+      this.sync();
+    },Math.max(0,(buffer.duration-target-HANDOFF_FADE)*1000/rate));
     node.onended=()=>{node.disconnect();gain.disconnect();if(this.source!==current)return;
       this.source=null;
       if(!MUSIC[cue].then)return;
@@ -222,9 +244,16 @@ export class ArenaAudio {
       this.sync();
     };
   }
+  // A cue keeps its own master's reading; a fallback that belongs to another cue (the victory card)
+  // uses that file's reading, so an unboosted recording is never mistaken for a quiet theme.
+  private level(cue:BgmCue,file:string|undefined){
+    return musicGain(file?FALLBACK_LUFS[file]??MUSIC[cue].lufs:MUSIC[cue].lufs);
+  }
   private fadeOut(seconds:number){
-    const s=this.source;if(!s||!this.context)return;this.source=null;const t=this.context.currentTime;
-    s.gain.gain.cancelScheduledValues(t);s.gain.gain.setValueAtTime(Math.max(.0001,s.gain.gain.value),t);s.gain.gain.exponentialRampToValueAtTime(.0001,t+seconds);s.node.stop(t+seconds+.02);
+    const s=this.source;if(!s||!this.context)return;this.source=null;
+    if(s.handoff)window.clearTimeout(s.handoff);
+    const t=this.context.currentTime,param=s.gain.gain,from=Math.max(0,param.value);
+    param.cancelScheduledValues(t);param.setValueAtTime(from,t);param.linearRampToValueAtTime(0,t+seconds);s.node.stop(t+seconds+.02);
   }
   dispose(){this.enabled=false;this.wanted=null;this.fadeOut(.02);this.stopDrones();this.cancelAnnouncements();void this.context?.close();void this.interfaceContext?.close();}
   // Persistent rotor voices follow the flight state, rather than triggering every frame.
@@ -444,8 +473,6 @@ export class BroadcastRecorder {
   }
   draw(frame:Frame,metadata:Metadata|null){if(!this.active||!this.source)return;this.frames++;const c=this.ctx;c.fillStyle='#10191f';c.fillRect(0,0,1920,1080);const scale=Math.min(1920/this.source.width,942/this.source.height),w=this.source.width*scale,h=this.source.height*scale;c.drawImage(this.source,(1920-w)/2,90+(942-h)/2,w,h);c.fillStyle='#0f181ee8';c.fillRect(0,0,1920,90);c.fillRect(0,1030,1920,50);c.textBaseline='middle';c.textAlign='left';c.fillStyle='#e6b66c';c.font='bold 25px sans-serif';c.fillText('RMUC / STRATEGY LEAGUE',28,44);c.fillStyle='#e78e7e';c.font='bold 26px sans-serif';c.fillText(`${strategyDisplayName(metadata?.teams.red)||'红方'}  ${Math.floor(frame.teams.red.score)}`,470,44);c.textAlign='right';c.fillStyle='#83c5e9';c.fillText(`${Math.floor(frame.teams.blue.score)}  ${strategyDisplayName(metadata?.teams.blue)||'蓝方'}`,1490,44);c.textAlign='center';c.fillStyle='#edf2f5';c.font='32px monospace';c.fillText(clock(frame.remaining),960,44);c.font='16px sans-serif';c.fillStyle='#9cabb6';c.fillText(`RUST ENGINE · SEED ${frame.seed} · ${frame.arena.name.toUpperCase()} · ${frame.status==='finished'?(frame.winner?.toUpperCase()||'DRAW')+' / MATCH COMPLETE':`${frame.robots.filter(r=>r.team==='red').length}v${frame.robots.filter(r=>r.team==='blue').length} / RMUC ${frame.season||(frame.arena.name==='rmuc2027'?'2027':'2026')}`}`,960,1056);
     c.font='15px sans-serif';c.textAlign='left';c.fillStyle='#ca9f96';c.fillText(`基地 ${Math.ceil(frame.bases.red.hp)} / ${frame.bases.red.max_hp}   前哨 ${Math.ceil(frame.outposts?.red.hp||0)} / ${frame.outposts?.red.max_hp||1500}`,470,74);c.textAlign='right';c.fillStyle='#8ebacf';c.fillText(`基地 ${Math.ceil(frame.bases.blue.hp)} / ${frame.bases.blue.max_hp}   前哨 ${Math.ceil(frame.outposts?.blue.hp||0)} / ${frame.outposts?.blue.max_hp||1500}`,1490,74);
-    // RMUC 2027 ranks timeouts by cumulative control degree, so the export carries it under the clock like the live HUD.
-    if((frame.season||(frame.arena.name==='rmuc2027'?'2027':'2026'))==='2027'){c.textAlign='center';c.fillStyle='#9cabb6';c.fillText('控制度',960,74);c.font='bold 18px sans-serif';c.textAlign='right';c.fillStyle='#e78e7e';c.fillText(String(Math.floor(frame.teams.red.control??0)),922,74);c.textAlign='left';c.fillStyle='#83c5e9';c.fillText(String(Math.floor(frame.teams.blue.control??0)),998,74);}
     for(const [side,team] of [[0,'red'],[1,'blue']] as const){let i=0;for(const r of frame.robots.filter(r=>r.team===team)){const x=side?1800:18,y=138+i++*47;c.fillStyle='#0f181ece';c.fillRect(x,y,102,37);c.textAlign='left';c.font='13px sans-serif';c.fillStyle=side?'#83c5e9':'#e78e7e';c.fillText(`${side?'B':'R'}${r.slot}  ${r.role==='aerial'?(r.support_active?'AIR':'PAD'):r.alive?Math.ceil(r.hp):'OUT'}`,x+8,y+12);c.fillRect(x+8,y+25,86*(r.max_hp>0?r.hp/r.max_hp:r.support_active?1:0),3);c.fillStyle='#ddba76';c.fillRect(x+8,y+31,86*(r.max_heat>0?r.heat/r.max_heat:0),2);}}
     if(this.announcement&&!this.overlay)this.drawAnnouncement(this.announcement,frame);
     const o=this.overlay;if(o){c.save();c.textAlign='center';c.textBaseline='middle';

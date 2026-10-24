@@ -15,13 +15,14 @@ function runtimeLayout({packaged, resourcesPath, projectRoot, platform = process
 }
 
 class Backend extends EventEmitter {
-  constructor(layout, dataDir, sandbox) {
-    super(); Object.assign(this, {layout, dataDir, sandbox, instance: randomUUID(), logs: '', stopping: false});
+  constructor(layout, dataDir, sandbox, lan = false) {
+    super(); Object.assign(this, {layout, dataDir, sandbox, lan, instance: randomUUID(), logs: '', stopping: false});
   }
   async start() {
     if (!fs.existsSync(this.layout.python)) throw new Error('Python runtime missing. Run the setup or desktop:prepare command.');
     const child = this.child = spawn(this.layout.python,
-      ['-B', '-X', 'utf8', '-m', 'rmuc_arena.desktop', '--data-dir', this.dataDir, '--sandbox', this.sandbox], {
+      ['-B', '-X', 'utf8', '-m', 'rmuc_arena.desktop', '--data-dir', this.dataDir, '--sandbox', this.sandbox,
+        ...(this.lan ? ['--lan'] : [])], {
         cwd: this.layout.root, windowsHide: true, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'],
         env: {...process.env, PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1', PYTHONUTF8: '1',
           RMUC_RESOURCE_ROOT: this.layout.root, RMUC_USER_DATA: this.dataDir, RMUC_DESKTOP_INSTANCE: this.instance},
@@ -44,7 +45,11 @@ class Backend extends EventEmitter {
           const line = pending.slice(0, index); pending = pending.slice(index + 1);
           try {
             const ready = JSON.parse(line);
-            if (ready.desktop_ready && /^http:\/\/127\.0\.0\.1:\d+$/.test(ready.url)) {cleanup(); resolve(ready.url);}
+            if (ready.desktop_ready && /^http:\/\/127\.0\.0\.1:\d+$/.test(ready.url)) {
+              this.lanUrls = Array.isArray(ready.lan_urls) ? ready.lan_urls : [];
+              this.pin = ready.pin || null;
+              cleanup(); resolve(ready.url);
+            }
           } catch { /* Non-protocol log lines are not readiness signals. */ }
         }
       });

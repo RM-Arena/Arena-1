@@ -613,7 +613,7 @@ export function HalfBrief({side,team,strategy,mode,standing,robots,active}:{
   </div>;
 }
 
-export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,paused,onError,camera,onCamera,onPause,fullscreen=false,onFullscreen,link=false,onLink,linkPending=null,onLinkPick,linkImage}:{
+export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,paused,onError,camera,onCamera,onPause,canPause=true,fullscreen=false,onFullscreen,link=false,onLink,linkPending=null,onLinkPick,linkImage,seat=null,send}:{
   frame:Frame;
   active:string|null;
   onEngage:(id:string)=>void;
@@ -626,6 +626,8 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   camera?:CameraMode;
   onCamera?:(mode:CameraMode)=>void;
   onPause?:()=>void;
+  /** Only the host referee may pause a LAN match from a cockpit. */
+  canPause?:boolean;
   /** The viewport is fullscreen: the panel offers the way back out as well as in. */
   fullscreen?:boolean;
   onFullscreen?:()=>void;
@@ -637,8 +639,13 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   onLinkPick?:(id:string|null)=>void;
   /** Studio render of the pending chassis, shown on the confirmation plate. */
   linkImage?:string;
+  /** LAN operator seat: the cockpit may only link to this chassis and never switches sides. */
+  seat?:{team:TeamId;slot:number}|null;
+  /** LAN transport: input goes over the WebSocket instead of a 20 Hz HTTP request. */
+  send?:(body:{team:TeamId;slot:number;action:unknown;assist?:string})=>Promise<unknown>;
 }){
-  const [team,setTeam]=useState<TeamId>('red'),[locked,setLocked]=useState(false);
+  const [team,setTeam]=useState<TeamId>(seat?.team??'red'),[locked,setLocked]=useState(false);
+  useEffect(()=>{if(seat)setTeam(seat.team);},[seat?.team,seat?.slot]);
   const [notice,setNotice]=useState(''),[lockInfo,setLockInfo]=useState<{id:string;distance:number;side?:TeamId}|null>(null);
   const [thresholds,setThresholds]=useState<number[]>([]);
   // Ammunition economy from the server, so the order the cockpit places always matches the
@@ -709,7 +716,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   // The pointer the field currently holds, so the panel can take it back before it is clickable.
   const captured=useRef<number|null>(null);
   // The aerial system flies itself, so only chassis robots can be piloted.
-  const roster=useMemo(()=>frame.robots.filter(r=>r.team===team&&r.role!=='aerial'),[frame.robots,team]);
+  const roster=useMemo(()=>frame.robots.filter(r=>r.team===team&&r.role!=='aerial'&&(!seat||r.slot===seat.slot)),[frame.robots,team,seat?.slot]);
   // A pilot keeps the robot they engaged even if the lineup changes under them.
   const piloted=active?frame.robots.find(r=>r.id===active&&r.role!=='aerial')??null:null;
   const target=piloted??roster[0]??null;
@@ -803,6 +810,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   },[frame.events,piloted]);
 
   const post=async(body:{team:TeamId;slot:number;action:unknown;assist?:string})=>{
+    if(send)return await send(body);
     const response=await fetch('/api/player',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const value=await response.json().catch(()=>({}));
     if(!response.ok){
@@ -1557,9 +1565,9 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       <div className={`pilot-panel ${!piloted&&link?`pilot-link team-${team}`:''}`} role="dialog" aria-label={!piloted&&link?'选择机体':'第一视角驾驶'}>
         <div className="pilot-heading"><Gamepad2 size={14}/><span>{!piloted&&link?'LINK START':'第一视角驾驶'}</span><em>{piloted?`${paused?'已暂停':'接管中'} · ${piloted.team==='red'?'红':'蓝'}方 ${piloted.slot} 号`:link?'俯视选机 · 点击机体':'P 打开/关闭'}</em><button className="pilot-x" onClick={()=>onOpen(false)} aria-label="关闭面板"><span className="pilot-x-glyph" aria-hidden="true">✕</span></button></div>
         {!piloted?(link?<div className="pilot-roster-wrap">
-          <div className="pilot-team-switch" role="group" aria-label="阵营">
+          {!seat&&<div className="pilot-team-switch" role="group" aria-label="阵营">
             {(['red','blue'] as const).map(side=><button key={side} className={team===side?'active':''} style={{'--team':TEAM_COLORS[side]} as CSSProperties} onClick={()=>setTeam(side)}>{side==='red'?'红方':'蓝方'} · {frame.robots.filter(r=>r.team===side&&r.role!=='aerial').length} 台</button>)}
-          </div>
+          </div>}
           <div className="pilot-roster" role="group" aria-label="选择机体">
             {roster.map(r=><button key={r.id} className={`pilot-roster-row ${r.alive?'':'dead'}`} onClick={()=>onLinkPick?.(r.id)} aria-label={`${r.team==='red'?'红':'蓝'}方${r.slot}号${ROLE_NAMES[r.role]}${r.alive?'':' · 已阵亡'}`}>
               <b>{String(r.slot).padStart(2,'0')}</b>
@@ -1594,7 +1602,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         {piloted&&<div className="pilot-actions">
           <button className="pilot-act-resume" onClick={()=>{onOpen(false);requestLock(setNotice);}}><RotateCcw size={13}/>继续操控</button>
           {onFullscreen&&<button className="pilot-act-fullscreen" onClick={onFullscreen} title={fullscreen?'退出全屏 (F / Esc)':'全屏观战 (F)'}>{fullscreen?<Minimize2 size={13}/>:<Maximize2 size={13}/>}{fullscreen?'退出全屏':'全屏'}</button>}
-          {onPause&&<button className="pilot-act-pause" onClick={onPause}>{paused?'继续比赛':'暂停比赛'}</button>}
+          {onPause&&canPause&&<button className="pilot-act-pause" onClick={onPause}>{paused?'继续比赛':'暂停比赛'}</button>}
           <button className="pilot-act-exit" onClick={()=>void release()}><X size={13}/>退出驾驶</button>
         </div>}
         {piloted&&<>

@@ -20,7 +20,12 @@ else {
   const dataDir = app.getPath('userData');
   const settingsFile = path.join(dataDir, 'desktop-settings.json');
   let sandbox = 'trusted-local';
-  try {if (JSON.parse(fs.readFileSync(settingsFile, 'utf8')).sandbox === 'docker') sandbox = 'docker';} catch {}
+  let lan = false;
+  try {
+    const saved = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+    if (saved.sandbox === 'docker') sandbox = 'docker';
+    lan = saved.lan === true;
+  } catch {}
   const docs = 'https://rm-arena.github.io/Arena-1/';
   const layout = runtimeLayout({packaged: app.isPackaged, resourcesPath: process.resourcesPath, projectRoot: path.resolve(__dirname, '..')});
 
@@ -31,14 +36,23 @@ else {
         const answer = await dialog.showMessageBox(window, {type:'question', buttons:['切换并重启 / Restart','取消 / Cancel'], defaultId:1, cancelId:1,
           message:'切换执行模式会停止当前比赛。 / Switching mode stops the current match.'});
         if (answer.response !== 0) {menu(); return;}
-        sandbox = value; fs.writeFileSync(settingsFile, JSON.stringify({sandbox}, null, 2));
+        sandbox = value; fs.writeFileSync(settingsFile, JSON.stringify({sandbox, lan}, null, 2));
         restarting = true; await backend.stop(); restarting = false;
         try {await start();} catch (error) {dialog.showErrorBox('Arena-1', error.message); app.quit();}
       }});
+    const lanMode = {label:'局域网联机 / LAN lobby', type:'checkbox', checked: lan, click: async () => {
+      if (restarting) return;
+      const answer = await dialog.showMessageBox(window, {type:'question', buttons:['切换并重启 / Restart','取消 / Cancel'], defaultId:1, cancelId:1,
+        message:'切换局域网联机会停止当前比赛，并重新选择端口。 / Switching the LAN lobby stops the current match.'});
+      if (answer.response !== 0) {menu(); return;}
+      lan = !lan; fs.writeFileSync(settingsFile, JSON.stringify({sandbox, lan}, null, 2));
+      restarting = true; await backend.stop(); restarting = false;
+      try {await start();} catch (error) {dialog.showErrorBox('Arena-1', error.message); app.quit();}
+    }};
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       ...(process.platform === 'darwin' ? [{role:'appMenu'}] : []),
       {label:'文件 / File', submenu:[{label:'打开数据目录 / Open data folder',click:()=>shell.openPath(dataDir)}, {type:'separator'}, {role:'quit'}]},
-      {label:'执行模式 / Execution',submenu:[execution('trusted-local'), execution('docker')]},
+      {label:'执行模式 / Execution',submenu:[execution('trusted-local'), execution('docker'), {type:'separator'}, lanMode]},
       {label:'编辑 / Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
       {label:'视图 / View',submenu:[{role:'reload'},{role:'togglefullscreen'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},
       {label:'帮助 / Help',submenu:[{label:'项目文档 / Documentation',click:()=>shell.openExternal(docs)},
@@ -47,7 +61,7 @@ else {
     ]));
   }
   async function start() {
-    backend = new Backend(layout, dataDir, sandbox);
+    backend = new Backend(layout, dataDir, sandbox, lan);
     backend.on('crash', ({logs}) => {
       if (!quitting && !restarting) {dialog.showErrorBox('Arena-1 backend stopped', logs || 'The local backend stopped unexpectedly.'); app.quit();}
     });

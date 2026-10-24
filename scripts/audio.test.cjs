@@ -5,7 +5,7 @@ function compile(name,imports={},extras={}){
  const scope={exports:{},require:n=>{if(!(n in imports))throw new Error('Unexpected import '+n);return imports[n];},Float32Array,Map,Set,Math,Promise,Error,window:{setTimeout:()=>0},...extras};vm.runInNewContext(code,scope);return scope.exports;
 }
 const identity=compile('strategyIdentity'),playlist=compile('audioPlaylist'),killAnnouncements=compile('killAnnouncements'),{MUSIC,broadcastMusicCue,audibleEvents}=playlist;
-class Param{value=0;setValueAtTime(v){this.value=v;}setTargetAtTime(v){this.value=v;}exponentialRampToValueAtTime(v){this.value=v;}cancelScheduledValues(){}}
+class Param{value=0;setValueAtTime(v){this.value=v;}setTargetAtTime(v){this.value=v;}exponentialRampToValueAtTime(v){this.value=v;}linearRampToValueAtTime(v){this.value=v;}cancelScheduledValues(){}}
 class Node{gain=new Param();frequency=new Param();Q=new Param();playbackRate=new Param();connections=[];connect(node){this.connections.push(node);return node;}disconnect(){}start(at,offset=0){this.started={at,offset};}stop(at){this.stopped=at;}}
 class Context{
  currentTime=0;state='suspended';sampleRate=1000;destination=new Node();sources=[];
@@ -17,8 +17,10 @@ class Context{
  resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}close(){this.state='closed';return Promise.resolve();}
  advance(seconds){if(this.state==='running')this.currentTime+=seconds;}
 }
-function harness(fetcher=async url=>({ok:true,arrayBuffer:async()=>({url})})){
- const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
+function harness(fetcher=async url=>({ok:true,arrayBuffer:async()=>({url})}),timers=[]){
+ const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{AudioContext:Context,fetch:fetcher,
+  window:{setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length;},clearTimeout:id=>{if(timers[id-1])timers[id-1].fn=null;}}});
+ return new ArenaAudio();
 }
 async function flush(){for(let i=0;i<12;i++)await Promise.resolve();}
 test('recorded video headings use display names and the actual season and roster',()=>{
@@ -111,13 +113,52 @@ test('the opening recording plays once, then the repository sting loops for the 
  assert.equal(opening.loop,false,'the opening has to reach its own end, not wrap around');
  a.context.advance(113.92);opening.onended();await flush();
  assert.equal(a.diagnostics.cue,'match_alt');assert.equal(a.diagnostics.track,MUSIC.match_alt.url);
- assert.equal(a.context.sources.at(-1).loop,true,'the sting is what loops afterwards');
+ const sting=a.context.sources.at(-1);
+ assert.equal(sting.loop,true,'the sting is what loops afterwards');
+ // The recording ends in 2.6 s of silence: looping the whole buffer would pause the match music.
+ assert.equal(sting.loopEnd,111.25);assert.ok(sting.loopEnd<113.92);
  // A speed change or a re-render after the hand-off must not bring the opening back.
  const starts=a.diagnostics.starts;a.bgm('match','game-1',5,4);await flush();
  assert.equal(a.diagnostics.cue,'match_alt');assert.equal(a.diagnostics.starts,starts);
  // The next match opens on the installed recording again.
  a.bgm('match','game-2');await flush();
  assert.equal(a.diagnostics.cue,'match');assert.equal(a.diagnostics.track,MUSIC.match.url);
+});
+test('the opening schedules the sting hand-off before its final sample',async()=>{
+ const timers=[],a=harness(undefined,timers);a.bgm('match','game-1');await a.enable();await flush();
+ const handoff=timers.filter(t=>t.fn).at(-1),opening=a.context.sources.at(-1);
+ assert.ok(handoff,'the hand-off is scheduled ahead of the end of the opening');
+ assert.ok(handoff.ms<opening.loopEnd*1000,'the sting starts before the opening reaches its last sample');
+ assert.ok(handoff.ms>(opening.loopEnd-5)*1000,'the hand-off belongs to the end of the opening, not its head');
+ handoff.fn();await flush();
+ assert.equal(a.diagnostics.cue,'match_alt');
+});
+test('a cue change crossfades under the outgoing track instead of cutting it',async()=>{
+ const a=harness();a.bgm('match','game-1');await a.enable();await flush();a.context.advance(30);
+ const opening=a.context.sources.at(-1);
+ a.bgm('victory','game-1');await flush();
+ assert.equal(a.diagnostics.cue,'victory');
+ assert.ok(opening.stopped>a.context.currentTime+1,'the opening keeps playing through the crossfade');
+ assert.equal(a.context.sources.at(-1).started.at,a.context.currentTime);
+});
+test('every cue is leveled to one loudness, with the quiet post-match masters carrying the boost',()=>{
+ for(const cue of Object.keys(MUSIC)){
+  assert.ok(Math.abs(20*Math.log10(playlist.musicGain(MUSIC[cue].lufs))+MUSIC[cue].lufs-playlist.MUSIC_LEVEL)<.015,cue+' does not leave the bus at the shared level');
+ }
+ // The original post-match masters sit near -18 LUFS while the highlight reel is much quieter and
+ // the repository sting much louder; the derived gains still put them on the same bus level.
+ assert.ok(playlist.musicGain(MUSIC.mvp.lufs)>1.1);
+ assert.ok(playlist.musicGain(MUSIC.highlight.lufs)>6);
+ assert.ok(playlist.musicGain(MUSIC.results.lufs)>1.1);
+ assert.ok(playlist.musicGain(MUSIC.match_alt.lufs)<.5);
+ assert.ok(Math.abs(playlist.musicGain(MUSIC.match.lufs)-1)<.02,'the match keeps the level listeners know');
+});
+test('a fallback recording keeps its own level instead of the quiet theme boost',async()=>{
+ const a=harness(async url=>({ok:url==='/assets/audio/victory.m4a',arrayBuffer:async()=>({url})}));
+ a.bgm('mvp','result');await a.enable();await flush();
+ assert.equal(a.diagnostics.file,'/assets/audio/victory.m4a');
+ const gain=a.context.sources.at(-1).connections[0];
+ assert.ok(Math.abs(gain.gain.value-playlist.musicGain(playlist.FALLBACK_LUFS['/assets/audio/victory.m4a']))<.001,'the card is not replayed at the MVP boost');
 });
 test('repeated render updates and playback-speed controls do not restart match music',async()=>{
  const a=harness();a.bgm('match','game-1');await a.enable();await flush();const starts=a.diagnostics.starts;a.context.advance(3);
@@ -143,15 +184,15 @@ test('each post-match stage changes the actual source buffer',async()=>{
 });
 test('home and match setup swap music while match, post-match and archive tracks stay original',async()=>{
  const a=harness();a.bgm(broadcastMusicCue({...state,page:'home',post:'mvp',status:'finished'}),'preview');await a.enable();await flush();
- assert.equal(a.diagnostics.track,'/assets/audio/lobby.m4a');
+ assert.equal(a.diagnostics.track,'/assets/audio/arena-theme.m4a');
  a.bgm(broadcastMusicCue(state),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/home.mp3');
- a.bgm(broadcastMusicCue({...state,page:'history'}),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/lobby.m4a');
- for(const [post,url] of [[null,MUSIC.match.url],['victory','/assets/audio/victory.m4a'],['results','/assets/audio/results-theme.m4a'],['mvp','/assets/audio/mvp-theme.m4a']]){
+ a.bgm(broadcastMusicCue({...state,page:'history'}),'preview');await flush();assert.equal(a.diagnostics.track,'/assets/audio/arena-theme.m4a');
+ for(const [post,url] of [[null,MUSIC.match.url],['victory','/assets/audio/victory.m4a'],['results','/assets/audio/results-summary.m4a'],['mvp','/assets/audio/mvp-fanfare.m4a']]){
   a.bgm(broadcastMusicCue({...state,page:'arena',status:'running',post}),'preview');await flush();assert.equal(a.diagnostics.track,url);
  }
 });
 test('a custom overrides slot wins over the shipped theme, and a browser without AAC keeps the MP3 twin',async()=>{
- // `mvp-custom.mp3` is tried first and wins over the shipped `mvp-theme.*`.
+ // `mvp-custom.mp3` is tried first and wins over the shipped `mvp-fanfare.m4a`.
  const b=harness(async url=>({ok:url==='/assets/audio/mvp-custom.mp3',arrayBuffer:async()=>({url})}));
  b.bgm('mvp','result');await b.enable();await flush();
  assert.equal(b.diagnostics.cue,'mvp');

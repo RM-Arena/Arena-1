@@ -61,6 +61,9 @@ def main():
     server = sub.add_parser("serve", help="Start the local 3D spectator")
     server.add_argument("--port", type=int, default=8765)
     server.add_argument("--submissions", default=str(data_path("submissions")))
+    server.add_argument("--host", default="127.0.0.1", help="Address to bind (0.0.0.0 for a LAN lobby)")
+    server.add_argument("--lan", action="store_true", help="Enable the LAN lobby and bind every interface")
+    server.add_argument("--lan-name", action="append", default=[], help="Extra host name clients may use for the LAN lobby")
     server.add_argument("--trusted-local", action="store_true", help="Run trusted developer strategies without container isolation")
     for name in ("match", "headless", "batch"):
         p = sub.add_parser(name, help="Run a match without a GUI" if name == "headless" else None)
@@ -100,7 +103,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "serve":
-            serve(args.port, "trusted-local" if args.trusted_local else "docker", args.submissions)
+            serve(args.port, "trusted-local" if args.trusted_local else "docker", args.submissions,
+                  host="0.0.0.0" if args.lan else args.host, lan=args.lan, lan_names=args.lan_name)
         elif args.command == "new-agent":
             lineup=json.loads(args.lineup) if args.lineup else None
             season=args.season or (None if lineup else "2027")
