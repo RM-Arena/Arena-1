@@ -1,44 +1,42 @@
 import type {MatchEvent} from './types';
 export type BgmCue='home'|'setup'|'lobby'|'hangar'|'self_check_free'|'pick'|'countdown'|'match'|'match_alt'|'victory'|'results'|'mvp'|'highlight';
-// A cue may be re-scored without touching code: `<cue>-theme.m4a` (or `.mp3`) is tried before the file
-// the repository ships, so an uploaded track never has to overwrite a checked-in asset. MP3 stays in
-// every chain because some browsers (Chromium builds, VS Code's preview) refuse to decode AAC.
-const slot=(cue:string)=>[`/assets/audio/${cue}-theme.m4a`,`/assets/audio/${cue}-theme.mp3`];
-// `uploadOnly` marks a cue that deliberately has no shipped track: the in-match theme only exists when
-// the operator installs one, and the repository's old competition sting is kept out of the match.
-export const MUSIC:Record<BgmCue,{url:string;loop:boolean;gain:number;uploadOnly?:boolean;override?:string|string[];fallback?:string|string[];then?:BgmCue}>={
+// A cue's theme is a project asset: `*-theme.m4a` is committed next to the generated tracks, and the
+// same recording is shipped as `.mp3` because some browsers (Chromium builds, VS Code's preview,
+// the desktop shell) refuse to decode AAC. A machine may re-score any cue without touching code by
+// dropping `<cue>-custom.m4a` (then `.mp3`) beside it — that slot is per-machine and never committed.
+const theme=(cue:string)=>`/assets/audio/${cue}-theme.m4a`;
+const themeMp3=(cue:string)=>`/assets/audio/${cue}-theme.mp3`;
+const custom=(cue:string)=>[`/assets/audio/${cue}-custom.m4a`,`/assets/audio/${cue}-custom.mp3`];
+export const MUSIC:Record<BgmCue,{url:string;loop:boolean;gain:number;override?:string|string[];fallback?:string|string[];then?:BgmCue}>={
   home:{url:'/assets/audio/lobby.m4a',loop:true,gain:.68},
   setup:{url:'/assets/audio/home.mp3',loop:true,gain:.68},
   lobby:{url:'/assets/audio/lobby.m4a',loop:true,gain:.68},
   hangar:{url:'/assets/audio/hangar.m4a',loop:true,gain:.62},
-  // The pre-match screen is one screen: the walk-on intro with the side/chassis pick drawn over it.
-  // `pick-theme.*` scores the whole stretch (from the moment the lineup appears until the countdown),
-  // and a machine without an installed track keeps the shipped intro theme instead of going silent.
-  pick:{url:'/assets/audio/home.mp3',loop:true,gain:.74,override:slot('pick')},
+  // The pre-match screen is one screen: the walk-on intro with the side/chassis pick drawn over it,
+  // scored by the prep theme from the moment the lineup appears until the countdown.
+  pick:{url:theme('pick'),loop:true,gain:.74,fallback:[themeMp3('pick')],override:custom('pick')},
   self_check_free:{url:'/assets/audio/intro-free.m4a',loop:true,gain:.78},
   countdown:{url:'/assets/audio/countdown.m4a',loop:false,gain:.88,fallback:['/assets/audio/countdown.mp3']},
-  // From the moment the countdown shows "5" the match theme plays: the installed recording first,
-  // once, and from its end onwards the repository's own sting on loop. The hand-off (`then`) is what
-  // keeps the opening reading like a broadcast and the rest of the seven minutes scoring on the theme
-  // the arena always had.
-  match:{url:'/assets/audio/match-theme.m4a',loop:true,gain:.88,uploadOnly:true,
-    fallback:['/assets/audio/match-theme.mp3'],then:'match_alt'},
-  // The repository's own sting: the opening track's hand-off target and what a replay plays throughout.
+  // From the moment the countdown shows "5" the match theme plays: its own recording once, and from
+  // its end onwards the arena's long-standing sting on loop. The hand-off (`then`) is what keeps the
+  // opening reading like a broadcast and the rest of the seven minutes scoring on the familiar theme.
+  match:{url:theme('match'),loop:true,gain:.88,fallback:[themeMp3('match')],override:custom('match'),
+    then:'match_alt'},
+  // The looping sting: the opening track's hand-off target and what a replay plays throughout.
   match_alt:{url:'/assets/audio/summoning-glory.m4a',loop:true,gain:.88,
     fallback:['/assets/audio/summoning-glory.mp3']},
   victory:{url:'/assets/audio/victory.m4a',loop:true,gain:.85,fallback:['/assets/audio/victory.mp3']},
-  // The data panel is scored with the shipped intro theme, so the post-match read and the pre-match
-  // build sit in one musical family; `results-theme.*` re-scores just this screen.
-  results:{url:'/assets/audio/home.mp3',loop:true,gain:.6,override:slot('results')},
-  mvp:{url:'/assets/audio/mvp.m4a',loop:true,gain:.78,override:slot('mvp'),
+  // The post-match read sits in the same musical family as the pre-match build.
+  results:{url:theme('results'),loop:true,gain:.6,fallback:[themeMp3('results')],override:custom('results')},
+  mvp:{url:theme('mvp'),loop:true,gain:.78,fallback:[themeMp3('mvp'),
     // victory.m4a keeps the card scored in a browser that refuses AAC rather than leaving it silent.
-    fallback:['/assets/audio/victory.m4a']},
-  // Post-match highlight reel. Dropping your own licensed track at `highlight.m4a` (the original
-  // convention) or `highlight-theme.m4a|mp3` replaces it with no code change; without one the victory
-  // sting keeps the reel scored.
-  highlight:{url:'/assets/audio/highlight.m4a',loop:true,gain:.8,override:slot('highlight'),
-    fallback:['/assets/audio/highlight.mp3','/assets/audio/victory.m4a']},
+    '/assets/audio/victory.m4a'],override:custom('mvp')},
+  // Post-match highlight reel. The legacy `highlight.m4a` / `.mp3` drop-in names still work.
+  highlight:{url:theme('highlight'),loop:true,gain:.8,
+    fallback:[themeMp3('highlight'),'/assets/audio/highlight.m4a','/assets/audio/highlight.mp3',
+      '/assets/audio/victory.m4a'],override:custom('highlight')},
 };
+
 export interface AudioStage {page:string;hangar:boolean;modal?:boolean;free?:boolean;picking?:boolean;prematch:'self_check'|'countdown'|null;post:'victory'|'results'|'mvp'|'highlight'|null;status?:string|null;replay?:boolean;busy?:boolean;started?:boolean}
 export function broadcastMusicCue(stage:AudioStage):BgmCue|null{
   if(stage.hangar)return 'hangar';

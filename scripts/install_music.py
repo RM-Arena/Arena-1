@@ -1,22 +1,24 @@
-"""Install one of your own audio files into a game music slot.
+"""Install one of your own audio files over a game music slot.
 
 The game ships its own soundtrack and never downloads music from video sites: whatever you play has to
-be a file you already hold the rights to (your own recording, a licensed track, or the publisher's own
-download). This helper puts such a file where a cue looks for it, so the next page reload uses it:
+be a file you already hold the rights to (your own recording, a licensed track, or a publisher's own
+download). This helper puts such a file in the per-machine override slot of a cue, so the next page
+reload uses it without overwriting the shipped asset:
 
   python scripts/install_music.py "D:/music/summoning glory.mp3" --slot match
 
-Slots and the moments they score:
+Slots, the moments they score, and the project asset each one replaces:
 
-  match      倒计时「5」起播：先完整播一遍这首，之后循环接仓库自带的老曲
-  pick       赛前选边 / 选机体（默认沿用赛前过场主题 home.mp3）
-  highlight  赛后对局高光（默认未出厂，回落到对局主题曲）
-  results    赛后数据面板（默认赛前过场主题 home.mp3）
-  mvp        MVP 结算卡片（默认 mvp.m4a）
+  match      倒计时「5」起播的开场（放完接老曲循环）        match-theme.m4a / .mp3
+  pick       赛前选边 / 选机体                              pick-theme.m4a / .mp3
+  highlight  赛后对局高光                                   highlight-theme.m4a / .mp3
+  results    赛后数据面板                                   results-theme.m4a / .mp3
+  mvp        MVP 结算卡片                                   mvp-theme.m4a / .mp3
 
-The file is written as `frontend/public/assets/audio/<slot>-theme.m4a` and `.mp3`. Both are written when
-ffmpeg is available; without it an already-compressed MP3/M4A is copied as-is (MP3 preferred, because some
-browsers refuse AAC) and anything else is refused with the install hint.
+The file is written as `frontend/public/assets/audio/<slot>-custom.m4a` and `.mp3`, which the player
+tries before the shipped theme. Both are written when ffmpeg is available; without it an
+already-compressed MP3/M4A is copied as-is (MP3 preferred, because some browsers refuse AAC) and
+anything else is refused with the install hint. The override files are ignored by git.
 """
 
 from __future__ import annotations
@@ -103,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"找不到文件：{source}", file=sys.stderr)
         return 2
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    stem = AUDIO_DIR / f"{args.slot}-theme"
+    stem = AUDIO_DIR / f"{args.slot}-custom"
 
     ffmpeg = which("ffmpeg")
     container, has_video = sniff(source)
