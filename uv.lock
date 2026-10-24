@@ -506,7 +506,7 @@ wheels = [
 
 [[package]]
 name = "rmuc-arena"
-version = "0.7.2b1"
+version = "0.7.2b2"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

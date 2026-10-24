@@ -1,7 +1,7 @@
 {
   "name": "arena-1",
   "private": true,
-  "version": "0.7.2-beta.1",
+  "version": "0.7.2-beta.2",
   "scripts": {
     "dev": "vite --config frontend/vite.config.ts",
     "build": "tsc -p frontend/tsconfig.json && vite build --config frontend/vite.config.ts",
@@ -68,6 +68,7 @@
     "files": [
       "desktop/main.cjs",
       "desktop/backend.cjs",
+      "desktop/updates.cjs",
       "package.json",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
