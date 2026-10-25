@@ -63,6 +63,8 @@ export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initial
   const [mode,setMode]=useState<ControlMode>(initialMode),[robot,setRobot]=useState(initialMode==='robot'?'1':'3'),[tactic,setTactic]=useState<Tactic>('balanced'),[tags,setTags]=useState<StrategyTag[]>([]);
   const [codes,setCodes]=useState<Record<string,string>>({}),[fileNames,setFileNames]=useState<Record<string,string>>({}),[slot,setSlot]=useState('1'),[showcase,setShowcase]=useState(''),[showcaseName,setShowcaseName]=useState('');
   const [name,setName]=useState(''),[displayName,setDisplayName]=useState(''),[author,setAuthor]=useState(''),[description,setDescription]=useState('');
+  // The uploader's GitHub account is remembered for the next upload from this machine.
+  const [github,setGithub]=useState(()=>{try{return localStorage.getItem('rmuc-github-v1')||'';}catch{return '';}});
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState<string|null>(null),[dragging,setDragging]=useState('');
   const dialog=useRef<HTMLElement>(null),close=useRef(onClose);close.current=onClose;
   const keys=mode==='team'?['team']:mode==='robot'||mode==='adaptive'?[robot]:slots.map(String);
@@ -91,9 +93,10 @@ export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initial
     setBusy(true);setError('');
     try{
       const entries=Object.fromEntries(keys.map(k=>[k,codes[k]]));
-      const profile={agent:{provider:agent.provider,...(agent.model.trim()?{model:agent.model.trim()}:{})},tactic,tags,...(displayName.trim()?{display_name:displayName.trim()}:{}),...(author.trim()?{author:author.trim()}:{}),...(description.trim()?{description:description.trim()}:{})};
+      const profile={agent:{provider:agent.provider,...(agent.model.trim()?{model:agent.model.trim()}:{})},tactic,tags,...(displayName.trim()?{display_name:displayName.trim()}:{}),...(author.trim()?{author:author.trim()}:{}),...(github.trim()?{github:github.trim()}:{}),...(description.trim()?{description:description.trim()}:{})};
       const response=await fetch('/api/submissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mode,entries,showcase,profile,season,...(mode==='robot'||mode==='adaptive'?{robot:Number(robot)}:{}),...(mode==='team'?{team_lineup:teamLineup}:{})})});
       const data=await response.json();if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:Array.isArray(data.detail)?data.detail.map((d:{msg:string;loc:string[]})=>`${d.loc.at(-1)}: ${d.msg}`).join('；'):'提交失败，请检查名称与文件');
+      try{localStorage.setItem('rmuc-github-v1',github.trim());}catch{/* private mode: just not remembered */}
       setDone(name);onSave();
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
@@ -127,7 +130,7 @@ export function UploadWizard({onClose,onSave,onGallery,teamLineup,models,initial
           </div>
         </div></div>}
       {step===4&&<div className="uw-step"><h3>命名并确认</h3>
-        <div className="uw-form"><label>版本名 <small>英文、数字、- 或 _，提交后不可覆盖</small><input autoFocus placeholder="claude-siege-v1" value={name} maxLength={48} onChange={e=>setName(e.target.value)}/></label><label>展示名称 <small>可选，策略库与赛前介绍使用</small><input placeholder={preview?.ok?preview.title:'钢铁洪流'} value={displayName} maxLength={40} onChange={e=>setDisplayName(e.target.value)}/></label><label>作者 <small>可选</small><input placeholder="你的名字或团队" value={author} maxLength={40} onChange={e=>setAuthor(e.target.value)}/></label><label className="wide">补充说明 <small>可选</small><textarea rows={3} maxLength={600} placeholder="开发过程、对手、注意事项…" value={description} onChange={e=>setDescription(e.target.value)}/></label></div>
+        <div className="uw-form"><label>版本名 <small>英文、数字、- 或 _，提交后不可覆盖</small><input autoFocus placeholder="claude-siege-v1" value={name} maxLength={48} onChange={e=>setName(e.target.value)}/></label><label>展示名称 <small>可选，策略库与赛前介绍使用</small><input placeholder={preview?.ok?preview.title:'钢铁洪流'} value={displayName} maxLength={40} onChange={e=>setDisplayName(e.target.value)}/></label><label>作者 <small>可选</small><input placeholder="你的名字或团队" value={author} maxLength={40} onChange={e=>setAuthor(e.target.value)}/></label><label>上传者 GitHub <small>可选，策略库显示主页链接</small><input placeholder="GitHub 用户名或主页链接" value={github} maxLength={80} spellCheck={false} onChange={e=>setGithub(e.target.value)}/></label><label className="wide">补充说明 <small>可选</small><textarea rows={3} maxLength={600} placeholder="开发过程、对手、注意事项…" value={description} onChange={e=>setDescription(e.target.value)}/></label></div>
         <div className="uw-summary"><div><AgentBadge provider={chosen||'unknown'} size={64}/></div><dl><dt>生成者</dt><dd>{info?.name}{agent.model.trim()?` · ${agent.model.trim()}`:''}</dd><dt>控制方式</dt><dd>{MODE_LABELS[mode]}{mode==='robot'||mode==='adaptive'?` · ${models[robot]?.name||robot}`:''}</dd><dt>打法</dt><dd>{TACTICS.find(t=>t.id===tactic)?.name}{tags.length?` · ${tags.map(t=>TAGS.find(x=>x.id===t)?.name).join('、')}`:''}</dd><dt>展示</dt><dd>{preview?.ok?`${preview.title} · ${preview.phases} 个阶段`:'—'}</dd></dl></div></div>}
       {error&&<p className="uw-error" role="alert">{error}</p>}
     </div>

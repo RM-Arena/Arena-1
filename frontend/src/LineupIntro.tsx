@@ -128,7 +128,7 @@ export function RobotPickShot({frame,metadata,r,models,index=0,count=1}:{frame:F
 }
 
 // Rule 6.4 self-check as a broadcast lineup intro: the camera visits every robot while overlays introduce it.
-export function LineupIntro({frame,metadata,standings,images,models:catalog,duration,remaining,offset=0,free,paused,replay=false,onCut,onSkip,locked=false}:{locked?:boolean;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;duration:number;remaining:number;offset?:number;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
+export function LineupIntro({frame,metadata,standings,images,models:catalog,duration,remaining,offset=0,free,paused,replay=false,onCut,onSkip}:{frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;duration:number;remaining:number;offset?:number;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
   const cuts=useMemo(()=>introSchedule(frame.robots,Math.max(1,duration-offset)),[frame.robots.map(r=>r.id).join(),duration,offset]);// eslint-disable-line react-hooks/exhaustive-deps
   // `offset` is the self-check time already spent before the sequence was allowed to start (the
   // pilot picks a chassis first). It shifts this timeline so the cards and the 3D cuts stay in step,
@@ -150,6 +150,6 @@ export function LineupIntro({frame,metadata,standings,images,models:catalog,dura
     </div>
     <div className="li-bug"><i/>{replay?'REPLAY':'LIVE'} · 赛前自检<b>{Math.ceil(remaining)}s</b></div>
     <div className="li-progress">{cuts.map(c=><i key={c.key} className={`${c.segment.kind} ${'team' in c.segment?c.segment.team:''} ${c.end<=elapsed?'done':c.key===at.cut.key?'now':''}`} style={{flexGrow:c.end-c.start}}/>)}</div>
-    <button className="cer-skip" disabled={locked} onClick={onSkip}>跳过</button>
+    <button className="cer-skip" onClick={onSkip}>跳过</button>
   </Stage>;
 }

@@ -36,6 +36,11 @@ class ShowcaseFormatTests(unittest.TestCase):
             (root / "profile.json").write_text(json.dumps({"agent": {"provider": "bundled"}}))
             self.assertEqual(load_profile(root, bundled=True)["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5 xhigh"})
             self.assertEqual(load_profile(root, bundled=False)["agent"], {"provider": "unknown"})
+            # The project's own library is uploaded by RM-Arena unless a contributor names themselves.
+            self.assertEqual(load_profile(root, bundled=True)["github"], "RM-Arena")
+            self.assertNotIn("github", load_profile(root, bundled=False))
+            (root / "profile.json").write_text(json.dumps({"agent": {"provider": "openai"}, "github": "octo-cat"}))
+            self.assertEqual(load_profile(root, bundled=True)["github"], "octo-cat")
 
     def test_spec_example_and_limits(self):
         example = (ROOT / "docs/STRATEGY_SHOWCASE.md").read_text().split("```json\n")[1].split("```")[0]
@@ -65,6 +70,12 @@ class ShowcaseFormatTests(unittest.TestCase):
             validate_profile({"tactic": "chaos"})
         with self.assertRaisesRegex(ValueError, "tags"):
             validate_profile({"tags": ["teleport"]})
+        for value in ("RM-Arena", "@RM-Arena", "https://github.com/RM-Arena", "github.com/RM-Arena/"):
+            self.assertEqual(validate_profile({"github": value})["github"], "RM-Arena", value)
+        self.assertNotIn("github", validate_profile({"github": "  "}))
+        for value in ("-lead", "two--dashes", "a" * 40, "https://gitlab.com/x", "name with space", 7):
+            with self.assertRaisesRegex(ValueError, "github", msg=value):
+                validate_profile({"github": value})
 
     def test_intro_length_follows_the_lineup(self):
         self.assertEqual(intro_seconds(12), 43.1)
@@ -137,8 +148,10 @@ class GalleryApiTests(unittest.TestCase):
         self.assertEqual(detail["showcase"]["phases"][0]["title"], "全场")
         self.assertEqual([f["name"] for f in detail["files"]], ["strategy.py"])
         self.assertNotIn("act(", json.dumps(detail))
-        changed = self.client.post("/api/strategies/claude-legs/profile", json={"agent": {"provider": "qwen", "model": "Qwen3-Max"}, "tactic": "guard", "tags": ["rescue"]}).json()
-        self.assertEqual((changed["agent"]["provider"], changed["profile"]["tactic"]), ("qwen", "guard"))
+        self.assertNotIn("github", mine["profile"])
+        self.assertEqual(strategies["siege_team"]["profile"]["github"], "RM-Arena")
+        changed = self.client.post("/api/strategies/claude-legs/profile", json={"agent": {"provider": "qwen", "model": "Qwen3-Max"}, "tactic": "guard", "tags": ["rescue"], "github": "https://github.com/octo-cat"}).json()
+        self.assertEqual((changed["agent"]["provider"], changed["profile"]["tactic"], changed["profile"]["github"]), ("qwen", "guard", "octo-cat"))
         self.assertEqual(self.client.get("/api/robot-catalog").json()["claude-legs"]["agent"]["model"], "Qwen3-Max")
         self.assertEqual(self.client.post("/api/strategies/siege_team/profile", json={"agent": {"provider": "openai"}}).status_code, 403)
         self.assertEqual(self.client.get("/api/strategies/nope").status_code, 404)

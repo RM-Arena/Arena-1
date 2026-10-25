@@ -15,14 +15,14 @@ const HIGHLIGHT_SECONDS=5;
 
 // ---------------------------------------------------------------- pre-match
 // Rule 6.4 self-check, shown as the lineup intro, followed by the 6.5 five-second countdown.
-export function Prematch({stage,remaining,duration,offset=0,frame,metadata,standings,images,models,free,paused,replay,onCut,onSkip,locked=false}:{locked?:boolean;stage:'self_check'|'countdown';remaining:number;duration:number;offset?:number;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
+export function Prematch({stage,remaining,duration,offset=0,frame,metadata,standings,images,models,free,paused,replay,onCut,onSkip}:{stage:'self_check'|'countdown';remaining:number;duration:number;offset?:number;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
   const n=Math.max(1,Math.ceil(remaining-1e-6));
   // The countdown is the last five seconds of the walk-on and it is never skipped: the match clock,
   // the starting BGM and the "比赛开始" flash are all cued off it.
   if(stage==='countdown')return <Stage className="cer-countdown"><div className="cd-shade"/>
     <svg key={'bolt'+n} className={`cd-bolt k${n%2}`} viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden><polyline points={bolt(n)}/><polyline className="core" points={bolt(n)}/></svg>
     <div key={n} className="cd-number">{n}</div><div className="cd-caption">比赛即将开始 · 倒计时不可跳过</div></Stage>;
-  return <LineupIntro frame={frame} metadata={metadata} standings={standings} images={images} models={models} duration={duration} remaining={remaining} offset={offset} free={free} paused={paused} replay={replay} onCut={onCut} onSkip={onSkip} locked={locked}/>;
+  return <LineupIntro frame={frame} metadata={metadata} standings={standings} images={images} models={models} duration={duration} remaining={remaining} offset={offset} free={free} paused={paused} replay={replay} onCut={onCut} onSkip={onSkip}/>;
 }
 function bolt(seed:number){let s=seed*9301+49297;const r=()=>{s=(s*9301+49297)%233280;return s/233280;};const pts:string[]=[];const vertical=seed%2===0;
   for(let i=0;i<=22;i++){const t=i/22;pts.push(vertical?`${960+(r()-.5)*180+(t-.5)*260},${t*1080}`:`${t*1920},${540+(r()-.5)*150+(t-.5)*-220}`);}return pts.join(' ');}
@@ -59,7 +59,7 @@ function Diverge({label,red,blue,format=fmt}:{label:string;red:number;blue:numbe
 }
 function Tile({icon,value,label}:{icon:string;value:string;label:string}){return <div className="res-tile"><span>{icon}</span><b>{value}</b><small>{label}</small></div>;}
 
-export function Results({frame,metadata,stats,images,onNext,onClose,auto,locked=false,paused=false}:{locked?:boolean;paused?:boolean;frame:Frame;metadata:Metadata|null;stats:MatchStats;images:Record<string,string>;onNext:()=>void;onClose:()=>void;auto:boolean}){
+export function Results({frame,metadata,stats,images,onNext,onClose,auto,paused=false}:{paused?:boolean;frame:Frame;metadata:Metadata|null;stats:MatchStats;images:Record<string,string>;onNext:()=>void;onClose:()=>void;auto:boolean}){
   const v=verdict(frame),w=frame.winner,hero=(t:TeamId)=>frame.robots.find(r=>r.team===t&&r.role==='hero')||frame.robots.find(r=>r.team===t);
   const [left,setLeft]=useState(auto?10:0);
   useEffect(()=>{if(!auto||paused)return;const id=window.setInterval(()=>setLeft(n=>Math.max(0,n-1)),1000);return()=>window.clearInterval(id);},[auto,paused]);
@@ -87,14 +87,14 @@ export function Results({frame,metadata,stats,images,onNext,onClose,auto,locked=
     {TEAMS.map(t=>{const s=stats.teams[t];return <aside key={t} className={`res-tiles ${t}`}>
       <Tile icon="✷" value={`大×${s.runes.large} 小×${s.runes.small}`} label="能量机关"/><Tile icon="⚙" value={maxAssembly(t)?`Lv.${maxAssembly(t)}`:'—'} label="最高装配"/>
       <Tile icon="▲" value={`Lv.${s.levelMax}`} label="最高等级"/><Tile icon="◆" value={`×${stats.teams[t==='red'?'blue':'red'].outpostsLost}`} label="击毁前哨站"/></aside>;})}
-    <footer className="res-actions"><button disabled={locked} onClick={onNext}>查看对局高光{left>0?` · ${left}s`:''}</button><button disabled={locked} onClick={onClose}>继续查看战场</button></footer>
+    <footer className="res-actions"><button onClick={onNext}>查看对局高光{left>0?` · ${left}s`:''}</button><button onClick={onClose}>继续查看战场</button></footer>
   </Stage>;
 }
 
 // ---------------------------------------------------------------- highlights
 // The reel is played back from the match's own replay file, so what a viewer sees is the real
 // engagement — the same frame stream the broadcast used — with a broadcast-style lower third on top.
-export function HighlightHud({clips,index,frame,onDone,locked=false}:{clips:HighlightClip[];index:number;frame:Frame|null;onDone:()=>void;locked?:boolean}){
+export function HighlightHud({clips,index,frame,onDone}:{clips:HighlightClip[];index:number;frame:Frame|null;onDone:()=>void}){
   const clip=clips[Math.min(index,clips.length-1)];
   if(!clip)return null;
   const star=frame?clipStar(clip,frame.robots):null;
@@ -117,12 +117,12 @@ export function HighlightHud({clips,index,frame,onDone,locked=false}:{clips:High
       <div className="hl-hud-pips">{clips.map((c,i)=><i key={c.key} className={i<index?'done':i===index?'now':''}/>)}</div>
       <div className="hl-hud-progress"><i style={{animationDuration:`${CLIP_SECONDS}s`}}/></div>
     </div>
-    <button className="hl-hud-skip" disabled={locked} onClick={onDone}>跳过高光</button>
+    <button className="hl-hud-skip" onClick={onDone}>跳过高光</button>
   </div>;
 }
 
 // Fallback when the server kept no replay file for the match: the same beats as full-frame cards.
-export function Highlights({clips,frame,metadata,images,onDone,locked=false}:{clips:HighlightClip[];frame:Frame;metadata:Metadata|null;images:Record<string,string>;onDone:()=>void;locked?:boolean}){
+export function Highlights({clips,frame,metadata,images,onDone}:{clips:HighlightClip[];frame:Frame;metadata:Metadata|null;images:Record<string,string>;onDone:()=>void}){
   const [index,setIndex]=useState(0),[elapsed,setElapsed]=useState(0);
   const total=Math.max(1,clips.length),clip=clips[Math.min(index,clips.length-1)];
   const star=clip?clipStar(clip,frame.robots):null;
@@ -137,11 +137,11 @@ export function Highlights({clips,frame,metadata,images,onDone,locked=false}:{cl
       setElapsed(u);
       if(u<1){frameId=requestAnimationFrame(tick);}
       else if(index+1<clips.length)setIndex(index+1);
-      else if(!locked)onDone();
+      else onDone();
     };
     frameId=requestAnimationFrame(tick);
     return()=>cancelAnimationFrame(frameId);
-  },[clip?.key,index,clips.length,locked,onDone]);
+  },[clip?.key,index,clips.length,onDone]);
   if(!clip)return <Stage className="cer-highlight empty">
     <div className="hl-tint"/>
     <div className="hl-empty">
@@ -149,7 +149,7 @@ export function Highlights({clips,frame,metadata,images,onDone,locked=false}:{cl
       <h2>本局没有留下可用的高光素材</h2>
       <p>对局太短或没有发生交火：高光从裁判事件里剪，不会凭空补镜头。</p>
     </div>
-    <button className="cer-skip" disabled={locked} onClick={onDone}>回到战场</button>
+    <button className="cer-skip" onClick={onDone}>回到战场</button>
   </Stage>;
   const team=star?.team??(frame.winner??'red');
   const victims=clip.victims.map(id=>frame.robots.find(r=>r.id===id)).filter(Boolean) as Robot[];
@@ -180,12 +180,12 @@ export function Highlights({clips,frame,metadata,images,onDone,locked=false}:{cl
     </div>
     <div className="hl-pips">{clips.map((c,i)=><i key={c.key} className={i<index?'done':i===index?'now':''}/>)}</div>
     <div className="hl-progress"><i style={{width:`${elapsed*100}%`}}/></div>
-    <button className="cer-skip" disabled={locked} onClick={onDone}>跳过高光</button>
+    <button className="cer-skip" onClick={onDone}>跳过高光</button>
   </Stage>;
 }
 
 // ---------------------------------------------------------------- MVP
-export function MvpCard({mvp,metadata,image,onBack,onClose,locked=false}:{locked?:boolean;mvp:Mvp;metadata:Metadata|null;image?:string;onBack:()=>void;onClose:()=>void}){
+export function MvpCard({mvp,metadata,image,onBack,onClose}:{mvp:Mvp;metadata:Metadata|null;image?:string;onBack:()=>void;onClose:()=>void}){
   const r:Robot=mvp.robot,team=r.team,{code,name}=nickname(r);
   return <Stage className={`cer-mvp ${team}`}>
     <div className="mvp-bg"/><div className="mvp-streak"/><div className="mvp-word">MVP</div>
@@ -196,6 +196,6 @@ export function MvpCard({mvp,metadata,image,onBack,onClose,locked=false}:{locked
       {mvp.lines.map(l=><div key={l.label} className="mvp-line"><span>{l.label}</span><b>{l.value}{l.unit&&<small>{l.unit}</small>}</b></div>)}
       {mvp.note&&<p>{mvp.note}</p>}
     </div>
-    <footer className="res-actions"><button disabled={locked} onClick={onBack}>返回数据面板</button><button disabled={locked} onClick={onClose}>回到战场</button></footer>
+    <footer className="res-actions"><button onClick={onBack}>返回数据面板</button><button onClick={onClose}>回到战场</button></footer>
   </Stage>;
 }

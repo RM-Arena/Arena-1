@@ -36,7 +36,7 @@ from .robot_presets import preset_metadata
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, load_profile, load_showcase, validate_profile
 from .custom_models import CustomModels
 from .strategy_library import StrategyLibrary
-from .video_export import MAX_VIDEO_BYTES, VideoExporter, VideoExportError
+from .video_export import JOB_PATTERN, MAX_VIDEO_BYTES, VideoExporter, VideoExportError
 from .submissions import write_json, manifest_season
 from . import seasons as season_rules
 
@@ -154,6 +154,7 @@ class ProfileRequest(BaseModel):
     display_name: str | None = None
     author: str | None = None
     description: str | None = None
+    github: str | None = None
 
 
 class CustomModelRequest(BaseModel):
@@ -226,6 +227,8 @@ class ArenaService:
         self.speed, self.paused, self.stopping, self.revision = 1, False, False, 0
         with Match(duration=420, map_name=season_rules.map_of(season_rules.DEFAULT_SEASON)) as match:
             self.frame = match.snapshot()
+        # An untouched arena per map (robots on their start pads), for the field between matches.
+        self.previews = {season_rules.map_of(season_rules.DEFAULT_SEASON): self.frame}
         # Snapshots travel to the browser up to 20 times a second, and the static half of a frame
         # (arena geometry, hardware tables, rule text) never changes during a match. It is published
         # once per match instead of being re-sent with every tick.
@@ -320,6 +323,17 @@ class ArenaService:
                     "speed": self.speed, "error": self.error, "metadata": self.metadata, "sandbox": self.sandbox,
                     "match_id": self.match_id, "events": events, "player": self.pilot(),
                     "busy": self.busy, "prematch": copy.copy(self.prematch), "strategy_version": strategy_version}
+
+    def preview(self, map_name):
+        """The empty arena of `map_name`: shown once a finished match has been left behind."""
+        with self.lock:
+            frame = self.previews.get(map_name)
+        if frame is None:
+            with Match(duration=420, map_name=map_name) as match:
+                frame = match.snapshot()
+            with self.lock:
+                self.previews[map_name] = frame
+        return frame
 
     def static_state(self):
         with self.lock:
@@ -666,13 +680,21 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         return video_exporter.capabilities()
 
     @app.post("/api/video-export")
-    async def video_export(request: Request, duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+    async def video_export(request: Request, duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False),
+                           job: str | None = Query(default=None, pattern=JOB_PATTERN)):
         try:
-            path, temporary = await video_exporter.export(request.stream(), duration=duration)
+            path, temporary = await video_exporter.export(request.stream(), duration=duration, job=job)
         except VideoExportError as exc:
             raise HTTPException(exc.status_code, str(exc)) from exc
         return FileResponse(path, media_type="video/mp4", filename="rmuc-arena.mp4",
                             background=BackgroundTask(temporary.cleanup))
+
+    @app.get("/api/video-export/jobs/{job}")
+    def video_export_job(job: str):
+        state = video_exporter.job(job)
+        if state is None:
+            raise HTTPException(404, "Unknown export")
+        return state
 
     @app.get("/api/battle-settings")
     def battle_settings(season: Literal["2026", "2027"] = "2027"):
@@ -694,7 +716,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.post("/api/matches/{match_id}/video")
     async def save_match_video(match_id: str, request: Request,
-                               duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+                               duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False),
+                               job: str | None = Query(default=None, pattern=JOB_PATTERN)):
         with service.store.lock:
             record = service.store.match(match_id)
             if not record:
@@ -704,7 +727,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             service.store.video_status(match_id, "processing")
         temporary = None
         try:
-            path, temporary = await video_exporter.export(request.stream(), duration=duration)
+            path, temporary = await video_exporter.export(request.stream(), duration=duration, job=job)
             with service.store.lock:
                 if not service.store.match(match_id):
                     raise HTTPException(404, "Match was deleted")
@@ -896,6 +919,10 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         if not service.custom_models.delete(model_id):
             raise HTTPException(404, "Model not found")
         return {"deleted": model_id}
+
+    @app.get("/api/arena-preview")
+    def arena_preview(map: Literal["rmuc2027", "rmuc2026"] = "rmuc2027"):
+        return {"frame": service.preview(map)}
 
     @app.get("/api/maps")
     def maps():

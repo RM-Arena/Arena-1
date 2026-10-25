@@ -31,6 +31,10 @@ STYLE_KEYS = ("aggression", "defense", "economy", "objective", "teamwork", "adap
 PHASE_FOCUS = ("attack", "defense", "economy", "objective", "support")
 TACTICS = ("balanced", "assault", "siege", "guard", "economy")
 TAGS = ("rune", "assembly", "rescue", "aerial", "sniping", "mobility", "comms", "focus_fire", "outpost_rush", "base_rush")
+# The bundled examples and the online library (github.com/RM-Arena/Arena-Strategies) are uploaded by the
+# project's own account; a strategy someone else contributes names its uploader in profile.json.
+LIBRARY_UPLOADER = "RM-Arena"
+_GITHUB_LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
 
 # Ordered: the first matching provider wins, so specific product names come before generic company words.
 _DETECT = (
@@ -174,6 +178,20 @@ def parse_showcase(raw):
     return validate_showcase(data)
 
 
+def github_login(value):
+    """The uploader's GitHub username, given bare, as "@name" or as a profile URL; None when blank."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if not isinstance(value, str):
+        raise ValueError("github must be a GitHub username")
+    text = value.strip().removeprefix("@")
+    url = re.fullmatch(r"(?:https?://)?(?:www\.)?github\.com/([^/?#\s]+)/?", text, re.IGNORECASE)
+    login = url.group(1) if url else text
+    if not _GITHUB_LOGIN.fullmatch(login):
+        raise ValueError("github must be a GitHub username such as RM-Arena")
+    return login
+
+
 def validate_profile(data):
     """The upload questionnaire: who generated the strategy and how it should be classified."""
     if not isinstance(data, dict):
@@ -197,6 +215,9 @@ def validate_profile(data):
         value = optional(key, limit)
         if value:
             profile[key] = value
+    github = github_login(data.get("github"))
+    if github:
+        profile["github"] = github
     if isinstance(data.get("created_at"), (int, float)) and not isinstance(data.get("created_at"), bool):
         profile["created_at"] = float(data["created_at"])
     return profile
@@ -242,6 +263,8 @@ def load_profile(path, bundled=None):
         profile = validate_profile({"agent": reported or (example_agent(season) if bundled else {"provider": "unknown"})})
     if bundled and canonical_key(Path(path).name).startswith(CLAUDE_PREFIX):
         profile["agent"] = dict(CLAUDE_AGENT)
+    if bundled:
+        profile.setdefault("github", LIBRARY_UPLOADER)
     return profile
 
 
