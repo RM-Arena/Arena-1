@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rmuc-arena"
-version = "0.7.2b2"
+version = "0.7.2b3"
 description = "Cross-platform 5v5/6v6 robot strategy arena with a 3D spectator"
 license = {file = "LICENSE"}
 authors = [{name = "RM-Arena"}]

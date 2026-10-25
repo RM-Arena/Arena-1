@@ -11,7 +11,7 @@
 </p>
 <p align="center"><a href="https://www.bilibili.com/video/BV1rJJD6cEfG/"><strong>来预览你的RoboMaster2027全明星表演赛</strong></a>（Bilibili 视频）</p>
 
-> **Beta 版本说明：目前所有已发布版本（包括早期未在版本号中标注 Beta 的版本）仍处于 Beta 阶段。规则实现、仿真、界面和数据格式仍可能调整。当前版本：`v0.7.2-beta.2`。更新记录见 [CHANGELOG](CHANGELOG.md)。
+> **Beta 版本说明：目前所有已发布版本（包括早期未在版本号中标注 Beta 的版本）仍处于 Beta 阶段。规则实现、仿真、界面和数据格式仍可能调整。当前版本：`v0.7.2-beta.3`。更新记录见 [CHANGELOG](CHANGELOG.md)。
 
 桌面版启动后自动检查 App 更新，运行期间每 6 小时再检查一次；发现新版本时提示下载对应系统与架构的安装包。也可从「帮助 → 检查更新」立即检查。下载后退出应用并安装；旧版本需先手动安装一次支持此功能的版本。
 
