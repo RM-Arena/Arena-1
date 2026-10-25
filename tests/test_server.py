@@ -33,6 +33,17 @@ class FastApiTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/control',json={'command':'pause'},headers={'Origin':'https://other.example'}).status_code,403)
         self.assertEqual(self.client.get('/api/health',headers={'Host':'evil.example'}).status_code,400)
 
+    def test_arena_preview_is_an_untouched_field_per_map(self):
+        for name in ('rmuc2027','rmuc2026'):
+            frame=self.client.get('/api/arena-preview',params={'map':name}).json()['frame']
+            self.assertEqual(frame['arena']['name'],name)
+            self.assertEqual(frame['status'],'ready')
+            self.assertEqual(frame['tick'],0)
+            self.assertTrue(frame['robots'])
+            self.assertTrue(all(r['hp']==r['max_hp'] for r in frame['robots'] if r['role']!='aerial'))
+        self.assertIs(self.app.state.arena.preview('rmuc2026'),self.app.state.arena.preview('rmuc2026'))
+        self.assertEqual(self.client.get('/api/arena-preview',params={'map':'foundry'}).status_code,422)
+
     def test_websocket_pushes_real_rust_snapshots(self):
         with self.client.websocket_connect('/api/ws') as socket:
             # The static half of the idle frame arrives first, even while `match_id` is None.

@@ -484,7 +484,8 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   // Adaptive resolution: the scene is heavy enough that a fixed pixel ratio is wrong on both a
   // 4K desktop and a small laptop. Frame time is sampled and the renderer trades resolution for
   // frame rate inside a narrow band so the pilot sees a steady image either way.
-  const perf=useRef({time:0,frames:0,ratio:1.3,ceiling:1.3,shadow:6});
+  // `shadow`: the shadow map is refreshed on every n-th rendered frame while the field moves.
+  const perf=useRef({time:0,frames:0,ratio:1.3,ceiling:1.3,shadow:1});
   const look=useMemo(()=>new THREE.Vector3(),[]),cut=useRef({key:'',at:0});
   const ear=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),up=useMemo(()=>new THREE.Vector3(),[]),origin=useMemo(()=>new THREE.Vector3(),[]);
   const eyePoint=useMemo(()=>new THREE.Vector3(),[]),eyeLook=useMemo(()=>new THREE.Vector3(),[]);
@@ -796,28 +797,26 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       const avg=p.time/p.frames;p.time=0;p.frames=0;
       const next=avg>.019?Math.max(DPR_FLOOR,p.ratio-.12):avg<.0135?Math.min(p.ceiling,p.ratio+.08):p.ratio;
       if(Math.abs(next-p.ratio)>.01){p.ratio=next;setDpr(next);}
-      // The shadow pass redraws every caster, so it is the first cost to give up when the frame
-      // budget is already missed. It settles at 1 Hz on a machine that cannot hold 40 fps — never
-      // slower, because a frozen map would leave robots' shadows behind on the floor.
-      const base=mode==='fpv'?2:3;
-      p.shadow=avg>.026?Math.max(1,(p.shadow??base)-1):avg<.016?Math.min(base,(p.shadow??base)+1):(p.shadow??base);
+      // The shadow pass is the first cost to give up when the frame budget is already missed, but only
+      // down to every fourth frame: a map refreshed a few times a second leaves each robot's shadow
+      // trailing a step behind it, which reads as lag rather than as a cheaper picture.
+      p.shadow=avg>.026?Math.min(4,p.shadow+1):avg<.018?Math.max(1,p.shadow-1):p.shadow;
     }
   });
   useFrame(()=>{if(!audio?.enabled)return;const focus=mode==='orbit'?controls.current?.target||origin:mode==='follow'?target:origin;ear.copy(camera.position).sub(focus);ear.setLength(Math.min(ear.length(),9)).add(focus);camera.getWorldDirection(ahead);up.set(0,1,0).applyQuaternion(camera.quaternion);audio.listen(ear,ahead,up,feed.current.frame?.arena);});
   useFrame(()=>{audio?.drones(feed.current.frame);},-2);
-  // A fixed directional light does not need new shadows for camera motion.
-  // Shadow passes redraw every caster — a dozen robots plus the whole venue — so moving shadows
-  // refresh at 3 Hz (2 Hz for a pilot) instead of 30: the arena still reads as lit while most of
-  // the shadow passes disappear. A machine that cannot hold the frame budget drops to 1 Hz, which
-  // is the difference between a stutter and a playable field on integrated graphics. A changed
-  // paused frame always refreshes them.
-  useFrame(({gl,scene,camera,clock})=>{
+  // A fixed directional light does not need new shadows for camera motion, only for moving casters.
+  // While the field moves the map follows every rendered frame, so a shadow stays under its robot
+  // instead of jumping after it; the pass is a few dozen merged casters and costs well under a
+  // millisecond on the main pass's budget. Only a machine that cannot hold the frame budget refreshes
+  // it every second to fourth frame. A changed paused frame always refreshes it once.
+  useFrame(({gl,scene,camera})=>{
     const f=feed.current,s=shadow.current;
-    const rate=perf.current.shadow??(mode==='fpv'?2:3);
-    const slot=Math.floor(clock.elapsedTime*rate);
-    if(f.generation!==s.generation||f.paused!==s.paused||(f.paused?f.frame!==s.frame:slot!==s.slot)){
-      gl.shadowMap.needsUpdate=true;s.slot=slot;s.frame=f.frame;s.generation=f.generation;s.paused=f.paused;
+    const slot=(s.slot+1)%perf.current.shadow;
+    if(f.generation!==s.generation||f.paused!==s.paused||(f.paused?f.frame!==s.frame:slot===0)){
+      gl.shadowMap.needsUpdate=true;s.frame=f.frame;s.generation=f.generation;s.paused=f.paused;
     }
+    s.slot=slot;
     // The frame is drawn either straight to the canvas or, with the lobbed-fire sight on the eye,
     // through the lens pass that magnifies the aperture and keeps the rest of the field plain.
     renderSight(scene as THREE.Scene,camera as THREE.PerspectiveCamera,size.width,size.height,FPV_FOV,mode==='fpv');
@@ -830,7 +829,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       let meshes=0,casters=0;
       scene.traverse(o=>{if((o as THREE.Mesh).isMesh){meshes++;if(o.castShadow)casters++;}});
       (window as unknown as {arenaRender?:unknown}).arenaRender={calls:r.calls,triangles:r.triangles,frame:r.frame,dpr:perf.current.ratio,
-        meshes,shadowCasters:casters,materials:gl.info.memory.geometries,textures:gl.info.memory.textures,shadowRate:perf.current.shadow??null,
+        meshes,shadowCasters:casters,materials:gl.info.memory.geometries,textures:gl.info.memory.textures,shadowEvery:perf.current.shadow,
         eye:[camera.position.x,camera.position.y,camera.position.z].map(v=>Math.round(v*100)/100),up:[camera.up.x,camera.up.y,camera.up.z]};
     }
     // Copy the just-rendered frame synchronously, before WebGL releases its buffer.

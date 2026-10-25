@@ -18,12 +18,12 @@ class Context{
  advance(seconds){if(this.state==='running')this.currentTime+=seconds;}
 }
 function harness(fetcher=async url=>({ok:true,arrayBuffer:async()=>({url})})){
- const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
+ const {ArenaAudio}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{AudioContext:Context,fetch:fetcher});return new ArenaAudio();
 }
 async function flush(){for(let i=0;i<12;i++)await Promise.resolve();}
 test('recorded video headings use display names and the actual season and roster',()=>{
  const labels=[],ctx={fillRect(){},drawImage(){},fillText(text){labels.push(text);}};
- const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{document:{createElement:()=>({getContext:()=>ctx})}});
  const recorder=new BroadcastRecorder({});recorder.source={width:1920,height:1080};recorder.recorder={state:'recording'};
  const robots=['red','blue'].flatMap(team=>[1,3,4,6,7].map(slot=>({team,slot,role:'infantry',alive:true,hp:100,max_hp:100,heat:0,max_heat:40})));
  const frame={season:'2027',remaining:420,seed:42,status:'running',arena:{name:'rmuc2027'},robots,teams:{red:{score:0},blue:{score:0}},bases:{red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}}};
@@ -34,7 +34,7 @@ test('recorded video headings use display names and the actual season and roster
 });
 test('2027 recordings carry both control degrees, which decide timeouts, and 2026 ones do not',()=>{
  const labels=[],ctx={fillRect(){},drawImage(){},fillText(text,x){labels.push([String(text),x]);}};
- const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{document:{createElement:()=>({getContext:()=>ctx})}});
  const recorder=new BroadcastRecorder({});recorder.source={width:1920,height:1080};recorder.recorder={state:'recording'};
  const bases={red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}};
  recorder.draw({season:'2027',remaining:200,seed:42,status:'running',arena:{name:'rmuc2027'},robots:[],teams:{red:{score:0,control:37.8},blue:{score:0,control:12.2}},bases},null);
@@ -289,7 +289,7 @@ test('seeking while paused stops the active source before the suspended clock ca
 
 test('recording renders lineup credits, the actual data panel and MVP stats into the video canvas',()=>{
  const labels=[],ctx={fillRect(){},drawImage(){},fillText(text){labels.push(text);},save(){},restore(){}};
- const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity,'./videoExport':compile('videoExport')},{document:{createElement:()=>({getContext:()=>ctx})}});
+ const {BroadcastRecorder}=compile('media',{'./audioPlaylist':playlist,'./killAnnouncements':killAnnouncements,'./strategyIdentity':identity},{document:{createElement:()=>({getContext:()=>ctx})}});
  const r=new BroadcastRecorder({});r.source={width:1920,height:1080};r.recorder={state:'recording'};
  const f={remaining:0,seed:42,status:'finished',season:'2027',arena:{name:'rmuc2027'},robots:[],teams:{red:{score:50},blue:{score:20}},bases:{red:{hp:10000,max_hp:10000},blue:{hp:10000,max_hp:10000}}};
  r.overlay={kind:'intro',title:'红方阵容介绍',sub:'测试策略',lines:['3号 串联腿 · Model A']};r.draw(f,null);

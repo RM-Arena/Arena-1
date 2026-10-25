@@ -62,8 +62,9 @@ else {
     if (!window || window.isDestroyed()) {
       window = new BrowserWindow({width:1600,height:1000,minWidth:1000,minHeight:680,show:false,backgroundColor:'#08131c',
         webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,backgroundThrottling:false}});
+      // Only the documentation and GitHub profile pages (strategy uploaders) leave the app, in the system browser.
       window.webContents.setWindowOpenHandler(({url:target}) => {
-        if (target.startsWith(docs)) shell.openExternal(target);
+        if (target.startsWith(docs) || /^https:\/\/github\.com\/[A-Za-z0-9-]{1,39}\/?$/.test(target)) shell.openExternal(target);
         return {action:'deny'};
       });
       window.webContents.on('will-navigate', (event, target) => {if (new URL(target).origin !== backend.url) event.preventDefault();});

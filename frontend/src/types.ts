@@ -52,7 +52,7 @@ export interface CatalogEntry{name:string;version:string;mode:ControlMode;season
 // Display sidecars of a submission (rmuc_arena/showcase.py): the upload questionnaire and the agent-written showcase.json.
 export type Tactic='balanced'|'assault'|'siege'|'guard'|'economy';
 export type StrategyTag='rune'|'assembly'|'rescue'|'aerial'|'sniping'|'mobility'|'comms'|'focus_fire'|'outpost_rush'|'base_rush';
-export interface StrategyProfile{format:'rmuc-strategy-profile-v1';agent:AgentInfo;tactic:Tactic;tags:StrategyTag[];display_name?:string;author?:string;description?:string;created_at?:number}
+export interface StrategyProfile{format:'rmuc-strategy-profile-v1';agent:AgentInfo;tactic:Tactic;tags:StrategyTag[];display_name?:string;author?:string;github?:string;description?:string;created_at?:number}
 export type StyleKey='aggression'|'defense'|'economy'|'objective'|'teamwork'|'adaptability';
 export interface Showcase{format:'rmuc-showcase-v1';title:string;tagline:string;summary:string;style:Record<StyleKey,number>;phases:{from:number;to:number;title:string;goal:string;focus:'attack'|'defense'|'economy'|'objective'|'support'}[];units:{name:string;role:string;task:string;route:number[][];anchor?:number[]}[];rules:{when:string;then:string}[];priorities:string[];strengths:string[];weaknesses:string[];generated_by?:AgentInfo}
 export interface StrategySummary extends CatalogEntry{key:string;bundled:boolean;profile:StrategyProfile;showcase:Pick<Showcase,'title'|'tagline'|'style'>|null;standing?:{rating:number;games:number;wins:number;losses:number;draws:number};created_at?:number}

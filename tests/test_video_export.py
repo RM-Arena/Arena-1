@@ -63,6 +63,24 @@ class VideoExportTests(unittest.TestCase):
         self.assertLess(response.content.index(b"moov"), response.content.index(b"mdat"))
         self.assert_cleaned()
 
+    def test_named_export_reports_transcode_progress(self):
+        self.assertEqual(self.client.get("/api/video-export/jobs/unknownjob1").status_code, 404)
+        response = self.client.post("/api/video-export?duration=0.5&job=clip-test-0001", content=self.webm.read_bytes(),
+                                    headers={"Content-Type": "video/webm"})
+        self.assertEqual(response.status_code, 200, response.text[:200] if response.status_code != 200 else "")
+        state = self.client.get("/api/video-export/jobs/clip-test-0001").json()
+        self.assertEqual(state["stage"], "done")
+        self.assertEqual(state["progress"], 1.0)
+        self.assertGreater(state["encoded"], 0)
+        failed = self.client.post("/api/video-export?job=clip-test-0002", content=b"not a recording", headers={"Content-Type": "video/webm"})
+        self.assertEqual(failed.status_code, 400)
+        state = self.client.get("/api/video-export/jobs/clip-test-0002").json()
+        self.assertEqual(state["stage"], "failed")
+        self.assertIn("WebM", state["error"])
+        for job in ("short", "bad%2Fexport-id"):
+            self.assertEqual(self.client.post("/api/video-export?job=" + job, content=b"", headers={"Content-Type": "video/webm"}).status_code, 422)
+        self.assert_cleaned()
+
     def test_recordings_without_audio_still_export(self):
         silent = self.root / "silent.webm"
         subprocess.run([self.ffmpeg, "-hide_banner", "-loglevel", "error", "-i", str(self.webm),
@@ -112,10 +130,14 @@ class VideoExportTests(unittest.TestCase):
 
 class VideoExportCancellationTests(unittest.IsolatedAsyncioTestCase):
     async def test_timeout_kills_encoder_and_releases_files_and_lock(self):
+        class Stream:
+            async def readline(self):
+                await asyncio.sleep(60)
+            async def read(self):
+                await asyncio.sleep(60)
         class Process:
             returncode = None
-            async def communicate(self):
-                await asyncio.sleep(60)
+            stdout = stderr = Stream()
             def kill(self):
                 self.returncode = -9
             async def wait(self):

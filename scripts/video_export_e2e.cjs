@@ -19,33 +19,39 @@ const {Backend,runtimeLayout}=require('../desktop/backend.cjs');
     await page.goto(url);await page.waitForFunction(()=>window.arenaDiagnostics?.().connected);
     await page.getByRole('button',{name:'RM 对战',exact:true}).first().click();
     await page.locator('#viewport canvas').waitFor({state:'visible'});
-    assert.equal(await page.locator('#video-format').inputValue(),'mp4');
+    // A clip: record, stop, and the dock carries the save through to a downloaded file.
+    const saved=()=>page.evaluate(()=>window.arenaDiagnostics().videoSaves);
     const record=async(name,recover=false)=>{
       console.log('Recording '+name);
-      await page.click('#record');await page.waitForFunction(()=>window.arenaDiagnostics().recording);
-      assert.equal(await page.locator('#video-format').isDisabled(),true);
-      await page.waitForFunction(()=>window.arenaDiagnostics().recordedFrames>=3);
+      await page.click('#record');await page.waitForFunction(()=>window.arenaDiagnostics().recording==='clip');
+      // Software GL renders about two frames a second; the encoder needs a dozen before a clip has content.
+      await page.waitForFunction(()=>window.arenaDiagnostics().recordedFrames>=12,null,{timeout:90000});
       await page.waitForTimeout(1600);
       let pending;
-      if(recover){await page.click('#record');await page.locator('#save-original-video').waitFor();
-        assert.equal(await page.getByText(/原始 WebM 已保留/).count(),1);
-        pending=page.waitForEvent('download',{timeout:30000});await page.click('#save-original-video');}
+      if(recover){await page.click('#record');await page.getByRole('button',{name:'下载原始 WebM'}).waitFor({timeout:60000});
+        assert.equal(await page.getByText('模拟转码失败').count(),1);
+        pending=page.waitForEvent('download',{timeout:30000});await page.getByRole('button',{name:'下载原始 WebM'}).click();}
       else{pending=page.waitForEvent('download',{timeout:60000});await page.click('#record');}
       let download;
       try{download=await pending;}catch(error){console.error(await page.evaluate(()=>({diagnostics:window.arenaDiagnostics(),text:document.body.innerText.slice(-1800)})));throw error;}
       await download.saveAs(path.join(output,name));
-      await page.waitForFunction(()=>!window.arenaDiagnostics().exportingVideo);
+      // Stopping never waits for the save: the button is free again while the file is produced.
+      assert.equal(await page.locator('#record').isDisabled(),false);
+      if(!recover)await page.waitForFunction(()=>window.arenaDiagnostics().videoSaves.every(s=>s.stage==='done'));
       return download.suggestedFilename();
     };
     assert.match(await record('broadcast.mp4'),/\.mp4$/);
+    assert.ok((await saved()).some(s=>s.stage==='done'));
     assert.equal(fs.readFileSync(path.join(output,'broadcast.mp4')).subarray(4,8).toString(),'ftyp');
     const executable=spawnSync(layout.python,['-c','from imageio_ffmpeg import get_ffmpeg_exe; print(get_ffmpeg_exe())'],{encoding:'utf8'}).stdout.trim();
     const decoded=spawnSync(executable,['-hide_banner','-i',path.join(output,'broadcast.mp4'),'-f','null','-'],{encoding:'utf8',timeout:60000});
     assert.equal(decoded.status,0,decoded.stderr);
     assert.match(decoded.stderr,/Video: h264/);assert.match(decoded.stderr,/1920x1080/);assert.match(decoded.stderr,/30 fps/);assert.match(decoded.stderr,/Audio: aac/);
-    await page.selectOption('#video-format','webm');assert.match(await record('broadcast.webm'),/\.webm$/);
-    await page.selectOption('#video-format','mp4');
-    await page.route('**/api/video-export*',route=>route.request().method()==='POST'
+    // Without the converter a clip is still kept, as WebM.
+    await page.route('**/api/video-export',route=>route.request().method()==='GET'?route.fulfill({status:200,contentType:'application/json',body:'{"mp4":false}'}):route.continue());
+    assert.match(await record('broadcast.webm'),/\.webm$/);
+    await page.unroute('**/api/video-export');
+    await page.route('**/api/video-export?*',route=>route.request().method()==='POST'
       ?route.fulfill({status:500,contentType:'application/json',body:'{"detail":"模拟转码失败"}'})
       :route.continue());
     assert.match(await record('preserved.webm',true),/\.webm$/);
