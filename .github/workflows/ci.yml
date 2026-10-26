@@ -12,6 +12,11 @@ concurrency:
 jobs:
   native:
     name: Native tests (${{ matrix.os }})
+    # Apple-silicon macOS runners are frequently out of capacity; the job is then cancelled without
+    # running a single step, or lands on the oversubscribed Intel pool where this suite needs three
+    # times the wall clock. macOS still reports its own result, but the two platforms that are
+    # always available decide whether the pull request is green.
+    continue-on-error: ${{ matrix.os == 'macos-15' }}
     strategy:
       fail-fast: false
       matrix:
