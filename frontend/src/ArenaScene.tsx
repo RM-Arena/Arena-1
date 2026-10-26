@@ -9,7 +9,8 @@ import type {IntroSegment} from './intro';
 import {TEAM_COLORS} from './types';
 import {terrainHeight} from './terrain';
 import {Effects,pulse} from './effects';
-import {CombatText,MechanismHud,PickupHud,RobotHud,RuneBoard,RuneBurst,StructureHud} from './hud';
+import {CombatText,MechanismHud,PickupHud,RobotHud,RuneBoard,RuneBurst,StructureHud,alignBillboards} from './hud';
+import {HalfBrief,SeatBrief,type HalfBriefData} from './pilot';
 import {cloneForTeam,LED_COLORS,SHELL} from './teamMaterials';
 import {Venue} from './venue';
 import type {ArenaAudio} from './media';
@@ -34,8 +35,9 @@ const BROADCAST_EYE:[number,number,number]=[0,20.5,21.3],BROADCAST_TARGET:[numbe
 // (80° read as too wide: the field edge pulled the eye off the crosshair).
 const BROADCAST_FOV=42,FPV_FOV=64;
 // A spectator's eye eases toward the engine turret at up to this rate (rad/s). A pilot's eye takes
-// the engine gimbal angle directly, matching the barrel model frame for frame.
-const EYE_RATE=8;
+// the engine gimbal angle directly, matching the barrel model frame for frame. 9.6 is the old 8 +
+// 20 %, so the observer camera keeps a tighter line on the gun without any extra frame cost.
+const EYE_RATE=9.6;
 // Ceilings are 15 % higher too: the broadcast preset and the first-person eye both look down on
 // the field from further up.
 const CINEMATIC_EYE=27.6,FOLLOW_EYE=4.4;
@@ -89,6 +91,9 @@ function droneOnField(frame:Frame,id:string){
   return null;
 }
 const workEyeAt=new THREE.Vector3();
+// Shared up axis for `setFromUnitVectors`, which only reads its arguments: the rune rigs rebuild
+// their beams every frame, so allocating a fresh one there was pure garbage.
+const Y_UP=new THREE.Vector3(0,1,0);
 // A camera change eases over this long, so switching first person → follow → broadcast reads as one
 // move instead of a cut.
 const TRANSITION_S=.5;
@@ -97,6 +102,8 @@ const armBooms=new Map<string,{at:THREE.Vector3;dir:THREE.Vector3}>();
 const BROADCAST_DPR:[number,number]=[1,1.2],FPV_DPR:[number,number]=[.8,1.05];
 // Adaptive resolution trades pixels for frames; below this the image is too soft to read the field.
 const DPR_FLOOR=.6;
+// Zone tints are read every frame; parsing the palette strings there would be pure churn.
+const ZONE_TINTS={red:new THREE.Color(TEAM_COLORS.red),blue:new THREE.Color(TEAM_COLORS.blue),neutral:new THREE.Color('#d4b57c')};
 const point=(r:{x:number;y:number;z?:number},h=0,width=28,height=15)=>new THREE.Vector3(r.x-width/2,(r.z||0)+h,r.y-height/2);
 // Shortest signed difference between two wrapped yaw angles.
 const yawDelta=(from:number,to:number)=>{const d=(to-from+Math.PI)%(Math.PI*2);return (d<0?d+Math.PI*2:d)-Math.PI;};
@@ -121,10 +128,14 @@ const toHeight=(frame:Frame,x:number,y:number)=>terrainHeight(frame.arena,x,y);
 // Structures are static scenery with a few named hinges, so they are merged by material as soon as
 // they are cloned: the field and the two bases are most of the draw calls in a broadcast frame.
 // The field map is left as loaded: its materials are restyled by name and carry baked contact shadows per material.
-const STRUCTURE_ASSET=/^\/assets\/(?:base-|outpost-|tech-core-|rune-)/;
+// Picked-up energy units are scenery too, and forty tiny parts each; they merge but keep their shadows.
+const STRUCTURE_ASSET=/^\/assets\/(?:base-|outpost-|tech-core-|rune-)/,PROP_ASSET=/^\/assets\/energy-unit-/;
 function useAsset(url:string,team?:TeamId){
   const scene=useRobotScene(url);
-  const asset=useMemo(()=>{const clone=cloneForTeam(scene,team);return STRUCTURE_ASSET.test(url)?batchStaticStructure(clone):clone;},[scene,team,url]),gl=useThree(state=>state.gl);
+  const asset=useMemo(()=>{const clone=cloneForTeam(scene,team);
+    if(STRUCTURE_ASSET.test(url))return batchStaticStructure(clone);
+    if(PROP_ASSET.test(url))return batchStaticStructure(clone,{trimShadows:false});
+    return clone;},[scene,team,url]),gl=useThree(state=>state.gl);
   // A newly loaded caster also invalidates the cached shadow while paused.
   useEffect(()=>{gl.shadowMap.needsUpdate=true;},[gl,asset]);
   return asset;
@@ -132,7 +143,7 @@ function useAsset(url:string,team?:TeamId){
 
 function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,onPick}:{id:string;role:string;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>;selected:string;onSelect:(id:string)=>void;hidden?:boolean;hover?:MutableRefObject<string|null>;pick?:boolean;onPick?:(id:string)=>void}){
   const asset=useAsset(url,team),group=useRef<THREE.Group>(null),body=asset.getObjectByName('Chassis'),turret=asset.getObjectByName('Turret'),pitch=asset.getObjectByName('GunPitch');
-  const poseNow=useMemo(()=>new THREE.Quaternion(),[]),poseOld=useMemo(()=>new THREE.Quaternion(),[]);
+  const poseNow=useMemo(()=>new THREE.Quaternion(),[]),poseOld=useMemo(()=>new THREE.Quaternion(),[]),posePos=useMemo(()=>new THREE.Vector3(),[]),posePrev=useMemo(()=>new THREE.Vector3(),[]);
   useEffect(()=>applyArmorNumber(asset,id.slice(id.lastIndexOf('-')+1)),[asset,id]);
   useEffect(()=>()=>{armBooms.delete(id);},[id]);
   const lift=asset.getObjectByName('GunElevator'),shoulder=asset.getObjectByName('ArmShoulder'),forearm=asset.getObjectByName('ArmForearm');
@@ -157,7 +168,7 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
     const physicalAlive=r.role==='aerial'||r.alive;
     const old=feed.current.previous?.robots.find(r=>r.id===id)||r;
     const alpha=feedAlpha(feed.current);
-    const pos=point(r,0,f.arena.width,f.arena.height);pos.lerp(point(old,0,f.arena.width,f.arena.height),1-alpha);group.current.position.copy(pos);
+    const pos=posePos.set(r.x-f.arena.width/2,r.z||0,r.y-f.arena.height/2).lerp(posePrev.set(old.x-f.arena.width/2,old.z||0,old.y-f.arena.height/2),1-alpha);group.current.position.copy(pos);
     if(r.quaternion){const a=r.quaternion,b=old.quaternion||a;poseNow.set(-a[0],-a[2],-a[1],a[3]);poseOld.set(-b[0],-b[2],-b[1],b[3]);group.current.quaternion.copy(poseOld.slerp(poseNow,alpha));}else group.current.rotation.y=-r.heading;
     // Turret and gun are posed with the same interpolation the first-person eye uses, so the view
     // and the barrel hold an identical yaw and pitch on every rendered frame.
@@ -239,7 +250,7 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
   // pointer, which is exactly the one highlighted. Raycasting here as well would hand the pick to a
   // different chassis than the one lit up for anything standing in front of another.
   const pick_=(e:ThreeEvent<PointerEvent>)=>{e.stopPropagation();document.body.dataset.lastPick=id;if(!pick)onSelect(id);};
-  return <group ref={group} onPointerDown={pick_}>
+  return <group ref={group} name={'robot:'+id} onPointerDown={pick_}>
     <primitive object={asset}/>
     {(role==='engineer'||role==='heavy')&&<><group ref={heldUnit} visible={false}>
       <primitive object={unitAsset} rotation={[0,0,-Math.PI/2]}/>
@@ -389,16 +400,16 @@ function TechCore({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>
 
 function LegacyRuneModel({team,feed}:{team:TeamId;feed:MutableRefObject<RenderFeed>}){
   const heads=useRef<Array<THREE.Group|null>>([]),cards=useRef<Array<THREE.Mesh|null>>([]),beams=useRef<Array<THREE.Mesh|null>>([]);
-  const direction=useMemo(()=>new THREE.Vector3(),[]);
+  const direction=useMemo(()=>new THREE.Vector3(),[]),beamCenter=useMemo(()=>new THREE.Vector3(),[]),beamTarget=useMemo(()=>new THREE.Vector3(),[]);
   useFrame(()=>{const f=feed.current.frame,state=f?.runes?.[team],targets=state?.targets;if(!f||!targets?.length)return;
-    const center=point({x:targets.reduce((s:number,t:any)=>s+t.x,0)/5,y:targets.reduce((s:number,t:any)=>s+t.y,0)/5,z:targets.reduce((s:number,t:any)=>s+t.z,0)/5});
+    const center=beamCenter.set(targets.reduce((s:number,t:any)=>s+t.x,0)/5-f.arena.width/2,targets.reduce((s:number,t:any)=>s+t.z,0)/5,targets.reduce((s:number,t:any)=>s+t.y,0)/5-f.arena.height/2);
     const yaw=f.arena.rune?.axis_yaw||0;
     const blend=feedAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
-    targets.forEach((t:any,i:number)=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t;const target=point({x:old.x+(t.x-old.x)*blend,y:old.y+(t.y-old.y)*blend,z:old.z+(t.z-old.z)*blend}),head=heads.current[i],card=cards.current[i];
+    targets.forEach((t:any,i:number)=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t;const x=old.x+(t.x-old.x)*blend,y=old.y+(t.y-old.y)*blend,z=old.z+(t.z-old.z)*blend,target=beamTarget.set(x-f.arena.width/2,z,y-f.arena.height/2),head=heads.current[i],card=cards.current[i];
       if(head){head.position.copy(target);head.rotation.y=Math.PI/2-yaw;}
       const light=runeArmLight(state,t.arm??i,f.time),tint=light==='hit'?RUNE_HIT:light==='impact'?RUNE_IMPACT:colors[team];
       if(card)lamp(card.material as THREE.MeshStandardMaterial,light!=='off',tint,1.4);
-      const beam=beams.current[i];if(beam){direction.copy(target).sub(center);beam.position.copy(center).add(target).multiplyScalar(.5);beam.scale.y=direction.length();beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());}
+      const beam=beams.current[i];if(beam){direction.copy(target).sub(center);beam.position.copy(center).add(target).multiplyScalar(.5);beam.scale.y=direction.length();beam.quaternion.setFromUnitVectors(Y_UP,direction.normalize());}
       if(beam)lamp(beam.material as THREE.MeshStandardMaterial,['active','hit','impact'].includes(light),tint,1.1);
     });
   });
@@ -451,10 +462,10 @@ function ArenaMap({frame,feed}:{frame:Frame;feed:MutableRefObject<RenderFeed>}){
   return <group><primitive object={asset}/>{frame.arena.zones.filter(z=>!z.id.includes('_road_')&&!z.id.includes('_highland_')&&!z.id.includes('_tunnel_')&&!z.id.includes('_fly_')).map(z=><Zone key={z.id} id={z.id} x={z.x} y={z.y} radius={z.radius} elevation={toHeight(frame,z.x,z.y)} feed={feed} floorOnly={!!frame.arena.layout_revision}/>)}</group>;
 }
 function Zone({id,x,y,radius,elevation,feed,floorOnly}:{id:string;x:number;y:number;radius:number;elevation:number;feed:MutableRefObject<RenderFeed>;floorOnly:boolean}){
-  const ring=useRef<THREE.Mesh>(null),pad=useRef<THREE.Mesh>(null),beacon=useRef<THREE.Mesh>(null);
-  useFrame(({clock})=>{const zone=feed.current.frame?.zones[id];if(!zone)return;const color=zone.owner?TEAM_COLORS[zone.owner]:'#d4b57c';
-    if(ring.current)(ring.current.material as THREE.MeshBasicMaterial).color.set(color);if(pad.current){const m=pad.current.material as THREE.MeshBasicMaterial;m.color.set(color);m.opacity=.035+Math.abs(zone.progress)*.07;}
-    if(beacon.current){const m=beacon.current.material as THREE.MeshStandardMaterial;m.color.set(color);m.emissive.set(color);m.emissiveIntensity=zone.contested?1+Math.sin(clock.elapsedTime*12)*.7:.7;}
+  const ring=useRef<THREE.Mesh>(null),pad=useRef<THREE.Mesh>(null),beacon=useRef<THREE.Mesh>(null),tint=useMemo(()=>new THREE.Color(),[]);
+  useFrame(({clock})=>{const zone=feed.current.frame?.zones[id];if(!zone)return;const color=tint.copy(zone.owner?ZONE_TINTS[zone.owner]:ZONE_TINTS.neutral);
+    if(ring.current)(ring.current.material as THREE.MeshBasicMaterial).color.copy(color);if(pad.current){const m=pad.current.material as THREE.MeshBasicMaterial;m.color.copy(color);m.opacity=.035+Math.abs(zone.progress)*.07;}
+    if(beacon.current){const m=beacon.current.material as THREE.MeshStandardMaterial;m.color.copy(color);m.emissive.copy(color);m.emissiveIntensity=zone.contested?1+Math.sin(clock.elapsedTime*12)*.7:.7;}
   });
   return <group position={[x-14,elevation+.016,y-7.5]}><mesh ref={ring} visible={!floorOnly} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[radius-.06,radius,64]}/><meshBasicMaterial color="#d4b57c" transparent opacity={.7} side={THREE.DoubleSide}/></mesh><mesh ref={pad} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[radius-.1,48]}/><meshBasicMaterial color="#d4b57c" transparent opacity={.05} depthWrite={false}/></mesh>{!floorOnly&&<><mesh position={[0,.19,0]}><cylinderGeometry args={[.19,.25,.38,12]}/><meshStandardMaterial color="#71848b" metalness={.7} roughness={.4}/></mesh><mesh ref={beacon} position={[0,.54,0]}><cylinderGeometry args={[.085,.085,.35,12]}/><meshStandardMaterial color="#d4b57c" emissive="#d4b57c"/></mesh></>}</group>;
 }
@@ -485,7 +496,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   // 4K desktop and a small laptop. Frame time is sampled and the renderer trades resolution for
   // frame rate inside a narrow band so the pilot sees a steady image either way.
   // `shadow`: the shadow map is refreshed on every n-th rendered frame while the field moves.
-  const perf=useRef({time:0,frames:0,ratio:1.3,ceiling:1.3,shadow:1});
+  const perf=useRef({time:0,frames:0,ratio:1.3,ceiling:1.3,shadow:1,fast:0,cool:0,mode:'',stepFrom:1.3,stepAvg:0,verify:false});
   const look=useMemo(()=>new THREE.Vector3(),[]),cut=useRef({key:'',at:0});
   const ear=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),up=useMemo(()=>new THREE.Vector3(),[]),origin=useMemo(()=>new THREE.Vector3(),[]);
   const eyePoint=useMemo(()=>new THREE.Vector3(),[]),eyeLook=useMemo(()=>new THREE.Vector3(),[]);
@@ -500,6 +511,12 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   const blendTo=useMemo(()=>new THREE.Quaternion(),[]);
   // Chassis choice: eased camera pose plus the last chassis the pointer settled on.
   const pickEye=useMemo(()=>new THREE.Vector3(),[]),pickLook=useMemo(()=>new THREE.Vector3(),[]),pickNow=useMemo(()=>new THREE.Vector3(),[]);
+  // Scratch for the follow cameras: the chasing pose is rebuilt every rendered frame, so allocating
+  // there handed the collector a small vector per frame for no change in the picture.
+  const followFocus=useMemo(()=>new THREE.Vector3(),[]),followFrom=useMemo(()=>new THREE.Vector3(),[]),followWanted=useMemo(()=>new THREE.Vector3(),[]);
+  // Audience follow: once the pointer takes the camera, `followOrbit` hands the pose to OrbitControls,
+  // which keeps the audience's own offset while the target rides the chassis.
+  const followOrbit=useRef(false),followId=useRef('');
   const pickAt=useRef({id:'',ready:false});
   // The picker eases into its first pose from whatever the broadcast left behind, and between the two
   // stages it glides instead of cutting, so side choice → chassis choice is one continuous move.
@@ -625,6 +642,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       // The camera still holds the old mode's pose here, so that is what the move starts from.
       blendQ.fromPos.copy(camera.position);blendQ.fromQuat.copy(camera.quaternion);blendQ.t=0;
       previousMode.current=mode;
+      followOrbit.current=false;
       if(mode==='orbit'){camera.position.set(...BROADCAST_EYE);controls.current?.target.set(...BROADCAST_TARGET);}}
     // Only the top view leans the world over; every other mode wants the normal world up, and the
     // orbit controls derive their own gimbal from it.
@@ -765,6 +783,10 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
     if(mode==='follow'){
       const f=feed.current.frame;
       if(f){
+        // Audience grab: from the first drag or wheel the pose belongs to OrbitControls, which keeps
+        // the audience's own angle and distance around the chassis instead of the scripted chase.
+        if(followId.current!==selected){followId.current=selected;followOrbit.current=false;}
+        const orbiting=followOrbit.current&&!pilot;
         // A drone is followed as a body of its own. Selecting the hangar does not park the camera on
         // the hangar either: it rides the lead drone, while every drone of that hangar is ringed.
         const onField=droneOnField(f,selected);
@@ -774,16 +796,29 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
           const owner=onField?.robot??hangar!;
           const previous=feed.current.previous?.robots.find(r=>r.id===owner.id)?.drones?.find(d=>d.id===drone.id)||drone;
           const alpha=feedAlpha(feed.current);
-          const focus=point(drone,0,f.arena.width,f.arena.height).lerp(point(previous,0,f.arena.width,f.arena.height),1-alpha);
+          const focus=followFocus.set(drone.x-f.arena.width/2,drone.z||0,drone.y-f.arena.height/2).lerp(followFrom.set(previous.x-f.arena.width/2,previous.z||0,previous.y-f.arena.height/2),1-alpha);
           target.lerp(focus,Math.min(1,dt*8));
-          const speed=Math.hypot(drone.vx,drone.vy),angle=speed>.15?Math.atan2(drone.vy,drone.vx):droneYaw(drone.quaternion);
-          const desired=target.clone().add(new THREE.Vector3(-Math.cos(angle)*DRONE_FOLLOW_BACK,DRONE_FOLLOW_EYE,-Math.sin(angle)*DRONE_FOLLOW_BACK));
-          desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
-          desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
-          camera.position.lerp(desired,Math.min(1,dt*4));camera.lookAt(target);
+          if(orbiting){controls.current?.target.copy(target);}
+          else{
+            const speed=Math.hypot(drone.vx,drone.vy),angle=speed>.15?Math.atan2(drone.vy,drone.vx):droneYaw(drone.quaternion);
+            const desired=followWanted.copy(target);desired.x-=Math.cos(angle)*DRONE_FOLLOW_BACK;desired.y+=DRONE_FOLLOW_EYE;desired.z-=Math.sin(angle)*DRONE_FOLLOW_BACK;
+            desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
+            desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
+            camera.position.lerp(desired,Math.min(1,dt*4));camera.lookAt(target);
+          }
         }else{
           const r=f.robots.find(r=>r.id===selected);
-          if(r){target.lerp(point(r,.40),Math.min(1,dt*6));const angle=r.heading;const desired=target.clone().add(new THREE.Vector3(-Math.cos(angle)*FOLLOW_BACK,FOLLOW_EYE,-Math.sin(angle)*FOLLOW_BACK));desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);camera.position.lerp(desired,Math.min(1,dt*3));camera.lookAt(target);}
+          if(r){
+            target.lerp(followFocus.set(r.x-f.arena.width/2,(r.z||0)+.40,r.y-f.arena.height/2),Math.min(1,dt*6));
+            if(orbiting){controls.current?.target.copy(target);}
+            else{
+              const angle=r.heading,desired=followWanted.copy(target);
+              desired.x-=Math.cos(angle)*FOLLOW_BACK;desired.y+=FOLLOW_EYE;desired.z-=Math.sin(angle)*FOLLOW_BACK;
+              desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
+              desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
+              camera.position.lerp(desired,Math.min(1,dt*3));camera.lookAt(target);
+            }
+          }
         }
       }
     }
@@ -792,11 +827,34 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
     const p=perf.current;
     p.ceiling=mode==='fpv'?FPV_DPR[1]:BROADCAST_DPR[1];
     if(p.ratio>p.ceiling){p.ratio=p.ceiling;setDpr(p.ceiling);}
-    p.time+=dt;p.frames++;
+    // A camera-mode change (or a hidden window resuming) leaves a window of samples that belong to a
+    // different workload; starting fresh keeps the first decision of a mode from being made on the
+    // previous mode's frame times.
+    if(p.mode!==mode){p.mode=mode;p.time=0;p.frames=0;p.fast=0;p.cool=0;p.verify=false;}
+    if(dt>.25){p.time=0;p.frames=0;}else{p.time+=dt;p.frames++;}
     if(p.time>=1){
       const avg=p.time/p.frames;p.time=0;p.frames=0;
-      const next=avg>.019?Math.max(DPR_FLOOR,p.ratio-.12):avg<.0135?Math.min(p.ceiling,p.ratio+.08):p.ratio;
-      if(Math.abs(next-p.ratio)>.01){p.ratio=next;setDpr(next);}
+      // Every resolution change rebuilds the drawing buffer, so the controller takes at most one
+      // decision per second and only climbs back after two fast windows in a row. A machine sitting
+      // on the threshold otherwise steps down and up once a second, and each step is a visible hitch.
+      if(p.cool>0)p.cool-=1;
+      // Pixels are only one of the ways to miss the budget. A frame that is bound by draw submission
+      // (or by the browser's own compositing) runs just as slow at half the resolution, so the window
+      // after a step down is checked: when it is not measurably faster the sharper ratio comes back
+      // and further steps wait out a cool-down instead of blurring the field for nothing.
+      if(p.verify){
+        p.verify=false;
+        if(avg>p.stepAvg*.9){p.ratio=p.stepFrom;setDpr(p.ratio);p.cool=20;p.fast=0;}
+      }
+      let next=p.ratio;
+      if(p.cool>0)p.fast=0;
+      else if(avg>.019){p.fast=0;p.cool=1;next=Math.max(DPR_FLOOR,p.ratio-(avg>.026?.2:.12));}
+      else if(avg<.0135){if(++p.fast>=2){p.fast=0;next=Math.min(p.ceiling,p.ratio+.08);}}
+      else p.fast=0;
+      if(Math.abs(next-p.ratio)>.01){
+        if(next<p.ratio){p.stepFrom=p.ratio;p.stepAvg=avg;p.verify=true;}
+        p.ratio=next;setDpr(next);
+      }
       // The shadow pass is the first cost to give up when the frame budget is already missed, but only
       // down to every fourth frame: a map refreshed a few times a second leaves each robot's shadow
       // trailing a step behind it, which reads as lag rather than as a cheaper picture.
@@ -817,6 +875,11 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       gl.shadowMap.needsUpdate=true;s.frame=f.frame;s.generation=f.generation;s.paused=f.paused;
     }
     s.slot=slot;
+    // The plates are billboards, and this is the only point in the frame where the camera pose is
+    // final: the director above has just written it, and nothing else touches it until the draw. The
+    // size of a plate is fitted against that same pose, so a follow camera never scales a bar with a
+    // frame-old distance.
+    alignBillboards(camera,size);
     // The frame is drawn either straight to the canvas or, with the lobbed-fire sight on the eye,
     // through the lens pass that magnifies the aperture and keeps the rest of the field plain.
     renderSight(scene as THREE.Scene,camera as THREE.PerspectiveCamera,size.width,size.height,FPV_FOV,mode==='fpv');
@@ -831,11 +894,14 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       (window as unknown as {arenaRender?:unknown}).arenaRender={calls:r.calls,triangles:r.triangles,frame:r.frame,dpr:perf.current.ratio,
         meshes,shadowCasters:casters,materials:gl.info.memory.geometries,textures:gl.info.memory.textures,shadowEvery:perf.current.shadow,
         eye:[camera.position.x,camera.position.y,camera.position.z].map(v=>Math.round(v*100)/100),up:[camera.up.x,camera.up.y,camera.up.z]};
+      // Same census, but the live objects behind it: an ablation in the console (hide the robots,
+      // turn the shadow pass off) is the quickest way to tell what a slow frame is actually paying for.
+      (window as unknown as {arenaDebug?:unknown}).arenaDebug={gl,scene,camera};
     }
     // Copy the just-rendered frame synchronously, before WebGL releases its buffer.
     onRender();
   },1);
-  return <OrbitControls ref={controls} enabled={mode==='orbit'&&!shot&&!pickView} enableDamping dampingFactor={.075} maxPolarAngle={Math.PI*.47} minDistance={4} maxDistance={72} target={BROADCAST_TARGET}/>;
+  return <OrbitControls ref={controls} enabled={(mode==='orbit'||(mode==='follow'&&!pilot))&&!shot&&!pickView} enablePan={mode!=='follow'} onStart={()=>{if(mode==='follow'&&!pilot){followOrbit.current=true;blend.current.t=1;controls.current?.target.copy(target);}}} enableDamping dampingFactor={.075} maxPolarAngle={Math.PI*.47} minDistance={1.5} maxDistance={72} target={BROADCAST_TARGET}/>;
 }
 
 // RMUC 2027 lighting: the broadcast fill plus a faint studio environment for reflections, so the baked contact shadows
@@ -883,7 +949,11 @@ function Sun({mode}:{mode:CameraMode}){
 // wall stands up on the outer edge. A click there opens that side's chassis choice; the stands
 // around the field are the third answer — pointing at the audience seats and clicking watches instead.
 type PickZone=TeamId|'seat';
-function HalfPicker({feed,onPick,onHover,onSpectate,seatHot}:{feed:MutableRefObject<RenderFeed>;onPick:(team:TeamId)=>void;onHover?:(zone:PickZone|null)=>void;onSpectate?:()=>void;seatHot?:MutableRefObject<boolean>}){
+// The picker's three answers, anchored over the region each one is about: the two halves of the field
+// and the audience bowl outside them. They are text only — the arena is the background — so a narrow
+// window squeezes the field, never the labels into each other.
+export type HalfBriefs={red:HalfBriefData;blue:HalfBriefData};
+function HalfPicker({feed,onPick,onHover,onSpectate,seatHot,briefs}:{feed:MutableRefObject<RenderFeed>;onPick:(team:TeamId)=>void;onHover?:(zone:PickZone|null)=>void;onSpectate?:()=>void;seatHot?:MutableRefObject<boolean>;briefs?:HalfBriefs|null}){
   const {camera,gl,size}=useThree();
   const arena=feed.current.frame?.arena,halfW=(arena?.width??28)/2,halfH=(arena?.height??15)/2;
   const midX={red:-halfW/2,blue:halfW/2},outerX={red:-halfW,blue:halfW};
@@ -919,6 +989,9 @@ function HalfPicker({feed,onPick,onHover,onSpectate,seatHot}:{feed:MutableRefObj
   },[halfW,halfH]);
   // Corner pylons are the only tall elements, so hovering a side reads from any camera angle.
   const corners=useMemo(()=>[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz])=>({sx,sz})),[]);
+  // Grounded counts are read from the feed at paint time: the side briefs are chrome around a snapshot
+  // the scene already renders, so they never need the frame passed in as a prop.
+  const robotsFor=(team:TeamId)=>(feed.current.frame?.robots??[]).filter(r=>r.team===team&&r.role!=='aerial').length;
   useEffect(()=>{
     const move=(event:PointerEvent)=>{const rect=gl.domElement.getBoundingClientRect();pointer.current={x:event.clientX-rect.left,y:event.clientY-rect.top};};
     window.addEventListener('pointermove',move,{passive:true});
@@ -1037,6 +1110,15 @@ function HalfPicker({feed,onPick,onHover,onSpectate,seatHot}:{feed:MutableRefObj
       <ringGeometry args={[.95,1.12,48]}/>
       <meshBasicMaterial ref={cursorMat} color="#ffffff" transparent opacity={.75} side={THREE.DoubleSide} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending}/>
     </mesh>
+    {/* The three answers float over the regions they stand for: the two halves of the field and the
+        audience bowl around them. Ground-anchored instead of docked to the frame, they can never
+        crowd each other, and the highlight for the region under the pointer is pure text: no card,
+        no border, nothing between the viewer and the arena. */}
+    {briefs&&<>
+      <Html center position={[midX.red,2.8,0]} zIndexRange={[13,11]} style={{pointerEvents:'none'}}><HalfBrief side="red" robots={robotsFor('red')} {...briefs.red}/></Html>
+      <Html center position={[midX.blue,2.8,0]} zIndexRange={[13,11]} style={{pointerEvents:'none'}}><HalfBrief side="blue" robots={robotsFor('blue')} {...briefs.blue}/></Html>
+      <Html center position={[0,3.2,-(halfH+1.2)]} zIndexRange={[13,11]} style={{pointerEvents:'none'}}><SeatBrief/></Html>
+    </>}
   </group>;
 }
 
@@ -1131,7 +1213,7 @@ function Prewarm({feed}:{feed:MutableRefObject<RenderFeed>}){
   return null;
 }
 
-function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRender,shot,pilot,pick,onPick,onPickHalf,onPickHalfHover,onPickSpectate,onPickHover,pickView,linkPick,onLinkPick,onLinkHover}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null;pilot?:string|null;pick?:boolean;onPick?:(id:string)=>void;onPickHalf?:(team:TeamId)=>void;onPickHalfHover?:(zone:'red'|'blue'|'seat'|null)=>void;onPickSpectate?:()=>void;onPickHover?:(id:string|null)=>void;pickView?:PickView|null;linkPick?:boolean;onLinkPick?:(id:string)=>void;onLinkHover?:(id:string|null)=>void}){
+function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRender,shot,pilot,pick,onPick,onPickHalf,onPickHalfHover,onPickSpectate,onPickHover,pickView,linkPick,onLinkPick,onLinkHover,briefs}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null;pilot?:string|null;pick?:boolean;onPick?:(id:string)=>void;onPickHalf?:(team:TeamId)=>void;onPickHalfHover?:(zone:'red'|'blue'|'seat'|null)=>void;onPickSpectate?:()=>void;onPickHover?:(id:string|null)=>void;pickView?:PickView|null;linkPick?:boolean;onLinkPick?:(id:string)=>void;onLinkHover?:(id:string|null)=>void;briefs?:HalfBriefs|null}){
   // A pilot sees the field through a first-person HUD, so the broadcast plates — enemy health bars,
   // structure bars, mechanism prompts — are switched off with the same flag.
   const hud=!pilot;
@@ -1177,7 +1259,7 @@ function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRend
     {/* Link Start scans the overhead field: every chassis of both teams in reach, and the pointer
         resting on the cockpit rail or its panel counts as no pointer at all. */}
     <PickProbe pick={!!linkPick} feed={feed} hover={hoverLink} onPick={onLinkPick} onHover={onLinkHover} radius={46} hysteresis={1} canvasOnly dataKey="linkHover"/>
-    {pickView?.stage==='side'&&onPickHalf&&<HalfPicker feed={feed} onPick={onPickHalf} onHover={onPickHalfHover} onSpectate={onPickSpectate} seatHot={pickSeat}/>}
+    {pickView?.stage==='side'&&onPickHalf&&<HalfPicker feed={feed} onPick={onPickHalf} onHover={onPickHalfHover} onSpectate={onPickSpectate} seatHot={pickSeat} briefs={briefs}/>}
     {frameSeason(frame)==='2027'?<FieldLights2027/>:<><hemisphereLight args={['#e4eefb','#1c2128',1.9]}/><ambientLight intensity={.22}/><Sun mode={mode}/></>}<directionalLight position={[-18,12,-14]} color="#9fb9ff" intensity={1.1}/><directionalLight position={[18,9,14]} color="#c9b8ff" intensity={.45}/>
     <Venue season={frameSeason(frame)} seatHot={pickView?.stage==='side'?pickSeat:undefined}/>
     <Suspense fallback={<Html center><div className="scene-loading">加载 Blender / glTF 资产…</div></Html>}><Prewarm feed={feed}/><ArenaMap frame={frame} feed={feed}/><BaseModel team="red" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/><BaseModel team="blue" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/>{frame.outposts&&<><OutpostModel team="red" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/><OutpostModel team="blue" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/></>}{frame.runes&&<><RuneModel team="red" feed={feed}/><RuneModel team="blue" feed={feed}/></>}{frame.arena.structure_assets?.core&&frame.arena.assembly_frames&&<><TechCore team="red" feed={feed} url={frame.arena.structure_assets.core}/><TechCore team="blue" feed={feed} url={frame.arena.structure_assets.core}/></>}{frame.robots.map(r=><RobotModel key={r.id} id={r.id} role={r.role} team={r.team} url={r.model_asset||`/assets/robot-${r.role}.glb`} feed={feed} selected={selected} onSelect={onSelect} hidden={mode==='fpv'&&r.id===selected} hover={hoverPick} pick={pick} onPick={onPick}/>)}{frame.robots.filter(r=>r.drones?.length&&r.model_asset).flatMap(r=>r.drones!.map((d,k)=><DroneModel key={d.id} robot={r.id} droneId={d.id} index={k} team={r.team} url={r.model_asset!.replace('/robot-','/drone-')} feed={feed} selected={selected} onSelect={onSelect}/>))}</Suspense>
@@ -1187,7 +1269,11 @@ function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRend
     {hud&&<group visible={!shot}>{frame.robots.map(r=><RobotHud key={r.id} id={r.id} team={r.team} feed={feed} focus={selected===r.id} onSelect={onSelect}/>)}
     {(['red','blue'] as const).map(team=><group key={team}><StructureHud team={team} kind="base" feed={feed}/>{frame.outposts&&<StructureHud team={team} kind="outpost" feed={feed}/>}</group>)}</group>}
     {hud&&<CombatText feed={feed}/>}{hud&&frame.runes&&<><RuneBoard feed={feed}/><RuneBurst feed={feed}/></>}
-    {hud&&(['red','blue'] as const).map(team=><group key={team}><MechanismHud team={team} kind="outpost" feed={feed}/><FortressWarning defender={team} feed={feed}/></group>)}
+    {hud&&(['red','blue'] as const).map(team=><MechanismHud key={team} team={team} kind="outpost" feed={feed}/>)}
+    {/* The capture plate belongs to the world rather than the broadcast furniture: a pilot in a
+        third-person view still sees the base-armour countdown on the enemy plateau, and the first
+        person lens (or an intro shot) hides it. */}
+    {(['red','blue'] as const).map(team=><FortressWarning key={team} defender={team} feed={feed} hidden={mode==='fpv'||!!shot}/>)}
     <SightRig/><Effects feed={feed}/><Director mode={mode} selected={selected} feed={feed} audio={audio} onCanvas={onCanvas} onRender={onRender} shot={shot} pilot={pilot} hud={hud} pickView={pickView} pickHover={hoverPick} pickSeat={pickSeat} linkHover={linkPick?hoverLink:undefined}/>
   </Canvas></SceneBoundary>;
 }
@@ -1195,7 +1281,7 @@ function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRend
 // per-tick robot motion is read from `feed` inside the render loop.
 export const ArenaScene=memo(ArenaSceneView,(a,b)=>
   a.feed===b.feed&&a.mode===b.mode&&a.selected===b.selected&&a.pilot===b.pilot&&a.shot===b.shot
-  &&a.pick===b.pick&&a.onPick===b.onPick&&a.onPickHalf===b.onPickHalf&&a.onPickHalfHover===b.onPickHalfHover&&a.onPickSpectate===b.onPickSpectate&&a.onPickHover===b.onPickHover&&a.pickView===b.pickView
+  &&a.pick===b.pick&&a.onPick===b.onPick&&a.onPickHalf===b.onPickHalf&&a.onPickHalfHover===b.onPickHalfHover&&a.onPickSpectate===b.onPickSpectate&&a.onPickHover===b.onPickHover&&a.pickView===b.pickView&&a.briefs===b.briefs
   &&a.linkPick===b.linkPick&&a.onLinkPick===b.onLinkPick&&a.onLinkHover===b.onLinkHover
   &&a.linkPick===b.linkPick&&a.onLinkPick===b.onLinkPick&&a.onLinkHover===b.onLinkHover
   &&a.audio===b.audio&&a.onSelect===b.onSelect&&a.onCanvas===b.onCanvas&&a.onRender===b.onRender

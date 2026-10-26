@@ -11,7 +11,16 @@ pub struct PickupState {
     pub held: bool,
     #[serde(default)]
     pub arm: u32,
+    /// Seconds since the current stage last made progress. The arm clamps every joint to its
+    /// travel limit, so a unit outside the workspace would otherwise sit at "approaching" forever.
+    #[serde(default)]
+    pub stall: f64,
 }
+
+/// A grab that cannot reach its target must fail instead of hanging: the pilot would hold the key
+/// and watch 0 % until they leave the resource zone. Four seconds leaves room for a legitimate
+/// grab that starts with the arm stowed and the chassis turned away.
+const PICKUP_STALL_S: f64 = 4.0;
 
 impl Engine {
     pub(super) fn request_pickup(&mut self, i: usize, rpc: &Value) {
@@ -79,6 +88,7 @@ impl Engine {
             direction: std::array::from_fn(|k| station["pick_dir"][k].as_f64().unwrap_or(0.0)),
             held: false,
             arm,
+            stall: 0.0,
         });
         self.event("unit_pickup_started", json!({"robot":self.robots[i].id}));
     }
@@ -131,6 +141,8 @@ impl Engine {
                 _ => false,
             };
             state.phase_elapsed = if ready { state.phase_elapsed + DT } else { 0.0 };
+            state.stall = if ready { 0.0 } else { state.stall + DT };
+            let stalled = state.stall > PICKUP_STALL_S;
             let (index, duration, next) = match state.stage.as_str() {
                 "approaching" => (0, 0.2, "gripping"),
                 "gripping" => (1, 0.35, "lifting"),
@@ -138,6 +150,14 @@ impl Engine {
                 _ => (3, 0.4, "complete"),
             };
             state.progress = (index as f64 + (state.phase_elapsed / duration).min(1.0)) / 4.0;
+            if stalled {
+                // The unit is outside the arm's workspace (too far, wrong side, or the chassis is
+                // misaligned): stop pretending a grab is in progress and let the cockpit say why.
+                let id = r.id.clone();
+                r.unit_pickup = None;
+                self.event("unit_pickup_cancelled", json!({"robot":id,"reason":"unreachable"}));
+                continue;
+            }
             if state.phase_elapsed + 1e-8 < duration {
                 continue;
             }

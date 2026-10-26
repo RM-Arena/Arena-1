@@ -258,13 +258,13 @@ def model_controls(lang,d):
 
 
 def selected_team_hardware(lang,rules,lineup):
-    header="# 已锁定的双方共同阵容" if lang=="zh" else "# Locked symmetric team lineup"
+    header="# 已锁定的己方出战阵容" if lang=="zh" else "# Locked team lineup"
     rows=[];sections=[]
     for slot,model in lineup.items():
         d=rules["robot_designs"].get(str(model),rules["robot_designs"][str(slot)])
         rows.append([slot,model,d['name'] if lang=="zh" else d.get('name_en',d['name']),d['chassis_type'],d.get('arm_count',0),d.get('deploy_allowed',False)])
         sections.append(model_controls(lang,d).replace("### 本型号的机构能力",f"### {slot} 号 · {d['name']}").replace("### Model capabilities",f"### Slot {slot} · {d.get('name_en',d['name'])}"))
-    note="用户已经确认下表阵容；这是你开发策略时已知的完整出战阵容，红蓝双方相同。开发、练习、提交后均不可换型。不同阵容需要新建开发工作区。`lineup.json`和这些硬件参考受保护。" if lang=="zh" else "The user has confirmed the complete lineup below before strategy development. You know all six deployed models, and both sides use the same lineup. Development, practice and submission preserve it; use a new workspace for another lineup. lineup.json and hardware references are protected."
+    note="用户已经确认下表阵容；这是你开发策略时已知的完整出战阵容，对手可能使用不同型号。开发、练习、提交后均不可换型。不同阵容需要新建开发工作区。`lineup.json`和这些硬件参考受保护。" if lang=="zh" else "The user has confirmed the complete lineup below before strategy development. You know all six deployed models; the opponent may field different models. Development, practice and submission preserve it; use a new workspace for another lineup. lineup.json and hardware references are protected."
     return header+"\n\n"+note+"\n\n"+table(["编号","型号","名称","驱动","机械臂","部署"] if lang=="zh" else ["Slot","Model","Name","Drive","Arms","Deploy"],rows)+"\n\n"+"\n".join(sections)
 
 
@@ -279,11 +279,11 @@ def team_task_context(lang,rules,lineup,season="2026"):
             '—' if d['role']=='aerial' else stats['hp'],stats['power_w'],d['battery_wh']])
     if lang=='zh':
         header='## 用户已确认的出战阵容'
-        note='开发开始前，用户已选定以下六台机器人。你可以确定完整上场阵容，并据此设计分工和协同；红蓝双方使用相同型号。比赛编号与型号分开：动作使用编号，硬件由 model_slot 指定。阵容在开发、练习和提交期间保持固定，lineup.json 是受保护的记录。'
+        note='开发开始前，用户已选定以下六台机器人。你可以确定完整上场阵容，并据此设计分工和协同；对手可能使用不同型号，但双方阵容都完整。比赛编号与型号分开：动作使用编号，硬件由 model_slot 指定。阵容在开发、练习和提交期间保持固定，lineup.json 是受保护的记录。'
         columns=['比赛编号','型号','机器人','预选1级HP','底盘功率 W','电池 Wh']
     else:
         header='## User-confirmed competition lineup'
-        note='The user selected these six robots before development. You know the complete deployed lineup and can plan roles and coordination around it. Both teams use identical models. Actions address competition slots; model_slot identifies hardware. This lineup remains fixed throughout development, practice and submission; lineup.json is its protected record.'
+        note='The user selected these six robots before development. You know the complete deployed lineup and can plan roles and coordination around it. The opponent may field different models, but both lineups are complete. Actions address competition slots; model_slot identifies hardware. This lineup remains fixed throughout development, practice and submission; lineup.json is its protected record.'
         columns=['Competition slot','Model','Robot','Preselected L1 HP','Chassis power W','Battery Wh']
     return header+'\n\n'+note+'\n\n'+table(columns,rows)+'\n'
 
@@ -568,9 +568,9 @@ def selected_team_hardware_2027(lang, rules, lineup):
         rows.append([slot, model, design_name(lang, d), d["chassis_type"], d.get("arm_count", 0), d.get("drone_count", 0)])
         heading = f"### {slot} 号 · {d['name']}" if zh else f"### Slot {slot} · {design_name(lang, d)}"
         sections.append(model_controls_2027(lang, d).replace("### 本型号的机构能力", heading).replace("### Model capabilities", heading))
-    header = "# 已锁定的双方共同阵容（RMUC 2027）" if zh else "# Locked symmetric team lineup (RMUC 2027)"
-    note = ("用户已经确认下表阵容；这是你开发策略时已知的完整出战阵容，红蓝双方相同。开发、练习、提交后均不可换型。不同阵容需要新建开发工作区。`lineup.json`和这些硬件参考受保护。" if zh else
-            "The user has confirmed the complete lineup below before strategy development. You know all five deployed models, and both sides use the same lineup. Development, practice and submission preserve it; use a new workspace for another lineup. lineup.json and hardware references are protected.")
+    header = "# 已锁定的己方出战阵容（RMUC 2027）" if zh else "# Locked team lineup (RMUC 2027)"
+    note = ("用户已经确认下表阵容；这是你开发策略时已知的完整出战阵容，对手可能使用不同型号。开发、练习、提交后均不可换型。不同阵容需要新建开发工作区。`lineup.json`和这些硬件参考受保护。" if zh else
+            "The user has confirmed the complete lineup below before strategy development. You know all five deployed models; the opponent may field different models. Development, practice and submission preserve it; use a new workspace for another lineup. lineup.json and hardware references are protected.")
     columns = ["编号", "型号", "名称", "驱动", "机械臂", "空中机器人"] if zh else ["Slot", "Model", "Name", "Drive", "Arms", "Aerial robots"]
     return header + "\n\n" + note + "\n\n" + table(columns, rows) + "\n\n" + "\n".join(sections)
 
@@ -583,11 +583,11 @@ def team_task_context_2027(lang, rules, lineup):
         rows.append([slot, model, design_name(lang, d), "—" if d["role"] == "aerial" else number(stats["hp"], 0), stats["ammo"], d["battery_wh"]])
     if lang == "zh":
         header = "## 用户已确认的出战阵容（RMUC 2027）"
-        note = "开发开始前，用户已选定以下五台机器人。你可以确定完整上场阵容，并据此设计分工和协同；红蓝双方使用相同型号。比赛编号与型号分开：动作使用编号，硬件由 model_slot 指定。阵容在开发、练习和提交期间保持固定，lineup.json 是受保护的记录。"
+        note = "开发开始前，用户已选定以下五台机器人。你可以确定完整上场阵容，并据此设计分工和协同；对手可能使用不同型号，但双方阵容都完整。比赛编号与型号分开：动作使用编号，硬件由 model_slot 指定。阵容在开发、练习和提交期间保持固定，lineup.json 是受保护的记录。"
         columns = ["比赛编号", "型号", "机器人", "初始 HP", "初始弹量", "电池 Wh"]
     else:
         header = "## User-confirmed competition lineup (RMUC 2027)"
-        note = "The user selected these five robots before development. You know the complete deployed lineup and can plan roles and coordination around it. Both teams use identical models. Actions address competition slots; model_slot identifies hardware. This lineup remains fixed throughout development, practice and submission; lineup.json is its protected record."
+        note = "The user selected these five robots before development. You know the complete deployed lineup and can plan roles and coordination around it. The opponent may field different models, but both lineups are complete. Actions address competition slots; model_slot identifies hardware. This lineup remains fixed throughout development, practice and submission; lineup.json is its protected record."
         columns = ["Competition slot", "Model", "Robot", "Initial HP", "Initial ammo", "Battery Wh"]
     return header + "\n\n" + note + "\n\n" + table(columns, rows) + "\n"
 

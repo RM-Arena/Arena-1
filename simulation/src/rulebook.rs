@@ -645,8 +645,8 @@ impl Engine {
                 };
                 let refusal = if !allowed {
                     Some(if remote { "远程补给需脱离交战 6 秒".to_string() } else { "需在本方基地或补给区内".to_string() })
-                } else if amount == 0 || batch == 0 || (remote && amount % batch != 0) {
-                    Some(if remote { format!("远程弹药数量必须为 {} 的整数倍", batch) } else { "弹药数量必须大于 0".to_string() })
+                } else if amount == 0 || batch == 0 {
+                    Some("弹药数量必须大于 0".to_string())
                 } else if purchased + amount > cap {
                     Some(format!("本队 {} 弹购买量已达上限（{}/{}）", kind, purchased, cap))
                 } else if self.teams[&team].resources < cost {

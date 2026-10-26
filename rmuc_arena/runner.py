@@ -496,7 +496,7 @@ class Policy:
 
 
 class Battle:
-    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, practice_lineup=False, free_team_strategies=None, battle_settings=None):
+    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, team_lineups=None, practice_lineup=False, free_team_strategies=None, battle_settings=None):
         # The field follows the strategies' rules season unless the caller names it.
         if map_name is None:
             from .submissions import manifest_season
@@ -508,16 +508,25 @@ class Battle:
         lineups, deck_policies, deck_metadata = prepare_decks(decks, seed, free_team_strategies, season) if decks is not None else (None, None, None)
         if decks is None:
             if free_team_strategies:raise ValueError("Free controllers require free battle")
-            from .models import normalize_team_lineup,mirrored_lineups
+            from .models import normalize_team_lineup,lineup_deployments
             manifests=[load_submission(source)[0] for source in (red,blue)]
             if any(m.get("rules_profile") != rules_profile for m in manifests):
                 raise ValueError(f"Both strategies must be written for the {season} season to play on {map_name}")
-            selected=[normalize_team_lineup(m.get('team_lineup'),season) for m in manifests]
-            chosen=normalize_team_lineup(team_lineup,season) if team_lineup is not None else selected[0]
-            if not practice_lineup and (selected[0]!=selected[1] or any(s!=chosen for s in selected)):
-                raise ValueError('Team matches require identical registered robot lineups; develop both strategies on the same lineup')
-            if chosen!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(chosen,season)
-        elif team_lineup is not None:raise ValueError('Decks and shared team lineups cannot be combined')
+            # Each side keeps the lineup its own strategy was developed on; a side without one runs
+            # the requested lineup. The two sides never need the same hardware, only a complete
+            # lineup for the season.
+            shared=normalize_team_lineup(team_lineup,season) if team_lineup is not None else None
+            chosen={}
+            for team,manifest in zip(("red","blue"),manifests):
+                locked=manifest.get('team_lineup')
+                requested=(team_lineups or {}).get(team)
+                lineup=(shared if practice_lineup and shared is not None else
+                        locked if locked is not None else
+                        requested if requested is not None else shared)
+                chosen[team]=normalize_team_lineup(lineup,season)
+            if season!=season_rules.LEGACY_SEASON or any(chosen[team]!=season_rules.default_lineup(season) for team in ("red","blue")):
+                lineups={team:lineup_deployments(chosen[team],season) for team in ("red","blue")}
+        elif team_lineup is not None or team_lineups:raise ValueError('Decks and team lineups cannot be combined')
         from .battle_settings import normalize
         battle_settings = normalize(battle_settings or {}, season)
         self.match, self.sandbox, self.policies, self.closed = Match(seed, duration, map_name, lineups=lineups, battle_settings=battle_settings), sandbox, [], False
@@ -542,11 +551,17 @@ class Battle:
         # The solved lob aim a `lob_ready` deadline belongs to, so a moving reticle re-arms the climb.
         self.lob_ready_aim = {}
         self.communication = TeamCommunication({team:[d["slot"] for d in items] for team, items in lineups.items()} if lineups else None, slot_ids)
-        if lineups:
+        if self.deck_mode:
             self.metadata.update({"lineups":lineups,"test_match":True,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
-        if not self.deck_mode:
-            self.metadata['team_lineup']=chosen
-            self.metadata['test_match']=duration!=420 or practice_lineup or bool(battle_settings)
+        else:
+            if lineups:
+                self.metadata.update({"lineups":lineups,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
+            # A replay needs one lineup per side; keep the shared key only when both happen to match.
+            if chosen["red"]==chosen["blue"]:
+                self.metadata['team_lineup']=chosen["red"]
+            else:
+                self.metadata['red_lineup'],self.metadata['blue_lineup']=chosen["red"],chosen["blue"]
+            self.metadata['test_match']=duration!=420 or practice_lineup or bool(battle_settings) or "lineups" in self.metadata
         self.pending_referee = []
         self.metadata["agents"] = {}
         try:

@@ -51,6 +51,23 @@ footer{display:flex;justify-content:space-between;align-items:center;padding:0 2
 .robot-card{touch-action:none}.deck-drag-preview{position:fixed;z-index:220;pointer-events:none;transform:translate(-50%,-50%) rotate(-4deg);display:flex;align-items:center;gap:8px;padding:13px 18px;background:#263a48ed;border:1px solid #ebc782;border-radius:8px;box-shadow:0 10px 30px #0008;color:#f1d39c;font-size:12px}
 
 .fortress-countdown{display:flex;flex-direction:column;align-items:center;padding:8px 15px 10px;border-radius:9px;background:#061019c9;box-shadow:0 0 28px #0005;border:1px solid var(--fort-color);white-space:nowrap;pointer-events:none;min-width:116px;transform:translateY(-8px);font-variant-numeric:tabular-nums}.fortress-countdown.red{--fort-color:#ff3b30;box-shadow:0 0 20px #ff3b3033}.fortress-countdown.blue{--fort-color:#2f8cff;box-shadow:0 0 20px #2f8cff33}.fortress-countdown>span{font-size:10px;letter-spacing:1px;color:#e2ebf3}.fortress-countdown>div{display:flex;align-items:baseline;gap:6px}.fortress-countdown b{font-size:34px;line-height:1.15;color:var(--fort-color);text-shadow:0 0 14px var(--fort-color)}.fortress-countdown small{font-size:11px;color:#bacbd6}
+/* Running capture: the bar under the seconds is the same progress the top HUD ring shows. */
+.fortress-countdown .fortress-bar{display:block;width:100%;height:3px;margin-top:5px;border-radius:2px;background:#ffffff22;overflow:hidden}
+.fortress-countdown .fortress-bar>em{display:block;height:100%;width:0;background:var(--fort-color);box-shadow:0 0 8px var(--fort-color);transition:width .1s linear}
+/* Buff / debuff chips: a glyph plus the final figure, shared by the broadcast cards and the cockpit
+   status strip. The colour only names the kind; the number is the engine's own value. */
+.buff-chips{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;pointer-events:none}
+.buff-chip{display:inline-flex;align-items:center;gap:3px;height:15px;background:none;border:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* The glyph sits in a small circle of the buff's colour, the final figure reads beside it. */
+.buff-chip>svg{flex:none;box-sizing:content-box;width:10px;height:10px;padding:2px;border-radius:50%;border:1px solid var(--buff,#cfe6ff);background:#050a10d9;color:var(--buff,#e8f4ff);box-shadow:0 0 6px #0009,inset 0 0 5px var(--buff,#cfe6ff)33}
+.buff-chip>em{font-style:normal;font-size:9px;letter-spacing:.2px;color:var(--buff,#e8f4ff);text-shadow:0 1px 2px #000,0 0 6px #0009}
+.buff-chip.attack{--buff:#ffa06a}.buff-chip.defense{--buff:#7fd0ff}.buff-chip.vulnerability{--buff:#ff6a5a}
+.buff-chip.cooling{--buff:#8fe7c8}.buff-chip.power{--buff:#ffd45e}.buff-chip.invulnerable{--buff:#ffe08a}
+.buff-chip.weak{--buff:#b9a6ff}.buff-chip.heat{--buff:#ff8a5a}.buff-chip.lock{--buff:#9aa6b0}
+/* Top HUD: one row under each robot card, so the row of chassis keeps its shape. */
+.bc-card-buffs{position:absolute;left:0;right:0;bottom:-18px;justify-content:center;gap:3px;z-index:2}
+.bc-card-buffs .buff-chip>svg{width:8px;height:8px;padding:1.5px}
+.bc-card-buffs .buff-chip>em{font-size:8.5px}
 /* Strategy gallery tabs and the appearance button in match setup. */
 .gallery-tabs{display:flex;gap:6px;margin-bottom:14px}
 .gallery-tabs button{gap:7px;padding:8px 16px;border-radius:18px;background:#16212a;border:1px solid #2a3843;color:#a9bbc6;font-size:13px}

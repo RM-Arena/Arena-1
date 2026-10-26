@@ -59,16 +59,24 @@ function mergeByColour(source: THREE.Object3D, keep?: (node: THREE.Object3D) => 
     if (!node.visible || node.children.length) return;
     if (keep?.(node)) return;
     const material = node.material;
-    if (Array.isArray(material) || !(material instanceof THREE.MeshStandardMaterial) || material.transparent || !material.visible) return;
+    if (Array.isArray(material) || !(material instanceof THREE.MeshStandardMaterial) || !material.visible) return;
     if (material.name.startsWith('Team')) return;
     if (material.emissive && material.emissive.getHex() !== 0) return;
+    // A surface that genuinely blends — glass, a glowing panel, a decal — cannot share a draw with its
+    // neighbours, because the transparent pass has to sort it against them every frame. A solid part
+    // that the exporter merely left in "blend" mode is another matter: at full opacity, with depth
+    // writes and normal blending, the pixel lands the same whatever order the parts are drawn in, so
+    // those parts join a batch like any other. The flag rides in the key, so the two kinds never end
+    // up in one draw.
+    if (material.alphaMap || material.alphaTest > 0) return;
+    if (material.transparent && (material.opacity < .999 || !material.depthWrite || material.blending !== THREE.NormalBlending)) return;
     if (Object.keys(node.geometry.morphAttributes || {}).length) return;
     // A mirrored part would flip winding once its transform is baked into the vertices.
     if (node.matrixWorld.determinant() <= 0) return;
     for (let p: THREE.Object3D | null = node; p && p !== source; p = p.parent) {
       if (MOVING.test(p.name)) return;
     }
-    const key = [material.map?.uuid ?? '', material.side, layout(node.geometry)].join(':');
+    const key = [material.map?.uuid ?? '', material.side, material.transparent, layout(node.geometry)].join(':');
     let scope = source;
     if (joints) {
       scope = source;
@@ -128,7 +136,8 @@ function mergeByColour(source: THREE.Object3D, keep?: (node: THREE.Object3D) => 
   }
 }
 
-export function batchStaticStructure(source: THREE.Object3D) {
+export function batchStaticStructure(source: THREE.Object3D, options: {byColour?: boolean; trimShadows?: boolean} = {}) {
+  const {byColour = true, trimShadows = true} = options;
   source.updateMatrixWorld(true);
   const inverse = new THREE.Matrix4().copy(source.matrixWorld).invert();
   const groups = new Map<string, THREE.Mesh[]>();
@@ -138,6 +147,8 @@ export function batchStaticStructure(source: THREE.Object3D) {
     const { geometry, material } = node;
     if (Array.isArray(material) || material.transparent || !material.visible) return;
     if (Object.keys(geometry.morphAttributes || {}).length) return;
+    // Baked into the vertices of a batch, a mirrored part would flip its winding and turn inside out.
+    if (node.matrixWorld.determinant() <= 0) return;
     for (let p: THREE.Object3D | null = node; p && p !== source; p = p.parent) {
       if (MOVING.test(p.name)) return;
     }
@@ -163,7 +174,8 @@ export function batchStaticStructure(source: THREE.Object3D) {
     source.add(batch);
     meshes.forEach(mesh => mesh.removeFromParent());
   }
-  mergeByColour(source);
+  if (byColour) mergeByColour(source);
+  if (!trimShadows) return source;
   // Shadow casters are a full draw each time the shadow map refreshes. On a structure only the big
   // masses throw a shadow anyone reads from a cockpit camera, so the small parts stop casting.
   source.traverse(node => {
@@ -231,6 +243,11 @@ export function batchFlyingBody(source:THREE.Object3D){
   // The drone's shell is painted one material per part, so material-keyed merging alone changes
   // nothing; baking each part's colour into vertex colours is what turns ~55 draws into a handful.
   mergeByColour(scene,spinning);
+  // What spins is the rotor subtree, not the pieces inside it, so a hub and its blades can share one
+  // draw per rotor instead of one each.
+  const rotors=new Set<THREE.Object3D>();
+  scene.traverse(node=>{if(ROTOR.test(node.name))rotors.add(node);});
+  rotors.forEach(rotor=>mergeByColour(rotor));
   // A 1.4 m drone throws one readable shadow, from its hull: the shell details only cost draws.
   scene.traverse(node=>{
     if(!(node instanceof THREE.Mesh)||!node.castShadow)return;

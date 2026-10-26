@@ -73,6 +73,10 @@ class StartRequest(BaseModel):
     red_deck: list[str] = Field(default_factory=list)
     blue_deck: list[str] = Field(default_factory=list)
     team_lineup: dict[str,int] | None = None
+    # A standard match keeps each side on its own lineup; these only fill in a side whose strategy
+    # declares none (a team strategy always runs the lineup it was developed on).
+    red_lineup: dict[str,int] | None = None
+    blue_lineup: dict[str,int] | None = None
     red_control: Literal["team","independent"] = "independent"
     blue_control: Literal["team","independent"] = "independent"
     red_team_strategy: str | None = None
@@ -378,8 +382,8 @@ class ArenaService:
             choices = self.catalog(season=season)
             decks, lineups, free_team_strategies = None, None, None
             if args.mode == "deck":
-                if args.team_lineup is not None:
-                    raise ValueError("Free battle uses separate red and blue lineups")
+                if args.team_lineup is not None or args.red_lineup is not None or args.blue_lineup is not None:
+                    raise ValueError("Free battle takes its lineups from the selected robot cards")
                 cards = self.catalog(("adaptive",), season)
                 if not args.red_deck or not args.blue_deck or any(key not in cards for key in args.red_deck + args.blue_deck):
                     raise ValueError(f"每方至少选择一台机器人，且每台必须绑定 {season} 赛季已保存的单机策略（型号须符合 {season} 制作规范）")
@@ -394,11 +398,17 @@ class ArenaService:
                 raise ValueError(f"双方策略都必须是 {season} 赛季的策略" if any(k in self.catalog() for k in (args.red,args.blue)) else "Unknown submission")
             if not decks:
                 manifests=[load_submission(choices[key]['path'])[0] for key in (args.red,args.blue)]
-                registered=[normalize_team_lineup(m.get('team_lineup'),season) for m in manifests]
-                selected=normalize_team_lineup(args.team_lineup,season) if args.team_lineup is not None else registered[0]
-                if registered[0]!=registered[1] or any(value!=selected for value in registered):
-                    raise ValueError('双方 team 策略必须在同一套已锁定阵容下开发和提交')
-                if selected!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(selected,season)
+                requested={"red":args.red_lineup,"blue":args.blue_lineup}
+                chosen={}
+                for team,manifest in zip(("red","blue"),manifests):
+                    lineup=manifest.get('team_lineup')
+                    if lineup is None:lineup=requested[team] if requested[team] is not None else args.team_lineup
+                    try:
+                        chosen[team]=normalize_team_lineup(lineup,season)
+                    except ValueError as exc:
+                        raise ValueError(f"{'红' if team=='red' else '蓝'}方阵容不完整或不符合 {season} 制作规范：{exc}") from exc
+                if season!=season_rules.LEGACY_SEASON or any(value!=season_rules.default_lineup(season) for value in chosen.values()):
+                    lineups={team:[{"slot":int(slot),"model":value[slot]} for slot in value] for team,value in chosen.items()}
             fielded = lineups or mirrored_lineups(season_rules.default_lineup(season),season)
             skins = {team: self.custom_models.resolve(team, getattr(args, team + "_skins"), {d["model"] for d in fielded[team]}) for team in ("red", "blue")}
             with Match(args.seed, args.duration, args.map, lineups=lineups, battle_settings=args.battle_settings) as match:
@@ -417,13 +427,13 @@ class ArenaService:
             self.store.create(self.match_id, self.metadata)
             self.revision += 1
             self.busy = True
-            self.thread = threading.Thread(target=self._run, args=(self.match_id,None if decks else choices[args.red]["path"],None if decks else choices[args.blue]["path"],args,decks,free_team_strategies,skins), daemon=True)
+            self.thread = threading.Thread(target=self._run, args=(self.match_id,None if decks else choices[args.red]["path"],None if decks else choices[args.blue]["path"],args,decks,free_team_strategies,skins,None if decks else chosen), daemon=True)
             self.thread.start()
             return self.match_id
 
-    def _run(self, match_id, red, blue, args, decks=None, free_team_strategies=None, skins=None):
+    def _run(self, match_id, red, blue, args, decks=None, free_team_strategies=None, skins=None, team_lineups=None):
         try:
-            with Battle(red,blue,args.seed,args.duration,args.map,self.sandbox,decks=decks,team_lineup=args.team_lineup,free_team_strategies=free_team_strategies,battle_settings=args.battle_settings) as battle:
+            with Battle(red,blue,args.seed,args.duration,args.map,self.sandbox,decks=decks,team_lineup=args.team_lineup,team_lineups=team_lineups,free_team_strategies=free_team_strategies,battle_settings=args.battle_settings) as battle:
                 battle.metadata["match_id"] = match_id
                 battle.metadata["save_mp4"] = args.save_mp4
                 if skins and any(skins.values()):
@@ -1002,8 +1012,13 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
                 elif time.monotonic()-last_send>10:
                     await websocket.send_json({"type":"heartbeat"})
                     last_send=time.monotonic()
+                # A pilot's view is only as fresh as this poll: at the old 25 ms cadence the newest
+                # gimbal angle could sit in the server for up to half an engine tick (12.5 ms on
+                # average) before going out, which the cockpit feels as a soft follow. While someone
+                # is driving, poll at 8 ms; spectators keep the cheaper 25 ms cadence, which is plenty
+                # for a broadcast and keeps a large fan-out cheap.
                 try:
-                    await asyncio.wait_for(websocket.receive_text(),timeout=.025)
+                    await asyncio.wait_for(websocket.receive_text(),timeout=.008 if current.get("player") else .025)
                 except asyncio.TimeoutError:
                     pass
         except (WebSocketDisconnect,RuntimeError,ConnectionError):

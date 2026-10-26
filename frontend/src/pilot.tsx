@@ -1,10 +1,13 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties,type MutableRefObject} from 'react';
-import {Gamepad2,RotateCcw,X,Coins,Layers,PlugZap,Power,Zap,Maximize2,Minimize2} from 'lucide-react';
+import {Gamepad2,RotateCcw,X,Coins,Layers,PlugZap,Zap,Maximize2,Minimize2,Sword,ShieldCheck,Swords,Shield,Move} from 'lucide-react';
 import {ROLE_NAMES,TEAM_COLORS,type Arena,type CameraMode,type Frame,type MatchEvent,type PilotView,type Robot,type RobotHardware,type Structure,type TeamId} from './types';
 import {CameraControls} from './CameraControls';
+import {RespawnPanel} from './RespawnPanel';
 import {terrainHeight} from './terrain';
 import {FPV_EYE_LIFT} from './world';
 import {lobScope} from './scope';
+import {robotBuffs,type BuffChip} from './buffs';
+import {BuffChips} from './BuffChips';
 import './pilot.css';
 
 // Sent at the simulation's own 20 Hz cadence; the server holds the last command for a
@@ -24,15 +27,19 @@ const LOB_MAX_RANGE=20.5;
 const FOV_SCALE=64/80;
 const YAW_SENSITIVITY=.0042*FOV_SCALE,PITCH_SENSITIVITY=.0032*FOV_SCALE;
 const PITCH_MIN=-.26,PITCH_MAX=.78;
-// Radians the gimbal may turn per send (about 6.5 rad/s: the turrets' own slew limit), so the view
-// never runs far ahead of the real turret even when a request is slow or dropped.
-const STEP_RATE=6.5;
-const KEY_YAW_RATE=3.4,KEY_PITCH_RATE=1.9;
+// Radians the gimbal may turn per send. The 2027 turrets slew at 4.5-8 rad/s and the engine clamps
+// every command to the design's own rate, so this only paces the *commanded* angle: 7.8 rad/s is the
+// old 6.5 + 20 %, which lets a fast turret chase the mouse a fifth sooner while a slow one is still
+// held by its own hardware. The cap keeps the cockpit from widening the gap on a dropped request.
+const STEP_RATE=7.8;
+// Key aim follows at the same +20 % cadence as the mouse (was 3.4 / 1.9 rad/s).
+const KEY_YAW_RATE=4.1,KEY_PITCH_RATE=2.3;
 // Holding a turn key for this long ramps the keyboard rate up to double, so tap-aim stays precise
 // while a long slewing turn does not feel sticky.
 const KEY_RAMP=0.7;
-// How fast the eye borrows the gun's angle while the aim assist is locked (rad/s of blend).
-const LOCK_FOLLOW=14;
+// How fast the eye borrows the gun's angle while the aim assist is locked (rad/s of blend). 16.8 is
+// the old 14 + 20 %, so the view settles onto a lock as promptly as the gun arrives on it.
+const LOCK_FOLLOW=16.8;
 // The aim assist only picks armour the pilot can actually see: inside the lens, with a clear
 // line to the plate. A 64° vertical lens is ±32°; the view is wider than it is tall.
 // 12 m is the hard ceiling: beyond that the assist refuses to lock anything at all, robots and
@@ -62,7 +69,16 @@ const JUMP_STRENGTH=.5,JUMP_CROUCH_MS=200,JUMP_LAND_MS=500,JUMP_TIMEOUT_MS=1800;
 const HELD_KEYS=['Space','KeyF','KeyI','KeyJ','KeyW','KeyA','KeyS','KeyD','KeyX','KeyC','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
 const INPUT_REPEAT_BLOCK=new Set(['Space','KeyB','KeyC','KeyI','KeyJ','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
 
-type PilotAction={move:[number,number];aim:number;pitch:number;fire:boolean;brake?:boolean;power?:number;yaw_rate?:number;yaw_boost?:number;heading?:number;leg_height?:number;jump?:number;climb?:number;buy_ammo?:{remote:boolean;amount?:number};remote_heal?:boolean;revive?:boolean;install_launcher?:boolean;pick_unit?:boolean;assembly?:number;assembly_insert?:boolean;assembly_lift?:boolean;assembly_flip?:boolean;assembly_rotate?:number;assembly_confirm?:boolean;aim_point?:[number,number,number]};
+type PilotAction={move:[number,number];aim:number;pitch:number;fire:boolean;brake?:boolean;power?:number;yaw_rate?:number;yaw_boost?:number;heading?:number;leg_height?:number;jump?:number;climb?:number;buy_ammo?:{remote:boolean;amount?:number};remote_heal?:boolean;revive?:boolean;install_launcher?:boolean;pick_unit?:boolean;assembly?:number;assembly_insert?:boolean;assembly_lift?:boolean;assembly_flip?:boolean;assembly_rotate?:number;assembly_confirm?:boolean;aim_point?:[number,number,number];posture?:Posture};
+// The 2027 sentry fights from one of three stances; the engine switches them through the same
+// per-robot action channel the rest of the pilot's commands use.
+export type Posture='attack'|'defense'|'move';
+export const POSTURE_NAMES:Record<Posture,string>={attack:'进攻',defense:'防御',move:'移动'};
+const POSTURE_OPTIONS=[
+  {id:'attack' as const,name:'进攻',desc:'火力优先',Icon:Swords},
+  {id:'defense' as const,name:'防御',desc:'减伤优先',Icon:Shield},
+  {id:'move' as const,name:'移动',desc:'机动优先',Icon:Move},
+];
 
 const wrap=(a:number)=>((a%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
 const shortest=(from:number,to:number)=>{const d=(to-from)%(Math.PI*2);return d>Math.PI?d-Math.PI*2:d<-Math.PI?d+Math.PI*2:d;};
@@ -306,15 +322,24 @@ const unitsOnBoard=(robot:Robot|null|undefined)=>
   !robot?0:(robot.carried_units??0)+(robot.unit_pickup?.stage==='carrying'?1:0);
 
 // The team's resource dispenser: the pickup point the arm has to reach, so the cockpit can tell a
-// pilot how far the chassis still is and refuse a grab that the arm could never reach.
-type ResourceSpot={x:number;y:number;dir:[number,number]};
+// pilot where to park and refuse a grab that the arm could never reach. The wrist only arrives
+// from one arm-length out, on the dispenser's own side; that is the same park point the SDK's
+// `resource_pickup_point` uses, and a two-arm mast is shorter so it stands closer to the hub.
+type ResourceSpot={x:number;y:number;dir:[number,number];reach:number};
 const resourceSpot=(robot:Robot|null,frame?:Frame):ResourceSpot|null=>{
   if(!robot||!frame)return null;
   const fixtures=(frame.arena as {field_geometry?:{fixtures?:{kind?:string;team?:TeamId;pick_point?:number[];pick_dir?:number[]}[]}}|undefined)?.field_geometry?.fixtures;
   const found=fixtures?.find(f=>f.kind==='resource'&&f.team===robot.team);
   if(!found?.pick_point)return null;
-  return {x:found.pick_point[0],y:found.pick_point[1],dir:[found.pick_dir?.[0]??0,found.pick_dir?.[1]??0]};
+  return {x:found.pick_point[0],y:found.pick_point[1],dir:[found.pick_dir?.[0]??0,found.pick_dir?.[1]??0],reach:(robot.arm_count??1)>=2?.48:.60};
 };
+
+// Leaving the resource zone cancels a grab, but standing anywhere inside it is not enough: the
+// extension joint clamps at 0.7 m, so a unit more than a hand's width past the park point never
+// arrives and the grab used to sit at "approaching 0%" forever. The cockpit only starts a grab
+// inside the zone, within arm's reach of the unit and roughly facing the dispenser, and the
+// guidance uses the same numbers.
+const PICK_REACH_SLACK=.22,PICK_FACING=Math.PI/3;
 
 // Local purchasing needs the robot on its own supply pad, high point, or a fully controlled
 // outpost — the same zones the rulebook accepts. Anything else is a remote order.
@@ -443,11 +468,11 @@ function requestLock(onDenied:(message:string)=>void){
   denied();
 }
 
-// Center HUD: three arcs only — health, power and heat — around the crosshair, with the round
-// count beside them. The supercapacitor and buffer arcs that used to fill the other two quadrants
-// told a pilot nothing they could act on mid-fight, so they are gone; the whole cluster keeps the
-// spec's 40 % transparency.
+// Center HUD: the barrel heat lives on a ring hugging the crosshair (grey when cold, red at the
+// limit, deep red once the gun locks), the chassis heading rides a 60° arc just outside it, and the
+// three larger arcs show the supercapacitor, the hull and the drive power.
 const RING_R=33,RING_SPAN=76,RING_STROKE=3.4/4;
+const HEAT_R=19,HEAT_STROKE=3,HEAT_CIRC=2*Math.PI*HEAT_R,CHASSIS_R=24.5,CHASSIS_SPAN=60;
 // `value` in 0..1 picks how much of the span is drawn from the arc's start.
 function arcPart(cx:number,cy:number,r:number,fromDeg:number,spanDeg:number,value:number){
   const v=Math.max(0,Math.min(1,value));
@@ -456,22 +481,44 @@ function arcPart(cx:number,cy:number,r:number,fromDeg:number,spanDeg:number,valu
   return `M${(cx+r*Math.cos(from)).toFixed(2)} ${(cy+r*Math.sin(from)).toFixed(2)} A${r} ${r} 0 0 1 ${(cx+r*Math.cos(to)).toFixed(2)} ${(cy+r*Math.sin(to)).toFixed(2)}`;
 }
 const ARCS=[-140,-30,80] as const;
+// Grey at rest, amber through the guard zone, red at the limit; a locked barrel reads deep red.
+function heatTone(share:number,locked:boolean){
+  if(locked)return '#7c0f12';
+  const t=Math.max(0,Math.min(1,share));
+  const cold=[232,238,241],warm=[255,198,74],hot=[255,64,52];
+  // The first leg is eased so ordinary bursts keep the ring grey and it only warms near the guard.
+  const leg=t<.75?[cold,warm,(t/.75)**2] as const:[warm,hot,(t-.75)/.25] as const;
+  const [from,to,k]=leg;
+  const mix=(a:number,b:number)=>Math.round(a+(b-a)*k);
+  return `rgb(${mix(from[0],to[0])},${mix(from[1],to[1])},${mix(from[2],to[2])})`;
+}
 
-function AimRing({robot,heatBlocked}:{robot:Robot;heatBlocked:boolean}){
+function AimRing({robot,heatBlocked,capNominal,viewYaw}:{robot:Robot;heatBlocked:boolean;capNominal:number;viewYaw:number}){
   const share=(value:number,max:number)=>max>0?Math.max(0,Math.min(1,value/max)):0;
   const hp=share(robot.hp,robot.max_hp);
   const power=share(robot.power_w??0,robot.power_limit||200);
+  const supercap=share(robot.supercap_energy_j??0,capNominal);
   const heat=share(robot.heat,robot.max_heat);
-  const heatColor=robot.overheated?'#ff7a66':heatBlocked?'#ffb454':heat>.75?'#ffb454':'#8fd3e8';
+  // Chassis front in view space: the turret is the eye, so the cockpit's own yaw is the forward.
+  const headingDeg=((robot.heading??0)-viewYaw)*180/Math.PI;
   return <>
-    {/* Arc order clockwise from the lower left: health, power, heat. Only a real barrel lock turns
-        the ring red; a blocked shot merely warms the heat arc. */}
+    {/* Arc order clockwise from the lower left: supercapacitor, hull, drive power. */}
     <div className={`pilot-reticle ${robot.overheated?'overheated':''}`} aria-hidden="true">
       <svg viewBox="0 0 96 96">
         {ARCS.map((start,i)=><path key={`t${i}`} d={arcPart(48,48,RING_R,start,RING_SPAN,1)} fill="none" stroke="#ffffff" strokeOpacity=".22" strokeWidth={RING_STROKE} strokeLinecap="round"/>)}
-        <path d={arcPart(48,48,RING_R,ARCS[0],RING_SPAN,hp)} fill="none" stroke={hp<.3?'#ff6a5a':'#7fe0a8'} strokeWidth={RING_STROKE} strokeLinecap="round"/>
-        <path d={arcPart(48,48,RING_R,ARCS[1],RING_SPAN,power)} fill="none" stroke="#ffcf4a" strokeWidth={RING_STROKE} strokeLinecap="round"/>
-        <path d={arcPart(48,48,RING_R,ARCS[2],RING_SPAN,heat)} fill="none" stroke={heatColor} strokeWidth={RING_STROKE} strokeLinecap="round"/>
+        <path d={arcPart(48,48,RING_R,ARCS[0],RING_SPAN,supercap)} fill="none" stroke="#63ecff" strokeWidth={RING_STROKE} strokeLinecap="round"/>
+        <path d={arcPart(48,48,RING_R,ARCS[1],RING_SPAN,hp)} fill="none" stroke={hp<.3?'#ff6a5a':'#7fe0a8'} strokeWidth={RING_STROKE} strokeLinecap="round"/>
+        <path d={arcPart(48,48,RING_R,ARCS[2],RING_SPAN,power)} fill="none" stroke="#ffcf4a" strokeWidth={RING_STROKE} strokeLinecap="round"/>
+      </svg>
+    </div>
+    <div className={`pilot-heatring ${robot.overheated?'locked':heatBlocked?'guard':''}`} aria-label={`枪管热量 ${Math.round(heat*100)}%`}>
+      <svg viewBox="0 0 96 96">
+        <circle cx="48" cy="48" r={HEAT_R} fill="none" stroke="#0a1014" strokeOpacity=".55" strokeWidth={HEAT_STROKE+1.8}/>
+        <circle cx="48" cy="48" r={HEAT_R} fill="none" stroke="#a6b3b9" strokeOpacity=".18" strokeWidth={HEAT_STROKE}/>
+        <circle cx="48" cy="48" r={HEAT_R} fill="none" stroke={heatTone(heat,robot.overheated)} strokeWidth={HEAT_STROKE} strokeLinecap="round"
+          strokeDasharray={`${Math.max(0,heat)*HEAT_CIRC} ${HEAT_CIRC}`} transform="rotate(-90 48 48)"/>
+        {/* Chassis heading: a 60° wedge centred on where the hull points in the view. */}
+        <path d={arcPart(48,48,CHASSIS_R,-90+headingDeg-CHASSIS_SPAN/2,CHASSIS_SPAN,1)} fill="none" stroke="#eaf4fa" strokeOpacity=".82" strokeWidth="2.4" strokeLinecap="round"/>
       </svg>
     </div>
     <svg className="pilot-cross" viewBox="0 0 32 32" aria-hidden="true">
@@ -489,24 +536,80 @@ function AimRing({robot,heatBlocked}:{robot:Robot;heatBlocked:boolean}){
   </>;
 }
 
-function Vitals({robot,thresholds,capNominal,gold}:{robot:Robot;thresholds:number[];capNominal:number;gold:number}){
+function Vitals({robot,thresholds,portrait,launcherUnlocked,disengage,chips}:{robot:Robot;thresholds:number[];portrait?:string;launcherUnlocked:boolean;disengage:number;chips?:BuffChip[]}){
   const level=Math.max(1,robot.level||1);
   // Rules thresholds define each level's span; without them fall back to the even 550 curve.
   const floor=thresholds[level-1]??(level-1)*550,ceiling=thresholds[level]??level*550;
   const xp=ceiling>floor?pct((robot.experience??0)-floor,ceiling-floor):'100%';
-  const hpShare=robot.max_hp>0?robot.hp/robot.max_hp:0;
-  const hpColor=hpShare>.5?'#7fe0a8':hpShare>.25?'#ffcf4a':'#ff6a5a';
-  return <div className="pilot-vitals" aria-label="机体状态">
-    <div className="vitals-head"><b>{robot.team==='red'?'R':'B'}{robot.slot}</b><span>{ROLE_NAMES[robot.role]}</span><em>LV {level}</em></div>
-    <div className="vital">
-      <span>HP</span><b style={{color:hpColor}}>{Math.max(0,Math.ceil(robot.hp))}</b><small>/{Math.ceil(robot.max_hp)}</small>
-      <i className="hp" style={{width:pct(robot.hp,robot.max_hp),background:hpColor}}/>
+  const hp=Math.max(0,Math.ceil(robot.hp)),maxHp=Math.max(1,Math.ceil(robot.max_hp));
+  const buffer=Math.round(robot.buffer_energy_j??0);
+  const posture=robot.role==='sentry'&&robot.posture?POSTURE_NAMES[robot.posture]:'';
+  const powered=robot.alive&&robot.powered!==false;
+  // Over-power cut: the drive is offline for the penalty window while the battery still holds charge.
+  const chassisOverload=robot.alive&&robot.powered===false&&(robot.battery_remaining_wh??0)>.5;
+  // The 42 mm module only draws power once the rules unlock it and it is bolted on; an empty
+  // magazine, an overheated barrel or a locked gun cuts the same bus. Everything re-arms by itself
+  // as soon as the engine clears the fault, so the chips follow the frame instead of a local latch.
+  const launcherReady=robot.role!=='heavy'||robot.launcher==='installed'||(robot.launcher==='fitted'&&launcherUnlocked);
+  const launcherLive=robot.alive&&launcherReady&&robot.ammo>0&&!robot.overheated&&!robot.heat_permanent_lock&&!robot.launcher_fault&&!robot.overspeed_locked&&!robot.overspeed_permanent_lock;
+  // An over-power penalty or a flat battery cuts the drive only: the gimbal and the gun keep their
+  // own supply, so those lamps stay green while the chassis lamp goes red.
+  const modules:[string,boolean][]=[
+    ['供电',robot.alive],
+    ['底盘',powered],
+    ['云台',robot.alive],
+    ['发射机构',launcherLive],
+    ['装甲',robot.alive&&!robot.red_card],
+    ['超电',robot.alive],
+  ];
+  return <div className={`pilot-vitals team-${robot.team} ${robot.alive?'':'is-dead'}`} aria-label="机体状态">
+    <div className="vitals-top">
+      <div className="vitals-badge">
+        <b className="vitals-level" aria-label={`等级 ${level}`}>LV {level}</b>
+        <i className="vitals-exp" aria-label={`经验 ${Math.round(Number.parseFloat(xp))}%`}><em style={{height:xp}}/></i>
+        <span className="vitals-face">
+          <span className="vitals-face-art">{portrait?<img src={portrait} alt="" draggable={false}/>:<em>{ROLE_NAMES[robot.role]}</em>}</span>
+          <b className="vitals-slot" aria-label={`${robot.slot} 号机器人`}>{robot.slot}</b>
+        </span>
+      </div>
+      <div className="vitals-bars">
+        {(posture||!!chips?.length)&&<div className="vitals-tags">
+          {posture&&<span className={`vitals-posture ${robot.posture_enhanced?'enhanced':''}`}><ShieldCheck size={11} aria-hidden="true"/>{posture}姿态{robot.posture_enhanced?' · 强化':''}</span>}
+          {!!chips?.length&&<BuffChips chips={chips} size={11} className="vitals-buffs"/>}
+        </div>}
+        <div className="vitals-hp-row">
+          <div className="vitals-hp" role="meter" aria-label="生命值" aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}>
+            <i style={{width:pct(robot.hp,robot.max_hp)}}/>
+            <span>{hp} / {maxHp}</span>
+          </div>
+          <span className={`vitals-disengage ${disengage>0?'':'is-idle'}`} aria-hidden={disengage<=0} title={disengage>0?'仍在交战：脱战后才能远程补给':undefined}><Sword size={12} aria-hidden="true"/>{Math.max(0,Math.ceil(disengage))}<small>s 脱战</small></span>
+        </div>
+        <div className="vitals-buffer-row">
+          <span className="vitals-buffer-label">缓冲 {buffer} J</span>
+          <div className="vitals-buffer" aria-label={`缓冲能量 ${buffer} 焦耳`}>
+            <i style={{width:pct(robot.buffer_energy_j??0,60)}}/>
+          </div>
+          {chassisOverload&&<span className="vitals-overload" role="status" title="底盘缓冲能量耗尽，超功率保护断电 5 秒">底盘超限</span>}
+        </div>
+      </div>
     </div>
-    <div className="vital"><span>EXP</span><b>{Math.round(robot.experience??0)}</b><small>升级</small><i className="xp" style={{width:xp}}/></div>
-    <div className="vital"><span>缓冲</span><b>{Math.round(robot.buffer_energy_j??0)}</b><small>J · 上限 {Math.round(robot.power_limit||0)} W</small><i className="buffer" style={{width:pct(robot.buffer_energy_j??0,60)}}/></div>
-    <div className="vital"><span>超电</span><b>{Math.round(robot.supercap_energy_j??0)}</b><small>/{Math.round(capNominal)} J</small><i className="supercap" style={{width:pct(robot.supercap_energy_j??0,capNominal)}}/></div>
-    <div className="vital"><span>金币</span><b>{Math.round(gold)}</b><small>本局累计 · O 买弹 · H 远程{robot.role==='heavy'?' · I 装配 · J 装发射机构':''}</small></div>
+    <div className="vitals-modules" aria-label="机器人系统状态">
+      {modules.map(([name,on])=><span key={name} className={`vitals-module ${on?'is-on':'is-off'}`} aria-label={`${name}${on?'已上电':'断电'}`} title={`${name}${on?'已上电':'断电'}`}><i/>{name}</span>)}
+    </div>
   </div>;
+}
+
+// Rules' 42 mm unlock: difficulty 3 completed, or the clock past the published unlock second.
+const launcherUnlockedFor=(frame:Frame,robot:Robot|null)=>
+  !!robot&&((frame.teams[robot.team]?.completed_difficulties??[]).includes(3)
+    || (frame.time??0)+1e-8>=(frame.teams[robot.team]?.launcher_unlock_s??0));
+
+// Audience first-person view: the same bottom-left strip the pilot reads, driven by the chassis the
+// camera is riding. No cockpit controls hang off it, so spectating keeps the plain field.
+export function SpectatorVitals({frame,robot,portrait}:{frame:Frame;robot:Robot;portrait?:string}){
+  const [thresholds,setThresholds]=useState<number[]>([]);
+  useEffect(()=>{let live=true;fetch('/api/health').then(r=>r.json()).then(v=>{if(live&&Array.isArray(v?.experience?.thresholds))setThresholds(v.experience.thresholds);}).catch(()=>undefined);return()=>{live=false;};},[]);
+  return <Vitals robot={robot} thresholds={thresholds} portrait={portrait} launcherUnlocked={launcherUnlockedFor(frame,robot)} disengage={disengageWait(frame,robot)} chips={robotBuffs(robot,frame)}/>;
 }
 
 // Hover card of the pre-match chassis picker: the same numbers the lineup inspection shows, so a
@@ -592,15 +695,13 @@ export function LinkConfirm({robot,hardware,image,onConfirm,onCancel}:{robot:Rob
   </div>;
 }
 
-// The side brief of the pre-match half picker: it rides above whichever half the pointer is over, so
-// the field itself stays unobstructed while a pilot compares the two sides before committing.
-export function HalfBrief({side,team,strategy,mode,standing,robots,active}:{
-  side:TeamId;team:string;strategy:string;mode:string;robots:number;
-  standing?:{rating:number;games:number;wins:number;losses:number;draws:number};
-  active:boolean;
-}){
+// The side brief of the pre-match half picker: a floating label anchored over the half it describes.
+// It is deliberately frameless — the arena is the background — and the scene keeps it squared to the
+// picker's overview, so nothing has to be squeezed into a row along the top of the frame.
+export type HalfBriefData={team:string;strategy:string;mode:string;standing?:{rating:number;games:number;wins:number;losses:number;draws:number}};
+export function HalfBrief({side,team,strategy,mode,standing,robots}:HalfBriefData&{side:TeamId;robots:number}){
   const rate=standing&&standing.games>0?Math.round(standing.wins/standing.games*100):null;
-  return <div className={`half-brief ${side} ${active?'active':''}`} aria-hidden={!active}>
+  return <div className={`half-brief ${side}`} data-half={side}>
     <span className="hb-side"><i/>{team} · 阵地</span>
     <b>{strategy}</b>
     <div className="hb-rows">
@@ -613,7 +714,20 @@ export function HalfBrief({side,team,strategy,mode,standing,robots,active}:{
   </div>;
 }
 
-export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,paused,onError,camera,onCamera,onPause,fullscreen=false,onFullscreen,link=false,onLink,linkPending=null,onLinkPick,linkImage}:{
+// The stands are the third answer, so they get a brief of their own, anchored over the audience bowl.
+export function SeatBrief(){
+  return <div className="half-brief seat" data-half="seat">
+    <span className="hb-side"><i/>观众席 · 看台</span>
+    <b>观战席</b>
+    <div className="hb-rows">
+      <span>视角<em>自由</em></span>
+      <span>接管<em>随时</em></span>
+    </div>
+    <small>整局交给策略 · 单击入座</small>
+  </div>;
+}
+
+export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,paused,onError,camera,onCamera,onPause,fullscreen=false,onFullscreen,link=false,onLink,linkPending=null,onLinkPick,linkImage,portrait}:{
   frame:Frame;
   active:string|null;
   onEngage:(id:string)=>void;
@@ -637,9 +751,17 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   onLinkPick?:(id:string|null)=>void;
   /** Studio render of the pending chassis, shown on the confirmation plate. */
   linkImage?:string;
+  /** Studio render of the piloted chassis, the same art the broadcast top bar uses. */
+  portrait?:string;
 }){
   const [team,setTeam]=useState<TeamId>('red'),[locked,setLocked]=useState(false);
   const [notice,setNotice]=useState(''),[lockInfo,setLockInfo]=useState<{id:string;distance:number;side?:TeamId}|null>(null);
+  // Y opens the sentry's stance switcher; the chosen stance rides the normal action channel.
+  const [posturePanel,setPosturePanel]=useState(false);
+  // Read by the pointer handlers, which live in an effect that must not re-subscribe on every stance.
+  const posturePanelRef=useRef(false);
+  posturePanelRef.current=posturePanel;
+  const postureWanted=useRef<Posture|null>(null);
   const [thresholds,setThresholds]=useState<number[]>([]);
   // Ammunition economy from the server, so the order the cockpit places always matches the
   // price, batch and purchase cap the rulebook will apply.
@@ -653,7 +775,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   heatRulesRef.current=heatRules;
   // Every notice fades on its own so the view never keeps a stale message.
   useEffect(()=>{if(!notice)return;window.clearTimeout(noticeTimer.current);noticeTimer.current=window.setTimeout(()=>setNotice(''),3500);return()=>window.clearTimeout(noticeTimer.current);},[notice]);
-  const keys=useRef(new Set<string>()),inFlight=useRef(false),lastSend=useRef(0);
+  const keys=useRef(new Set<string>()),inFlight=useRef(false),lastSend=useRef(0),dirty=useRef(false);
   // Ordered so a release can never be overtaken by an older command still in flight.
   const pending=useRef<Promise<unknown>|null>(null),releasing=useRef(false),sent=useRef<number|null>(null);
   // The raw aim target the hand has built up; `view` (shared with the camera) carries only the
@@ -670,7 +792,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   const revive=useRef(false),heal=useRef(false);
   // Local (O) and remote (H) purchase dialogs. While one is open the pointer is released and the
   // pilot's keys are ignored, so the quantity can be picked with the mouse.
-  const [store,setStore]=useState<{mode:'local'|'remote';tab:'ammo'|'heal';amount:number;batches:number}|null>(null);
+  const [store,setStore]=useState<{mode:'local'|'remote';tab:'ammo'|'heal';amount:number}|null>(null);
   const storeRef=useRef(store);
   storeRef.current=store;
   // Heavy-robot choreography: I picks up a core at the resource station, opens the assembly order at
@@ -697,7 +819,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     // Seed the shared sight line so the first frame of the sight is already where the pilot looks.
     if(next){lobScope.yaw=sent.current??0;lobScope.pitch=view.current?.pitch??0;}
     setNotice(next?'吊射模式 · 机械瞄具已翻到眼前（2.5× 镜内放大）· 准星即落点':'瞄具翻回，退出吊射模式');
-  }  const modal=open||store!==null||assembly;
+  }  const modal=open||store!==null||assembly||posturePanel;
   openRef.current=modal;
   // The match only accepts input once the prep phase ends; before that the pointer stays free so
   // the setup panel can be used, and a destroyed chassis hands the pointer back until it revives.
@@ -722,8 +844,15 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   const dead=!!piloted&&!piloted.alive;
   const deadRef=useRef(dead);
   deadRef.current=dead;
+  // A destroyed chassis closes the stance board so the respawn countdown is not covered.
+  useEffect(()=>{if(dead)setPosturePanel(false);},[dead]);
   const respawnLeft=Math.max(0,Math.round((piloted?.respawn_required||0)-(piloted?.respawn_progress||0)));
   const respawnShare=piloted?.respawn_required?Math.min(1,Math.max(0,(piloted.respawn_progress||0)/piloted.respawn_required)):0;
+  // The free-revive card is a chosen path, so it is remembered until this death ends.
+  const [freePicked,setFreePicked]=useState(false);
+  useEffect(()=>{if(!dead)setFreePicked(false);},[dead]);
+  const respawnNow=useRef(0);
+  respawnNow.current=respawnLeft;
   // Heat control, measured from the robot itself as a fallback for the rulebook value. The heat a
   // single shot adds is the jump seen between two frames; the id guard stops a takeover switch
   // from reading the previous chassis' heat as a shot.
@@ -796,6 +925,12 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       setNotice(`购买未生效：${refusal.reason??'当前条件不满足'}`);
     }
   },[frame.events,piloted]);
+  // A grab the arm cannot finish is cancelled by the engine; say how to line up instead of
+  // leaving the pilot holding a key that does nothing.
+  useEffect(()=>{
+    if(frame.events.some(event=>event.type==='unit_pickup_cancelled'&&event.robot===piloted?.id&&event.reason==='unreachable'))
+      setNotice('机械臂够不到能量单元：开到取矿位、让车头正对取矿口');
+  },[frame.events,piloted]);
   // The engine's step event is the ground truth for the badge, including the carry after the key
   // is released.
   useEffect(()=>{
@@ -822,6 +957,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   useEffect(()=>{
     if(!activeId)return;
     releasing.current=false;
+    dirty.current=false;
     sent.current=null;
     const startAim=()=>{const robot=robotRef.current;return {yaw:robot?.aim??robot?.heading??0,pitch:Math.min(PITCH_MAX,Math.max(PITCH_MIN,robot?.pitch??0))};};
     if(!input.current)input.current=startAim();
@@ -833,7 +969,12 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     const send=async()=>{
       const robot=robotRef.current,current=input.current;
       const now=performance.now();
-      if(!robot||!current||inFlight.current||releasing.current){lastSend.current=now;return;}
+      // A request already in flight is not a send attempt: leaving `lastSend` where it is keeps the
+      // held-key rotation for that window instead of dropping it, and lets the trailing edge fire as
+      // soon as the response lands. A missing robot or input still stamps the clock so the first real
+      // command does not integrate a long gap.
+      if(!robot||!current){lastSend.current=now;return;}
+      if(inFlight.current||releasing.current)return;
       // A destroyed chassis stays on the pilot's lease but takes no input: the camera keeps its
       // pose and the only thing that moves is the respawn countdown.
       if(deadRef.current){
@@ -852,6 +993,9 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       }
       const elapsed=lastSend.current?Math.min(.2,(now-lastSend.current)/1000):SEND_MS/1000;
       lastSend.current=now;
+      // This request carries every input change made up to here; anything newer is pushed as soon as
+      // the request lands (see the trailing edge below) instead of waiting for the next 50 ms tick.
+      dirty.current=false;
       // Held turn keys ramp up to twice the base rate, so taps stay fine and long slews are quick.
       const turning=keys.current.has('ArrowLeft')||keys.current.has('ArrowRight')||keys.current.has('ArrowUp')||keys.current.has('ArrowDown');
       held.current=turning?held.current+elapsed:0;
@@ -949,22 +1093,43 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         }
         if(assemblyOrder.current!==null){action.assembly=assemblyOrder.current;assemblyOrder.current=null;}
         if(heavyHold.current.install&&(robot.launcher==='locked'||robot.launcher==='unlocked'||robot.launcher==='installing'))action.install_launcher=true;
-        // Taking an ore is a real stop-and-grab: the chassis has to be parked at the dispenser and
-        // still, otherwise the arm cannot reach the unit and the engine cancels the grab.
+        // Taking an ore is a real stop-and-grab: the chassis has to stand on the dispenser's own
+        // side, one arm-length out and facing it, and be still. Starting the grab from anywhere in
+        // the (much wider) resource zone only parks the wrist against its travel limit.
         const spot=resourceSpot(robot,frameRef.current);
+        const park=spot?[spot.x-spot.dir[0]*spot.reach,spot.y-spot.dir[1]*spot.reach] as const:null;
+        const place=park?Math.hypot(robot.x-park[0],robot.y-park[1]):Infinity;
         const gap=spot?Math.hypot(robot.x-spot.x,robot.y-spot.y):Infinity;
+        const facing=spot?Math.abs(shortest(Math.atan2(spot.dir[1],spot.dir[0]),robot.heading??0)):0;
+        const inZone=(robot.last_raw_zones??[]).includes(`${robot.team}_resource`);
+        const inPlace=!!spot&&inZone&&gap<=spot.reach+PICK_REACH_SLACK&&facing<=PICK_FACING;
         const parked=Math.hypot(robot.vx||0,robot.vy||0)<.6;
-        if(heavyHold.current.pick&&!robot.weak&&gap<1.45&&parked)action.pick_unit=true;
+        if(heavyHold.current.pick&&!robot.weak&&inPlace&&parked)action.pick_unit=true;
         const grab=robot.unit_pickup;
         if(grab&&grab.stage==='carrying'){
           const label='夹爪已带 1 个能量单元 · 弹仓 2 个已满 · 开到装配台按 I 直接插入';
+          if(label!==pickNotice.current){pickNotice.current=label;setNotice(label);}
+        }else if(grab&&grab.stage==='approaching'&&(grab.elapsed??0)>2){
+          const label='机械臂够不到能量单元：开到取矿位、让车头正对取矿口';
           if(label!==pickNotice.current){pickNotice.current=label;setNotice(label);}
         }else if(grab){
           const stage=grab.stage==='approaching'?'对准取矿台':grab.stage==='gripping'?'夹住能量单元':grab.stage==='lifting'?'抬升':grab.stage==='stowing'?'收入弹仓':'取矿';
           const label=`取矿 · ${stage} ${Math.round((grab.progress??0)*100)}% · 保持停稳并按住 I`;
           if(label!==pickNotice.current){pickNotice.current=label;setNotice(label);}
+        }else if(heavyHold.current.pick&&!robot.weak){
+          // Holding I while still lining up: keep the park vector on screen instead of dropping
+          // the key and starting over.
+          const label=!spot?'这里不是己方取矿台：开到己方矿区再按住 I'
+            :!inZone?'开到己方矿区的取矿台边再按住 I'
+            :gap>spot.reach+PICK_REACH_SLACK?`离取矿位还有 ${place.toFixed(1)} m：再向取矿台开近一点`
+            :facing>PICK_FACING?'车头没有正对取矿口：先把车头转向取矿台'
+            :'先把机体停稳，再按住 I 取矿';
+          if(label!==pickNotice.current){pickNotice.current=label;setNotice(label);}
         }else if(pickNotice.current){pickNotice.current='';setNotice('');}
       }
+      // The sentry's stance rides the same channel; the engine only emits a switch when the value
+      // actually changes, so holding it on every tick is a no-op.
+      if(postureWanted.current&&robot.role==='sentry')action.posture=postureWanted.current;
       // Hand the commanded angle to the camera; it is the single source both the eye and the gun use.
       if(!view.current)view.current={yaw:sent.current,pitch};
       else{view.current.yaw=sent.current;view.current.pitch=pitch;}
@@ -1003,18 +1168,34 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         else if(failure.status===409||failure.status===422)setNotice(failure.message);
         else onError(failure.message);
       }
-      finally{inFlight.current=false;}
+      finally{inFlight.current=false;
+        // Trailing edge: input that arrived while this request was in flight is already up to a tick
+        // old, so push it the moment the previous response lands instead of waiting for the timer.
+        if(dirty.current&&!releasing.current&&performance.now()-lastSend.current>=NUDGE_MS)void send();
+      }
     };
     const interactive=(target:EventTarget|null)=>!!(target as HTMLElement|null)?.closest?.('button,select,input,textarea,a,[role="button"]');
     // A change of aim is pushed immediately when nothing is in flight, so the robot starts turning
     // on the same frame instead of waiting for the next 50 ms tick.
-    const nudgeNow=(stamp:number)=>{if(releasing.current||inFlight.current||stamp-lastSend.current<NUDGE_MS)return;void send();};
+    const nudgeNow=(stamp:number)=>{dirty.current=true;if(releasing.current||inFlight.current||stamp-lastSend.current<NUDGE_MS)return;void send();};
     nudge.current=nudgeNow;
     const onKeyDown=(event:KeyboardEvent)=>{
-      if(deadRef.current)return;
+      // Dead: the only thing the keyboard does is take the free revive (Y), the same card the
+      // respawn panel offers next to the coin purchase.
+      if(deadRef.current){
+        if(event.code==='KeyY'&&!event.repeat){
+          setFreePicked(true);
+          const left=respawnNow.current;
+          setNotice(left>0?`免费复活 · 读条结束后返场（还剩 ${left}s）`:'免费复活 · 正在返场');
+        }
+        return;
+      }
       if((event.target as HTMLElement|null)?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
       // A purchase dialog owns the keyboard (Escape closes it, buttons take the mouse).
       if(storeRef.current)return;
+      // The stance board owns the keyboard too: Escape closes it, Y toggles it, everything else waits.
+      if(posturePanelRef.current&&event.code==='Escape'){setPosturePanel(false);return;}
+      if(posturePanelRef.current&&event.code!=='KeyY')return;
       if(INPUT_REPEAT_BLOCK.has(event.code) && event.repeat){return;}
       if(HELD_KEYS.includes(event.code))event.preventDefault();
       // I on a 2027 heavy robot is the arm work key: hold it at your own resource station to grab a
@@ -1024,16 +1205,21 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         const robot=robotRef.current;
         if(robot.role==='heavy'){
           if(!robot.alive)return;
-          const zones=robot.last_raw_zones??[];
           const spot=resourceSpot(robot,frameRef.current);
+          const park=spot?[spot.x-spot.dir[0]*spot.reach,spot.y-spot.dir[1]*spot.reach] as const:null;
+          const place=park?Math.hypot(robot.x-park[0],robot.y-park[1]):Infinity;
           const gap=spot?Math.hypot(robot.x-spot.x,robot.y-spot.y):Infinity;
-          if(zones.includes(`${robot.team}_resource`)&&unitsOnBoard(robot)<3){
-            // Alignment is the pilot's job: park at the dispenser, facing it, then hold I.
-            const facing=spot?Math.abs(shortest(Math.atan2(spot.dir[1],spot.dir[0]),robot.heading)):0;
-            if(gap>1.45){setNotice(`离取矿台还有 ${gap.toFixed(1)} m：开到取矿台边再按住 I`);return;}
-            if(Math.hypot(robot.vx||0,robot.vy||0)>=.6){setNotice('先把机体停稳，再按住 I 取矿');return;}
+          if(spot&&gap<spot.reach+1.2&&unitsOnBoard(robot)<3){
+            // Hold I while driving the last metre in: the send loop starts the grab on the first
+            // tick the arm can actually reach, so parking slightly off no longer needs another press.
             heavyHold.current.pick=true;
-            setNotice(facing>Math.PI/3?'按住 I 取矿中：车头没有正对取矿口，机械臂可能要绕很远':'按住 I 取矿：机械臂对准能量单元后会自动夹取');
+            const facing=Math.abs(shortest(Math.atan2(spot.dir[1],spot.dir[0]),robot.heading));
+            const inZone=(robot.last_raw_zones??[]).includes(`${robot.team}_resource`);
+            if(!inZone)setNotice('开到己方矿区的取矿台边再按住 I');
+            else if(gap>spot.reach+PICK_REACH_SLACK)setNotice(`离取矿位还有 ${place.toFixed(1)} m：再向取矿台开近一点`);
+            else if(facing>PICK_FACING)setNotice('车头没有正对取矿口：先把车头转向取矿台再按住 I');
+            else if(Math.hypot(robot.vx||0,robot.vy||0)>=.6)setNotice('先把机体停稳，再按住 I 取矿');
+            else setNotice('按住 I 取矿：机械臂对准能量单元后会自动夹取');
             nudgeNow(performance.now());
             return;
           }
@@ -1083,7 +1269,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         const robot=robotRef.current;
         if(!robot.alive)return;
         if(!ammoKind(robot)){setNotice('该型号不通过补给购买弹药');return;}
-        if(robot.weak){setNotice('虚弱状态不能购买：先到补给区或已完全控制的前哨站增益点解除虚弱');return;}
+        if(robot.weak){setNotice('虚弱状态不能购买：先到己方补给区、基地或完全控制的前哨站增益卡解除虚弱');return;}
         if(!inSupply(robot,frameRef.current)){
           setNotice('需在己方补给区、制高点或完全控制的前哨站内购买；远程购买请按 H');
           return;
@@ -1092,7 +1278,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         keys.current.clear();
         const kind=ammoKind(robot) as '17mm'|'42mm';
         const price=ammoPrices(economyRef.current,String(frameRef.current.season??'2027'),kind);
-        setStore({mode:'local',tab:'ammo',amount:price.local.batch,batches:1});
+        setStore({mode:'local',tab:'ammo',amount:0});
         return;
       }
       // H: remote store — ammunition or a health delivery, both six seconds after disengaging.
@@ -1103,7 +1289,17 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         keys.current.clear();
         const kind=ammoKind(robot) as '17mm'|'42mm'|null;
         const price=kind?ammoPrices(economyRef.current,String(frameRef.current.season??'2027'),kind):null;
-        setStore({mode:'remote',tab:price?'ammo':'heal',amount:price?price.remote.batch:0,batches:1});
+        setStore({mode:'remote',tab:price?'ammo':'heal',amount:0});
+        return;
+      }
+      // Y: the 2027 sentry picks its stance from a small board, so the three options are readable
+      // instead of a hidden hotkey pair the pilot has to memorise.
+      if(event.code==='KeyY'&&!event.repeat){
+        const robot=robotRef.current;
+        if(!robot||robot.role!=='sentry'||!robot.alive)return;
+        document.exitPointerLock?.();
+        keys.current.clear();
+        setPosturePanel(v=>!v);
         return;
       }
       // Space is the jump of a wheel-legged chassis; everywhere else it stays the trigger.
@@ -1133,7 +1329,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       const current=input.current;
       // Nothing steers before the countdown ends or while the chassis is destroyed: the pointer is
       // the browser's in both cases.
-      if(!current||!runningRef.current||deadRef.current||openRef.current||(!event.movementX&&!event.movementY))return;
+      if(!current||!runningRef.current||deadRef.current||openRef.current||posturePanelRef.current||(!event.movementX&&!event.movementY))return;
       // With pointer lock the events target the locked canvas. Without it the pointer may sit
       // over the HUD or the cockpit panel, so only interactive controls stop the aiming.
       if(!document.pointerLockElement&&interactive(event.target))return;
@@ -1151,7 +1347,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       // The right button is the aim assist and the middle one would start autoscroll, so neither
       // may reach the browser — even when the pointer happens to sit over a HUD chip.
       if(event.button===1||event.button===2)event.preventDefault();
-      if(deadRef.current||interactive(event.target))return;
+      if(deadRef.current||posturePanelRef.current||interactive(event.target))return;
       if(event.button===0){keys.current.add('MouseLeft');if(lobRef.current)lobShot.current={ammo:robotRef.current?.ammo??0,at:performance.now()};nudgeNow(performance.now());}
       if(event.button===2){keys.current.add('MouseRight');nudgeNow(performance.now());}
     };
@@ -1165,7 +1361,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     const onLockChange=()=>{quietLock.current=false;setLocked(!!document.pointerLockElement);};
     // The panel needs a free cursor, so nothing grabs the pointer back while it is open, and the
     // prep phase and a dead chassis keep it free as well.
-    const relock=()=>{if(!openRef.current&&runningRef.current&&!deadRef.current)requestLock(setNotice);};
+    const relock=()=>{if(!openRef.current&&!posturePanelRef.current&&runningRef.current&&!deadRef.current)requestLock(setNotice);};
     // Automatic grabs (after the countdown, after a respawn) cannot carry a user gesture, so their
     // refusal stays quiet: the "click to lock" hint is guidance enough.
     const onLockError=()=>{if(quietLock.current){quietLock.current=false;return;}setNotice('此环境不允许锁定鼠标：在画面内移动鼠标即可转向（或用方向键）');};
@@ -1174,6 +1370,9 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     window.addEventListener('blur',onBlur);
     document.addEventListener('pointerlockchange',onLockChange);
     document.addEventListener('pointerlockerror',onLockError);
+    // The aim reads the coalesced `pointermove` stream. `pointerrawupdate` was tried for its lower
+    // latency, but under pointer lock it does not report usable movement, which left the gimbal
+    // unable to turn at all; it is deliberately not used here.
     document.addEventListener('pointermove',onMove);
     document.addEventListener('mousedown',onDown);
     document.addEventListener('mouseup',onUp);
@@ -1182,7 +1381,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     // Where the host refuses pointer lock, capturing the pointer keeps the drag feeding the
     // view even when the cursor leaves the field.
     const onPress=(event:PointerEvent)=>{
-      if(openRef.current||!runningRef.current||deadRef.current||interactive(event.target))return;
+      if(openRef.current||posturePanelRef.current||!runningRef.current||deadRef.current||interactive(event.target))return;
       if(!document.pointerLockElement){
         captured.current=event.pointerId;
         try{surface?.setPointerCapture(event.pointerId);}catch{/* capture is a bonus, not a need */}
@@ -1220,6 +1419,8 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       setClimbHeld(false);
       heavyHold.current={pick:false,install:false};
       assemblyOrder.current=null;
+      postureWanted.current=null;
+      setPosturePanel(false);
       // Leaving the cockpit drops the magnified sight; the next pilot starts on the plain lens.
       lobRef.current=false;
       lobScope.active=false;lobScope.sight=0;
@@ -1363,19 +1564,23 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   const storeSeason=String(frame.season??'2027');
   const storePrices=storeKind?ammoPrices(economy,storeSeason,storeKind):null;
   const purchased=Number((storeKind==='42mm'?teamState?.purchased_42:teamState?.purchased_17)??0);
-  const localMax=storePrices?Math.max(0,Math.min(storePrices.local.cap-purchased,Math.floor(gold/storePrices.local.cost*storePrices.local.batch))):0;
-  const remoteMaxBatches=storePrices?Math.max(0,Math.min(Math.floor((storePrices.remote.cap-purchased)/storePrices.remote.batch),Math.floor(gold/storePrices.remote.cost))):0;
-  const localPrice=storePrices&&store&&store.mode==='local'?Math.round(store.amount/storePrices.local.batch*storePrices.local.cost):0;
-  const remoteShots=storePrices&&store?store.batches*storePrices.remote.batch:0;
-  const remotePrice=storePrices&&store?store.batches*storePrices.remote.cost:0;
+  const storeRule=storePrices?(store?.mode==='remote'?storePrices.remote:storePrices.local):null;
+  // Both channels now trade in rounds: the rulebook's batch only sets the price ratio, so a partial
+  // quantity is charged proportionally instead of being rounded to a batch.
+  const storeUnit=storeRule&&storeRule.batch>0?storeRule.cost/storeRule.batch:0;
+  const storeLeft=storeRule?Math.max(0,storeRule.cap-purchased):0;
+  const storeMax=storeRule?Math.max(0,Math.min(storeLeft,storeUnit>0?Math.floor(gold/storeUnit):0)):0;
+  const storeAmount=store?.amount??0;
+  const storeCost=storeRule?Math.round(storeAmount/storeRule.batch*storeRule.cost):0;
+  const ammoSteps:number[]=storeKind==='42mm'?[1,2,5,10]:[1,5,10,50];
   const healCost=remoteHealCostFor(frame);
   const disengage=disengageWait(frame,piloted);
   const reviveCost=reviveCostFor(frame,piloted);
-  const localSteps=storeKind==='42mm'?[10,5,1]:[50,10,5,1];
   // 2027 assembly orders: the rulebook unlocks one more level per minute of match time, each level
   // needs the previous one finished, level 4 only ever completes once, and the arm must carry a
   // core (two for the borrowed-core level).
   const heavy=!!piloted&&piloted.role==='heavy';
+  const sentry=!!piloted&&piloted.role==='sentry';
   const atAssembly=!!piloted&&(piloted.last_raw_zones??[]).includes(`${piloted.team}_assembly`);
   const coreState=piloted?frame.assemblies?.[piloted.team]:null;
   const completed:number[]=((frame.teams?.[piloted?.team??'red'] as {completed_difficulties?:number[]}|undefined)?.completed_difficulties)??[];
@@ -1399,10 +1604,8 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     3:'首次：升至 10 级，全队地面机器人 / 前哨站 / 基地 +25% 防御，解锁 42 mm 发射机构，等级上限 → 10，每 10 秒额外 +20 金币；非首次：每 10 秒额外 +12 金币',
     4:'首次：全队 +50% 防御，每 10 秒额外 +40 金币（本场仅一次）',
   };
-  // The rules' unlock decides when the 42 mm may shoot (difficulty 3, or 300 - M/50 - 2N/3 seconds);
-  // bolting the module on is allowed at any time.
-  const teamLauncherUnlocked=piloted?((frame.teams[piloted.team]?.completed_difficulties??[]).includes(3)
-    || (frame.time??0)+1e-8>=(frame.teams[piloted.team]?.launcher_unlock_s??0)):false;
+  // The rules' unlock decides when the 42 mm may shoot; bolting the module on is allowed at any time.
+  const teamLauncherUnlocked=launcherUnlockedFor(frame,piloted);
   const launcherNote=piloted&&piloted.role==='heavy'
     ?(piloted.launcher==='installed'?'42 mm 发射机构已安装 · H 是远程补给'
       :piloted.launcher==='fitted'?(teamLauncherUnlocked?'42mm 未最终确认 · 开一枪即定装':'42mm 已装好 · 解锁后才能发射')
@@ -1437,15 +1640,13 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     if(!kind||!inSupply(piloted,frame))return;
     const price=ammoPrices(economyRef.current,String(frame.season??'2027'),kind);
     setAssembly(false);
-    setStore({mode:'local',tab:'ammo',amount:price.local.batch,batches:1});
+    setStore({mode:'local',tab:'ammo',amount:0});
   }
 
   function adjustStore(delta:number){
     setStore(s=>{
-      if(!s)return s;
-      if(s.mode==='local')return {...s,amount:Math.max(0,Math.min(localMax,s.amount+delta))};
-      const top=Math.max(1,remoteMaxBatches);
-      return {...s,batches:Math.max(1,Math.min(top,s.batches+delta))};
+      if(!s||s.tab!=='ammo')return s;
+      return {...s,amount:Math.max(0,Math.min(storeMax,s.amount+delta))};
     });
   }
 
@@ -1470,13 +1671,13 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
 
   function confirmStore(){
     if(!store||!piloted)return;
-    if(store.mode==='local'){
-      if(store.amount<=0||!storePrices)return;
-      placeAmmo(false,store.amount);
-    }else if(store.tab==='ammo'){
-      if(remoteShots<=0||!storePrices)return;
-      placeAmmo(true,remoteShots);
+    if(store.tab==='ammo'){
+      if(!storePrices||store.amount<=0||store.amount>storeMax)return;
+      if(store.mode==='local'&&!inSupply(piloted,frame))return;
+      if(store.mode==='remote'&&disengage>0)return;
+      placeAmmo(store.mode==='remote',store.amount);
     }else{
+      if(disengage>0||gold<healCost)return;
       heal.current=true;
       setNotice(`远程兑换血量 · ${healCost} 金币 · 6 秒后送达（期间阵亡则失效且不退款）`);
     }
@@ -1488,6 +1689,23 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     if(gold<reviveCost){setNotice(`金币不足：立即复活需 ${reviveCost} 金币（现有 ${Math.round(gold)}）`);return;}
     revive.current=true;
     setNotice(`立即复活 · ${reviveCost} 金币 · 保留等级与经验`);
+  }
+  // Choosing the free card is a real answer to the panel's question: it marks the countdown as the
+  // path taken (and can be pressed with Y), so a pilot never spends gold by reflex.
+  function pickFreeRevive(){
+    if(!piloted||piloted.alive)return;
+    setFreePicked(true);
+    setNotice(respawnLeft>0?`已选择免费复活 · 读条结束后返场（还剩 ${respawnLeft}s）`:'免费复活 · 正在返场');
+  }
+
+  // The board closes on a choice and hands the pointer back, so a stance switch is one keypress and
+  // one click instead of a trip through the mouse look.
+  function choosePosture(value:Posture){
+    if(!piloted||piloted.role!=='sentry')return;
+    postureWanted.current=value;
+    setPosturePanel(false);
+    setNotice(`${POSTURE_NAMES[value]}姿态 · ${value==='attack'?'火力与射速优先':value==='defense'?'装甲与减伤优先':'机动与转移优先'}`);
+    requestAnimationFrame(()=>requestLock(setNotice));
   }
 
   // Range to the point under the reticle, shown next to the scope: the pilot aims by distance, and
@@ -1524,8 +1742,17 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         </div>
         <div className="pilot-scope-label">吊射 · 2.5× 镜内放大 · 准星即落点{lobReach}{lobShot.current?' · 抬炮中，到位自动发射':''}</div>
       </div>}
-      <AimRing robot={piloted} heatBlocked={heatBlocked}/>
-      <Vitals robot={piloted} thresholds={thresholds} capNominal={supercapNominal} gold={gold}/>
+      <AimRing robot={piloted} heatBlocked={heatBlocked} capNominal={supercapNominal} viewYaw={view.current?.yaw??piloted.aim??piloted.heading??0}/>
+      {/* Barrel lock: the first-person view goes black until the heatsink clears, while every HUD
+          element keeps drawing on top so the pilot can still read the machine and the rules. */}
+      {heatLocked&&!dead&&<>
+        <div className="pilot-overheat-veil" aria-hidden="true"/>
+        <div className="pilot-overheat-note" role="status" aria-live="polite">
+          <b>热量超限</b>
+          <small>{piloted.heat_permanent_lock?'枪管永久锁死 · 本局无法再开火':`枪管冷却中 · ${Math.ceil(piloted.heat)} / ${Math.round(piloted.max_heat)} · 清零后解锁`}</small>
+        </div>
+      </>}
+      <Vitals robot={piloted} thresholds={thresholds} portrait={portrait} launcherUnlocked={teamLauncherUnlocked} disengage={disengage} chips={robotBuffs(piloted,frame)}/>
       {hitTick>0&&<div key={hitTick} className="pilot-hit" aria-hidden="true"/>}
       <div className="pilot-status">
         {lockInfo&&!dead&&<div className="pilot-lock">
@@ -1541,13 +1768,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       </div>
       {!locked&&!dead&&!open&&<div className="pilot-grab">鼠标未锁定 · 点击画面锁定（或直接移动鼠标转向）</div>}
       {notice&&<div className="pilot-notice"><i/>{notice}</div>}
-      {dead&&<div className="pilot-respawn" role="status" aria-label="等待复活">
-        <strong>已阵亡</strong>
-        <div className="respawn-bar"><i style={{width:`${respawnShare*100}%`}}/></div>
-        <span>{respawnLeft>0?`免费复活倒计时 ${respawnLeft}s`:'正在返场…'}</span>
-        <button className="pilot-revive" disabled={gold<reviveCost} onClick={buyRevive}>立即复活 · {reviveCost} 金币</button>
-        <small>免费复活：读条结束后自动复活 · 立即复活：保留等级与经验，3 秒虚弱与无敌，功率上限翻倍 4 秒</small>
-      </div>}
+      {dead&&<RespawnPanel robot={piloted} respawnLeft={respawnLeft} respawnShare={respawnShare} gold={gold} reviveCost={reviveCost} freePicked={freePicked} onBuy={buyRevive} onFree={pickFreeRevive}/>}
     </>}
     {!piloted&&!open&&<button className="pilot-open" onClick={()=>onOpen(true)} aria-label="打开第一视角驾驶面板"><Gamepad2 size={14}/>驾驶菜单<kbd>P</kbd></button>}
     {open&&<>
@@ -1599,8 +1820,24 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         </div>}
         {piloted&&<>
           <div className="pilot-hints-title">驾驶小则</div>
-          <p className="pilot-hints">鼠标/方向键 转云台 · 右键按住 自动瞄准：锁定离准星最近的装甲板（机器人、前哨站、基地）· <b>O 补给区购买弹药</b>· <b>H 远程补给</b>（远程需脱离交战 6 秒）{heavy?<>{' · '}<b>I 重装：矿区取矿 · 装配区选装配难度</b>{' · '}<b>J 工位内按住安装 42 mm 发射机构</b>{' · '}<b>R 吊射 3× 镜（装好 42 mm 后，准星即落点）</b></>:null} · WASD 移动（松开自动刹车）· 左键 开火（热量接近上限时自动停火保护枪管）{legsFor?' · 空格 跳跃（下蹲 0.3 s，落地缓冲 0.5 s）':' · 空格 开火'}{climbMode?' · F 按住登阶（抵住台阶自动抬腿）':''} · <b>Shift 小陀螺自旋</b>（A/D 定方向）· <b>C 超电输出</b>（200 W，同时加快自旋）· X 刹车 · P 关闭面板即继续操控并重新锁定鼠标</p>
+          <p className="pilot-hints">鼠标/方向键 转云台 · 右键按住 自动瞄准：锁定离准星最近的装甲板（机器人、前哨站、基地）· <b>O 补给区购买弹药</b>· <b>H 远程补给</b>（远程需脱离交战 6 秒）{heavy?<>{' · '}<b>I 重装：矿区取矿 · 装配区选装配难度</b>{' · '}<b>J 工位内按住安装 42 mm 发射机构</b>{' · '}<b>R 吊射 3× 镜（装好 42 mm 后，准星即落点）</b></>:null}{sentry?<>{' · '}<b>Y 切换哨兵姿态</b></>:null} · WASD 移动（松开自动刹车）· 左键 开火（热量接近上限时自动停火保护枪管）{legsFor?' · 空格 跳跃（下蹲 0.3 s，落地缓冲 0.5 s）':' · 空格 开火'}{climbMode?' · F 按住登阶（抵住台阶自动抬腿）':''} · <b>Shift 小陀螺自旋</b>（A/D 定方向）· <b>C 超电输出</b>（200 W，同时加快自旋）· X 刹车 · P 关闭面板即继续操控并重新锁定鼠标</p>
         </>}
+      </div>
+    </>}
+    {posturePanel&&<>
+      <div className="pilot-backdrop" onClick={()=>setPosturePanel(false)}/>
+      <div className="pilot-panel pilot-posture" role="dialog" aria-label="更换哨兵姿态">
+        <div className="pilot-heading"><ShieldCheck size={14}/><span>哨兵姿态</span><em>{piloted?`当前 ${POSTURE_NAMES[piloted.posture??'move']}${piloted.posture_enhanced?' · 强化':''} · Y 关闭`:'未接管'}</em><button className="pilot-x" onClick={()=>setPosturePanel(false)} aria-label="关闭姿态面板"><span className="pilot-x-glyph" aria-hidden="true">✕</span></button></div>
+        {!sentry
+          ?<p className="pilot-hints">只有全自动哨兵可以切换姿态。</p>
+          :<div className="pilot-posture-options">
+            {POSTURE_OPTIONS.map(({id,name,desc,Icon})=><button key={id} className={piloted?.posture===id?'active':''} aria-pressed={piloted?.posture===id} onClick={()=>choosePosture(id)}>
+              <Icon size={17} aria-hidden="true"/>
+              <b>{name}</b>
+              <small>{desc}</small>
+            </button>)}
+          </div>}
+        {sentry&&<p className="pilot-posture-foot">切换冷却 5 秒 · 强化每姿态 15 秒</p>}
       </div>
     </>}
     {assembly&&<>
@@ -1630,50 +1867,42 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     </>}
     {store&&<>
       <div className="pilot-backdrop" onClick={closeStore}/>
-      <div className="pilot-panel pilot-store" role="dialog" aria-label={store.mode==='local'?'补给区购买':'远程补给'}>
-        <div className="pilot-heading"><Coins size={14}/><span>{store.mode==='local'?'补给区购买':'远程补给'}</span><em>{piloted?`${storeKind??'—'} · ${piloted.team==='red'?'红':'蓝'}方 ${piloted.slot} 号`:'未接管'}</em><button className="pilot-x" onClick={closeStore} aria-label="关闭购买"><span className="pilot-x-glyph" aria-hidden="true">✕</span></button></div>
+      <div className={`pilot-panel pilot-store ${store.tab==='ammo'?'pilot-ammo-board':''}`} role="dialog" aria-label={store.tab==='ammo'?`${storeKind??''} 弹丸补给面板`:'远程补给'}>
+        <div className="pilot-heading"><Coins size={14}/><span>{store.tab==='ammo'?`${storeKind??''} 弹丸补给面板`:'远程补给'}</span><em>{piloted?`${store.mode==='local'?'补给区 · 立即补弹':'远程 · 6 秒送达'} · ${piloted.team==='red'?'红':'蓝'}方 ${piloted.slot} 号`:'未接管'}</em><button className="pilot-x" onClick={closeStore} aria-label="关闭购买"><span className="pilot-x-glyph" aria-hidden="true">✕</span></button></div>
         {!piloted?<p className="pilot-hints">请先接管一台机器人。</p>:<>
           {store.mode==='remote'&&<div className="pilot-team-switch" role="group" aria-label="远程项目">
-            <button className={store.tab==='ammo'?'active':''} disabled={!storePrices} onClick={()=>setStore(s=>s?{...s,tab:'ammo'}:s)}>远程买弹</button>
+            <button className={store.tab==='ammo'?'active':''} disabled={!storePrices} onClick={()=>setStore(s=>s?{...s,tab:'ammo',amount:0}:s)}>远程买弹</button>
             <button className={store.tab==='heal'?'active':''} onClick={()=>setStore(s=>s?{...s,tab:'heal'}:s)}>远程买血</button>
           </div>}
-          {store.mode==='local'&&storePrices&&<>
-            <div className="pilot-store-info"><b>{storeKind}</b><span>补给区原价 {storePrices.local.batch} 发 / {storePrices.local.cost} 金币</span></div>
-            <div className="pilot-qty" role="group" aria-label="购买数量">
-              {localSteps.map(s=><button key={'m'+s} onClick={()=>adjustStore(-s)}>-{s}</button>)}
-              <output>{store.amount}</output>
-              {[...localSteps].reverse().map(s=><button key={'p'+s} onClick={()=>adjustStore(s)}>+{s}</button>)}
-            </div>
-            <div className="pilot-store-info"><span>合计 <b>{localPrice}</b> 金币</span><span>现有 {Math.round(gold)} · 剩余可购 {Math.max(0,storePrices.local.cap-purchased)} 发</span></div>
-            {!inSupply(piloted,frame)&&<p className="pilot-store-warn">已离开补给区/完全控制的前哨站，本次下单会被拒绝。</p>}
-            {localPrice>gold&&<p className="pilot-store-warn">金币不足。</p>}
-          </>}
-          {store.mode==='remote'&&store.tab==='ammo'&&storePrices&&<>
-            <div className="pilot-store-info"><b>{storeKind} 远程</b><span>{storePrices.remote.batch} 发 / {storePrices.remote.cost} 金币</span></div>
-            <div className="pilot-qty" role="group" aria-label="购买批数">
-              {[10,1].map(s=><button key={'m'+s} onClick={()=>adjustStore(-s)}>-{s}</button>)}
-              <output>{remoteShots} 发</output>
-              {[1,10].map(s=><button key={'p'+s} onClick={()=>adjustStore(s)}>+{s}</button>)}
-            </div>
-            <div className="pilot-store-info"><span>合计 <b>{remotePrice}</b> 金币</span><span>{store.batches} 批 · 现有 {Math.round(gold)} · 剩余可购 {Math.max(0,storePrices.remote.cap-purchased)} 发</span></div>
-            {remotePrice>gold&&<p className="pilot-store-warn">金币不足。</p>}
-            {purchased+remoteShots>storePrices.remote.cap&&<p className="pilot-store-warn">超过本队购买上限。</p>}
-            {disengage>0&&<p className="pilot-store-warn">远程下单需脱离交战 6 秒：还要 {Math.ceil(disengage)} 秒</p>}
-          </>}
-          {store.mode==='remote'&&store.tab==='heal'&&<>
-            <div className="pilot-store-info"><b>远程兑换血量</b><span>6 秒后恢复 60% 上限血量</span></div>
-            <div className="pilot-store-info"><span>费用 <b>{healCost}</b> 金币</span><span>现有 {Math.round(gold)} · 次数不限</span></div>
-            <p className="pilot-store-note">确认后 6 秒送达；这 6 秒内阵亡则本次兑换失效，金币不返还。</p>
-            {disengage>0&&<p className="pilot-store-warn">远程兑换需脱离交战 6 秒：还要 {Math.ceil(disengage)} 秒</p>}
-          </>}
-          <div className="pilot-actions">
-            <button onClick={confirmStore} disabled={store.mode==='local'
-              ?(store.amount<=0||localPrice>gold||!inSupply(piloted,frame))
-              :store.tab==='ammo'
-                ?(remoteMaxBatches<store.batches||remotePrice>gold||disengage>0)
-                :(disengage>0||gold<healCost||dead)}>确定</button>
-            <button onClick={closeStore}>取消</button>
-          </div>
+          {store.tab==='ammo'
+            ?(storePrices?<>
+              <div className="pilot-ammo-slot">
+                <span className="pilot-ammo-caption">已有 / 可兑换允许发弹量</span>
+                <b className="pilot-ammo-ratio">{Math.floor(piloted.ammo)} / {storeLeft}</b>
+                <div className="pilot-ammo-stepper" role="group" aria-label="兑换数量">
+                  {[...ammoSteps].reverse().map(step=><button key={'m'+step} disabled={storeAmount-step<0} onClick={()=>adjustStore(-step)}>-{step}</button>)}
+                  <output aria-live="polite">{storeAmount}</output>
+                  {ammoSteps.map(step=><button key={'p'+step} disabled={storeAmount+step>storeMax} onClick={()=>adjustStore(step)}>+{step}</button>)}
+                </div>
+              </div>
+              <div className="pilot-ammo-meta">
+                <span>合计 <b>{storeCost}</b> 金币</span>
+                <span>{store.mode==='local'?'补给区':'远程'} {storeRule?.batch} 发 / {storeRule?.cost} 金币</span>
+                <span>现有 {Math.round(gold)} · 已购 {purchased}/{storeRule?.cap} · 剩余 {storeLeft} 发</span>
+              </div>
+              {store.mode==='local'&&!inSupply(piloted,frame)&&<p className="pilot-store-warn">已离开补给区/完全控制的前哨站，本次下单会被拒绝。</p>}
+              {storeCost>gold&&<p className="pilot-store-warn">金币不足。</p>}
+              {store.mode==='remote'&&disengage>0&&<p className="pilot-store-warn">远程下单需脱离交战 6 秒：还要 {Math.ceil(disengage)} 秒</p>}
+            </>:<p className="pilot-hints">正在读取规则价格…</p>)
+            :<>
+              <div className="pilot-store-info"><b>远程兑换血量</b><span>6 秒后恢复 60% 上限血量 · 次数不限</span></div>
+              <div className="pilot-store-info"><span>费用 <b>{healCost}</b> 金币</span><span>50 + ROUNDUP(已进行秒数 ÷ 60 × 20) · 现有 {Math.round(gold)}</span></div>
+              <p className="pilot-store-note">确认后 6 秒送达；这 6 秒内阵亡则本次兑换失效，金币不返还。</p>
+              {disengage>0&&<p className="pilot-store-warn">远程兑换需脱离交战 6 秒：还要 {Math.ceil(disengage)} 秒</p>}
+            </>}
+          <button className="pilot-ammo-confirm" onClick={confirmStore} disabled={store.tab==='ammo'
+            ?(storeAmount<=0||storeAmount>storeMax||storeCost>gold||(store.mode==='local'?!inSupply(piloted,frame):disengage>0))
+            :(disengage>0||gold<healCost||dead)}>确定</button>
         </>}
       </div>
     </>}

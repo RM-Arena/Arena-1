@@ -9,8 +9,8 @@ import {LineupIntro} from './LineupIntro';
 import type {IntroCut} from './intro';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('en-US');
-// One beat of the highlight reel: five seconds is long enough for the overlay to land and short
-// enough that the whole reel stays around half a minute.
+// One beat of the highlight reel: five seconds is long enough for the overlay to land and the
+// camera to show both sides of the exchange, and short enough for three beats to stay tight.
 const HIGHLIGHT_SECONDS=5;
 
 // ---------------------------------------------------------------- pre-match
@@ -94,22 +94,28 @@ export function Results({frame,metadata,stats,images,onNext,onClose,auto,paused=
 // ---------------------------------------------------------------- highlights
 // The reel is played back from the match's own replay file, so what a viewer sees is the real
 // engagement — the same frame stream the broadcast used — with a broadcast-style lower third on top.
-export function HighlightHud({clips,index,frame,onDone}:{clips:HighlightClip[];index:number;frame:Frame|null;onDone:()=>void}){
+export function HighlightHud({clips,index,frame,side,onDone}:{clips:HighlightClip[];index:number;frame:Frame|null;side:'output'|'input';onDone:()=>void}){
   const clip=clips[Math.min(index,clips.length-1)];
   if(!clip)return null;
   const star=frame?clipStar(clip,frame.robots):null;
+  const rival=frame&&clip.rival?frame.robots.find(r=>r.id===clip.rival)??null:null;
   const victims=frame?clip.victims.map(id=>frame.robots.find(r=>r.id===id)).filter(Boolean) as Robot[]:[];
+  const receiving=clip.rival
+    ?rival?`${TEAM_LABEL[rival.team]} ${rival.slot} 号 · ${ROLE_NAMES[rival.role]}`:`${clip.rival.startsWith('red')?'红方':'蓝方'} ${clip.rival.split('-')[1]??''} 号`
+    :clip.rivalTeam?`${TEAM_LABEL[clip.rivalTeam]} 建筑`:'';
   const team=star?.team??frame?.winner??'red';
   return <div className={`hl-hud ${team}`} aria-live="polite">
     <div className="hl-hud-top">
       <span className="hl-badge">HIGHLIGHT</span>
       <b>{String(index+1).padStart(2,'0')}<small>/{String(clips.length).padStart(2,'0')}</small></b>
+      <span className={`hl-side ${side}`}>{side==='input'?'承受视角':'输出视角'}</span>
       <span className="hl-clock">{clipClock(clip.time)}</span>
     </div>
     <div key={clip.key} className="hl-hud-card">
       <div className="hl-hud-title"><span>{clip.title}</span><small>{clip.caption}</small></div>
       <div className="hl-hud-meta">
-        {star&&<span className="hl-hud-star">{TEAM_LABEL[star.team]} {star.slot} 号 · {clipRole(clip,frame!.robots)}</span>}
+        {star&&<span className="hl-hud-star">输出 {TEAM_LABEL[star.team]} {star.slot} 号 · {clipRole(clip,frame!.robots)}</span>}
+        {receiving&&<span className="hl-hud-rival">承受 {receiving}</span>}
         <span>{clip.kind==='siege'||clip.kind==='air'?'建筑伤害':clip.kind==='output'?'峰值伤害':'本段伤害'}<b>{Math.round(clip.damage)}</b></span>
         <span>击毁<b>{victims.length}</b></span>
         {victims.length>0&&<span className="hl-hud-down">被击毁 {victims.map(v=>`${v.slot} 号`).join(' / ')}</span>}
@@ -153,6 +159,10 @@ export function Highlights({clips,frame,metadata,images,onDone}:{clips:Highlight
   </Stage>;
   const team=star?.team??(frame.winner??'red');
   const victims=clip.victims.map(id=>frame.robots.find(r=>r.id===id)).filter(Boolean) as Robot[];
+  const rival=clip.rival?frame.robots.find(r=>r.id===clip.rival)??null:null;
+  // Show the unit that took the damage even when it survived; destroyed receivers are already in
+  // `victims`, so the same robot is not carded twice.
+  const receivers=rival&&!clip.victims.includes(rival.id)?[...victims,rival]:victims;
   return <Stage className={`cer-highlight ${team} ${clip.kind}`}>
     <div className="hl-tint"/><div className="hl-shards">{Array.from({length:14},(_,i)=><i key={i} style={{'--i':i} as CSSProperties}/>)}</div>
     <div key={clip.key} className="hl-cut">
@@ -170,12 +180,13 @@ export function Highlights({clips,frame,metadata,images,onDone}:{clips:Highlight
           <div className="hl-metrics">
             <span>{clip.kind==='siege'||clip.kind==='air'?'建筑伤害':clip.kind==='output'?'峰值伤害':'本段伤害'}<b>{Math.round(clip.damage)}</b></span>
             <span>击毁<b>{clip.victims.length}</b></span>
+            {(rival||clip.rival||clip.rivalTeam)&&<span>承受方<b>{rival?`${rival.slot} 号`:clip.rival?`${clip.rival.split('-')[1]??''} 号`:`${TEAM_LABEL[clip.rivalTeam!]} 建筑`}</b></span>}
           </div>
         </div>
       </div>
-      {victims.length>0&&<div className="hl-victims">{victims.map(v=><span key={v.id} className={v.team}>
+      {receivers.length>0&&<div className="hl-victims">{receivers.map(v=><span key={v.id} className={v.team}>
         {images[`${v.model_asset}|${v.team}`]&&<img src={images[`${v.model_asset}|${v.team}`]} alt=""/>}
-        <b>{v.slot}</b><small>{ROLE_NAMES[v.role]}</small>
+        <b>{v.slot}</b><small>{ROLE_NAMES[v.role]} · 承受方</small>
       </span>)}</div>}
     </div>
     <div className="hl-pips">{clips.map((c,i)=><i key={c.key} className={i<index?'done':i===index?'now':''}/>)}</div>

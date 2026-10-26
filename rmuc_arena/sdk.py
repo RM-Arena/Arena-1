@@ -682,6 +682,12 @@ def _physical_toward(robot,point):
 def _chapter4_navigate(robot,point,arena):
     graph=_prepare_chapter4(arena,robot['team'],robot.get('transform_progress',0.0)>=.99);nodes,_,clear,inside=graph
     start=(robot['x'],robot['y']);goal=tuple(point)
+    # A heavy chassis stops with its own motors, which draw on the base power budget: a powered
+    # reverse near the goal is far weaker than a stopped command, and arriving at the resource
+    # station flat out overran the dispenser into the corner behind it. Let the active brake do
+    # the work while there is still room, then creep the last metre in.
+    speed=math.hypot(robot.get('vx',0.0),robot.get('vy',0.0))
+    if speed>.35 and math.dist(start,goal)<.35+speed*speed/6:return (0.0,0.0)
     # Obstacles the goal overlaps never block reaching it. A robot pushed inside an
     # obstacle's margin may leave or pass it but not close in on it (driving straight on
     # would wedge it against a ramp guard's end); ignoring that obstacle outright, and
@@ -767,13 +773,20 @@ def _route(graph,start,goal,near_start,near_goal,strict,reached=0):
     of creeping on the spot (on a 2027 slope it would slide back)."""
     nodes,_,clear,_=graph
     costs=_route_costs(graph,goal,near_goal,strict)
-    candidates=sorted((math.dist(start,nodes[i])+cost,i) for i,cost in costs.items())
+    full=sorted((math.dist(start,nodes[i])+cost,i) for i,cost in costs.items())
+    candidates=full
     if reached:
-        ahead=[c for c in candidates if math.dist(start,nodes[c[1]])>=reached]
-        candidates=ahead or candidates
+        ahead=[c for c in full if math.dist(start,nodes[c[1]])>=reached]
+        candidates=ahead or full
     # The cost of every complete route is already known; test visibility in
     # increasing cost order instead of scanning every start/goal pair again.
     for _,i in candidates:
+        if clear(start,nodes[i],near_start,strict):return i
+    # A robot pushed past its goal can stand with the only escape waypoint underfoot: the
+    # `reached` skip then hides the one node that leads home and the chassis stops dead in
+    # the station corner. Those nodes are still valid steering targets once nothing else is.
+    for _,i in full:
+        if math.dist(start,nodes[i])<.05:continue
         if clear(start,nodes[i],near_start,strict):return i
     return None
 

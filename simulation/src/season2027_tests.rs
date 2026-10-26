@@ -26,6 +26,17 @@ fn lineup(models: &[(u32, u32)]) -> Option<BTreeMap<String, Vec<Deployment>>> {
     let list: Vec<Deployment> = models.iter().map(|(slot, model)| Deployment { slot: *slot, model: *model }).collect();
     Some([("red".into(), list.clone()), ("blue".into(), list)].into())
 }
+/// One lethal 17 mm hit, so death-time rules can be checked without driving the chassis.
+fn slain(m: &mut Engine, id: &str) {
+    let i = robot(m, id);
+    m.robots[i].hp = 5.0;
+    let r = m.robots[i].clone();
+    let face = [r.x + r.chassis_size_m[0] / 2.0, r.y, r.z + r.armor_center_z_m];
+    let p = Projectile { id: 1, source: "blue-4".into(), team: "blue".into(), role: "infantry".into(),
+        x: face[0] + 0.2, y: face[1], z: face[2], vx: -25.0, vy: 0.0, vz: 0.0, remaining: 1.0, damage: 20.0,
+        radius: 0.0084, deployed: false };
+    m.robot_hit_2027(i, &p, face[0], face[1], face[2]);
+}
 
 #[test]
 fn default_lineup_fields_heavy_infantry_sentry_and_aerial_system() {
@@ -281,6 +292,64 @@ fn sentry_collects_one_hundred_rounds_per_minute_at_its_supply_area() {
     assert_eq!(m.robots[s].ammo, 500);
 }
 
+// Rulebook p.74: death clears the shot heat and hands the chassis a buffer full to its ceiling.
+#[test]
+fn a_destroyed_chassis_clears_its_heat_and_refills_the_buffer() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    let capacity = m.rules["power"]["buffer_capacity_j"].as_f64().unwrap();
+    m.robots[i].heat = m.robots[i].max_heat;
+    m.robots[i].buffer_energy_j = 0.0;
+    slain(&mut m, "red-3");
+    assert!(!m.robots[i].alive);
+    assert_eq!(m.robots[i].heat, 0.0);
+    assert_eq!(m.robots[i].buffer_energy_j, capacity);
+}
+
+// Rulebook p.74 worked example: 120 s left and two paid revives already taken -> 10 + 30 + 40 = 80.
+#[test]
+fn the_free_revive_bar_matches_the_published_formula() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    m.robots[i].instant_revives = 2;
+    m.tick = 20 * 300;
+    slain(&mut m, "red-3");
+    assert_eq!(m.robots[i].respawn_required, 80.0);
+    // Each paid revive taken earlier adds its own 20 s to the next bar.
+    let j = robot(&m, "red-4");
+    m.robots[j].instant_revives = 3;
+    slain(&mut m, "red-4");
+    assert_eq!(m.robots[j].respawn_required, 100.0);
+}
+
+// Rulebook p.74: 1 point per second, 4 while on the supply buff card or with the own base below 4000.
+#[test]
+fn the_revive_bar_runs_four_times_faster_at_supply_or_below_four_thousand_base_hp() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    slain(&mut m, "red-3");
+    m.robots[i].respawn_required = 1000.0;
+    m.robots[i].zone_contacts.clear();
+    m.bases.get_mut("red").unwrap().hp = 4000.0;
+    assert!(!m.contacted_zone_2027(i, "supply", Some("red")));
+    m.step(&json!({}));
+    assert!((m.robots[i].respawn_progress - 0.05).abs() < 1e-9, "4000 is not below the threshold");
+    m.bases.get_mut("red").unwrap().hp = 3999.0;
+    m.step(&json!({}));
+    let fast = m.robots[i].respawn_progress;
+    assert!((fast - 0.25).abs() < 1e-9, "below 4000 the bar runs at 4/s: {fast}");
+    m.bases.get_mut("red").unwrap().hp = 10000.0;
+    let supply = zone_center(&m, "red_supply");
+    place(&mut m, i, supply[0], supply[1]);
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    m.step(&json!({}));
+    assert!(m.contacted_zone_2027(i, "supply", Some("red")), "the supply card is detected");
+    let before = m.robots[i].respawn_progress;
+    m.step(&json!({}));
+    let fast = m.robots[i].respawn_progress - before;
+    assert!((fast - 0.2).abs() < 1e-9, "on the supply card the bar runs at 4/s: {fast}");
+}
+
 #[test]
 fn lost_base_hp_slows_respawn_and_remote_healing() {
     let mut m = match_();
@@ -475,6 +544,40 @@ fn a_heavy_carries_a_third_unit_in_its_gripper() {
 }
 
 #[test]
+fn a_grab_out_of_the_arms_reach_is_cancelled_instead_of_hanging_at_zero() {
+    // The resource zone is 0.55 m around the hub, but the wrist can only arrive from the park
+    // point one arm-length out. Standing at the zone edge used to start a grab whose tip never
+    // reached the unit: the stage stayed "approaching" at 0 % for as long as the key was held.
+    let mut m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, 2711), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+    let h = robot(&m, "red-1");
+    let station = m.arena.field_geometry["fixtures"].as_array().unwrap().iter()
+        .find(|f| f["kind"] == "resource" && f["team"] == "red").unwrap().clone();
+    let (point, dir) = (&station["pick_point"], &station["pick_dir"]);
+    let (dx, dy) = (dir[0].as_f64().unwrap(), dir[1].as_f64().unwrap());
+    place(&mut m, h, point[0].as_f64().unwrap() - dx * 1.10, point[1].as_f64().unwrap() - dy * 1.10);
+    let r = &mut m.robots[h];
+    r.heading = dy.atan2(dx);
+    r.aim = r.heading;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    let command = json!({"red":{"1":{"pick_unit":true,"brake":true,"heading":dy.atan2(dx)}}});
+    m.step(&command);
+    assert!(m.robots[h].unit_pickup.is_some(), "the grab starts inside the zone");
+    let mut cancelled = false;
+    for _ in 0..90 {
+        m.step(&command);
+        if m.events.iter().any(|e| e["type"] == "unit_pickup_cancelled" && e["reason"] == "unreachable") {
+            cancelled = true;
+            break;
+        }
+    }
+    assert!(cancelled, "an unreachable grab has to fail, not sit at {:?}", m.robots[h].unit_pickup.as_ref().map(|p| p.stage.clone()));
+    assert!(m.robots[h].unit_pickup.is_none());
+    assert_eq!(m.robots[h].carried_units, 0);
+    assert_eq!(m.teams["red"].energy_units_left, Some(6), "a failed grab must not consume stock");
+}
+
+#[test]
 fn launcher_fitting_restarts_when_the_heavy_robot_stops_asking_or_leaves_the_workbench() {
     let mut m = match_();
     let h = robot(&m, "red-1");
@@ -571,4 +674,52 @@ fn drones_pushed_into_a_spinning_outpost_stay_outside_its_armor_and_tower() {
         contacts += structures::outpost_overlap(o, p, radius * 1.3, radius * 0.6).is_some() as u32;
     }
     assert!(contacts > 20, "the drone should rest against the outpost, contacts {contacts}");
+}
+
+#[test]
+fn enemy_fortress_hold_opens_the_base_after_ten_seconds() {
+    let mut m = match_();
+    // Past the three-minute activation window, red controls blue's outpost position and blue's
+    // outpost itself lies destroyed.
+    m.tick = 4000;
+    m.outposts.get_mut("blue").unwrap().hp = 0.0;
+    m.outposts.get_mut("blue").unwrap().ever_destroyed = true;
+    {
+        let p = m.positions.get_mut("blue_outpost").unwrap();
+        p.control = "temporary".into();
+        p.controller = "red".into();
+    }
+    let i = robot(&m, "red-3");
+    let [x, y] = zone_center(&m, "blue_fortress");
+    place(&mut m, i, x, y);
+    // Activation needs control of the owner's outpost position; after that the count only needs the
+    // pilot to stay on the card. Let one tick elapse so the count has started, then simulate the
+    // position lapsing back to blue: the base armor must still open at ten seconds on the card.
+    m.update_buffs_2027();
+    m.tick += 1;
+    m.update_buffs_2027();
+    assert!(m.robots[i].fortress_hold > 0.0, "the count did not start");
+    m.positions.get_mut("blue_outpost").unwrap().controller = "blue".into();
+    for _ in 0..210 {
+        m.tick += 1;
+        m.update_buffs_2027();
+    }
+    assert!(m.bases["blue"].armor_open, "hold={}", m.robots[i].fortress_hold);
+}
+
+#[test]
+fn enemy_fortress_cannot_activate_without_the_owner_outpost_position() {
+    let mut m = match_();
+    m.tick = 4000;
+    m.outposts.get_mut("blue").unwrap().hp = 0.0;
+    m.outposts.get_mut("blue").unwrap().ever_destroyed = true;
+    let i = robot(&m, "red-3");
+    let [x, y] = zone_center(&m, "blue_fortress");
+    place(&mut m, i, x, y);
+    for _ in 0..400 {
+        m.tick += 1;
+        m.update_buffs_2027();
+    }
+    assert!(!m.bases["blue"].armor_open);
+    assert_eq!(m.robots[i].fortress_hold, 0.0);
 }

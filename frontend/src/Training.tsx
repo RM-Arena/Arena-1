@@ -4,7 +4,7 @@ import {ROLE_NAMES,SEASON_LABELS,SEASON_SLOTS,type RobotHardware,type Season,typ
 import {SEASON_ROLES,legalIn} from './TeamLineup';
 export type TrainingMode='team'|'robot'|'distributed'|'adaptive';
 export const TRAINING_MODES=[
- {id:'team',name:'全队统筹',tag:'TEAM COMMAND',icon:Shield,description:'一个 Agent 开发一份策略，统一控制全部机器人（2027 五台 / 2026 六台），共享战术状态。先选择共同阵容，再生成专属任务。',output:'一份全队策略 · 用于 RM 对战'},
+ {id:'team',name:'全队统筹',tag:'TEAM COMMAND',icon:Shield,description:'一个 Agent 开发一份策略，统一控制全部机器人（2027 五台 / 2026 六台），共享战术状态。先选择出战阵容，再生成专属任务。',output:'一份全队策略 · 用于 RM 对战'},
  {id:'robot',name:'单机专精',tag:'ROBOT SPECIALIST',icon:Bot,description:'一个 Agent 专注一台固定位置的机器人。各位作者的独立策略组队参赛，可通过队内消息配合。',output:'一份位置策略 · 组装后用于 RM 对战'},
  {id:'distributed',name:'多机协同',tag:'DISTRIBUTED SQUAD',icon:Network,description:'一个 Agent 为每台机器人各开发一份策略（2027 五份 / 2026 六份）。每台机器人独立运行、维护私有状态，通过队内消息协作。',output:'每台一份独立策略 · 用于 RM 对战'},
  {id:'adaptive',name:'自由适配',tag:'ADAPTIVE ROBOT',icon:Code2,description:'为任意硬件型号开发一份单机策略。比赛中读取实际队友阵容，适应重复型号与不对称对抗。',output:'一份型号策略 · 保存后可用于自由对战'},

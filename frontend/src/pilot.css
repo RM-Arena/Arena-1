@@ -82,9 +82,26 @@
    ammunition to its right. The ring is four times the old radius (384 px across) with a hairline
    stroke, so it frames the crosshair instead of hiding it. */
 .pilot-reticle,.pilot-readout,.pilot-status{--ring:384px}
+/* HUD zoom: the overlay follows the battle viewport. `zoom` scales sizes, fonts and the anchored
+   offsets together, so edges, centres and the readout's ring offset all stay proportional. */
+.pilot-reticle,.pilot-heatring,.pilot-cross,.pilot-readout,.pilot-vitals,.pilot-status,.pilot-grab,.pilot-notice,.pilot-overheat-note{zoom:var(--hud-zoom,1)}
 .pilot-reticle{position:absolute;left:50%;top:50%;z-index:8;transform:translate(-50%,-50%);width:var(--ring);height:var(--ring);max-width:min(var(--ring),86vw);max-height:min(var(--ring),86vh);aspect-ratio:1;opacity:.4;pointer-events:none;font-variant-numeric:tabular-nums;filter:drop-shadow(0 0 6px #000)}
 .pilot-reticle svg{width:100%;height:100%;overflow:visible}
-.pilot-reticle.overheated circle:nth-child(2){stroke:#ff6a5a}
+/* Barrel heat: a thin ring hugging the aim point, with the chassis heading as a 60° wedge just
+   outside it. Grey at rest, warming to red at the limit and deep red once the gun locks. */
+.pilot-heatring{position:absolute;left:50%;top:50%;z-index:9;width:96px;height:96px;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 0 5px #000a)}
+.pilot-heatring svg{width:100%;height:100%;overflow:visible}
+.pilot-heatring.locked{animation:pilot-heatring-lock 1.3s ease-in-out infinite}
+.pilot-heatring.guard{animation:pilot-heatring-guard 1.6s ease-in-out infinite}
+@keyframes pilot-heatring-lock{0%,100%{opacity:.82}50%{opacity:1}}
+@keyframes pilot-heatring-guard{0%,100%{opacity:.72}50%{opacity:1}}
+/* Barrel lock blacks out the field, not the HUD: the veil sits under the broadcast bar and the
+   cockpit readouts, and the warning rides above them. */
+.pilot-overheat-veil{position:absolute;inset:0;z-index:3;background:#000;pointer-events:none;animation:pilot-overheat-in .16s ease-out both}
+@keyframes pilot-overheat-in{from{opacity:0}to{opacity:1}}
+.pilot-overheat-note{position:absolute;left:50%;top:calc(50% + 112px);z-index:13;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;pointer-events:none;text-shadow:0 2px 12px #000}
+.pilot-overheat-note b{color:#ff5f4d;font-size:19px;letter-spacing:6px;text-shadow:0 0 18px #ff2d1f88,0 2px 8px #000}
+.pilot-overheat-note small{color:#c9a29b;font-size:10px;letter-spacing:.5px}
 /* The crosshair is its own fixed-size mark: the ring scales with the window, the aim point must
    not. Kept at the same 40 % transparency as the arcs. */
 .pilot-cross{position:absolute;left:50%;top:50%;z-index:9;width:32px;height:32px;transform:translate(-50%,-50%);opacity:.4;pointer-events:none;filter:drop-shadow(0 0 4px #000)}
@@ -95,20 +112,66 @@
 .pilot-readout .pilot-ammo i{font-style:normal;font-size:10px;letter-spacing:1px;color:#9fb4c3}
 .pilot-readout small{padding:1px 7px;border-radius:99px;background:#050a10b8;font-size:9px;color:#b9cbd8;white-space:nowrap}
 .pilot-readout.overheated .pilot-ammo,.pilot-readout.overheated small{color:#ff9d8b}
-/* Vitals card: one line per resource with the value right-aligned over its own bar. */
-.pilot-vitals{position:absolute;left:14px;bottom:46px;z-index:9;display:flex;flex-direction:column;gap:6px;width:212px;padding:9px 11px 10px;border:1px solid #b1c6d533;border-radius:8px;background:#050a10a8;backdrop-filter:blur(5px);pointer-events:none;font-variant-numeric:tabular-nums}
-.pilot-vitals .vitals-head{display:flex;align-items:baseline;gap:6px;font-size:10px;color:#9fb4c3}
-.pilot-vitals .vitals-head b{font-size:11px;color:var(--hud-accent,#8fd3e8);letter-spacing:.5px}
-.pilot-vitals .vitals-head em{margin-left:auto;font-style:normal;font-size:9px;color:var(--hud-accent,#8fd3e8)}
-.pilot-vitals .vital{position:relative;display:flex;align-items:baseline;gap:4px;padding-bottom:5px;font-size:11px;color:#dbe7ee}
-.pilot-vitals .vital>span{width:30px;font-size:9px;letter-spacing:.6px;color:#7f96a5}
-.pilot-vitals .vital>b{font-size:14px;font-weight:500}
-.pilot-vitals .vital>small{font-size:8px;color:#7f96a5}
-.pilot-vitals .vital>i{position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;background:#ffffff1f;transform-origin:left center}
-.pilot-vitals .vital>i.hp{background:#7fe0a8}
-.pilot-vitals .vital>i.xp{background:var(--hud-accent,#8fd3e8)}
-.pilot-vitals .vital>i.buffer{background:var(--hud-accent-2,#7fd0ff)}
-.pilot-vitals .vital>i.supercap{background:var(--hud-accent,#8fd3e8)}
+/* First-person vitals strip, laid out like the referee client: the experience arc sits left of the
+   chassis badge, the health bar takes the team colour, and the module lamps sit underneath. The strip
+   floats straight over the field with no panel behind it, so only the type and the bars are drawn. */
+.pilot-vitals{zoom:calc(var(--hud-zoom,1) * .8);position:absolute;left:14px;bottom:14px;z-index:9;display:flex;flex-direction:column;gap:8px;width:min(420px,calc(100% - 14px));padding:0;pointer-events:none;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px #000c,0 0 10px #0009}
+.pilot-vitals .vitals-top{display:flex;align-items:flex-end;gap:9px;min-width:0}
+.pilot-vitals .vitals-badge{position:relative;flex:0 0 auto;display:flex;align-items:flex-end;gap:6px;height:86px;padding:24px 0 4px 8px}
+.pilot-vitals .vitals-level{position:absolute;left:4px;top:0;display:grid;place-items:center;width:26px;height:26px;border:2px solid #e9f1f4cc;border-radius:50%;background:#0b1319;color:#fff;font-size:8px;font-weight:800;letter-spacing:.3px;box-shadow:0 0 0 2px #05080b,0 2px 6px #000a}
+.pilot-vitals .vitals-exp{position:relative;display:block;width:8px;height:58px;overflow:hidden;border-radius:5px;background:#ffffff2b;box-shadow:inset 0 0 0 1px #ffffff14}
+.pilot-vitals .vitals-exp>em{position:absolute;left:0;right:0;bottom:0;display:block;border-radius:5px;background:linear-gradient(0deg,#e8bf1f,#f7e580);box-shadow:0 0 8px #f2d43c66;transition:height .25s ease}
+.pilot-vitals .vitals-face{position:relative;display:block;width:64px;height:64px}
+.pilot-vitals .vitals-face-art{display:grid;place-items:center;width:100%;height:100%;overflow:hidden;border:2px solid #cfdadfa8;border-radius:50%;background:radial-gradient(circle at 58% 40%,#4a545b,#0a0f13 74%);box-shadow:inset 0 0 14px #000c,0 0 0 1px #05080b}
+.pilot-vitals .vitals-face-art img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;transform:scale(1.12)}
+.pilot-vitals .vitals-face-art em{color:#e8f1f4;font-size:9px;font-style:normal;letter-spacing:.5px}
+.pilot-vitals .vitals-slot{position:absolute;left:-6px;bottom:-3px;display:grid;place-items:center;width:24px;height:24px;border:1px solid #e7eef2b3;border-radius:50%;background:#04080b;color:#fff;font-size:12px;font-weight:800;box-shadow:0 1px 5px #000b,inset 0 0 0 1px #ffffff12}
+.pilot-vitals .vitals-bars{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
+/* Buffs and the sentry stance share one row directly above the health bar, so the pilot reads
+   what the engine is applying without leaving the strip. */
+.pilot-vitals .vitals-tags{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.pilot-vitals .vitals-buffs{margin-left:auto;justify-content:flex-end;gap:6px}
+.pilot-vitals .vitals-buffs .buff-chip{align-self:center}
+.pilot-vitals .vitals-buffs .buff-chip>svg{width:11px;height:11px;padding:2px}
+.pilot-vitals .vitals-posture{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 6px;border:1px solid #8fd3e855;border-radius:3px;background:#0610198c;color:#d8eef7;font-size:9px;letter-spacing:.5px;text-shadow:none}
+.pilot-vitals .vitals-posture.enhanced{border-color:#f3d63f88;color:#f8eaa6}
+.pilot-vitals .vitals-hp-row{display:flex;align-items:center;gap:9px;min-width:0}
+.pilot-vitals .vitals-hp{position:relative;flex:1;height:28px;overflow:hidden;background:#33090d;clip-path:polygon(11px 0,100% 0,calc(100% - 13px) 100%,0 100%);box-shadow:inset 0 0 0 1px #ffffff26}
+.pilot-vitals .vitals-hp>i{position:absolute;left:0;top:0;bottom:0;display:block;background:linear-gradient(180deg,#ff7a63,#ee3f33 50%,#a90f18);box-shadow:inset -2px 0 #ffffffc9;transition:width .14s ease}
+.pilot-vitals.team-blue .vitals-hp{background:#07203a}
+.pilot-vitals.team-blue .vitals-hp>i{background:linear-gradient(180deg,#7ce8ff,#1d9be8 50%,#0f4ba8)}
+.pilot-vitals .vitals-hp>span{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:16px;font-weight:800;letter-spacing:.8px;text-shadow:0 1px 5px #000b}
+.pilot-vitals .vitals-disengage{flex:0 0 auto;display:flex;align-items:baseline;gap:3px;color:#dfe9ef;font-size:12px;font-weight:700;white-space:nowrap}
+/* The slot is always laid out so the health bar keeps one length whether or not the disengage
+   countdown is showing. */
+.pilot-vitals .vitals-disengage.is-idle{visibility:hidden}
+.pilot-vitals .vitals-disengage svg{align-self:center;color:#cdd9e0;fill:none}
+.pilot-vitals .vitals-disengage small{color:#a9bcc8;font-size:8px;font-weight:400}
+.pilot-vitals .vitals-buffer-row{position:relative;display:flex;align-items:center;gap:8px;min-width:0}
+.pilot-vitals .vitals-buffer-label{flex:0 0 auto;color:#c2d0d8;font-size:8px;letter-spacing:.2px;white-space:nowrap}
+.pilot-vitals .vitals-buffer{position:relative;flex:1;min-width:0;height:10px;margin-right:54px;overflow:hidden;border-radius:2px;background:#0a252c;box-shadow:inset 0 0 0 1px #ffffff1a}
+.pilot-vitals .vitals-buffer>i{position:absolute;left:0;top:0;bottom:0;display:block;background:linear-gradient(180deg,#f6fafc,#e2e9ed 55%,#aab9c1);transition:width .14s ease}
+/* Over-power cut: the drive lost its buffer, so the chassis is offline while the hull still holds
+   charge. Sits in the gap right of the buffer bar. */
+.pilot-vitals .vitals-overload{position:absolute;right:0;top:50%;transform:translateY(-50%);color:#ff5346;font-size:9px;font-weight:800;letter-spacing:.5px;white-space:nowrap;text-shadow:0 0 10px #ff2d1f66,0 1px 3px #000}
+.pilot-vitals .vitals-modules{display:grid;grid-template-columns:repeat(3,max-content);gap:5px 26px;justify-items:start;padding-left:14px}
+.pilot-vitals .vitals-module{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;color:#eef4f6;font-size:10px;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;transition:color .3s ease}
+.pilot-vitals .vitals-module i{flex:0 0 6px;width:6px;height:12px;transform:skewX(-26deg);border-radius:1px;transition:background .3s ease,box-shadow .3s ease}
+.pilot-vitals .vitals-module.is-on i{background:#8fe452;box-shadow:0 0 7px #8fe45280}
+.pilot-vitals .vitals-module.is-off{color:#ffd2ca}
+.pilot-vitals .vitals-module.is-off i{background:#ff4a3c;box-shadow:0 0 8px #ff4a3c99}
+/* Dead chassis: the whole strip reads red until the rules revive it. */
+.pilot-vitals.is-dead .vitals-level{border-color:#ff5a4c;color:#ffc2ba}
+.pilot-vitals.is-dead .vitals-exp>em{background:linear-gradient(0deg,#b81d16,#ff7d68);box-shadow:0 0 8px #ff5a4c66}
+.pilot-vitals.is-dead .vitals-face-art{border-color:#ff5a4c;background:radial-gradient(circle at 58% 40%,#4a1b1e,#0d0507 74%);filter:saturate(.45) brightness(.85)}
+.pilot-vitals.is-dead .vitals-slot{border-color:#ff5a4c;color:#ffc2ba}
+.pilot-vitals.is-dead .vitals-hp{background:#33090d}
+.pilot-vitals.is-dead .vitals-hp>i{background:linear-gradient(180deg,#ff7a63,#ee3f33 50%,#a90f18)}
+.pilot-vitals.is-dead .vitals-buffer{background:#2a0a0c}
+.pilot-vitals.is-dead .vitals-buffer>i{background:linear-gradient(180deg,#ffc4ba,#ff5f4c 55%,#b81d16)}
+.pilot-vitals.is-dead .vitals-disengage{color:#ff9184}
+.pilot-vitals.is-dead .vitals-module{color:#ffd2ca}
+.pilot-vitals.is-dead .vitals-module i{background:#ff4a3c;box-shadow:0 0 8px #ff4a3c99}
 .pilot-lock{display:flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid #ff7a6647;border-radius:99px;background:#1a0b0ba6;color:#ffd9d0;font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none}
 .pilot-lock .bracket{width:8px;height:8px;border:1.5px solid #ff7a66;border-radius:1px}
 .pilot-lock em{font-style:normal;color:#ffb0a0}
@@ -150,18 +213,68 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 /* Death holds the pose and greys the field; the HUD keeps its colours, like the referee view. */
 .viewport.pilot-dead canvas{filter:grayscale(1) brightness(.72) contrast(1.06)}
 .viewport.pilot-dead .pilot-reticle,.viewport.pilot-dead .pilot-vitals{opacity:.45}
-.pilot-respawn{position:absolute;left:50%;top:50%;z-index:19;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:7px;width:300px;max-width:calc(100% - 40px);padding:16px 18px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:12px;background:#060b11c4;backdrop-filter:blur(14px) saturate(120%);box-shadow:0 18px 50px #0000006b,inset 0 1px 0 #ffffff12;color:#d7e3ec;text-align:center;pointer-events:none}
-.pilot-respawn strong{font-size:13px;letter-spacing:2px;color:#ff8a75}
-.pilot-respawn .respawn-bar{width:100%;height:6px;border-radius:99px;background:#1b2833;overflow:hidden}
-.pilot-respawn .respawn-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#4d8fb5,var(--hud-accent,#8fd3e8));transition:width .2s linear}
-.pilot-respawn span{font-size:12px;font-variant-numeric:tabular-nums;color:#e8eff5}
-.pilot-respawn small{font-size:9px;color:#7f96a5}
-/* Immediate respawn: the card is informational, but this one control must take the mouse. */
-.pilot-respawn{pointer-events:auto}
-.pilot-respawn .pilot-revive{margin-top:2px;padding:7px 14px;border:1px solid #3f7d93;border-radius:6px;background:#10232c;color:var(--hud-ink,#cfe6ff);font-size:12px}
-.pilot-respawn .pilot-revive:disabled{border-color:#405463;background:#13202a;color:#6d7f8c}
+/* The status strip owns the bottom edge while piloting, so the drag/zoom hint that normally sits
+   under it (and says nothing a pilot can use) steps aside. */
+.viewport.pilot-active .viewport-bottom{display:none}
+/* Death card: the referee client's respawn panel — a title with the countdown, the free-revive bar,
+   and the two ways back side by side (pay now, or take the free revive when the bar fills). */
+.pilot-respawn{position:absolute;left:50%;top:50%;z-index:19;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:stretch;gap:9px;width:430px;max-width:calc(100% - 40px);padding:15px 20px 14px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:12px;background:radial-gradient(120% 150% at 50% 0%,#0d1a17e0,#060b11dd 70%);backdrop-filter:blur(14px) saturate(120%);box-shadow:0 18px 50px #00000073,inset 0 1px 0 #ffffff14;color:#d7e3ec;pointer-events:auto}
+.pilot-respawn.team-red{--respawn-accent:#ff5b4d;--respawn-soft:#ffb4a8}
+.pilot-respawn.team-blue{--respawn-accent:#4f9dff;--respawn-soft:#a8cbff}
+.pilot-respawn .respawn-head{display:flex;align-items:center;gap:10px}
+.pilot-respawn .respawn-ring{width:16px;height:16px;border-radius:50%;background:conic-gradient(var(--respawn-accent,#8fd3e8) var(--respawn-progress,0deg),#16232a 0);border:2px solid #1d2a30;box-shadow:inset 0 0 6px #000c,0 0 8px #0008}
+.pilot-respawn .respawn-head strong{font-size:20px;font-weight:700;letter-spacing:3px;color:#eef6f2;text-shadow:0 2px 8px #000}
+.pilot-respawn .respawn-head em{margin-left:auto;font-style:normal;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--respawn-accent,#8fd3e8);font-variant-numeric:tabular-nums;text-shadow:0 0 12px #000}
+.pilot-respawn .respawn-bar{position:relative;width:100%;height:7px;border-radius:99px;background:#0f1a1c;border:1px solid #ffffff1f;overflow:hidden}
+.pilot-respawn .respawn-bar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--respawn-accent,#8fd3e8) 45%,#0c1b17),var(--respawn-accent,#8fd3e8));box-shadow:0 0 10px var(--respawn-accent,#8fd3e8);transition:width .2s linear}
+.pilot-respawn .respawn-bar.chosen{border-color:var(--respawn-accent,#8fd3e8)}
+.pilot-respawn .respawn-choice{display:flex;align-items:stretch;gap:0;margin-top:2px;border:1px solid #ffffff1a;border-radius:8px;overflow:hidden;background:#08101499}
+.pilot-respawn .respawn-choice button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;border:0;border-radius:0;background:none;color:#e2ecf2;font-size:13px;line-height:1;transition:background .15s,color .15s}
+.pilot-respawn .respawn-choice button:hover:not(:disabled){background:#ffffff10}
+.pilot-respawn .respawn-split{width:1px;background:#ffffff1f;flex:none}
+.pilot-respawn .respawn-buy b{font-weight:600;font-variant-numeric:tabular-nums}
+.pilot-respawn .respawn-buy:disabled{color:#78878f;cursor:not-allowed}
+.pilot-respawn .respawn-buy:disabled svg{opacity:.55}
+.pilot-respawn .respawn-free{color:#dff3e8}
+.pilot-respawn .respawn-free kbd{margin-left:2px;padding:1px 5px;border:1px solid #ffffff33;border-radius:4px;background:#ffffff12;font-size:10px;font-family:inherit;color:#cfdae1}
+.pilot-respawn .respawn-free.picked{background:color-mix(in srgb,var(--respawn-accent,#8fd3e8) 18%,transparent);color:#f2fbf6;box-shadow:inset 0 0 0 1px var(--respawn-accent,#8fd3e8)}
+.pilot-respawn .respawn-tips{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:7px;background:#06120dd9;border-left:2px solid #e8a33d}
+.pilot-respawn .respawn-tips>b{flex:none;padding:1px 6px;border-radius:4px;background:#e8a33d;color:#1a1206;font-size:9px;letter-spacing:.5px;font-weight:700;line-height:1.6}
+.pilot-respawn .respawn-tips p{margin:0;font-size:10.5px;line-height:1.55;color:#c6d4cd}
+.pilot-respawn .respawn-tips p+p{margin-top:1px}
+.pilot-respawn .respawn-note{font-size:9px;line-height:1.5;color:#7f96a5;text-align:center}
 /* Purchase dialogs: quantity row with the total in the middle, like the referee terminal. */
 .pilot-store{width:424px;max-height:calc(100% - 24px);overflow:auto}
+/* Ammo exchange board: a framed readout, a stepper with the chosen count in the middle and one
+   confirm button, shared by both calibres and both channels. */
+.pilot-ammo-board{width:min(384px,calc(100% - 24px));gap:9px}
+.pilot-ammo-slot{display:flex;flex-direction:column;align-items:center;gap:9px;padding:14px 16px 16px;border:1px solid #4b5f6d;border-radius:6px;background:#0b1319}
+.pilot-ammo-caption{color:#a6b6c1;font-size:11px;letter-spacing:.6px}
+.pilot-ammo-ratio{color:#f2f7fa;font-size:22px;font-weight:750;letter-spacing:1.4px;line-height:1;font-variant-numeric:tabular-nums}
+.pilot-ammo-stepper{display:flex;align-items:stretch;width:100%;overflow:hidden;border:1px solid #2f3f4a;border-radius:4px;background:#070d12}
+.pilot-ammo-stepper button{flex:1 1 0;min-width:0;padding:9px 0;border:0;border-left:1px solid #2f3f4a;border-radius:0;background:transparent;color:#d7e2e8;font-size:13px;font-weight:600}
+.pilot-ammo-stepper button:first-child{border-left:0}
+.pilot-ammo-stepper button:hover:not(:disabled){background:#172530;color:#fff}
+.pilot-ammo-stepper button:disabled{color:#54636c;background:transparent}
+.pilot-ammo-stepper output{flex:0 0 62px;display:grid;place-items:center;border-left:1px solid #2f3f4a;border-right:1px solid #2f3f4a;background:#050b10;color:#fff;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums}
+.pilot-ammo-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;color:#93a7b3;font-size:10px;text-align:center}
+.pilot-ammo-meta b{color:#e6f0f5;font-size:12px}
+.pilot-ammo-confirm{align-self:center;min-width:140px;justify-content:center;padding:8px 26px;border:1px solid #6f8ea3;background:#0d1a23;color:#dff0f8;font-size:12px;letter-spacing:1px}
+.pilot-ammo-confirm:not(:disabled){border-color:#8fd3e8;color:#eaf8ff}
+.pilot-ammo-confirm:not(:disabled):hover{background:#162a37}
+/* Sentry stance board: three compact cards, the current stance lit, sized to sit over the field. */
+.pilot-posture{width:min(320px,calc(100% - 24px));gap:9px}
+.pilot-posture-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.pilot-posture-options button{flex-direction:column;gap:2px;padding:11px 4px 9px;border:1px solid #33475a;border-radius:9px;background:#0b1620;color:#cfe0ea;font-size:12px;line-height:1.15}
+.pilot-posture-options button svg{color:#9fb6c4;margin-bottom:1px}
+.pilot-posture-options button b{font-size:12.5px;font-weight:650}
+.pilot-posture-options button:hover{background:#13222e;border-color:#4d6a80}
+.pilot-posture-options button.active{border-color:#8fe452;background:linear-gradient(180deg,#16281a,#0e1a13);color:#e8f8dc;box-shadow:inset 0 0 0 1px #8fe45233}
+.pilot-posture-options button.active svg{color:#a9ef72}
+.pilot-posture-options small{font-size:9px;font-weight:400;color:#8fa4b3;white-space:nowrap}
+.pilot-posture-options button.active small{color:#b7d9a0}
+.pilot-posture-foot{margin:0;color:#7f95a3;font-size:9px;letter-spacing:.4px;text-align:center}
+.pilot-posture .pilot-hints{font-size:10px}
 .pilot-store-info{display:flex;justify-content:space-between;align-items:baseline;gap:8px;row-gap:2px;flex-wrap:wrap;font-size:11px;color:#c6d6e1}
 .pilot-store-info b{color:var(--hud-ink,#cfe6ff);font-size:13px}
 .pilot-store-info span{font-size:10px;color:#8ea3b2}
@@ -190,22 +303,33 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 .pilot-pick-head>span{font-size:8px;letter-spacing:1.6px;color:var(--hud-accent,#8fd3e8)}
 .pilot-pick-head>b{letter-spacing:2px;color:var(--hud-ink,#cfe6ff);font-size:12px}
 .pilot-pick-head>small{font-size:8px;letter-spacing:1.4px;color:#7f96a5}
-/* Side brief: rides above its own half, so the field stays clear while the two sides are compared. */
-.half-brief{position:absolute;top:14px;z-index:14;width:206px;display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid transparent;border-radius:10px;background:linear-gradient(180deg,#08131fae,#04080ec2) padding-box,linear-gradient(155deg,color-mix(in srgb,var(--team) 62%,transparent),#ffffff0a 45%,var(--hud-accent-2,#7fd0ff)) border-box;backdrop-filter:blur(16px) saturate(120%);box-shadow:0 14px 34px #0000008a,inset 0 1px 0 #ffffff16,inset 0 -14px 26px -18px var(--team);color:#dbe7ee;font-size:11px;pointer-events:none;opacity:.5;transform:translate(-50%,-4px) scale(.97);transition:opacity .22s ease,transform .22s cubic-bezier(.2,.9,.22,1),box-shadow .22s ease}
-.half-brief.red{left:25%;--team:#ff4d45}
-.half-brief.blue{left:75%;--team:#3f8dff}
-/* The audience brief sits between the two sides: neutral, instrument cyan, and never a team colour. */
-.half-brief.seat{left:50%;top:16px;width:172px;--team:var(--hud-accent,#8fd3e8)}
-.half-brief.active{z-index:15}
-.half-brief.active{opacity:1;transform:translate(-50%,0) scale(1);box-shadow:0 18px 46px #00000094,inset 0 1px 0 #ffffff22,inset 0 -16px 30px -18px var(--team),0 0 26px -6px var(--team)}
-.half-brief .hb-side{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:1.6px;color:#8fa5b3}
-.half-brief .hb-side i{width:6px;height:6px;border-radius:50%;background:var(--team);box-shadow:0 0 10px var(--team)}
-.half-brief>b{font-size:13px;letter-spacing:.4px;color:var(--hud-ink-2,#f2fbff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.half-brief .hb-rows{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 9px;padding-top:3px;border-top:1px solid #ffffff14}
-.half-brief .hb-rows span{display:flex;align-items:baseline;justify-content:space-between;gap:5px;font-size:9px;letter-spacing:.4px;color:#8298a7}
-.half-brief .hb-rows em{font-style:normal;font-size:11px;font-variant-numeric:tabular-nums;color:#e8f1f7;letter-spacing:0}
-.half-brief .hb-rows em small{font-size:8px;color:#8298a7;margin-left:1px}
-.half-brief>small{font-size:9px;letter-spacing:.4px;color:var(--hud-accent,#8fd3e8)}
+/* Side brief: a floating label anchored over the half it describes. Deliberately frameless — no
+   card, no border, no blur — so the three answers read as marks on the field instead of three boxes
+   competing for the same strip of the frame. Each one is placed in world space by the picker, which
+   is what keeps them apart at every window shape. */
+.half-brief{display:flex;flex-direction:column;align-items:center;gap:2px;width:min(206px,36vw);color:#eaf4fa;font-size:11px;text-align:center;white-space:nowrap;pointer-events:none;opacity:.78;transform:translateY(-3px) scale(.98);transition:opacity .22s ease,transform .22s cubic-bezier(.2,.9,.22,1);text-shadow:0 1px 2px #000f,0 1px 6px #000e,0 0 20px #000c}
+.half-brief.red{--team:#ff5b52}
+.half-brief.blue{--team:#4f96ff}
+/* The audience brief is neutral instrument cyan, never a team colour. */
+.half-brief.seat{--team:var(--hud-accent,#8fd3e8)}
+/* Whichever region the pointer is over brightens its own label — the answer is already in the field. */
+.viewport.pick-half-red .half-brief.red,
+.viewport.pick-half-blue .half-brief.blue,
+.viewport.pick-half-seat .half-brief.seat{opacity:1;transform:none}
+.viewport.pick-half-red .half-brief.red>b,
+.viewport.pick-half-blue .half-brief.blue>b,
+.viewport.pick-half-seat .half-brief.seat>b{color:#fff;text-shadow:0 1px 3px #000e,0 0 20px var(--team)}
+.viewport.pick-half-red .half-brief.red .hb-side i,
+.viewport.pick-half-blue .half-brief.blue .hb-side i,
+.viewport.pick-half-seat .half-brief.seat .hb-side i{transform:scale(1.45);box-shadow:0 0 16px var(--team)}
+.half-brief .hb-side{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:1.9px;color:#a6bac7}
+.half-brief .hb-side i{width:6px;height:6px;border-radius:50%;background:var(--team);box-shadow:0 0 10px var(--team);transition:transform .18s ease,box-shadow .18s ease}
+.half-brief>b{font-size:15px;letter-spacing:.6px;color:var(--hud-ink-2,#f5fcff);max-width:100%;overflow:hidden;text-overflow:ellipsis;transition:color .18s ease,text-shadow .18s ease}
+.half-brief .hb-rows{display:grid;grid-template-columns:repeat(2,auto);justify-content:center;gap:0 12px;padding-top:1px}
+.half-brief .hb-rows span{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap;font-size:9px;letter-spacing:.4px;color:#a3b7c4}
+.half-brief .hb-rows em{font-style:normal;font-size:11px;font-variant-numeric:tabular-nums;color:#eaf3f9;letter-spacing:0}
+.half-brief .hb-rows em small{font-size:8px;color:#8ea4b2;margin-left:1px}
+.half-brief>small{font-size:9px;letter-spacing:.5px;color:var(--team);opacity:.92}
 /* Spectator seat: bottom centre, out of the two halves. */
 .half-seat{position:absolute;left:50%;bottom:58px;z-index:14;transform:translateX(-50%);display:flex;align-items:center;gap:9px;padding:6px 8px 6px 13px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#050a10b8;backdrop-filter:blur(12px);box-shadow:0 10px 30px #00000073;color:#9fb4c3;font-size:10px;white-space:nowrap;pointer-events:auto}
 .half-seat-hint{letter-spacing:.3px}
@@ -214,7 +338,7 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 /* Pointing at the audience seats in the field lights the same answer here. */
 .half-seat.active{border-color:var(--hud-accent,#8fd3e8);background:#0b1e2ac2;color:#eaf6ff;box-shadow:0 12px 34px #00000080,0 0 22px -8px var(--hud-accent,#8fd3e8)}
 .half-seat.active button{border-color:var(--hud-tint,#bdeaff);background:#12303fb8;color:var(--hud-ink-2,#f2fbff)}
-@media(max-width:760px){.half-brief{width:184px;top:10px}.half-brief>b{font-size:12px}.half-seat{bottom:50px;font-size:9px}}
+@media(max-width:760px){.half-brief>b{font-size:13px}.half-brief .hb-rows{gap:0 10px}.half-seat{bottom:50px;font-size:9px}}
 .pilot-pick>button,.pilot-pick-actions button{padding:4px 9px;border:1px solid #405463;border-radius:99px;background:#13202a;color:#a9bfcd;font-size:10px;white-space:nowrap;transition:border-color .16s ease,color .16s ease}
 .pilot-pick>button:hover,.pilot-pick-actions button:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-tint,#cfeaff)}
 .pilot-pick>button{margin-left:auto}
@@ -271,11 +395,9 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 .viewport.pilot-active:not(.pilot-panel-open) .viewport-bottom,
 .viewport.pilot-active:not(.pilot-panel-open) .fullscreen-controls{display:none}
 .viewport.pilot-panel-open .pilot-vitals{z-index:22}
-.viewport:fullscreen .pilot-vitals,.viewport.page-fullscreen .pilot-vitals{bottom:86px;left:22px}
-@media(max-width:680px){.pilot-open{right:112px}.pilot-vitals{left:10px;bottom:44px;width:176px}.pilot-panel{width:calc(100% - 24px);padding:11px}.pilot-store{width:calc(100% - 24px)}.pilot-qty{gap:2px}.pilot-qty button{font-size:10px;padding:6px 0}.pilot-qty output{flex-basis:54px;font-size:15px}}
-/* A short window gets a smaller ring so the ring and its readout still fit the view. */
-@media(max-width:1180px),(max-height:720px){.pilot-reticle,.pilot-readout,.pilot-status{--ring:300px}.pilot-readout .pilot-ammo{font-size:26px}}
-@media(max-width:760px),(max-height:560px){.pilot-reticle,.pilot-readout,.pilot-status{--ring:220px}.pilot-readout{left:calc(50% + var(--ring)/2 + 10px)}.pilot-readout .pilot-ammo{font-size:20px}}
+.viewport:fullscreen .pilot-vitals,.viewport.page-fullscreen .pilot-vitals{bottom:16px;left:22px}
+@media(max-width:680px){.pilot-open{right:112px}.pilot-vitals{left:10px;bottom:12px;width:176px}.pilot-panel{width:calc(100% - 24px);padding:11px}.pilot-store{width:calc(100% - 24px)}.pilot-qty{gap:2px}.pilot-qty button{font-size:10px;padding:6px 0}.pilot-qty output{flex-basis:54px;font-size:15px}}
+/* A short window shrinks the whole HUD through `--hud-zoom`, so no ring override is needed. */
 
 /* Lobbed-fire sight (R on a heavy with its 42 mm on): the lens is narrowed to a 3x field, the world
    outside the tube is darkened, and the reticle marks the point the shell will land on. */

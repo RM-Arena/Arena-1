@@ -1,4 +1,4 @@
-"""Public hardware catalog and immutable, mirrored team lineups for each rules season."""
+"""Public hardware catalog and immutable per-side lineups for each rules season."""
 import json
 from pathlib import Path
 
@@ -74,6 +74,11 @@ def normalize_team_lineup(lineup=None,season=None):
 def lineup_season(lineup):
     return season_rules.infer_season(lineup.keys())
 
-def mirrored_lineups(lineup,season=None):
+def lineup_deployments(lineup,season=None):
+    """One side's lineup as engine deployments, in slot order."""
     value=normalize_team_lineup(lineup,season)
-    return {team:[{'slot':int(s),'model':value[s]} for s in value] for team in ('red','blue')}
+    return [{'slot':int(s),'model':value[s]} for s in value]
+
+def mirrored_lineups(lineup,season=None):
+    deployments=lineup_deployments(lineup,season)
+    return {team:[dict(item) for item in deployments] for team in ('red','blue')}

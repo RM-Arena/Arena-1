@@ -52,6 +52,19 @@ test('transparent, reflected, hidden and incompatible geometry are not folded in
  assert.deepEqual(vertices(result),vertices(scene));assert.equal(counts(result).triangles,counts(scene).triangles);
 });
 
+test('a solid part that an exporter left in blend mode joins a batch, a real blend does not',()=>{
+ const scene=group('Robot'),chassis=group('Chassis',scene);box(chassis);box(chassis,1);
+ // An exporter that leaves "blend" on for a solid surface is only paying for the sort: at full
+ // opacity, depth writes and normal blending the pixel is order-independent, so it can be batched.
+ const solid=()=>new THREE.MeshStandardMaterial({transparent:true,opacity:1,depthWrite:true,blending:THREE.NormalBlending});
+ box(chassis,2,solid());box(chassis,3,solid());
+ box(chassis,4,new THREE.MeshStandardMaterial({transparent:true,opacity:.5}));
+ const result=batchRigidMeshes(scene);
+ // Opaque batch + solid-transparent batch + the half-transparent part on its own.
+ assert.equal(counts(result).meshes,3);
+ assert.deepEqual(vertices(result),vertices(scene));assert.equal(counts(result).triangles,counts(scene).triangles);
+});
+
 test('shipped robots keep all triangles, bounds and articulated groups while reducing mesh count',async()=>{
  for(const name of ['robot-2711-spec2027','robot-2731-spec2027','robot-2732-spec2027','robot-2771-spec2027','robot-305-spec2026v4','robot-2-spec2026v4','drone-2761-spec2027']){
   const file=path.join(__dirname,'../frontend/public/assets',name+'.glb');if(!fs.existsSync(file))throw new Error('Missing fixture: '+file);

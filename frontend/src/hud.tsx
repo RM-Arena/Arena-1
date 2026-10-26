@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useRef,useState,type MutableRefObject} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef,useState,type MutableRefObject} from 'react';
 import {useFrame} from '@react-three/fiber';
 import {Html} from '@react-three/drei';
 import * as THREE from 'three';
@@ -24,6 +24,36 @@ function textTexture(text:string,{weight=760,size=84,italic=false,fill='#fff',st
 }
 const labelMaterial=(texture:THREE.Texture,team:TeamId)=>new THREE.MeshBasicMaterial({map:texture,color:TINT[team],transparent:true,depthTest:false,depthWrite:false,toneMapped:false,fog:false});
 const overlayMaterial=(texture?:THREE.Texture)=>new THREE.MeshBasicMaterial({...(texture?{map:texture}:{}),transparent:true,depthTest:false,depthWrite:false,toneMapped:false,fog:false});
+
+// Plates and floating labels are billboards, and they are squared up in the pass that draws the
+// frame rather than in their own frame callbacks. The camera pose belongs to the director, whose
+// callback runs after every component one, so a plate that copies the quaternion there faces the
+// lens of the previous frame: invisible in the static broadcast camera, but a follow camera swings
+// around the chassis it rides, and the bars then trail the lens by a whole frame of turn — they read
+// as tilted while the chassis spins.
+//
+// The screen-space size has the mirror-image problem: a plate fitted to the stale eye keeps the size
+// of the previous distance, so a chase closing in on a chassis makes the bar grow a frame late. The
+// fit is therefore resolved in this same pass, off the pose that is about to be drawn.
+type Viewport={width:number;height:number};
+type PlateFit=(node:THREE.Object3D,camera:THREE.Camera,viewport:Viewport)=>void;
+const BILLBOARDS=new Map<THREE.Object3D,PlateFit|null>();
+function useBillboard(ref:MutableRefObject<THREE.Object3D|null>,fit?:PlateFit){
+  useLayoutEffect(()=>{const node=ref.current;if(!node)return;BILLBOARDS.set(node,fit??null);return()=>{BILLBOARDS.delete(node);};},[ref,fit]);
+}
+export function alignBillboards(camera:THREE.Camera,viewport:Viewport){
+  // A hidden plate is skipped: the three structural plates are always in the field, so the saving is
+  // the forty-eight combat-text floaters, of which a handful are alive at any moment.
+  for(const [node,fit] of BILLBOARDS){if(!node.visible)continue;node.quaternion.copy(camera.quaternion);fit?.(node,camera,viewport);}
+}
+const fitPlate:PlateFit=(node,camera,viewport)=>node.scale.setScalar(screenFit(node.position,camera,viewport,PLATE_W,.075,.15));
+const fitStructure:PlateFit=(node,camera,viewport)=>node.scale.setScalar(screenFit(node.position,camera,viewport,1.5,.13,.24));
+// Combat text is sized per floater and pops as it spawns, so the caller parks the numbers on the mesh.
+const fitFloater:PlateFit=(node,camera,viewport)=>{
+  const unit=(node.userData.unit as number)??.3,mul=(node.userData.mul as number)??1;
+  const s=screenFit(node.position,camera,viewport,unit,.018,.05)*unit*mul;
+  node.scale.set(s*((node.userData.aspect as number)??2),s,1);
+};
 
 const barVertex='varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
 // Broadcast robot plate: [number box][segmented health][rank chevrons], after the rulebook overlay.
@@ -67,6 +97,7 @@ function damp(s:BarState,hp:number,dt:number){if(s.hp<0)s.hp=s.trail=hp;if(hp<s.
 
 export function RobotHud({id,team,feed,focus,onSelect}:{id:string;team:TeamId;feed:MutableRefObject<RenderFeed>;focus:boolean;onSelect:(id:string)=>void}){
   const root=useRef<THREE.Group>(null),state=useRef<BarState>({hp:-1,trail:1,hold:0,flash:0}),ammoRef=useRef<THREE.Mesh>(null),buffRef=useRef<THREE.Mesh>(null),shown=useRef({text:'',at:0,buffs:''});
+  useBillboard(root,fitPlate);
   const buffs=useMemo(()=>{const canvas=document.createElement('canvas');canvas.width=320;canvas.height=64;const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return {canvas,texture,material:overlayMaterial(texture)};},[]);
   const digit=useMemo(()=>textTexture(id.split('-')[1],{weight:900,size:96,italic:true,width:0,pad:16}),[id]);
   const digitMaterial=useMemo(()=>overlayMaterial(digit.texture),[digit]);
@@ -74,10 +105,9 @@ export function RobotHud({id,team,feed,focus,onSelect}:{id:string;team:TeamId;fe
   const plate=useMemo(()=>new THREE.ShaderMaterial({vertexShader:barVertex,fragmentShader:plateFragment,transparent:true,depthTest:false,depthWrite:false,
     uniforms:{uColor:{value:new THREE.Color(LED_COLORS[team]).convertLinearToSRGB()},uHp:{value:1},uTrail:{value:1},uSegments:{value:3},uFlash:{value:0},uRespawn:{value:0},uDead:{value:0},uFocus:{value:0},uTime:{value:0},uLevel:{value:1}}}),[team]);
   useEffect(()=>()=>{digit.texture.dispose();digitMaterial.dispose();ammo.texture.dispose();ammo.material.dispose();buffs.texture.dispose();buffs.material.dispose();plate.dispose();},[digit,digitMaterial,ammo,buffs,plate]);
-  useFrame(({camera,size,clock},dt)=>{
+  useFrame(({clock},dt)=>{
     const f=feed.current.frame,r=f?.robots.find(r=>r.id===id),g=root.current;if(!g)return;g.visible=!!r;if(!r)return;
     robotWorld(feed.current,r,feedAlpha(feed.current),g.position).y+=r.role==='aerial'?.62:1.0;
-    g.quaternion.copy(camera.quaternion);g.scale.setScalar(screenFit(g.position,camera,size,PLATE_W,.075,.15));
     const s=state.current,hasHp=r.max_hp>0,hp=hasHp?THREE.MathUtils.clamp(r.hp/r.max_hp,0,1):r.support_active?1:0;damp(s,hp,dt);
     const u=plate.uniforms;u.uHp.value=s.hp;u.uTrail.value=s.trail;u.uFlash.value=s.flash;u.uSegments.value=hasHp?Math.max(1,Math.round(r.max_hp/50)):1;
     u.uDead.value=r.alive||!hasHp?0:1;u.uRespawn.value=r.respawn_required>0?Math.min(1,r.respawn_progress/r.respawn_required):0;u.uFocus.value=focus?1:0;u.uTime.value=clock.elapsedTime;u.uLevel.value=r.level||1;
@@ -104,6 +134,7 @@ export function RobotHud({id,team,feed,focus,onSelect}:{id:string;team:TeamId;fe
 // A 2027 outpost rebuilt by the other team takes that team's colour and says who holds it.
 export function StructureHud({team,kind,feed}:{team:TeamId;kind:'base'|'outpost';feed:MutableRefObject<RenderFeed>}){
   const root=useRef<THREE.Group>(null),state=useRef<BarState>({hp:-1,trail:1,hold:0,flash:0}),shieldRef=useRef<THREE.Mesh>(null),labelRef=useRef<THREE.Mesh>(null),holder=useRef<TeamId>(team);
+  useBillboard(root,fitStructure);
   const labels=useMemo(()=>{const style={weight:700,size:72,width:12};return {own:textTexture(kind==='base'?'基地 BASE':'前哨站 OUTPOST',style),
     red:textTexture('前哨站 · 红方占领',style),blue:textTexture('前哨站 · 蓝方占领',style)};},[kind]);
   const shield=useMemo(()=>textTexture('⛨',{weight:700,size:72,width:10,pad:12}),[]);
@@ -112,9 +143,9 @@ export function StructureHud({team,kind,feed}:{team:TeamId;kind:'base'|'outpost'
   useEffect(()=>()=>{Object.values(labels).forEach(l=>l.texture.dispose());shield.texture.dispose();Object.values(materials).forEach(m=>m.dispose());},[labels,shield,materials]);
   useEffect(()=>{holder.current=team;},[team,materials]);
   const h=.16,w=h*9,lh=.15;
-  useFrame(({camera,size,clock},dt)=>{
+  useFrame(({clock},dt)=>{
     const f=feed.current.frame,g=root.current,s=(kind==='base'?f?.bases:f?.outposts)?.[team];if(!f||!g||!s)return;
-    toWorld(f.arena,s.x,s.y,(s.z||0)+(kind==='base'?1.75:1.85),g.position);g.quaternion.copy(camera.quaternion);g.scale.setScalar(screenFit(g.position,camera,size,1.5,.13,.24));
+    toWorld(f.arena,s.x,s.y,(s.z||0)+(kind==='base'?1.75:1.85),g.position);
     damp(state.current,THREE.MathUtils.clamp(s.hp/s.max_hp,0,1),dt);const u=materials.bar.uniforms;u.uHp.value=state.current.hp;u.uTrail.value=state.current.trail;u.uFlash.value=state.current.flash;u.uTime.value=clock.elapsedTime;
     const held=kind==='outpost'?outpostHolder(f,team):team;
     if(held!==holder.current){
@@ -139,7 +170,7 @@ export function CombatText({feed}:{feed:MutableRefObject<RenderFeed>}){
   const group=useRef<THREE.Group>(null),seen=useRef(new Set<string>()),generation=useRef(''),stack=useRef(new Map<string,{at:number;n:number}>());
   const textures=useMemo(()=>new Map<string,{texture:THREE.Texture;aspect:number}>(),[]);
   const pool=useMemo<Floater[]>(()=>Array.from({length:FLOATERS},()=>{const material=overlayMaterial();const mesh=new THREE.Mesh(quad,material);mesh.visible=false;mesh.renderOrder=40;return {mesh,material,age:0,life:1,origin:new THREE.Vector3(),drift:0,size:.3,rise:.6,active:false};}),[]);
-  useEffect(()=>{const g=group.current;pool.forEach(p=>g?.add(p.mesh));return()=>{pool.forEach(p=>{p.material.dispose();g?.remove(p.mesh);});textures.forEach(t=>t.texture.dispose());};},[pool,textures]);
+  useEffect(()=>{const g=group.current;pool.forEach(p=>{g?.add(p.mesh);BILLBOARDS.set(p.mesh,fitFloater);});return()=>{pool.forEach(p=>{p.material.dispose();g?.remove(p.mesh);BILLBOARDS.delete(p.mesh);});textures.forEach(t=>t.texture.dispose());};},[pool,textures]);
   const texture=(text:string,style:'damage'|'level')=>{const key=style+text;let t=textures.get(key);if(!t){t=style==='damage'?textTexture(text,{weight:900,size:88,italic:true,fill:'#ff4b42',stroke:'rgba(255,240,235,.92)',width:9,pad:24}):textTexture(text,{weight:900,size:80,italic:true,fill:'#ffd56a',stroke:'rgba(40,24,6,.9)',width:12});textures.set(key,t);if(textures.size>96){const first=textures.keys().next().value!;textures.get(first)!.texture.dispose();textures.delete(first);}}return t;};
   const spawn=(text:string,style:'damage'|'level',at:THREE.Vector3,key:string)=>{
     const slot=pool.find(p=>!p.active)||pool.reduce((a,b)=>a.age/a.life>b.age/b.life?a:b),t=texture(text,style),now=performance.now(),s=stack.current.get(key);
@@ -147,7 +178,7 @@ export function CombatText({feed}:{feed:MutableRefObject<RenderFeed>}){
     slot.material.map=t.texture;slot.material.needsUpdate=true;slot.mesh.userData.aspect=t.aspect;
     Object.assign(slot,{age:0,life:style==='level'?1.5:.95,drift:(Math.random()-.5)*.24,size:style==='level'?.34:.28,rise:style==='level'?.5:.55,active:true});slot.origin.copy(at).y+=n*.16;
   };
-  useFrame(({camera,size},delta)=>{
+  useFrame((_state,delta)=>{
     const current=feed.current,f=current.frame;if(!f)return;const dt=Math.min(delta,.05);
     if(generation.current!==current.generation){generation.current=current.generation;seen.current.clear();pool.forEach(p=>{p.active=false;p.mesh.visible=false;});}
     const alpha=feedAlpha(current),p=new THREE.Vector3();
@@ -158,8 +189,8 @@ export function CombatText({feed}:{feed:MutableRefObject<RenderFeed>}){
     }
     if(seen.current.size>6000)seen.current.clear();
     for(const item of pool){if(!item.active)continue;item.age+=dt;const t=item.age/item.life;if(t>=1){item.active=false;item.mesh.visible=false;continue;}
-      const rise=1-Math.pow(1-t,3),pop=t<.12?1.35-t/.12*.35:1;item.mesh.visible=true;item.mesh.position.copy(item.origin).add(p.set(item.drift*t,item.rise*rise,0));item.mesh.quaternion.copy(camera.quaternion);
-      const s=screenFit(item.mesh.position,camera,size,item.size,.018,.05)*item.size*pop;item.mesh.scale.set(s*(item.mesh.userData.aspect||2),s,1);item.material.opacity=t<.6?1:1-(t-.6)/.4;}
+      const rise=1-Math.pow(1-t,3),pop=t<.12?1.35-t/.12*.35:1;item.mesh.visible=true;item.mesh.position.copy(item.origin).add(p.set(item.drift*t,item.rise*rise,0));
+      item.mesh.userData.unit=item.size;item.mesh.userData.mul=pop;item.material.opacity=t<.6?1:1-(t-.6)/.4;}
   });
   return <group ref={group}/>;
 }
@@ -210,7 +241,11 @@ export function PickupHud({id,feed}:{id:string;feed:MutableRefObject<RenderFeed>
 export function Label({text,team,position}:{text:string;team:TeamId;position:[number,number,number]}){
   const mesh=useRef<THREE.Mesh>(null),tag=useMemo(()=>textTexture(text),[text]),material=useMemo(()=>labelMaterial(tag.texture,team),[tag,team]);
   useEffect(()=>()=>{tag.texture.dispose();material.dispose();},[tag,material]);
-  useFrame(({camera,size})=>{const m=mesh.current;if(!m)return;m.quaternion.copy(camera.quaternion);const s=screenFit(m.getWorldPosition(anchor),camera,size,.3,.02,.042);m.scale.set(.3*tag.aspect*s,.3*s,1);});
+  const fit=useMemo<PlateFit>(()=>(node,camera,viewport)=>{
+    const s=screenFit(node.getWorldPosition(anchor),camera,viewport,.3,.02,.042);
+    node.scale.set(.3*tag.aspect*s,.3*s,1);
+  },[tag]);
+  useBillboard(mesh,fit);
   return <mesh ref={mesh} geometry={quad} material={material} position={position} renderOrder={29}/>;
 }
 

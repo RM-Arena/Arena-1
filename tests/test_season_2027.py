@@ -122,6 +122,19 @@ class SeasonApiTests(unittest.TestCase):
         mixed = self.client.post("/api/start", json={"red": "claude_opus55_xhigh_team", "blue": "claude_opus55_xhigh_2027_hold", "map": "rmuc2027", "duration": 2})
         self.assertEqual(mixed.status_code, 409)
 
+    def test_a_match_may_field_two_different_complete_lineups(self):
+        started = self.client.post("/api/start", json={"red": "gpt61_2027_lineup_omni", "blue": "claude_opus55_xhigh_2027_team",
+                                                       "map": "rmuc2027", "duration": 2})
+        self.assertEqual(started.status_code, 200, started.text)
+        record = self.wait(started.json()["match_id"])
+        self.assertEqual(record["status"], "finished", record)
+        self.assertEqual(record["result"]["policy_errors"], 0)
+        self.assertEqual(record["metadata"]["red_lineup"], {"1": 2713, "3": 303, "4": 301, "6": 2762, "7": 2771})
+        self.assertEqual(record["metadata"]["blue_lineup"], season_rules.default_lineup("2027"))
+        for team in ("red", "blue"):
+            self.assertEqual({str(d["slot"]): d["model"] for d in record["metadata"]["lineups"][team]},
+                             record["metadata"][team + "_lineup"])
+
     def test_free_battle_lists_only_legal_models_and_limits_aerial_systems(self):
         cards = self.client.get("/api/robot-catalog", params={"season": "2027"}).json()
         models = {card["robot"] for card in cards.values()}
@@ -172,7 +185,7 @@ class SeasonApiTests(unittest.TestCase):
         briefing = self.client.post("/api/team-briefing", json={"team_lineup": LINEUP_2027}).json()
         self.assertEqual(briefing["season"], "2027")
         self.assertIn("HV-D", briefing["task"]["zh"])
-        self.assertIn("已锁定的双方共同阵容（RMUC 2027）", briefing["guides"]["zh"])
+        self.assertIn("已锁定的己方出战阵容（RMUC 2027）", briefing["guides"]["zh"])
 
     def test_uploads_are_checked_against_the_season(self):
         entry = {"2711": 'def act(obs,state):\n return {obs["controlled_ids"][0]:{}},state\n'}
