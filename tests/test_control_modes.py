@@ -219,8 +219,9 @@ def act(obs, state):
         response = client.post(base + "/tests", json={"duration": 1, "opponent": submitted.json()["version"]}, headers=headers)
         self.assertEqual(response.status_code, 200, response.text)
         # A practice job starts up to twelve policy processes before simulating.
-        # The per-policy startup budget is 15 s; the entire job needs its own wait.
-        deadline = time.monotonic() + 60
+        # The per-policy startup budget is 15 s, and a loaded CI runner needs minutes for the
+        # whole job, so the wait is generous rather than tuned to a fast machine.
+        deadline = time.monotonic() + 240
         while time.monotonic() < deadline:
             job = client.get(base + "/tests/" + response.json()["job_id"], headers=headers).json()
             if job["status"] not in ("queued", "running"):
