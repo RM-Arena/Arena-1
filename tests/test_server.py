@@ -161,6 +161,23 @@ class FastApiTests(unittest.TestCase):
             state=arena.state()
             prematch=state['prematch']
             if prematch and prematch['stage']=='self_check' and extended is None:
+                # Freeze elapsed time so this checks the extension invariant rather than
+                # HTTP/test-runner scheduling latency between reading the clock and the request.
+                self.assertEqual(self.client.post('/api/control',json={'command':'pause'}).status_code,200)
+                stable_since,previous_remaining,clock_frozen=None,None,False
+                while time.monotonic()<deadline:
+                    prematch=arena.state()['prematch']
+                    if prematch and prematch['stage']=='self_check':
+                        if prematch['remaining']==previous_remaining:
+                            stable_since=stable_since or time.monotonic()
+                            if time.monotonic()-stable_since>=.25:
+                                clock_frozen=True
+                                break
+                        else:
+                            stable_since=None
+                        previous_remaining=prematch['remaining']
+                    time.sleep(.02)
+                self.assertTrue(clock_frozen,'the paused self-check clock did not settle')
                 # Asking for more self-check time grows the clock *and* the announced length, so the
                 # client's "time already spent" — and with it the intro it has already shown — holds.
                 spent=prematch['duration']-prematch['remaining']
@@ -176,6 +193,7 @@ class FastApiTests(unittest.TestCase):
                 self.assertAlmostEqual(extended['duration'],prematch['duration']+4,delta=.2)
                 self.assertAlmostEqual(extended['duration']-extended['remaining'],spent,delta=.3)
                 self.assertGreater(extended['remaining'],prematch['remaining'])
+                self.assertEqual(self.client.post('/api/control',json={'command':'pause'}).status_code,200)
             if prematch and prematch['stage']=='countdown':
                 break
             time.sleep(.02)
