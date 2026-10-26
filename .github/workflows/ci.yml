@@ -15,7 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-15]
+        # The macOS leg runs on the Intel pool: the `macos-15` arm64 runners are frequently
+        # unavailable, and a job that never gets a runner is cancelled as a red check.
+        os: [ubuntu-24.04, windows-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: '1'
