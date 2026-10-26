@@ -79,9 +79,11 @@ class RefereeTests(unittest.TestCase):
                 self.assertNotIn(token,json.dumps(client.get('/api/state').json()))
                 headers={"Authorization":"Bearer "+token}
                 self.assertEqual(client.post('/api/referee',json=decision,headers=headers).status_code,409)
-                client.post('/api/start',json={"duration":5})
-                deadline=time.monotonic()+10
-                while app.state.arena.battle is None and time.monotonic()<deadline:time.sleep(.01)
+                # Long enough that the match is still running once the engine has finished building
+                # itself, which on a slow runner can take longer than a five-second match.
+                client.post('/api/start',json={"duration":60})
+                deadline=time.monotonic()+120
+                while (app.state.arena.battle is None or not app.state.arena.busy) and time.monotonic()<deadline:time.sleep(.01)
                 client.post('/api/control',json={"command":"pause"})
                 self.assertEqual(client.post('/api/referee',json=decision,headers=headers).status_code,200)
                 self.assertEqual(client.post('/api/referee',json={"kind":"yellow","robot":"red-5"},headers=headers).status_code,409)

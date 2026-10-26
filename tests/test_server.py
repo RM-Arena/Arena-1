@@ -74,7 +74,9 @@ class FastApiTests(unittest.TestCase):
         response=self.client.post('/api/start',json={'duration':1})
         self.assertEqual(response.status_code,200,response.text)
         match_id=response.json()['match_id']
-        deadline=time.monotonic()+10
+        # The engine is real-time, so the wait scales with how fast the runner is: allow a slow
+        # machine minutes rather than ten seconds before asserting that the match was saved.
+        deadline=time.monotonic()+180
         while self.app.state.arena.state()['busy'] and time.monotonic()<deadline:
             time.sleep(.02)
         record=self.client.get('/api/matches/'+match_id).json()
@@ -146,7 +148,9 @@ class FastApiTests(unittest.TestCase):
         self.assertEqual(refused.status_code,400,refused.text)
         self.assertIn('倒计时不可跳过',refused.text)
         self.assertEqual(arena.state()['prematch']['stage'],'countdown')
-        while arena.state()['busy'] and time.monotonic()<deadline:
+        # A fresh budget: the walk-on above may have used most of the previous one on a slow runner.
+        finished=time.monotonic()+180
+        while arena.state()['busy'] and time.monotonic()<finished:
             time.sleep(.02)
         state=arena.state()
         self.assertIsNone(state['prematch'])
