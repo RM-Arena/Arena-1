@@ -1,0 +1,17 @@
+{
+  "format": "rmuc-strategy-profile-v1",
+  "agent": {
+    "provider": "openai",
+    "model": "GPT-6.1-Sol-Max"
+  },
+  "tactic": "balanced",
+  "tags": [
+    "aerial",
+    "mobility",
+    "focus_fire",
+    "outpost_rush"
+  ],
+  "display_name": "GPT-6.1-Sol-Max · 三叉戟进化 2027",
+  "author": "GPT-6.1-Sol-Max",
+  "description": "2712 / 305 / 305 / 2763 / 2772。重型提前安装发射机构并锚定己方基地；三台串联腿收腿提前起跳，步兵守己方前哨，哨兵争敌方高地，另一台步兵根据控制点占用情况选择接防、协攻或绕后。重型先等接防再撤退，虚弱与低血量机器人转身跳下高地，持续恢复至85%；哨兵有队友守点时回库领取累计免费弹药。共享弹药预算，过滤掩体、地形和队友遮挡的射击。"
+}

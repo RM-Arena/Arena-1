@@ -167,8 +167,11 @@ class Gpt61Strategies2027Tests(unittest.TestCase):
         selected = {**{k: v for k, v in teams.items() if k.startswith('gpt61_')},
                     **{k: v for k, v in adaptive.items() if k.startswith('gpt61_')}}
         expected = {p.name for p in self.entries.iterdir() if (p / 'manifest.json').is_file()}
-        self.assertEqual(set(selected), expected | {'gpt61_2027_trident'})
-        self.assertTrue(all(v['agent'] == self.builder.AGENT for v in selected.values()))
+        self.assertEqual(set(selected), expected | {'gpt61_2027_trident', 'gpt61_sol_max_2027'})
+        self.assertTrue(all(v['agent'] == self.builder.AGENT for name, v in selected.items()
+                            if name != 'gpt61_sol_max_2027'))
+        self.assertEqual(selected['gpt61_sol_max_2027']['agent'],
+                         {'provider': 'openai', 'model': 'GPT-6.1-Sol-Max'})
 
 
 if __name__ == '__main__':
