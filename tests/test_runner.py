@@ -206,28 +206,33 @@ class LocalRunnerTests(unittest.TestCase):
     def test_a_slow_decision_cannot_stretch_the_live_tick_budget(self):
         # The live loop passes the tick's own budget. A team whose agent overruns must keep its
         # previous command for that tick, so one slow model cannot freeze the whole field.
+        # The decision sleeps for 300 ms, so a tick that returned before `decision_s - budget` provably
+        # did not wait for it. An absolute threshold (this used to be 150 ms) measured the runner, not
+        # the rule: a loaded CI host spends that long in the engine step and the worker hand-off alone.
+        decision_s, budget_s = .3, .05
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / 'strategy.py'
             source.write_text('import time\n'
                               'def act(obs,state):\n'
-                              ' time.sleep(.3)\n'
+                              f' time.sleep({decision_s})\n'
                               ' return {"1":{"aim":obs["tick"]}},state\n')
             for team in ('red', 'blue'):
                 save_submission(Path(temp) / team, 'team', {'team': source})
             with Battle(Path(temp) / 'red', Path(temp) / 'blue', duration=2,
                         sandbox=self.policy_sandbox(), timeout=.6) as b:
                 started = time.monotonic()
-                b.step(budget=.05)
+                b.step(budget=budget_s)
                 elapsed = time.monotonic() - started
-                self.assertLess(elapsed, .15, f'a 300 ms decision held the tick for {elapsed:.3f} s')
+                self.assertLess(elapsed, decision_s - budget_s,
+                                f'a {decision_s * 1000:.0f} ms decision held the tick for {elapsed:.3f} s')
                 self.assertEqual(b.actions[0], {'red': {}, 'blue': {}}, 'a lagging team keeps its held command')
                 lag = [d for d in b.diagnostics if d['type'] == 'policy_lag']
                 self.assertEqual(len(lag), 2, b.diagnostics)
-                self.assertEqual(lag[0]['budget_s'], .05)
+                self.assertEqual(lag[0]['budget_s'], budget_s)
                 # The next tick must not ask the same worker twice: its request is still in flight.
                 started = time.monotonic()
-                b.step(budget=.05)
-                self.assertLess(time.monotonic() - started, .15)
+                b.step(budget=budget_s)
+                self.assertLess(time.monotonic() - started, decision_s - budget_s)
                 self.assertEqual(len([d for d in b.diagnostics if d['type'] == 'policy_lag']), 2,
                                  'lag is reported once per policy, not once per tick')
                 self.assertEqual(len(b.inflight), 2, 'one request in flight per policy')
