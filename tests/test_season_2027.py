@@ -233,6 +233,19 @@ class Season2027BattleTests(unittest.TestCase):
         manifest, _ = load_submission(ROOT / "examples/claude_opus55_xhigh_2027_team")
         self.assertEqual(manifest["team_lineup"], season_rules.default_lineup("2027"))
 
+    def test_heavy_robot_mines_two_units_and_completes_a_core_level(self):
+        """The economy gates everything else: no energy units means no tech core, no launcher.
+
+        A grab whose request drops mid-sequence is cancelled by the engine, so a policy that
+        "retries" by releasing `pick_unit` can never finish one; this measures the outcome
+        instead of the individual stages.
+        """
+        with Battle(ROOT / "examples/claude_opus55_xhigh_2027_team", ROOT / "examples/claude_opus55_xhigh_2027_hold", 2027, 130, None, "trusted-local") as battle:
+            battle.run()
+            red = battle.match.snapshot()["teams"]["red"]
+            self.assertLessEqual(red["energy_units_left"], 4, "the heavy robot never took two units")
+            self.assertTrue(red["completed_difficulties"], battle.diagnostics)
+
 
 if __name__ == "__main__":
     unittest.main()
