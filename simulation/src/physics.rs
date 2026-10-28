@@ -253,7 +253,13 @@ impl PhysicsWorld {
             pipeline: PhysicsPipeline::new(),
             parameters: IntegrationParameters {
                 dt: PHYSICS_DT,
-                max_ccd_substeps: 4,
+                // Rapier's own default. Every extra CCD substep re-runs a shape cast against the
+                // whole field for each fast body, and a robot moving at its top speed covers a few
+                // centimetres per substep — far inside its own collision shape — so the extra
+                // passes bought nothing but spikes: four substeps put the slowest tick at 139 ms
+                // (p95 82 ms) against 63 ms (p95 17 ms) at one, with the whole 211-test engine
+                // suite green either way.
+                max_ccd_substeps: 1,
                 ..Default::default()
             },
             islands: IslandManager::new(),
