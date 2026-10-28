@@ -447,7 +447,8 @@ fn base_hp_threshold_opens_armor_and_tech_healing_never_closes_it() {
         x: b.x - 1.0,
         y: b.y,
         z: b.z + 1.05,
-        vx: -12.0,
+        // Fired from the field side: the blue base's armour faces inward.
+        vx: 12.0,
         vy: 0.0,
         vz: 0.0,
         remaining: 10.0,

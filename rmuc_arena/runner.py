@@ -1,5 +1,5 @@
 """Policy isolation, deadlines, action ownership, and replay recording."""
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from collections import deque
 from collections.abc import Sequence
 import hashlib
@@ -20,7 +20,7 @@ import uuid
 from .engine import Match, POLICY_INTERVAL, DT, SLOT_IDS, RULES_PROFILE, STATIC_FRAME_KEYS
 from .referee import validate_referee
 from .submissions import load_submission
-from .communication import TeamCommunication, validate_messages
+from .communication import MAX_MESSAGE_BYTES, TeamCommunication, limit_messages, message_byte_limit, validate_messages
 from .decks import prepare_decks
 from .showcase import load_profile
 from .worker import MEMORY_LIMIT
@@ -56,7 +56,8 @@ ACTION_FIELDS = frozenset({
     "rune_start", "heading", "crouch", "rescue", "yaw_rate", "yaw_boost", "brake", "leg_height", "jump", "climb", "lean", "arm", "arm2",
     "pickup_arm", "transform",
     # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
-    "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture",
+    "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "assembly_extract",
+    "assembly_cancel", "posture",
     "posture_enhanced", "drones",
     # A pilot's lobbed shot: the world point under the crosshair, solved into a high arc server-side.
     "aim_point",
@@ -298,9 +299,15 @@ class FrameLog(Sequence):
 
 
 class EncodedObservation:
-    """An engine observation line forwarded to a policy without decoding it."""
-    def __init__(self, payload, controlled_ids, has_messages):
+    """An engine observation line forwarded to a policy without decoding it.
+
+    `static` is the match-constant prefix (the arena map) and is non-empty only on the first
+    observation a policy receives: the worker keeps it and merges it into every later line, so the
+    unchanged 66 KB map is neither piped nor decoded again.
+    """
+    def __init__(self, payload, controlled_ids, has_messages, static=b""):
         self.payload, self.controlled_ids, self.has_messages = payload, controlled_ids, has_messages
+        self.static = static
 
 
 class Policy:
@@ -393,7 +400,7 @@ class Policy:
                 return
             self.logs.append(chunk.decode("utf-8", errors="replace"))
 
-    def decide(self, observation):
+    def decide(self, observation, message_limit=MAX_MESSAGE_BYTES):
         if self.disabled:
             return {}, None
         self.calls += 1
@@ -411,13 +418,13 @@ class Policy:
                 # Only one request may be in flight. Discard its late response before
                 # sending fresh observations, preserving private state without ever
                 # applying old actions to a new tick or building a stdin backlog.
-                self._receive(until)
+                self._receive(until, message_limit)
             if time.monotonic() >= until:
                 raise queue.Empty
             self.pending_response = controlled, has_messages
             self.process.stdin.write(payload)
             self.process.stdin.flush()
-            actions = self._receive(until)
+            actions = self._receive(until, message_limit)
             self.consecutive_timeouts = 0
             return actions, None
         except queue.Empty:
@@ -435,7 +442,7 @@ class Policy:
             self.close()
             return {}, message
 
-    def _receive(self, until):
+    def _receive(self, until, message_limit=MAX_MESSAGE_BYTES):
         remaining = until - time.monotonic()
         if remaining <= 0:
             raise queue.Empty
@@ -450,10 +457,18 @@ class Policy:
             raise ValueError("Invalid action object")
         if not set(actions) <= controlled:
             raise ValueError("Attempt to control an unowned robot")
-        for slot, action in actions.items():
+        for slot, action in list(actions.items()):
             validate_action(action, has_messages)
             if "messages" in action:
+                # 512 bytes is the protocol ceiling and stays a hard error. The 2027 logistics
+                # bandwidth can be lower, and a message that no longer fits is dropped rather than
+                # disabling the policy: the team chose to spend the base HP that carried that data.
                 validate_messages(action["messages"], slot, self.dynamic_messages)
+                kept = limit_messages(action["messages"], message_limit)
+                if len(kept) != len(action["messages"]):
+                    self.logs.append(f"bandwidth: dropped {len(action['messages']) - len(kept)} message(s) over {message_limit} bytes")
+                    action = {**action, "messages": kept}
+                    actions[slot] = action
         return actions
 
     def close(self):
@@ -533,6 +548,11 @@ class Battle:
         self.deck_mode = decks is not None
         self.deadline, self.stop_event = deadline, stop_event
         self.pool = ThreadPoolExecutor(max_workers=24 if self.deck_mode else 12)
+        # One decision in flight per policy, keyed by the worker: a slow agent is skipped on the next
+        # policy tick instead of being asked twice, which keeps its single-request protocol intact.
+        self.inflight = {}
+        # Policies that already received the match-constant part of an observation (the arena).
+        self.static_sent = set()
         self.metadata = {"api_version": 3, "engine": "rust", "rules": rules_profile, "season": season, "decision_timeout_s":timeout, "policy_timeout_limit":POLICY_TIMEOUT_LIMIT, "roster":list(slot_ids), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
                          "map": map_name, "sandbox": sandbox, "match_mode":"deck" if self.deck_mode else "standard", "teams": {}}
         if battle_settings:
@@ -720,19 +740,44 @@ class Battle:
         observation["messages"] = [message for inbox in inboxes.values() for message in inbox]
         return observation
 
-    def encoded_observations(self, policies):
-        """The same observations as `observation`, fetched together and left encoded."""
-        controlled, lines = self.match.observations([(team, slots) for team, slots, _ in policies])
+    def message_byte_limit(self, team):
+        """The team's current per-message data budget (table 5-19 scales it with base HP)."""
+        return message_byte_limit(self.match.bases.get(team), self.frames.static.get("rulebook_rules"))
+
+    def encoded_observations(self, policies, hoist_static=True):
+        """The same observations as `observation`, fetched together and left encoded.
+
+        With `hoist_static` the arena is sent once per policy and cached in its sandbox: it is
+        identical for every decision of a match, and resending it cost 66 KB of pipe traffic and
+        about 2 ms of decoding per decision per policy. `hoist_static=False` is the previous
+        behaviour, kept so a test can prove both transports feed policies the same observation.
+        """
+        controlled, lines = self.match.observations([(team, slots) for team, slots, _ in policies], static=not hoist_static)
         encoded = []
-        for (team, _, _), ids, line in zip(policies, controlled, lines):
+        for (team, _, policy), ids, line in zip(policies, controlled, lines):
             inboxes = {slot: self.communication.inboxes[team][slot] for slot in ids}
             messages = [message for inbox in inboxes.values() for message in inbox]
             # Append both keys last, in the order `observation` adds them.
             tail = ',"message_inboxes":' + json.dumps(inboxes, allow_nan=False, separators=(",", ":")) + ',"messages":' + json.dumps(messages, allow_nan=False, separators=(",", ":"))
-            encoded.append(EncodedObservation(line.rstrip(b"\n")[:-1] + tail.encode() + b"}\n", ids, True))
+            payload = line.rstrip(b"\n")[:-1] + tail.encode() + b"}\n"
+            static = b""
+            if hoist_static and policy not in self.static_sent:
+                self.static_sent.add(policy)
+                # `{"__static__":{...arena...},` + the observation's own keys.
+                static = b'{"__static__":' + self.match.observation_static().encode() + b","
+                payload = static + payload[1:]
+            encoded.append(EncodedObservation(payload, ids, True, static))
         return encoded
 
-    def step(self):
+    def step(self, budget: float | None = None):
+        """Advance one engine tick.
+
+        `budget` bounds how long a policy decision may hold this tick. Left unset, a decision is
+        awaited to completion, which is what headless runs, tests and replay verification want. The
+        live loop passes the tick's own budget: an agent that needs longer keeps its previous command
+        for this tick and the clock keeps running, instead of the whole field freezing for the
+        decision (a 200 ms LLM call used to stall four ticks every other tick).
+        """
         if self.match.status == "finished":
             return self.frames[-1]
         if self.cancelled():
@@ -740,16 +785,50 @@ class Battle:
             self.frames[-1] = self.match.snapshot()
             return self.frames[-1]
         policy_tick = bool(self.policies) and self.match.tick % POLICY_INTERVAL == 0
-        # Disabled policies return no actions, so they need no observation.
-        deciding = [item for item in self.policies if not item[2].disabled] if policy_tick else []
+        # Disabled policies return no actions, so they need no observation. A policy that is still
+        # deciding is skipped as well: `PolicyWorker` owns one subprocess and one in-flight request,
+        # so a second concurrent `decide` would corrupt its protocol. Skipping keeps that invariant
+        # while the clock keeps running.
+        deciding = []
+        if policy_tick:
+            for item in self.policies:
+                p = item[2]
+                if p.disabled:
+                    continue
+                pending = self.inflight.get(p)
+                if pending is not None:
+                    if not pending.done():
+                        continue
+                    # Its answer missed the tick it was asked for, so it is not applied at all.
+                    self.inflight.pop(p, None)
+                deciding.append(item)
         futures = []
         if deciding:
             for (team, slots, p), observation in zip(deciding, self.encoded_observations(deciding)):
-                futures.append((team, slots, p, self.pool.submit(p.decide, observation)))
+                future = self.pool.submit(p.decide, observation, self.message_byte_limit(team))
+                self.inflight[p] = future
+                futures.append((team, slots, p, future, time.monotonic()))
         commands, failures = ({"red": {}, "blue": {}} if policy_tick else self.held_commands), []
         outgoing = []
-        for team, slots, p, future in futures:
-            actions, error = future.result()
+        for team, slots, p, future, submitted in futures:
+            wait = None if budget is None else max(0.0, submitted + budget - time.monotonic())
+            try:
+                actions, error = future.result(timeout=wait)
+                self.inflight.pop(p, None)
+            except FutureTimeout:
+                # The team keeps the command it had — for this policy's own robots only, so a
+                # per-robot policy that did answer this tick keeps its fresh action. The worker
+                # discards its late answer before the next request, so nothing stale is applied.
+                held = self.held_commands.get(team, {})
+                for key, action in held.items():
+                    if slots is None or str(key) in {str(slot) for slot in slots}:
+                        commands[team].setdefault(key, action)
+                if not getattr(p, "lag_reported", False):
+                    p.lag_reported = True
+                    self.diagnostics.append({"type": "policy_lag", "id": f"policy-lag:{team}:{slots}:{self.match.tick}",
+                        "tick": self.match.tick, "time": self.match.time, "team": team, "slots": slots,
+                        "budget_s": budget})
+                continue
             for slot, action in actions.items():
                 action = dict(action)
                 messages = action.pop("messages", [])

@@ -71,7 +71,8 @@ fn twin_arms_move_independently_and_secondary_gripper_can_pick_up(){
     let p=[station["pick_point"][0].as_f64().unwrap(),station["pick_point"][1].as_f64().unwrap()];
     place(&mut m,1,p[0],p[1]-0.48,std::f64::consts::FRAC_PI_2);
     let command=json!({"red":{"2":{"heading":std::f64::consts::FRAC_PI_2,"arm":{"tip":[0.25,-0.08,0.48],"dir":[1,0,0],"frame":"robot"},"pick_unit":true,"pickup_arm":1}}});
-    let mut held=false;for _ in 0..100 {m.step(&command);held|=m.robots[1].unit_pickup.as_ref().is_some_and(|s|s.arm==1&&s.held);if m.robots[1].carried_units>0{break;}}
+    // The mining arm runs at half rate now, so the grab needs about twice the ticks it used to.
+    let mut held=false;for _ in 0..300 {m.step(&command);held|=m.robots[1].unit_pickup.as_ref().is_some_and(|s|s.arm==1&&s.held);if m.robots[1].carried_units>0{break;}}
     assert!(held,"aux pickup {:?} tip {:?}",m.robots[1].unit_pickup.as_ref().map(|s|&s.stage),m.robots[1].arm2_tip);
     assert_eq!(m.robots[1].arm_count,2);assert_eq!(m.robots[1].carried_units,1);
     assert_eq!(m.robots[1].arm_mode,"manual");

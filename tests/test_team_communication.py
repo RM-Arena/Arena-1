@@ -6,7 +6,7 @@ import unittest
 from rmuc_arena.runner import Battle,Policy
 from rmuc_arena.submissions import ROOT,save_submission
 from rmuc_arena.cli import verify_replay
-from rmuc_arena.communication import TeamCommunication
+from rmuc_arena.communication import TeamCommunication,limit_messages,message_byte_limit,message_size,validate_messages
 
 class TeamCommunicationTests(unittest.TestCase):
     def setUp(self):
@@ -60,6 +60,14 @@ def act(obs,state):
                 source=self.root/f'invalid-{index}.py';source.write_text(f'def act(obs,state):\n return {action!r},state\n')
                 policy=Policy(source,1,'trusted-local');self.addCleanup(policy.close);self.assertIsNotNone(policy.decide(obs)[1])
 
+    def test_battle_bandwidth_follows_the_live_base_hp(self):
+        with Battle(ROOT/'examples/claude_opus55_xhigh_2027_team',ROOT/'examples/claude_opus55_xhigh_2027_hold',duration=1,sandbox='trusted-local') as battle:
+            self.assertEqual(battle.season,'2027')
+            self.assertEqual(battle.message_byte_limit('red'),512)
+            battle.match._frame['bases']['red']['hp']=6000.0
+            self.assertEqual(battle.message_byte_limit('red'),409)
+            self.assertEqual(battle.message_byte_limit('blue'),512)
+
     def test_reports_do_not_create_visual_contacts_or_modify_public_telemetry(self):
         with Battle(ROOT/'examples/claude_opus55_xhigh_team',ROOT/'examples/claude_opus55_xhigh_hold',duration=1,sandbox='trusted-local') as battle:
             before=battle.observation('red',[1])
@@ -74,3 +82,24 @@ def act(obs,state):
         routing=TeamCommunication({'red':[1,2,3,13],'blue':[1]})
         outgoing=[('red','13',[{'to':'2','data':13}]),('red','3',[{'to':'2','data':3}]),('red','1',[{'to':'2','data':1}])]
         routing.route(outgoing,0,2);self.assertEqual([m['data'] for m in routing.inboxes['red']['2']],[1,3,13]);self.assertEqual(routing.inboxes['blue']['1'],[])
+
+    def test_lost_base_hp_scales_the_message_budget_and_validation(self):
+        rules={'logistics':{'base_loss_divisor_hp':20000,'interaction_bandwidth_bytes':512}}
+        def base(hp):return {'hp':hp,'max_hp':10000}
+        self.assertEqual(message_byte_limit(base(10000),rules),512)
+        self.assertEqual(message_byte_limit(base(6000),rules),409)  # 512 × 0.8, floored
+        self.assertEqual(message_byte_limit(base(0),rules),256)
+        self.assertEqual(message_byte_limit(base(6000),None),512)
+        self.assertEqual(message_byte_limit(base(6000),{}),512)
+        self.assertEqual(message_byte_limit(None,rules),512)
+        payload='x'*410
+        validate_messages([{'to':'all','data':payload}],'1')
+        with self.assertRaisesRegex(ValueError,'<=409 bytes'):
+            validate_messages([{'to':'all','data':payload}],'1',limit=409)
+        self.assertEqual(message_byte_limit(base(6000),{'logistics':{'base_loss_divisor_hp':0}}),512)
+        # A live bandwidth below the protocol ceiling drops the oversized message instead of
+        # disabling a policy that was legal at full base HP.
+        small={'to':'all','data':'x'*100}
+        self.assertEqual(message_size('x'*100),102)
+        self.assertEqual(limit_messages([small,{'to':'all','data':payload}],409),[small])
+        self.assertEqual(len(limit_messages([small,{'to':'all','data':payload}],512)),2)

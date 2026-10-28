@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from pathlib import Path
 import tempfile
 import unittest
@@ -150,6 +151,93 @@ class LocalRunnerTests(unittest.TestCase):
                 replay = Path(temp) / 'replay.json'
                 b.save(replay)
             self.assertEqual(verify_replay(replay)['verified_ticks'], 20)
+
+    def test_a_policy_sees_the_same_observation_with_the_arena_hoisted(self):
+        # The arena is 66 KB of a 118 KB observation and never changes during a match. Sending it
+        # once and merging it in the sandbox must leave every decision identical, so the same seed
+        # has to produce the same digest with and without the hoist.
+        strategy = ('def act(obs, state):\n'
+                    ' assert obs["arena"]["width"] > 0, "no arena"\n'
+                    ' n = len(obs["robots"]) + len(obs["robot_models"])\n'
+                    ' return {"1": {"aim": round(n * 0.01 + obs["tick"] * 0.001, 6)},\n'
+                    '         "3": {"move": [0.2, 0.0]}}, {"n": n}\n')
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'strategy.py'
+            source.write_text(strategy)
+            for team in ('red', 'blue'):
+                save_submission(Path(temp) / team, 'team', {'team': source})
+            digests = {}
+            for label, hoist in (('hoisted', True), ('inline', False)):
+                with Battle(Path(temp) / 'red', Path(temp) / 'blue', duration=4,
+                            sandbox=self.policy_sandbox(), timeout=.6) as b:
+                    if not hoist:
+                        b.encoded_observations = (lambda run: lambda policies: run(policies, hoist_static=False))(b.encoded_observations)
+                    for _ in range(40):
+                        b.step()
+                    digests[label] = b.match.digest()
+            self.assertEqual(digests['hoisted'], digests['inline'],
+                             'the hoisted arena changed what the policies decided')
+
+    def test_the_hoisted_arena_shrinks_the_observation_and_keeps_it_complete(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'strategy.py'
+            source.write_text('def act(obs, state):\n return {}, state\n')
+            for team in ('red', 'blue'):
+                save_submission(Path(temp) / team, 'team', {'team': source})
+            with Battle(Path(temp) / 'red', Path(temp) / 'blue', duration=2,
+                        sandbox=self.policy_sandbox()) as b:
+                policies = [(team, slots, p) for team, slots, p in b.policies]
+                first = b.encoded_observations(policies)[0].payload
+                later = b.encoded_observations(policies[:1])[0].payload
+                full = b.observation('red', None)
+        self.assertIn(b'"__static__"', first, 'the first observation carries the arena')
+        self.assertNotIn(b'"__static__"', later, 'later observations must not repeat it')
+        self.assertLess(len(later), len(first) * .7, f'{len(later)} vs {len(first)} bytes')
+        # What the sandbox rebuilds is the observation the engine would have sent in full.
+        observation = json.loads(first)
+        merged = {**observation.pop('__static__'), **observation}
+        transport = {'__static__', 'message_inboxes', 'messages'}
+        self.assertEqual(sorted(k for k in merged if k not in transport),
+                         sorted(k for k in full if k not in transport))
+        self.assertEqual(merged['arena'], full['arena'])
+        self.assertEqual(merged['robots'], full['robots'])
+        self.assertEqual(merged['robot_models'], full['robot_models'])
+
+    def test_a_slow_decision_cannot_stretch_the_live_tick_budget(self):
+        # The live loop passes the tick's own budget. A team whose agent overruns must keep its
+        # previous command for that tick, so one slow model cannot freeze the whole field.
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'strategy.py'
+            source.write_text('import time\n'
+                              'def act(obs,state):\n'
+                              ' time.sleep(.3)\n'
+                              ' return {"1":{"aim":obs["tick"]}},state\n')
+            for team in ('red', 'blue'):
+                save_submission(Path(temp) / team, 'team', {'team': source})
+            with Battle(Path(temp) / 'red', Path(temp) / 'blue', duration=2,
+                        sandbox=self.policy_sandbox(), timeout=.6) as b:
+                started = time.monotonic()
+                b.step(budget=.05)
+                elapsed = time.monotonic() - started
+                self.assertLess(elapsed, .15, f'a 300 ms decision held the tick for {elapsed:.3f} s')
+                self.assertEqual(b.actions[0], {'red': {}, 'blue': {}}, 'a lagging team keeps its held command')
+                lag = [d for d in b.diagnostics if d['type'] == 'policy_lag']
+                self.assertEqual(len(lag), 2, b.diagnostics)
+                self.assertEqual(lag[0]['budget_s'], .05)
+                # The next tick must not ask the same worker twice: its request is still in flight.
+                started = time.monotonic()
+                b.step(budget=.05)
+                self.assertLess(time.monotonic() - started, .15)
+                self.assertEqual(len([d for d in b.diagnostics if d['type'] == 'policy_lag']), 2,
+                                 'lag is reported once per policy, not once per tick')
+                self.assertEqual(len(b.inflight), 2, 'one request in flight per policy')
+            # Without a budget the previous behaviour is preserved for headless runs and tests.
+            with Battle(Path(temp) / 'red', Path(temp) / 'blue', duration=2,
+                        sandbox=self.policy_sandbox(), timeout=.6) as plain:
+                started = time.monotonic()
+                plain.step()
+                self.assertGreater(time.monotonic() - started, .25,
+                                   'an unbudgeted step still waits for the decision')
 
     def policy_sandbox(self):
         return 'trusted-local'

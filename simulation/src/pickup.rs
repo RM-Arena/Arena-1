@@ -18,9 +18,10 @@ pub struct PickupState {
 }
 
 /// A grab that cannot reach its target must fail instead of hanging: the pilot would hold the key
-/// and watch 0 % until they leave the resource zone. Four seconds leaves room for a legitimate
-/// grab that starts with the arm stowed and the chassis turned away.
-const PICKUP_STALL_S: f64 = 4.0;
+/// and watch 0 % until they leave the resource zone. The arm now runs at half rate, so a legitimate
+/// grab that starts with the arm stowed and the chassis turned away needs about twice the old
+/// window; eight seconds still fails an unreachable unit long before a pilot would give up.
+const PICKUP_STALL_S: f64 = 8.0;
 
 impl Engine {
     pub(super) fn request_pickup(&mut self, i: usize, rpc: &Value) {
@@ -143,11 +144,15 @@ impl Engine {
             state.phase_elapsed = if ready { state.phase_elapsed + DT } else { 0.0 };
             state.stall = if ready { 0.0 } else { state.stall + DT };
             let stalled = state.stall > PICKUP_STALL_S;
+            // A stage is held for the longer of its own dwell and the time the joints need, and the
+            // joints now run at half rate for a grab: these dwells are doubled with them, so a stage
+            // that used to be gated by the dwell is twice as long as well instead of only its
+            // joint-limited part.
             let (index, duration, next) = match state.stage.as_str() {
-                "approaching" => (0, 0.2, "gripping"),
-                "gripping" => (1, 0.35, "lifting"),
-                "lifting" => (2, 0.3, "stowing"),
-                _ => (3, 0.4, "complete"),
+                "approaching" => (0, 0.4, "gripping"),
+                "gripping" => (1, 0.7, "lifting"),
+                "lifting" => (2, 0.6, "stowing"),
+                _ => (3, 0.8, "complete"),
             };
             state.progress = (index as f64 + (state.phase_elapsed / duration).min(1.0)) / 4.0;
             if stalled {

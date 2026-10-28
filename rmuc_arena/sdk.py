@@ -168,7 +168,7 @@ def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgra
     if skill or upgrade is not None:
         raise ValueError("Unsupported action; use the documented game operations")
     allowed = {"profile", "power", "altitude", "buy_ammo", "remote_heal", "revive", "deploy", "support", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform", "messages",
-               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture", "posture_enhanced", "drones", "climb"}
+               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "assembly_extract", "assembly_cancel", "posture", "posture_enhanced", "drones", "climb"}
     if not set(operations) <= allowed:
         raise ValueError("Unknown action operation")
     # A move from `navigate` that backs a chassis off the road bumps keeps its heading.
@@ -182,7 +182,10 @@ def message(data, to="all"):
 
     Pass it via action(messages=[message(...)]) and read obs['messages'] on
     the next decision; Team mode can read obs['message_inboxes'][slot]. Each payload is JSON, <=512 bytes; at most four sends
-    per decision, still within the robot action's total 1 KiB budget.
+    per decision, still within the robot action's total 1 KiB budget. In 2027 the live cap falls with the
+    team's logistics coefficient λ; `obs['logistics_effects']['interaction_bandwidth_bytes']` is the
+    effective limit after base damage, and the host drops payloads above it (the 512-byte protocol
+    ceiling itself remains a hard error).
     """
     recipient = str(to)
     if recipient != "all" and not (recipient.isascii() and recipient.isdigit() and 0 < int(recipient) <= 2**32-1):

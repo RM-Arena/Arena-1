@@ -36,7 +36,9 @@ fn pickup_needs_real_contact_and_all_four_phases_on_both_teams() {
         let command = json!({team:{"2":{"pick_unit":true,"heading":yaw}}});
         let mut stages = std::collections::BTreeSet::new();
         let mut pickups = 0;
-        for _ in 0..240 {
+        // Two grabs at half-rate arm speed: the old 240-tick window bought both units at the old
+        // rate, so the window doubles with the arm.
+        for _ in 0..600 {
             m.step(&command);
             if let Some(s) = &m.robots[i].unit_pickup {
                 stages.insert(s.stage.clone());
@@ -298,4 +300,45 @@ fn realism_qa_replay() {
     }
     let replay = json!({"format":"rmuc-replay-v4","metadata":{"seed":42,"duration":12,"map":"rmuc2026","dt":DT,"test_match":true,"teams":{"red":{"name":"realism-qa","version":"video-audit","mode":"team"},"blue":{"name":"realism-qa","version":"video-audit","mode":"team"}}},"static":fixed,"frames":frames,"actions":[],"diagnostics":[],"result":{"winner":null,"reason":"timeout","time":12.0,"digest":"","policy_errors":0}});
     std::fs::write(path, serde_json::to_vec(&replay).unwrap()).unwrap();
+}
+
+#[test]
+fn both_bases_face_the_field_so_blue_is_turned_half_a_turn() {
+    // The armour modules sit on the three faces of the pedestal, and those faces have to look into
+    // the field on both halves. Red already does; blue sits on the far side, so its whole structure
+    // (plates and swinging shells alike) is turned 180 deg about its own axis.
+    let m = Engine::new(42, 420.0, "rmuc2026").unwrap();
+    let (mid_x, mid_y) = (m.arena.width / 2.0, m.arena.height / 2.0);
+    for team in ["red", "blue"] {
+        let b = &m.bases[team];
+        let inward = if team == "red" { 1.0 } else { -1.0 };
+        let plates = structures::plates(b, false);
+        // Face 0 (the first 42 mm module) looks straight down the centre line.
+        assert!((plates[0].normal[0] - inward).abs() < 1e-9, "{team}: {:?}", plates[0].normal);
+        assert!(plates[0].normal[1].abs() < 1e-9, "{team}: {:?}", plates[0].normal);
+        // The other two faces lean away from the centre line by 60 deg each.
+        for plate in &plates[1..] {
+            assert!((plate.normal[0] + inward / 2.0).abs() < 1e-9, "{team}: {:?}", plate.normal);
+            assert!((plate.normal[1].abs() - 0.866_025_403_784_438_6).abs() < 1e-9, "{team}: {:?}", plate.normal);
+        }
+    }
+    // Blue is red turned half a turn about the field centre: every plate and every shell maps onto
+    // its counterpart, which is exactly what "the faces were reversed" used to fail.
+    let (red, blue) = (structures::plates(&m.bases["red"], false), structures::plates(&m.bases["blue"], false));
+    for (a, b) in red.iter().zip(&blue) {
+        assert!((b.center[0] - (2.0 * mid_x - a.center[0])).abs() < 1e-9, "plate {:?}", a.center);
+        assert!((b.center[1] - (2.0 * mid_y - a.center[1])).abs() < 1e-9, "plate {:?}", a.center);
+        assert!((b.normal[0] + a.normal[0]).abs() < 1e-9, "plate normal {:?}", a.normal);
+        assert!((b.normal[1] + a.normal[1]).abs() < 1e-9, "plate normal {:?}", a.normal);
+    }
+    let (red_shells, blue_shells) = (structures::covers(&m.bases["red"]), structures::covers(&m.bases["blue"]));
+    assert_eq!(blue_shells.len(), red_shells.len());
+    for (a, b) in red_shells.iter().zip(&blue_shells) {
+        let (ax, ay) = (a.x + a.w / 2.0, a.y + a.h / 2.0);
+        let (bx, by) = (b.x + b.w / 2.0, b.y + b.h / 2.0);
+        assert!((bx - (2.0 * mid_x - ax)).abs() < 1e-9, "shell {} {:?}", a.id, (ax, ay));
+        assert!((by - (2.0 * mid_y - ay)).abs() < 1e-9, "shell {} {:?}", a.id, (ax, ay));
+        let turn = (b.rotation - a.rotation - std::f64::consts::PI).rem_euclid(std::f64::consts::TAU);
+        assert!(turn.min(std::f64::consts::TAU - turn) < 1e-9, "shell {} turn {turn}", a.id);
+    }
 }

@@ -455,7 +455,9 @@ class ArenaService:
                     started = time.monotonic()
                     # Step outside the lock: a policy decision may take up to 200 ms and must not
                     # delay a pilot's control request. Publishing the frame stays atomic.
-                    frame = battle.step()
+                    # `budget` keeps the match clock honest when an agent overruns: the team keeps its
+                    # previous command for this tick instead of holding the whole field still.
+                    frame = battle.step(budget=DT/max(.1,speed))
                     with self.lock:
                         if self.match_id == match_id:
                             self._publish(frame)

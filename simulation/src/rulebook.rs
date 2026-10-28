@@ -1,5 +1,8 @@
 use super::*;
 
+/// Actuator phases advance one step per 10 Hz RPC settlement.
+const ASSEMBLY_SETTLE_S: f64 = 0.1;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RuneState {
     pub status: String,
@@ -89,6 +92,23 @@ pub struct AssemblyState {
     pub second: Option<season2027::CoreProgress>,
     #[serde(default, skip_serializing_if = "no_steps")]
     pub step_times: [Option<f64>; 5],
+    /// Units physically inside the core: counted when one is pushed in and released again when the
+    /// core spends them on success or salvages them after a failure. While this is non-zero the
+    /// difficulty is latched — the operator may not switch grades with a unit already in the socket.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub core_units: u32,
+    /// When the core salvages a failed attempt's units back into the team's stock.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recover_at: Option<f64>,
+    /// Why the last attempt failed, kept until the next one starts so the HUD can explain it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fail_reason: Option<String>,
+    /// Next core-overload alarm while a robot blocks the core's path.
+    #[serde(default, skip_serializing_if = "is_zero_f")]
+    pub overload_at: f64,
+}
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
 }
 fn is_zero_f(v: &f64) -> bool {
     *v == 0.0
@@ -155,6 +175,10 @@ impl AssemblyState {
             confirmed: false,
             second: None,
             step_times: [None; 5],
+            core_units: 0,
+            recover_at: None,
+            fail_reason: None,
+            overload_at: 0.0,
         }
     }
 }
@@ -1389,7 +1413,20 @@ impl Engine {
     /// Advance each core toward its commanded pose and derive the engineers' arm goals.
     pub(super) fn arm_goals(&mut self, actions: &[Action]) -> Vec<physics::ArmGoal> {
         let initial = [-0.2, 0.2, 0.8, 0.0, 90.0, 0.0];
+        let now = self.time();
+        let mut overloaded: Vec<&'static str> = Vec::new();
         for team in ["red", "blue"] {
+            let active = ["moving", "inserting", "buffered"]
+                .contains(&self.assemblies[team].stage.as_str());
+            // Blocked: hold the pose (the "brief hover") and sound the alarm at most once per interval.
+            if active && self.core_path_blocked(team) {
+                let s = self.assemblies.get_mut(team).unwrap();
+                if now + 1e-8 >= s.overload_at {
+                    s.overload_at = now + n(&self.rules["assembly"], "overload_alarm_s");
+                    overloaded.push(team);
+                }
+                continue;
+            }
             let s = self.assemblies.get_mut(team).unwrap();
             let target = if ["moving", "inserting", "buffered"].contains(&s.stage.as_str()) {
                 s.pose
@@ -1400,6 +1437,9 @@ impl Engine {
                 let rate = if k < 3 { 0.25 } else { 90.0 };
                 s.current_pose[k] = approach(s.current_pose[k], target[k], rate * DT);
             }
+        }
+        for team in overloaded {
+            self.event("core_overload", json!({"team":team,"reason":"path_blocked"}));
         }
         let mut goals = vec![physics::ArmGoal::default(); self.robots.len()];
         for i in 0..self.robots.len() {
@@ -1608,8 +1648,11 @@ impl Engine {
         {
             let d = difficulty as u32;
             let state = &self.assemblies[&team];
-            let eligible =
-                state.stage == "idle" || state.stage == "complete" || state.stage == "failed";
+            // A unit already pushed into the socket latches the grade: the operator may not switch
+            // difficulty until that attempt has resolved.
+            let core_free = state.inserted <= 1e-9;
+            let eligible = core_free
+                && (state.stage == "idle" || state.stage == "complete" || state.stage == "failed");
             let completed = &self.teams[&team].completed_difficulties;
             let time_ok = now >= (d - 1) as f64 * 60.0;
             let prev_ok = d == 1 || completed.contains(&(d - 1));
@@ -1657,7 +1700,13 @@ impl Engine {
                     pose[index] = sample(ranges[key][0].as_f64().unwrap(), ranges[key][1].as_f64().unwrap());
                 }
                 let rotation = &profile["target_rotation_deg"];
-                let angle = sample(rotation[0].as_f64().unwrap(), rotation[1].as_f64().unwrap());
+                // The unit may turn 90° about Q either way, so the sampled magnitude takes a random
+                // sign instead of always turning counter-clockwise.
+                let allowed = n(&self.rules["assembly"], "allowed_rotation_deg");
+                let magnitude = sample(rotation[0].as_f64().unwrap(), rotation[1].as_f64().unwrap())
+                    .abs()
+                    .min(allowed);
+                let angle = if sample(0.0, 1.0) < 0.5 { -magnitude } else { magnitude };
                 let state = self.assemblies.get_mut(&team).unwrap();
                 state.difficulty = d;
                 state.stage = "moving".into();
@@ -1675,6 +1724,7 @@ impl Engine {
                 state.interrupted = interrupted;
                 state.confirm_progress_s = 0.0;
                 state.buffer_until = 0.0;
+                state.fail_reason = None;
                 if interrupted {
                     self.assemblies.get_mut(other).unwrap().buffer_until = now + 15.0;
                     self.assemblies.get_mut(other).unwrap().stage = "buffered".into();
@@ -1686,6 +1736,17 @@ impl Engine {
             }
         }
         let state = self.assemblies[&team].clone();
+        // Rule 89: the operator may pull the unit back out of the socket; the core senses the unit
+        // leaving and the attempt fails at once.
+        if rpc.get("assembly_extract").and_then(Value::as_bool) == Some(true) {
+            if ["inserting", "buffered"].contains(&state.stage.as_str())
+                && state.inserted > 1e-9
+                && self.assembly_alignment_error(i).is_none()
+            {
+                self.fail_assembly(&team, "unit_extracted");
+            }
+            return;
+        }
         if !["inserting", "buffered"].contains(&state.stage.as_str())
             || state.stage == "buffered" && (now < state.ready_at || now >= state.buffer_until)
             || !self.raw_zone(i, "assembly", Some(&team))
@@ -1705,7 +1766,8 @@ impl Engine {
         if state.inserted < depth - 1e-8 {
             if rpc.get("assembly_insert").and_then(Value::as_bool) == Some(true) {
                 let s = self.assemblies.get_mut(&team).unwrap();
-                s.inserted = (s.inserted + n(&self.sim, "arm_insert_speed_mps") * 0.1).min(depth);
+                s.inserted = (s.inserted + n(&self.sim, "arm_insert_speed_mps") * ASSEMBLY_SETTLE_S)
+                    .min(depth);
             }
             return;
         }
@@ -1713,7 +1775,8 @@ impl Engine {
             if rpc.get("assembly_translate").and_then(Value::as_bool) == Some(true) {
                 let s = self.assemblies.get_mut(&team).unwrap();
                 s.translated =
-                    (s.translated + n(&self.sim, "arm_translate_speed_mps") * 0.1).min(translation);
+                    (s.translated + n(&self.sim, "arm_translate_speed_mps") * ASSEMBLY_SETTLE_S)
+                        .min(translation);
             }
             return;
         }
@@ -1728,8 +1791,11 @@ impl Engine {
                 let s = self.assemblies.get_mut(&team).unwrap();
                 s.rotation = approach(
                     s.rotation,
-                    angle.clamp(0.0, 90.0),
-                    n(&self.sim, "arm_rotate_speed_deg_s") * 0.1,
+                    angle.clamp(
+                        -n(&self.rules["assembly"], "allowed_rotation_deg"),
+                        n(&self.rules["assembly"], "allowed_rotation_deg"),
+                    ),
+                    n(&self.sim, "arm_rotate_speed_deg_s") * ASSEMBLY_SETTLE_S,
                 );
             }
             return;
@@ -1743,7 +1809,7 @@ impl Engine {
             s.confirm_progress_s = 0.0;
             return;
         }
-        s.confirm_progress_s += 0.1;
+        s.confirm_progress_s += ASSEMBLY_SETTLE_S;
         if s.confirm_progress_s < n(&profile, "confirm_hold_s") - 1e-8 {
             return;
         }
@@ -1759,8 +1825,8 @@ impl Engine {
             self.event("assembly_first_core", json!({"team":team}));
             return;
         }
-        if state.difficulty == 4 && now - state.first_unit_at > n(&self.rules["assembly"], "difficulty_4_secondary_insert_window_s") + 1e-8 {
-            self.fail_assembly(&team);
+        if state.difficulty == 4 && now - state.first_unit_at > self.secondary_core_window_s(state.target_rotation) + 1e-8 {
+            self.fail_assembly(&team, "secondary_window");
             return;
         }
         self.complete_assembly(&team, state.difficulty);
@@ -1812,11 +1878,55 @@ impl Engine {
         }
         self.event("assembly_success",json!({"team":team,"difficulty":difficulty,"first":first,"income_per_10s":self.teams[team].tech_income}));
     }
-    fn fail_assembly(&mut self, team: &str) {
+    /// The level-4 second core has to finish its whole actuator pass inside the window: push the unit
+    /// in, slide it, rotate the tool to the pose angle and hold the confirmation. Those phases are paced
+    /// by the rulebook's own actuator speeds, which already add up to the configured 3 s, so the
+    /// configured value only works as a floor — with a fixed 3 s every pose above a few degrees of tool
+    /// rotation would be physically impossible, and the arm still needs a settlement per phase change.
+    fn secondary_core_window_s(&self, target_rotation: f64) -> f64 {
+        let rules = &self.rules["assembly"];
+        let insert = n(rules, "insert_depth_m") / n(&self.sim, "arm_insert_speed_mps");
+        let translate = n(rules, "translation_m") / n(&self.sim, "arm_translate_speed_mps");
+        let rotate = target_rotation.abs().clamp(0.0, 90.0) / n(&self.sim, "arm_rotate_speed_deg_s");
+        let confirm = n(&self.assembly_difficulty(4), "confirm_hold_s");
+        let budget = insert + translate + rotate + confirm + 4.0 * ASSEMBLY_SETTLE_S;
+        n(rules, "difficulty_4_secondary_insert_window_s").max(budget)
+    }
+    /// The core sweeps its entry through the plinth without any obstacle sensing, so a robot standing
+    /// on that path stalls it: the move holds and an overload alarm repeats until the way clears. The
+    /// heavy robot working the core is exempt — it is the one holding the unit, not an obstacle.
+    fn core_path_blocked(&self, team: &str) -> bool {
+        let Some((entry, _, _)) = self.core_entry(team) else {
+            return false;
+        };
+        let clearance = n(&self.rules["assembly"], "overload_clearance_m");
+        self.robots.iter().any(|r| {
+            r.alive && !r.red_card && r.role != "heavy"
+                && (r.x - entry[0]).hypot(r.y - entry[1]) < clearance
+        })
+    }
+    /// A failed attempt is not the end of the unit: the core holds it until it salvages it back into
+    /// the team's stock, which is also when the difficulty unlocks again.
+    pub(super) fn salvage_core_units(&mut self, team: &str) {
+        let now = self.time();
+        let units = self.assemblies[team].core_units;
+        if units == 0 || !self.assemblies[team].recover_at.is_some_and(|at| now + 1e-8 >= at) {
+            return;
+        }
+        let s = self.assemblies.get_mut(team).unwrap();
+        s.core_units = 0;
+        s.recover_at = None;
+        if let Some(left) = self.teams.get_mut(team).unwrap().energy_units_left.as_mut() {
+            *left += units;
+        }
+        self.event("assembly_units_recovered", json!({"team":team,"units":units}));
+    }
+    fn fail_assembly(&mut self, team: &str, reason: &str) {
         let now = self.time();
         let retry_lock = n(&self.rules["assembly"], "difficulty_4_retry_lock_s");
         let s = self.assemblies.get_mut(team).unwrap();
         s.stage = "failed".into();
+        s.fail_reason = Some(reason.into());
         if s.difficulty == 4 { s.retry_at = now + retry_lock; }
         if s.interrupted {
             s.permanent_lock = true;
@@ -2009,6 +2119,9 @@ impl Engine {
             } else { None };
             result[team]["blocked_reason"] = json!(blocked);
             result[team]["repeat_cooldown_s"] = json!((s.repeat_ready_at - self.time()).max(0.0));
+            result[team]["core_units"] = json!(s.core_units);
+            result[team]["recover_in_s"] = json!(s.recover_at.map(|at| (at - self.time()).max(0.0)));
+            result[team]["difficulty_locked"] = json!(s.inserted > 1e-9);
             result[team]["requirements"] = profile.clone();
             result[team]["alignment"] = engineer.and_then(|(i,_)| self.assembly_alignment_metrics(i))
                 .map(|(position,direction,roll)|json!({"position_error_m":position,"direction_error_deg":direction,"roll_error_deg":roll}))
@@ -2317,6 +2430,7 @@ impl Engine {
         self.update_referee_locks();
         let now = self.time();
         for team in ["red", "blue"] {
+            self.salvage_core_units(team);
             let s = self.assemblies[team].clone();
             if s.stage == "moving" && now >= s.ready_at {
                 self.assemblies.get_mut(team).unwrap().stage = "inserting".into();
@@ -2329,9 +2443,10 @@ impl Engine {
             if s.stage == "inserting"
                 && (now - s.started >= timeout
                     || (s.difficulty == 4 && s.inserted_units == 1
-                        && now - s.first_unit_at > n(&self.rules["assembly"], "difficulty_4_secondary_insert_window_s")))
+                        && now - s.first_unit_at > self.secondary_core_window_s(s.target_rotation)))
             {
-                self.fail_assembly(team);
+                let reason = if now - s.started >= timeout { "timeout" } else { "secondary_window" };
+                self.fail_assembly(team, reason);
             }
             if !self.robots.iter().enumerate().any(|(i, r)| {
                 r.team == team
@@ -2598,7 +2713,8 @@ mod rule_tests {
             x: 25.0,
             y: 7.5,
             z: 1.05,
-            vx: -12.0,
+            // The blue base faces the field, so an incoming shot travels +x.
+            vx: 12.0,
             vy: 0.0,
             vz: 0.0,
             remaining: 10.0,

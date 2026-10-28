@@ -99,7 +99,7 @@ Ground robot hardware (full data in `sdk.DESIGNS`):
 
 | Slot | Design | Mass kg | Chassis m | Ref. speed m/s | Vision m | Turret yaw rad/s | Armor center height m | Muzzle height m |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | HV-A Single-arm Heavy | 31.8 | 0.55 × 0.55 | 3.2 | 18 | 4.5 | 0.275 | 0.64 |
+| 1 | HV-A Single-arm Heavy | 31.8 | 0.55 × 0.55 | 2.5 | 18 | 4.5 | 0.275 | 0.64 |
 | 3 | I27-W Stair-climbing Wheel-legged Infantry | 23.85 | 0.42 × 0.36 | 4.3 | 18 | 6.5 | 0.28 | 0.435 |
 | 4 | I27-T Folding Mecanum Infantry | 24.35 | 0.46 × 0.44 | 3.9 | 18 | 5.5 | 0.15 | 0.4 |
 | 7 | S27-O Omni Automatic Sentry | 27.15 | 0.55 × 0.55 | 3.9 | 20 | 8 | 0.175 | 0.45 |
@@ -421,6 +421,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | visible projectiles |
 | `arena` | map geometry |
 | `referee` | referee snapshot: `robots` (no positions), `bases`, `outposts`, `positions`, `control` (both teams), `logistics` (your λ), `economy`, `events` |
+| `logistics`, `logistics_effects` | your logistics coefficient λ and what table 5-19 currently resolves to: `respawn_time_scale`, `supply_heal_scale`, `remote_heal_scale`, `interaction_bandwidth_bytes` (effective per-message byte cap), `fpv_resolution` (`width`, `height`, `pixels_scale`) |
 
 Common fields of each robot in `robots`:
 

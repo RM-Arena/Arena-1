@@ -44,7 +44,7 @@ def act(obs, state):
     return {slot: action(messages=outgoing)}, {"teammates": [r["id"] for r in teammates]}
 ```
 
-Send at most 4 messages per decision; each `data` is a JSON value of at most 512 bytes and counts toward your 1 KiB action limit. `to="all"` broadcasts to your current teammates; otherwise give a teammate's deployment slot string (not a model). A message sent now arrives once in `obs["messages"]` at the next decision (0.1 s later).
+Send at most 4 messages per decision; each `data` is a JSON value of at most 512 bytes and counts toward your 1 KiB action limit. `to="all"` broadcasts to your current teammates; otherwise give a teammate's deployment slot string (not a model). A message sent now arrives once in `obs["messages"]` at the next decision (0.1 s later). In 2027 base damage scales that cap by the logistics coefficient λ (table 5-19; see `obs["logistics_effects"]["interaction_bandwidth_bytes"]`), and messages above the live cap are dropped.
 
 ## Practice and Submission
 

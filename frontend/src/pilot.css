@@ -1,11 +1,3 @@
-/* The only cockpit entry left on the field itself: a small chip on the top right, next to the
-   fullscreen toggle. Every other control lives inside the panel it opens. */
-.pilot-open{position:absolute;top:10px;right:112px;z-index:11;display:inline-flex;align-items:center;gap:7px;padding:6px 10px 6px 9px;border:1px solid #7f9bb055;border-radius:9px;background:linear-gradient(180deg,#0d1a24e8,#070f16e8);backdrop-filter:blur(10px);color:#bfe4f6;font-size:11px;letter-spacing:.6px;box-shadow:0 10px 26px #0009,inset 0 0 0 1px #ffffff0a;transition:transform .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease}
-.pilot-open:hover{transform:translateY(-1px);border-color:var(--hud-accent,#8fd3e8);color:var(--hud-ink-2,#e6f7ff);box-shadow:0 14px 30px #000a,inset 0 0 0 1px var(--hud-ink-2,#e6f7ff)}
-.pilot-open kbd{font:9px/1 ui-monospace,monospace;color:#cfe0ec;border:1px solid #ffffff2e;border-radius:4px;padding:2px 5px;background:#ffffff12}
-/* The fullscreen toggle grows with the viewport, so the chip steps left to stay clear of it. */
-.viewport:fullscreen .pilot-open,.viewport.page-fullscreen .pilot-open{right:130px}
-
 .pilot-backdrop{position:absolute;inset:0;z-index:20;background:#04080c66;backdrop-filter:blur(2px)}
 /* The field is a game viewport, not a document: no text selection, no touch scrolling and no
    native drag may swallow a held mouse button while the pilot aims. */
@@ -84,7 +76,7 @@
 .pilot-reticle,.pilot-readout,.pilot-status{--ring:384px}
 /* HUD zoom: the overlay follows the battle viewport. `zoom` scales sizes, fonts and the anchored
    offsets together, so edges, centres and the readout's ring offset all stay proportional. */
-.pilot-reticle,.pilot-heatring,.pilot-cross,.pilot-readout,.pilot-vitals,.pilot-status,.pilot-grab,.pilot-notice,.pilot-overheat-note{zoom:var(--hud-zoom,1)}
+.pilot-reticle,.pilot-heatring,.pilot-cross,.pilot-readout,.pilot-vitals,.pilot-status,.pilot-grab,.pilot-notice,.pilot-work,.pilot-overheat-note{zoom:var(--hud-zoom,1)}
 .pilot-reticle{position:absolute;left:50%;top:50%;z-index:8;transform:translate(-50%,-50%);width:var(--ring);height:var(--ring);max-width:min(var(--ring),86vw);max-height:min(var(--ring),86vh);aspect-ratio:1;opacity:.4;pointer-events:none;font-variant-numeric:tabular-nums;filter:drop-shadow(0 0 6px #000)}
 .pilot-reticle svg{width:100%;height:100%;overflow:visible}
 /* Barrel heat: a thin ring hugging the aim point, with the chassis heading as a 60° wedge just
@@ -179,6 +171,19 @@
 .pilot-grab{position:absolute;left:50%;top:12px;z-index:12;transform:translateX(-50%);padding:4px 10px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#050a10b8;backdrop-filter:blur(10px);color:#dbe7ee;font-size:10px;white-space:nowrap;pointer-events:none}
 .pilot-notice{position:absolute;left:50%;bottom:82px;z-index:12;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#050a10b8;backdrop-filter:blur(10px);color:#dbe7ee;font-size:10px;white-space:nowrap;pointer-events:none}
 .pilot-notice i{width:5px;height:5px;border-radius:50%;background:var(--hud-accent,#8fd3e8)}
+/* Long jobs with the arm — grabbing a unit, bolting the 42 mm on — get a real progress bar above the
+   one-line hint: they take a second or two of standing still, and a pilot has to be able to tell a
+   job that is running from one the rules refused. */
+.pilot-work{position:absolute;left:50%;bottom:118px;z-index:12;transform:translateX(-50%);display:flex;flex-direction:column;gap:4px;width:236px;padding:7px 11px 8px;border:1px solid #8fd3e855;border-radius:8px;background:#050a10c9;backdrop-filter:blur(10px);color:#dbe7ee;pointer-events:none}
+.pilot-work.pick{border-color:#8fe45266}
+.pilot-work.install{border-color:#f2c35b66}
+.pilot-work-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.pilot-work-head b{font-size:10px;font-weight:700;letter-spacing:.4px}
+.pilot-work-head em{font-style:normal;font-size:11px;font-weight:800;color:#eaf4f9}
+.pilot-work-track{position:relative;height:5px;overflow:hidden;border-radius:3px;background:#ffffff1f;box-shadow:inset 0 0 0 1px #ffffff14}
+.pilot-work-track>i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#6fd3f0,#9fe86a);transition:width .12s linear}
+.pilot-work.install .pilot-work-track>i{background:linear-gradient(90deg,#f2c35b,#ffe9a8)}
+.pilot-work small{color:#a8bcc8;font-size:9px;line-height:1.3}
 /* Target lock, spin, supercap, jump and heat status stack under the ring, so a tall ring never
    pushes one of them off screen on its own. */
 .pilot-status{position:absolute;left:50%;top:calc(50% + var(--ring)/2 + 10px);z-index:9;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
@@ -284,6 +289,8 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 .pilot-qty output{flex:0 0 78px;text-align:center;font-size:18px;font-weight:600;color:var(--hud-ink-2,#f2fbff);font-variant-numeric:tabular-nums}
 .pilot-store-note{margin:0;font-size:10px;line-height:1.5;color:#9fb4c3}
 .pilot-store-warn{margin:0;font-size:10px;line-height:1.5;color:#ffb454}
+/* A failed assembly attempt: the rulebook ended it, so the line is red and cannot be missed. */
+.pilot-store-fail{margin:0;padding:5px 8px;border-left:2px solid #ff5a5a;background:rgba(255,90,90,.12);font-size:10px;line-height:1.5;color:#ffb3b3}
 /* Heavy-robot assembly order: one row per ore level, locked rows stay readable but greyed. */
 .pilot-assembly{width:472px;max-height:calc(100% - 24px);overflow:auto}
 .pilot-assembly-levels{display:grid;gap:6px}
@@ -396,7 +403,7 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 .viewport.pilot-active:not(.pilot-panel-open) .fullscreen-controls{display:none}
 .viewport.pilot-panel-open .pilot-vitals{z-index:22}
 .viewport:fullscreen .pilot-vitals,.viewport.page-fullscreen .pilot-vitals{bottom:16px;left:22px}
-@media(max-width:680px){.pilot-open{right:112px}.pilot-vitals{left:10px;bottom:12px;width:176px}.pilot-panel{width:calc(100% - 24px);padding:11px}.pilot-store{width:calc(100% - 24px)}.pilot-qty{gap:2px}.pilot-qty button{font-size:10px;padding:6px 0}.pilot-qty output{flex-basis:54px;font-size:15px}}
+@media(max-width:680px){.pilot-vitals{left:10px;bottom:12px;width:176px}.pilot-panel{width:calc(100% - 24px);padding:11px}.pilot-store{width:calc(100% - 24px)}.pilot-qty{gap:2px}.pilot-qty button{font-size:10px;padding:6px 0}.pilot-qty output{flex-basis:54px;font-size:15px}}
 /* A short window shrinks the whole HUD through `--hud-zoom`, so no ring override is needed. */
 
 /* Lobbed-fire sight (R on a heavy with its 42 mm on): the lens is narrowed to a 3x field, the world

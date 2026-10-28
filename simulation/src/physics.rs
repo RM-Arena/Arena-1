@@ -143,7 +143,34 @@ pub(crate) fn limit_arm_workspace(arm: &Value, mut joints: [f64;7]) -> [f64;7] {
     joints
 }
 
-pub(crate) fn manual_arm_goal(cmd: &Value,r:&Robot,arm:&Value)->Option<ArmGoal>{
+// Mining a unit and feeding a core are deliberate, slow arm jobs: the tool has to line up on a
+// dispenser mouth or a socket, so the joints run at half the manual rate and the sequence takes
+// twice as long as it did at its original speed. Manual control and a rescue grip keep full rate —
+// those are the pilot's own hands.
+const INTERACTION_ARM_RATE_SCALE: f64 = 0.375;
+
+fn arm_rate_scale(mode: &str) -> f64 {
+    if matches!(mode, "pick" | "assembly") {
+        INTERACTION_ARM_RATE_SCALE
+    } else {
+        1.0
+    }
+}
+
+#[cfg(test)]
+mod arm_rate_tests {
+    use super::arm_rate_scale;
+
+    #[test]
+    fn pickup_and_assembly_run_at_half_the_manual_joint_rate() {
+        assert_eq!(arm_rate_scale("pick"), 0.375);
+        assert_eq!(arm_rate_scale("assembly"), 0.375);
+        assert_eq!(arm_rate_scale("manual"), 1.0);
+        assert_eq!(arm_rate_scale("rescue"), 1.0);
+    }
+}
+
+pub(crate) fn manual_arm_goal(cmd:&Value,r:&Robot,arm:&Value)->Option<ArmGoal>{
     let vector=|key:&str,len:usize|cmd[key].as_array().filter(|v|v.len()==len).and_then(|v|v.iter().map(|x|x.as_f64().filter(|x|x.is_finite())).collect::<Option<Vec<f64>>>());
     let mut g=ArmGoal::default();g.mode="manual".into();
     if cmd["stow"]==true {g.joints=Some(arm_stowed(arm));}
@@ -366,7 +393,8 @@ impl PhysicsWorld {
             }
         }
         for (team, p) in &arena.bases {
-            for (index, w) in structures::cover_geometry(p[0],p[1],height_at(arena,p[0],p[1]),0.0).iter().enumerate() {
+            let z = height_at(arena, p[0], p[1]);
+            for (index, w) in structures::cover_geometry(p[0],p[1],z,0.0,structures::base_yaw(team)).iter().enumerate() {
                 let handle = world.colliders.insert(ColliderBuilder::cuboid(w.w/2.0,w.h/2.0,w.height/2.0)
                     .translation(vector![w.x+w.w/2.0,w.y+w.h/2.0,w.bottom+w.height/2.0])
                     .rotation(vector![0.0,0.0,w.rotation]).build());
@@ -869,9 +897,10 @@ impl PhysicsWorld {
                 }
                 r.rescue_contact = contact;
                 target=limit_arm_workspace(arm,target);
+                let rate_scale = arm_rate_scale(&goal.mode);
                 let rates = arm_vec(arm, "rates");
                 for (k, q) in r.arm_joints.iter_mut().enumerate() {
-                    *q = approach(*q, target[k], rates[k] * PHYSICS_DT);
+                    *q = approach(*q, target[k], rates[k] * rate_scale * PHYSICS_DT);
                 }
                 if let (true, Some((j, world, tip))) =
                     (contact && r.arm_joints[6] < 0.35, grasp_world)
@@ -924,7 +953,8 @@ impl PhysicsWorld {
                     }
                 }}
                 target=limit_arm_workspace(arm,target);
-                let rates=arm_vec(arm,"rates");for(k,q)in r.arm2_joints.iter_mut().enumerate(){*q=approach(*q,target[k],rates[k]*PHYSICS_DT);}
+                let rate_scale=goal.map_or(1.0,|goal|arm_rate_scale(&goal.mode));
+                let rates=arm_vec(arm,"rates");for(k,q)in r.arm2_joints.iter_mut().enumerate(){*q=approach(*q,target[k],rates[k]*rate_scale*PHYSICS_DT);}
                 let second=arm_points(arm,&r.arm2_joints);let first=arm_points(&d["arm"],&r.arm_joints);
                 let tip=pose*second[3];r.arm2_tip=[tip.x,tip.y,tip.z];r.arm2_mode=if r.alive {goal.map(|g|g.mode.clone()).unwrap_or_else(||"stow".into())} else {"stow".into()};
                 let held=r.unit_pickup.as_ref().filter(|s|s.held);
@@ -1501,6 +1531,16 @@ impl PhysicsWorld {
             .min(grip);
             if magnitude > available && magnitude > 0.0 {
                 drive *= available / magnitude;
+            }
+            // Turning costs forward speed: the wheels that generate the yaw couple also have to carry
+            // the chassis, so a chassis that pivots while driving sheds speed in proportion to its
+            // yaw rate. A design without the parameter is unaffected, which keeps every other model
+            // exactly as it was; the heavy robot pays the most (its yaw torque is spent against a
+            // long, heavy hull, so a turn genuinely bleeds a lot of ground speed).
+            let turn_cost = n(d, "turn_speed_loss_per_rad_s");
+            if turn_cost > 0.0 && planar.norm() > 0.05 {
+                let yaw_rate = angular.z.abs().min(12.0);
+                drive *= 1.0 / (1.0 + turn_cost * yaw_rate);
             }
             let mut roll_drag = planar;
             let v = roll_drag.norm();

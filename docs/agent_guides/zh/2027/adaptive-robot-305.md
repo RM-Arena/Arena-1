@@ -91,7 +91,7 @@
 
 | 编号 | 设计 | 质量 kg | 底盘 m | 参考速度 m/s | 视距 m | 云台水平转速 rad/s | 装甲中心高 m | 炮口高 m |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | HV-A 单臂重装 | 31.8 | 0.55 × 0.55 | 3.2 | 18 | 4.5 | 0.275 | 0.64 |
+| 1 | HV-A 单臂重装 | 31.8 | 0.55 × 0.55 | 2.5 | 18 | 4.5 | 0.275 | 0.64 |
 | 3 | I27-W 登阶轮足步兵 | 23.85 | 0.42 × 0.36 | 4.3 | 18 | 6.5 | 0.28 | 0.435 |
 | 4 | I27-T 折叠麦轮步兵 | 24.35 | 0.46 × 0.44 | 3.9 | 18 | 5.5 | 0.15 | 0.4 |
 | 7 | S27-O 全向自动哨兵 | 27.15 | 0.55 × 0.55 | 3.9 | 20 | 8 | 0.175 | 0.45 |
@@ -373,6 +373,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | 可见弹丸 |
 | `arena` | 地图几何 |
 | `referee` | 裁判快照：`robots`（不含位置）、`bases`、`outposts`、`positions`、`control`（双方控制度）、`logistics`（己方 λ）、`economy`、`events` |
+| `logistics`、`logistics_effects` | 己方后勤系数 λ，以及表 5-19 在当前基地血量下的实际缩放：`respawn_time_scale`、`supply_heal_scale`、`remote_heal_scale`、`interaction_bandwidth_bytes`（每条消息的有效字节上限）、`fpv_resolution`（`width`、`height`、`pixels_scale`） |
 
 `robots` 中每台机器人的常用字段：
 
@@ -447,7 +448,7 @@ def act(obs, state):
     return {slot: action(messages=outgoing)}, {"teammates": [r["id"] for r in teammates]}
 ```
 
-消息每轮最多 4 条，`data` 是最多 512 bytes 的 JSON 值，与其他动作一起计入自身动作的 1 KiB 上限。`to="all"` 广播给当前其余队友，或指定队友部署编号字符串（不是型号）。本轮发送在下一次决策（0.1 s 后）通过 `obs["messages"]` 接收一次。
+消息每轮最多 4 条，`data` 是最多 512 bytes 的 JSON 值，与其他动作一起计入自身动作的 1 KiB 上限。`to="all"` 广播给当前其余队友，或指定队友部署编号字符串（不是型号）。本轮发送在下一次决策（0.1 s 后）通过 `obs["messages"]` 接收一次。2027 中基地受损会按后勤系数 λ 缩小这个上限（见表 5-19，实际值见 `obs["logistics_effects"]["interaction_bandwidth_bytes"]`），超出当前上限的消息会被丢弃。
 
 ## 7. 练习与提交
 
@@ -501,5 +502,5 @@ python3 -B arena.py test --opponent 版本号 --duration 420 --games 2 --seed 20
 ### 本型号的机构能力
 
 驱动：`wheel_legged`；机械臂：0只。
-支持 `leg_height`、`jump`、`lean`；不能直接横移。
+支持 `leg_height`、`jump`、`lean`；不能直接横移。`climb` 可登上 0.20 m 台阶（制高点台阶）。
 串联腿翻倒后会自动翻身（约 1–2 s）。

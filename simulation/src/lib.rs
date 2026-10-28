@@ -443,6 +443,10 @@ pub struct Base {
     pub armor_open_progress: f64,
     pub ever_destroyed: bool,
     pub rotation: f64,
+    /// How far the structure itself is turned about its own axis. Blue's base is half a turn round so
+    /// its armour faces the field instead of the outside wall.
+    #[serde(default)]
+    pub yaw: f64,
     pub rotation_stopped: bool,
     pub rotation_stop_at: f64,
     pub rotation_stop_angle: f64,
@@ -562,6 +566,9 @@ pub struct Engine {
     sim: Value,
     pub runes: BTreeMap<String, rulebook::RuneState>,
     pub assemblies: BTreeMap<String, rulebook::AssemblyState>,
+    /// Last reported refusal per team, as ("difficulty:reason", time): a cockpit that keeps asking for
+    /// an order it cannot have gets one answer per second instead of one per tick.
+    assembly_refused_at: BTreeMap<String, (String, f64)>,
     rune_direction: f64,
     rune_angle: f64,
     rune_phase: [f64; 2],
@@ -1173,6 +1180,7 @@ impl Engine {
                     armor_open_progress: 0.0,
                     ever_destroyed: false,
                     rotation: 0.0,
+                    yaw: structures::base_yaw(team),
                     rotation_stopped: false,
                     rotation_stop_at: -1000.0,
                     rotation_stop_angle: 0.0,
@@ -1194,6 +1202,7 @@ impl Engine {
                     armor_open_progress: 1.0,
                     ever_destroyed: false,
                     rotation: 0.0,
+                    yaw: 0.0,
                     rotation_stopped: false,
                     rotation_stop_at: -1000.0,
                     rotation_stop_angle: 0.0,
@@ -1256,6 +1265,7 @@ impl Engine {
                 ("blue".into(), rulebook::AssemblyState::new()),
             ]
             .into(),
+            assembly_refused_at: BTreeMap::new(),
             rune_direction: if seed & 1 == 0 { 1.0 } else { -1.0 },
             rune_angle: 0.0,
             rune_phase: [0.0; 2],
@@ -1474,6 +1484,7 @@ impl Engine {
             info["positions"] = self.position_snapshots();
             info["control"] = json!({"red":self.teams["red"].control,"blue":self.teams["blue"].control});
             info["logistics"] = json!(self.logistics(team));
+            info["logistics_effects"] = self.logistics_effects(team);
         }
         info
     }
@@ -1664,6 +1675,10 @@ impl Engine {
             observation["season"] = json!("2027");
             observation["positions"] = self.position_snapshots();
             observation["enemy_drones"] = json!(enemy_drones);
+            // Table 5-19: the same lambda the referee feed shows, with the resolved budgets a
+            // strategy or custom terminal needs (bandwidth is data, FPV resolution is a picture).
+            observation["logistics"] = json!(self.logistics(team));
+            observation["logistics_effects"] = self.logistics_effects(team);
         }
         observation
     }

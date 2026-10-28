@@ -598,12 +598,21 @@ def main():
     args = parser.parse_args()
     stale = []
     for path, text in outputs():
-        if path.is_file() and path.read_text(encoding="utf-8") == text:
+        current = None
+        if path.is_file():
+            # Read without newline translation: a CRLF guide on Windows is stale, because the
+            # served bytes and the source template use LF.
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                current = handle.read()
+        if current == text:
             continue
         stale.append(path.relative_to(ROOT))
         if not args.check:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8")
+            # `write_text` maps "\n" to os.linesep, so a Windows checkout would produce CRLF guides
+            # while the repository and the API tests expect LF.
+            with path.open("w", encoding="utf-8", newline="\n") as handle:
+                handle.write(text)
     if args.check and stale:
         sys.exit("Stale agent guides (run scripts/build_agent_guides.py): " + ", ".join(map(str, stale)))
     print("Wrote " + ", ".join(map(str, stale)) if stale else "Agent guides are current")

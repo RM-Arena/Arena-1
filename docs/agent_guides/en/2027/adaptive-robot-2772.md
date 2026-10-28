@@ -91,7 +91,7 @@ Ground robot hardware (full data in `sdk.DESIGNS`):
 
 | Slot | Design | Mass kg | Chassis m | Ref. speed m/s | Vision m | Turret yaw rad/s | Armor center height m | Muzzle height m |
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | HV-A Single-arm Heavy | 31.8 | 0.55 × 0.55 | 3.2 | 18 | 4.5 | 0.275 | 0.64 |
+| 1 | HV-A Single-arm Heavy | 31.8 | 0.55 × 0.55 | 2.5 | 18 | 4.5 | 0.275 | 0.64 |
 | 3 | I27-W Stair-climbing Wheel-legged Infantry | 23.85 | 0.42 × 0.36 | 4.3 | 18 | 6.5 | 0.28 | 0.435 |
 | 4 | I27-T Folding Mecanum Infantry | 24.35 | 0.46 × 0.44 | 3.9 | 18 | 5.5 | 0.15 | 0.4 |
 | 7 | S27-O Omni Automatic Sentry | 27.15 | 0.55 × 0.55 | 3.9 | 20 | 8 | 0.175 | 0.45 |
@@ -382,6 +382,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | visible projectiles |
 | `arena` | map geometry |
 | `referee` | referee snapshot: `robots` (no positions), `bases`, `outposts`, `positions`, `control` (both teams), `logistics` (your λ), `economy`, `events` |
+| `logistics`, `logistics_effects` | your logistics coefficient λ and what table 5-19 currently resolves to: `respawn_time_scale`, `supply_heal_scale`, `remote_heal_scale`, `interaction_bandwidth_bytes` (effective per-message byte cap), `fpv_resolution` (`width`, `height`, `pixels_scale`) |
 
 Common fields of each robot in `robots`:
 
@@ -457,7 +458,7 @@ def act(obs, state):
     return {slot: action(messages=outgoing)}, {"teammates": [r["id"] for r in teammates]}
 ```
 
-Send at most 4 messages per decision; each `data` is a JSON value of at most 512 bytes and counts toward your 1 KiB action limit. `to="all"` broadcasts to your current teammates; otherwise give a teammate's deployment slot string (not a model). A message sent now arrives once in `obs["messages"]` at the next decision (0.1 s later).
+Send at most 4 messages per decision; each `data` is a JSON value of at most 512 bytes and counts toward your 1 KiB action limit. `to="all"` broadcasts to your current teammates; otherwise give a teammate's deployment slot string (not a model). A message sent now arrives once in `obs["messages"]` at the next decision (0.1 s later). In 2027 base damage scales that cap by the logistics coefficient λ (table 5-19; see `obs["logistics_effects"]["interaction_bandwidth_bytes"]`), and messages above the live cap are dropped.
 
 ## 7. Practice and Submission
 

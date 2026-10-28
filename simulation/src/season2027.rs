@@ -192,6 +192,36 @@ impl Engine {
         let b = &self.bases[team];
         (1.0 - (b.max_hp - b.hp).max(0.0) / n(&self.rules["logistics"], "base_loss_divisor_hp").max(1.0)).clamp(0.05, 1.0)
     }
+    /// Table 5-19: robot interaction bandwidth is x·λ bytes per message.
+    pub(super) fn interaction_bandwidth_bytes(&self, team: &str) -> u32 {
+        let base = self.rules["logistics"]["interaction_bandwidth_bytes"]
+            .as_f64()
+            .filter(|bytes| *bytes > 0.0)
+            .unwrap_or(512.0);
+        (base * self.logistics(team)).floor() as u32
+    }
+    /// Table 5-19: the FPV picture keeps x·λ² pixels, i.e. each side scales by λ before the
+    /// client upscales it bilinearly. Canvas UI is not part of the video feed and stays sharp.
+    pub(super) fn fpv_video(&self, team: &str) -> Value {
+        let lambda = self.logistics(team);
+        let px = &self.rules["logistics"]["video_resolution_px"];
+        let width = px.get(0).and_then(Value::as_f64).unwrap_or(1920.0);
+        let height = px.get(1).and_then(Value::as_f64).unwrap_or(1080.0);
+        json!({"width":(width * lambda).round() as u32,"height":(height * lambda).round() as u32,
+            "pixels_scale":lambda * lambda})
+    }
+    /// Everything table 5-19 scales, resolved against this team's current base HP.
+    pub(super) fn logistics_effects(&self, team: &str) -> Value {
+        let lambda = self.logistics(team);
+        json!({
+            "respawn_time_scale": 1.0 / lambda,
+            "supply_heal_scale": lambda,
+            "remote_heal_scale": lambda,
+            "interaction_bandwidth_scale": lambda,
+            "interaction_bandwidth_bytes": self.interaction_bandwidth_bytes(team),
+            "fpv_resolution": self.fpv_video(team),
+        })
+    }
     pub(super) fn gain_xp_2027(&mut self, i: usize, value: f64) {
         let r = &self.robots[i];
         if r.role != "infantry" || !r.alive || value <= 0.0 || r.level >= self.teams[&r.team].level_cap {
@@ -1600,6 +1630,22 @@ impl Engine {
             self.fail_assembly_2027(&team, "heavy_destroyed");
         }
     }
+    /// One answer per second per (team, difficulty, reason): the cockpit repeats an order it has not
+    /// seen acknowledged, so an unthrottled reply would flood the event feed while the reason stands.
+    fn refuse_assembly_2027(&mut self, team: &str, difficulty: u32, reason: &str, now: f64) {
+        let key = format!("{difficulty}:{reason}");
+        if let Some((previous, at)) = self.assembly_refused_at.get(team) {
+            if previous == &key && now - at < 1.0 {
+                return;
+            }
+        }
+        self.assembly_refused_at.insert(team.to_string(), (key, now));
+        self.event(
+            "assembly_refused",
+            json!({"team":team,"difficulty":difficulty,"reason":reason,"at":now}),
+        );
+    }
+
     pub(super) fn assembly_rpc_2027(&mut self, i: usize, rpc: &Value) {
         let r = self.robots[i].clone();
         if r.role != "heavy" {
@@ -1611,15 +1657,27 @@ impl Engine {
         if in_zone {
             self.assemblies.get_mut(&team).unwrap().buffer_until = now;
         }
+        // A level order is read only on the ticks the rulebook runs, and the cockpit retries it until
+        // the engine answers. Every refusal therefore has to answer: a silently dropped order is
+        // indistinguishable from a dead button, which is exactly how the panel used to feel.
+        let ordered = rpc.get("assembly").and_then(Value::as_u64).filter(|d| (1..=4).contains(d)).map(|d| d as u32);
         if !r.alive || r.weak || !in_zone {
             self.assemblies.get_mut(&team).unwrap().confirm_progress_s = 0.0;
+            if let Some(d) = ordered {
+                let reason = if !r.alive { "destroyed" } else if r.weak { "penalised" } else { "outside_zone" };
+                self.refuse_assembly_2027(&team, d, reason, now);
+            }
             return;
         }
-        if let Some(d) = rpc.get("assembly").and_then(Value::as_u64).filter(|d| (1..=4).contains(d)) {
+        if let Some(d) = ordered {
             let d = d as u32;
             let s = self.assemblies[&team].clone();
             let completed = self.teams[&team].completed_difficulties.clone();
-            let eligible = ["idle", "complete", "failed"].contains(&s.stage.as_str());
+            // Rule 88: a unit already in the socket latches the grade — no switching until the core
+            // has assembled or salvaged it. A finished assembly also leaves the core re-initialising.
+            let core_free = s.core_units == 0;
+            let reinit_ok = now + 1e-8 >= s.repeat_ready_at;
+            let eligible = core_free && reinit_ok && ["idle", "complete", "failed"].contains(&s.stage.as_str());
             let unlocks = self.rules["assembly"]["unlock_times_s"].as_array().unwrap();
             let time_ok = now + 1e-8 >= unlocks[(d - 1) as usize].as_f64().unwrap();
             let prev_ok = d == 1 || completed.contains(&(d - 1));
@@ -1673,8 +1731,40 @@ impl Engine {
                 state.second = if d == 4 { Some(CoreProgress::new(second_target)) } else { None };
                 state.step_times = Default::default();
                 state.buffer_until = now;
+                state.fail_reason = None;
                 self.event("assembly_start", json!({"team":team,"difficulty":d,"pose":pose}));
+            } else {
+                let reason = if !core_free {
+                    "core_loaded"
+                } else if !eligible {
+                    "busy"
+                } else if !time_ok {
+                    "locked"
+                } else if !prev_ok {
+                    "previous_level"
+                } else if !once_ok {
+                    "once"
+                } else if !stock {
+                    "no_unit"
+                } else {
+                    "priority"
+                };
+                self.refuse_assembly_2027(&team, d, reason, now);
             }
+        }
+        // The operator acknowledging a failed attempt is what lets the core salvage the unit now.
+        if rpc.get("assembly_cancel").and_then(Value::as_bool) == Some(true) {
+            let s = self.assemblies.get_mut(&team).unwrap();
+            if s.stage == "failed" && s.core_units > 0 {
+                s.recover_at = Some(now);
+            }
+            return;
+        }
+        // Rule 89: pulling the unit back out of the socket fails the attempt immediately; the arm
+        // has to be on the unit (the 10 N axial pull is far inside what the jaws can take).
+        if rpc.get("assembly_extract").and_then(Value::as_bool) == Some(true) {
+            self.extract_core_unit_2027(i);
+            return;
         }
         let state = self.assemblies[&team].clone();
         if state.stage != "inserting" || now < state.ready_at || self.assembly_motion_blocked(i) {
@@ -1698,6 +1788,21 @@ impl Engine {
         }
     }
     /// One settlement of step commands on one core; false when the attempt ended.
+    fn extract_core_unit_2027(&mut self, i: usize) {
+        let r = self.robots[i].clone();
+        let team = r.team.clone();
+        if self.assemblies[&team].core_units == 0 || self.assembly_alignment_error_2027(i, 0).is_some() {
+            return;
+        }
+        self.assemblies.get_mut(&team).unwrap().core_units -= 1;
+        if r.carried_units < 2 {
+            self.robots[i].carried_units += 1;
+        } else if let Some(left) = self.teams.get_mut(&team).unwrap().energy_units_left.as_mut() {
+            *left += 1;
+        }
+        self.fail_assembly_2027(&team, "unit_extracted");
+        self.event("assembly_unit_extracted", json!({"team":team,"robot":r.id}));
+    }
     fn assembly_core_step(&mut self, i: usize, core: usize, rpc: &Value) -> bool {
         let r = self.robots[i].clone();
         let team = r.team.clone();
@@ -1735,6 +1840,11 @@ impl Engine {
                     } else {
                         self.robots[i].carried_units -= 1;
                     }
+                    // The core now holds a unit: the grade is latched until this attempt resolves.
+                    let s = self.assemblies.get_mut(&team).unwrap();
+                    s.core_units += 1;
+                    s.fail_reason = None;
+                    s.recover_at = None;
                 }
                 c.inserted = (c.inserted + n(&self.sim, "arm_insert_speed_mps") * 0.1).min(depth);
                 if c.inserted >= depth - 1e-8 {
@@ -1885,6 +1995,9 @@ impl Engine {
         out["operation_progress"] = json!(progress);
         out["progress"] = json!(if s.stage == "complete" { 1.0 } else if active && total_steps > 0.0 { (done_steps / total_steps).clamp(0.0, 1.0) } else { 0.0 });
         out["blocked_reason"] = json!(blocked);
+        out["core_units"] = json!(s.core_units);
+        out["recover_in_s"] = json!(s.recover_at.map(|at| (at - self.time()).max(0.0)));
+        out["difficulty_locked"] = json!(s.core_units > 0);
         out["repeat_cooldown_s"] = json!((s.repeat_ready_at - self.time()).max(0.0));
         out["requirements"] = profile.clone();
         out["steps"] = steps.clone();
@@ -1997,23 +2110,40 @@ impl Engine {
         }
         let s = self.assemblies.get_mut(team).unwrap();
         s.stage = "complete".into();
-        s.repeat_ready_at = now;
+        // The core re-initialises for a few seconds before it accepts the next unit.
+        s.repeat_ready_at = now + n(&self.rules["assembly"], "core_reinit_s");
+        s.core_units = 0;
+        s.recover_at = None;
+        s.fail_reason = None;
         *s.successes_by_difficulty.entry(difficulty).or_default() += 1;
         self.event("assembly_success", json!({"team":team,"difficulty":difficulty,"first":first,"income_per_10s":self.teams[team].tech_income}));
     }
     fn fail_assembly_2027(&mut self, team: &str, reason: &str) {
+        let now = self.time();
+        let rules = self.rules["assembly"].clone();
+        // How long the core keeps the unit before salvaging it: at once when the operator already
+        // lost contact (rule 88/89: 15 s off the card, then the core reclaims the unit), after the
+        // operator's 15 s clearing window when the heavy was destroyed, and a short settle otherwise.
+        let grace = match reason {
+            "left_assembly_area" => 0.0,
+            "heavy_destroyed" => n(&rules, "card_absence_fail_s"),
+            _ => n(&rules, "salvage_delay_s"),
+        };
         let s = self.assemblies.get_mut(team).unwrap();
         if !["moving", "inserting"].contains(&s.stage.as_str()) {
             return;
         }
         s.stage = "failed".into();
         s.second = None;
+        s.fail_reason = Some(reason.into());
+        s.recover_at = if s.core_units > 0 { Some(now + grace) } else { None };
         let difficulty = s.difficulty;
         self.event("assembly_failed", json!({"team":team,"difficulty":difficulty,"reason":reason}));
     }
     fn assembly_after_step_2027(&mut self) {
         let now = self.time();
         for team in ["red", "blue"] {
+            self.salvage_core_units(team);
             let mut s = self.assemblies[team].clone();
             if s.stage == "moving" && now >= s.ready_at
                 && s.current_pose.iter().zip(s.pose).all(|(a,b)| (a-b).abs() <= 1e-6) {
@@ -2165,6 +2295,7 @@ impl Engine {
         json!({"season":"2027","source":self.rules["source"],"construction_source":self.rules["construction"]["source"],
             "physical_design_revision":"construction-2027-v1","physics_hz":120,"adaptations":self.rules["adaptations"],
             "match":self.rules["match"],"profile_defaults":self.rules["profiles"]["defaults"],
+            "logistics":self.rules["logistics"],
             "full_rules_available":"sdk.rules(observation) or sdk.RULES_2027, sdk.DESIGNS and protected arena.json"})
     }
     pub(super) fn position_snapshots(&self) -> Value {

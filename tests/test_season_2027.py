@@ -59,6 +59,19 @@ class SeasonRulesTests(unittest.TestCase):
             aerial = next(r for r in frame["robots"] if r["role"] == "aerial" and r["team"] == "red")
             self.assertEqual(len(aerial["drones"]), 3)
 
+    def test_observation_publishes_the_logistics_effect_table(self):
+        with Match(duration=1, map_name="rmuc2027", lineups=mirrored_lineups(LINEUP_2027)) as match:
+            observation = match.observation("red", [3])
+            self.assertEqual(observation["logistics"], 1.0)
+            effects = observation["logistics_effects"]
+            self.assertEqual(effects["respawn_time_scale"], 1.0)
+            self.assertEqual(effects["interaction_bandwidth_bytes"], 512)
+            self.assertEqual(effects["fpv_resolution"]["width"], 1920)
+            self.assertEqual(effects["fpv_resolution"]["height"], 1080)
+            self.assertEqual(effects["fpv_resolution"]["pixels_scale"], 1.0)
+            self.assertEqual(observation["rulebook_rules"]["logistics"]["base_loss_divisor_hp"], 20000)
+            self.assertEqual(observation["rulebook_rules"]["logistics"]["video_resolution_px"], [1920, 1080])
+
     def test_sdk_reads_both_seasons(self):
         self.assertEqual(set(sdk.RULES_BY_SEASON), {"2026", "2027"})
         arena = sdk.ARENAS_BY_SEASON["2027"]

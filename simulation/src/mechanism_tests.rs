@@ -189,8 +189,13 @@ fn assembly_has_timed_sequential_phases_and_continuous_confirmation() {
     assert_eq!(m.assemblies["red"].inserted, 0.0);
     m.tick = 40;
     m.rulebook_after_step();
-    for _ in 0..10 {
+    // The insert phase is paced by `arm_insert_speed_mps`, so drive it until it reports verifying
+    // instead of assuming a fixed number of settlements.
+    for _ in 0..200 {
         operate(&mut m);
+        if m.assembly_snapshots()["red"]["operation"] == "verifying" {
+            break;
+        }
     }
     assert_eq!(m.assemblies["red"].translated, 0.0);
     assert_eq!(m.assemblies["red"].rotation, 0.0);
@@ -217,7 +222,9 @@ fn assembly_has_timed_sequential_phases_and_continuous_confirmation() {
 }
 
 #[test]
-fn level_four_accepts_perfect_low_rotation_operations_within_the_three_second_window() {
+fn level_four_accepts_perfect_low_rotation_operations_inside_the_actuator_budget() {
+    // The configured window is a floor: the second core has to fit the insert, slide, rotate and
+    // confirm phases at the rulebook's own actuator speeds, whatever those are set to.
     let mut m = match_();
     m.tick = 3600;
     in_zone(&mut m, 1, "assembly");
@@ -227,8 +234,9 @@ fn level_four_accepts_perfect_low_rotation_operations_within_the_three_second_wi
     m.assemblies.get_mut("red").unwrap().target_rotation=0.0;
     m.tick += 40;
     m.rulebook_after_step();
-    for _ in 0..29 {
+    for _ in 0..400 {
         operate(&mut m);
+        if m.assemblies["red"].inserted_units == 1 { break; }
     }
     let first = m.assemblies["red"].first_unit_at;
     assert_eq!(m.assemblies["red"].inserted_units, 1);
@@ -236,11 +244,13 @@ fn level_four_accepts_perfect_low_rotation_operations_within_the_three_second_wi
     assert_eq!(m.teams["red"].tech_income, 0.0);
     let progress=m.assembly_snapshots()["red"]["progress"].as_f64().unwrap();
     assert!(progress>=0.5 && progress<1.0);
-    for _ in 0..29 {
+    let window = m.secondary_core_window_s(0.0);
+    for _ in 0..600 {
         operate(&mut m);
+        if ["complete", "failed"].contains(&m.assemblies["red"].stage.as_str()) { break; }
     }
-    assert_eq!(m.assemblies["red"].stage, "complete");
-    assert!(m.time() - first <= 3.0 + 1e-8);
+    assert_eq!(m.assemblies["red"].stage, "complete", "{}", m.assembly_snapshots()["red"]);
+    assert!(m.time() - first <= window + 1e-8, "{} > {window}", m.time() - first);
     assert_eq!(m.robots[1].carried_units, 0);
     assert!(m.teams["red"].completed_difficulties.contains(&4));
 }
@@ -512,9 +522,9 @@ fn timed_out_lower_grade_can_be_retried_without_level_four_lock() {
 fn failing_a_lower_grade_does_not_clear_an_existing_level_four_retry_lock() {
     let mut m=match_();m.tick=3600;in_zone(&mut m,1,"assembly");m.robots[1].carried_units=2;
     m.teams.get_mut("red").unwrap().completed_difficulties=vec![1,2,3];
-    m.assembly_rpc(1,&json!({"assembly":4}));m.fail_assembly("red");
+    m.assembly_rpc(1,&json!({"assembly":4}));m.fail_assembly("red","timeout");
     let retry_at=m.assemblies["red"].retry_at;
-    m.assembly_rpc(1,&json!({"assembly":1}));m.fail_assembly("red");
+    m.assembly_rpc(1,&json!({"assembly":1}));m.fail_assembly("red","timeout");
     assert_eq!(m.assemblies["red"].retry_at,retry_at);
     m.assembly_rpc(1,&json!({"assembly":4}));
     assert_eq!(m.assemblies["red"].stage,"failed");
@@ -551,6 +561,24 @@ fn extreme_grade_is_physically_possible_for_favourable_poses_on_both_sides() {
         assert_eq!(m.assemblies[team].stage,"complete","{team}: {}",m.assembly_snapshots()[team]);
         assert!(m.teams[team].completed_difficulties.contains(&4));
     }
+}
+
+#[test]
+fn level_four_secondary_window_covers_the_actuator_budget_for_any_pose() {
+    // The second core's phases are paced by the rulebook actuators, so the window has to be larger
+    // than their sum for every pose angle instead of only for near-zero tool rotation.
+    let m=match_();let rules=&m.rules["assembly"];
+    let fixed=n(rules,"insert_depth_m")/n(&m.sim,"arm_insert_speed_mps")
+        +n(rules,"translation_m")/n(&m.sim,"arm_translate_speed_mps")
+        +n(&m.assembly_difficulty(4),"confirm_hold_s");
+    let mut previous=0.0;
+    for rotation in [0.0,9.33,45.0,90.0] {
+        let budget=fixed+rotation/n(&m.sim,"arm_rotate_speed_deg_s");
+        let window=m.secondary_core_window_s(rotation);
+        assert!(window>budget,"{rotation}: {window} <= {budget}");
+        assert!(window>=previous,"{rotation}: window shrinks");previous=window;
+    }
+    assert!(m.secondary_core_window_s(90.0)>n(rules,"difficulty_4_secondary_insert_window_s"));
 }
 
 #[test]
@@ -617,4 +645,24 @@ fn runtime_settings_change_actual_shot_spread_and_preserve_other_defaults() {
         assert!(Engine::new_with_settings(42,5.0,"rmuc2027",None,
             Some(json!({"projectile_spread_half_angle_deg.17mm":value}))).is_err());
     }
+}
+
+#[test]
+fn the_2026_unit_turns_about_q_in_either_direction() {
+    // Rule 89: facing the core the unit may turn 90 degrees about Q clockwise or anticlockwise, so
+    // the sampled target angle takes both signs instead of only turning counter-clockwise.
+    let (mut clockwise, mut anticlockwise) = (false, false);
+    for seed in 1..=24 {
+        let mut m = Engine::new(seed, 420.0, "rmuc2026").unwrap();
+        m.tick = (180.0 / DT) as u64;
+        in_zone(&mut m, 1, "assembly");
+        m.robots[1].carried_units = 2;
+        m.teams.get_mut("red").unwrap().completed_difficulties = vec![1, 2];
+        m.assembly_rpc(1, &json!({"assembly": 3}));
+        let angle = m.assemblies["red"].target_rotation;
+        assert!(angle.abs() <= 90.0 + 1e-9, "{seed}: {angle}");
+        clockwise |= angle < 0.0;
+        anticlockwise |= angle > 0.0;
+    }
+    assert!(clockwise && anticlockwise, "both directions: {clockwise} {anticlockwise}");
 }
