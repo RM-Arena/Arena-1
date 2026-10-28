@@ -902,7 +902,11 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
             target.lerp(followFocus.set(r.x-f.arena.width/2,(r.z||0)+.40,r.y-f.arena.height/2),dampFactor(6,dt));
             if(orbiting){controls.current?.target.copy(target);}
             else{
-              const angle=r.heading,desired=followWanted.copy(target);
+              // The follow lens rides the gimbal, not the hull. A robot spinning its chassis (小陀螺)
+              // keeps its `heading` turning for seconds at a time, and a camera keyed to it would
+              // orbit the machine for as long as the spin lasts; `aim` is the absolute turret yaw, so
+              // the view only turns when the gun is actually re-aimed.
+              const angle=r.aim??r.heading,desired=followWanted.copy(target);
               desired.x-=Math.cos(angle)*FOLLOW_BACK;desired.y+=FOLLOW_EYE;desired.z-=Math.sin(angle)*FOLLOW_BACK;
               desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
               desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);

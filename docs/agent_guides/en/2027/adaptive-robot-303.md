@@ -165,7 +165,7 @@ Key places (red coordinates; mirror for blue):
 | Launcher | 17mm |
 | Mass kg | 22.05 |
 | Chassis m | 0.55 × 0.55 |
-| Ref. speed m/s | 5.1 |
+| Ref. speed m/s | 5 |
 | Vision m | 18 |
 | Turret yaw rad/s | 5.5 |
 | Pitch range (relative to chassis) | -15° ~ +45° |

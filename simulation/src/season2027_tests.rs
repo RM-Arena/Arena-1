@@ -39,6 +39,22 @@ fn slain(m: &mut Engine, id: &str) {
 }
 
 #[test]
+fn an_infantry_chassis_never_drives_faster_than_the_rulebook_cap() {
+    // 5 m/s is the rulebook ceiling for an infantry chassis. The default lineup fields the
+    // wheel-legged balancing infantry, and the fastest design in the table (the light omni
+    // infantry) sits exactly on the cap instead of over it.
+    let rules = &config().rulebook_2027["speed_limits"]["infantry_mps"].as_f64().unwrap();
+    assert_eq!(*rules, 5.0);
+    for model in [3, 4, 7, 301, 302, 303, 304, 305, 2731, 2732] {
+        let m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, 2711), (3, model), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+        let r = &m.robots[robot(&m, "red-3")];
+        assert!(r.speed_reference_mps <= 5.0, "{model}: {} m/s", r.speed_reference_mps);
+    }
+    let m = match_();
+    assert_eq!(m.robots[robot(&m, "red-3")].speed_reference_mps, 4.3);
+}
+
+#[test]
 fn default_lineup_fields_heavy_infantry_sentry_and_aerial_system() {
     let m = match_();
     assert_eq!(m.season, 2027);

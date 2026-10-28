@@ -4343,7 +4343,7 @@
       "wheel_radius_m": 0.085,
       "wheel_width_m": 0.055,
       "chassis_type": "omni",
-      "speed_reference_mps": 5.1,
+      "speed_reference_mps": 5.0,
       "tire_friction": 0.9,
       "lateral_friction_ratio": 0.75,
       "drive_efficiency": 0.85,
@@ -18957,6 +18957,10 @@
       "sha256": "9e2eed9295536c6fd547b62d634df1d5e70a2e1e2250e5dff3521d557e5d54be"
     },
     "season": "2027",
+    "speed_limits": {
+      "infantry_mps": 5.0,
+      "note": "Infantry chassis top speed is capped at 5 m/s by the rulebook. A design that asks for more is driven at the cap instead of being fielded faster than the rules allow; the balancing (wheel-legged) infantry reaches it."
+    },
     "match": {
       "duration_s": 420,
       "field_length_m": 28,

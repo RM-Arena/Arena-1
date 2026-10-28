@@ -1132,7 +1132,15 @@ impl Engine {
                     armor_inset_m: d["armor_inset_m"].as_f64().unwrap(),
                     armor_mount_offset_m: d["armor_mount_offset_m"].as_f64().unwrap_or(0.0),
                     armor_hit_face_offset_m: d["armor_hit_face_offset_m"].as_f64().unwrap_or(0.0),
-                    speed_reference_mps: d["speed_reference_mps"].as_f64().unwrap(),
+                    // The 2027 rulebook caps an infantry chassis at 5 m/s: a design that asks for
+                    // more is driven at the cap instead of being fielded faster than the rules allow.
+                    speed_reference_mps: {
+                        let configured = d["speed_reference_mps"].as_f64().unwrap();
+                        match rules["speed_limits"]["infantry_mps"].as_f64() {
+                            Some(cap) if role == "infantry" => configured.min(cap),
+                            _ => configured,
+                        }
+                    },
                     arm_joints: if d["arm"].is_object() {
                         physics::arm_stowed(&d["arm"])
                     } else {

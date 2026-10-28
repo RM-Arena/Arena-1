@@ -79,7 +79,7 @@ The arena is 28 by 15 metres. Each side has a base, outpost, tech core and rune.
 | Role | Light omni drive and sustained cooling |
 | Mass kg | 22.05 |
 | Chassis m | 0.55 × 0.55 |
-| Ref. speed m/s | 5.1 |
+| Ref. speed m/s | 5 |
 | Vision m | 18 |
 | Launcher | 17mm |
 | Turret yaw rad/s | 5.5 |

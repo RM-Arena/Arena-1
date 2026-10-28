@@ -2295,7 +2295,7 @@ impl Engine {
         json!({"season":"2027","source":self.rules["source"],"construction_source":self.rules["construction"]["source"],
             "physical_design_revision":"construction-2027-v1","physics_hz":120,"adaptations":self.rules["adaptations"],
             "match":self.rules["match"],"profile_defaults":self.rules["profiles"]["defaults"],
-            "logistics":self.rules["logistics"],
+            "logistics":self.rules["logistics"],"speed_limits":self.rules["speed_limits"],
             "full_rules_available":"sdk.rules(observation) or sdk.RULES_2027, sdk.DESIGNS and protected arena.json"})
     }
     pub(super) fn position_snapshots(&self) -> Value {
