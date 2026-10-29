@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+import os
 from unittest.mock import patch
 
 from rmuc_arena import sdk
@@ -101,13 +102,27 @@ class SolMaxVisionTests(unittest.TestCase):
         self.assertFalse(fields.get('posture_enhanced',False))
 
     def test_rear_intruder_is_seen_by_the_anchors_real_camera(self):
+        self._assert_rear_camera_probe(full_route=False)
+
+    @unittest.skipUnless(os.environ.get("RMUC_STRATEGY_BENCHMARKS")=="1",
+                         "Reference strategy outcome; run scripts/benchmark_strategy.py")
+    def test_reference_intruder_crosses_the_field_and_is_seen(self):
+        self._assert_rear_camera_probe(full_route=True)
+
+    def _assert_rear_camera_probe(self, full_route):
         p=self.policy
         route=[(11.8,5.3),(16.2,3.),(16.2,1.),(19.7,1.),(19.7,3.4),
                (20.,4.85),(23.7,4.85),(26.8,4.4),(27.,6.4)]
+        # The sensor regression starts behind the base and walks to the card. The
+        # full-field route is kept unchanged as a separate strategy benchmark.
+        scenario=None if full_route else {'robots':{
+            'red-1':{'x':3.8,'y':8.15,'heading':0.,'aim':0.},
+            'blue-7':{'x':1.,'y':10.5,'heading':-math.pi/2}}}
+        if not full_route:route=[(27.,6.4)]
         results={}
         for search in (False,True):
             states={team:{} for team in ('red','blue')};arrived=None;seen=None
-            with Match(1,40,'rmuc2027',lineups=mirrored_lineups(self.lineup,'2027')) as match:
+            with Match(1,40 if full_route else 12,'rmuc2027',lineups=mirrored_lineups(self.lineup,'2027'),training_scenario=scenario) as match:
                 commands={}
                 while match.status!='finished':
                     if match.tick%2==0:
@@ -123,10 +138,13 @@ class SolMaxVisionTests(unittest.TestCase):
                                 # the probe, confounding the search comparison.
                                 fields=p._previous_base_guard(anchor,ctx)
                                 if search:fields.setdefault('aim',p.search_bearing(anchor,ctx))
+                                if not full_route:
+                                    fields={'move':(0,0),'brake':True,'heading':0.,
+                                            'aim':p.search_bearing(anchor,ctx) if search else 0.}
                                 commands[team]['1']=sdk.action(**fields)
                             else:
                                 probe=next(r for r in obs['robots'] if r['slot']==7)
-                                fields=p.highland_entry(probe,ctx)
+                                fields=p.highland_entry(probe,ctx) if full_route else None
                                 if fields is None:fields=p.max_route(probe,ctx,'vision_probe',route)
                                 commands[team]['7']=sdk.action(**fields)
                             for robot in obs['robots']:

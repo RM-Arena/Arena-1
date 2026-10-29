@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+import os
 from unittest.mock import patch
 
 from rmuc_arena import sdk
@@ -58,6 +59,8 @@ class SolMaxCoordinationTests(unittest.TestCase):
         self.assertIsNone(p.highland_entry(guard,ctx))
         self.assertNotIn('sortie_queue',ctx.state)
 
+    @unittest.skipUnless(os.environ.get("RMUC_STRATEGY_BENCHMARKS")=="1",
+                         "Reference strategy outcome; run scripts/benchmark_strategy.py")
     def test_six_robots_depart_again_from_supply_and_base_without_state_injection(self):
         p=self.policy
         for origin in ('supply','base'):

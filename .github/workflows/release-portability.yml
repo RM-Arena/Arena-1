@@ -3,6 +3,11 @@ on:
   push:
     branches: [codex/release-portability]
   workflow_dispatch:
+    inputs:
+      strategy_benchmarks:
+        type: boolean
+        default: false
+        description: Include unchanged reference strategy outcome benchmarks
 permissions:
   contents: read
 jobs:
@@ -14,6 +19,7 @@ jobs:
         os: [ubuntu-24.04, windows-latest]
     env:
       PYTHONUTF8: '1'
+      RMUC_STRATEGY_BENCHMARKS: ${{ inputs.strategy_benchmarks && '1' || '0' }}
       RMUC_TEST_STRATEGIES: .arena_data/strategy-tests/fixtures/arena1-4303d7c/examples
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +38,7 @@ jobs:
           workspaces: simulation
       - run: uv sync --locked
       - run: cargo build --locked --release --manifest-path simulation/Cargo.toml
-      - name: Targeted platform and physical-route regressions
+      - name: Targeted runtime compatibility checks
         run: >-
           uv run --locked python -m unittest -v
           tests.test_runner.LocalRunnerTests

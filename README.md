@@ -14,7 +14,7 @@ Arena-1 是改编自 **RoboMaster 超级对抗赛（RMUC）** 的机器人策略
 
 支持 **RMUC 2027（默认，5v5）** 与 **RMUC 2026（6v6）**，提供策略训练、自由组队、回放、高光、MVP 与 MP4 录像。
 
-> 当前为 **Beta**：`v0.8.0-beta.1`。版本变化见 [CHANGELOG](CHANGELOG.md)。
+> 当前为 **Beta**：`v0.8.0-beta.2`。版本变化见 [CHANGELOG](CHANGELOG.md)。
 
 [![RMUC 2027 实际对战：开局双方空中机器人冲撞前哨站](docs/media/rmuc2027-battle.gif)](docs/media/rmuc2027-battle.mp4)
 

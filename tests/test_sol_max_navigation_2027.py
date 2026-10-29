@@ -179,19 +179,21 @@ class SolMaxNavigationTests(unittest.TestCase):
             self.assertNotIn('rim_hop',self.policy.leg_memory(r,obs,memory))
 
     def test_unloaded_wheels_on_a_ramp_get_a_bounded_crouch_and_hop(self):
-        obs=self.obs();obs['time']=40.
-        r=next(r for r in obs['robots'] if r['slot']==7)
-        r.update(x=11.88,y=12.62,grounded=True,upright=.714,wheel_loads_n=[0.,0.,0.,0.])
-        memory={'nav_stall':{'7':{'until':41.}}}
-        with patch.object(self.policy,'_unwedge_parent',return_value={'move':(0,0)}):
-            fields=self.policy.drive(r,(11.8,14.),obs,memory)
-            self.assertEqual(fields['leg_height'],.12)
-            self.assertNotIn('jump',fields)
-            obs['time']=40.8
-            self.assertEqual(self.policy.drive(r,(11.8,14.),obs,memory)['jump'],1.)
-            obs['time']=43.
-            self.policy.drive(r,(11.8,14.),obs,memory)
-            self.assertNotIn('rim_hop',self.policy.leg_memory(r,obs,memory))
+        for upright in (.714,1.):
+            with self.subTest(upright=upright):
+                obs=self.obs();obs['time']=40.
+                r=next(r for r in obs['robots'] if r['slot']==7)
+                r.update(x=11.88,y=12.62,grounded=True,upright=upright,wheel_loads_n=[0.,0.,0.,0.])
+                memory={'nav_stall':{'7':{'until':41.}}}
+                with patch.object(self.policy,'_unwedge_parent',return_value={'move':(0,0)}):
+                    fields=self.policy.drive(r,(11.8,14.),obs,memory)
+                    self.assertEqual(fields['leg_height'],.12)
+                    self.assertNotIn('jump',fields)
+                    obs['time']=40.8
+                    self.assertEqual(self.policy.drive(r,(11.8,14.),obs,memory)['jump'],1.)
+                    obs['time']=43.
+                    self.policy.drive(r,(11.8,14.),obs,memory)
+                    self.assertNotIn('rim_hop',self.policy.leg_memory(r,obs,memory))
 
     def test_road_portal_can_reverse_without_a_half_turn_at_the_boundary(self):
         obs=self.obs();obs['time']=40.
@@ -228,7 +230,7 @@ class SolMaxNavigationTests(unittest.TestCase):
 
     def test_stationary_turn_can_back_away_from_a_road_boundary(self):
         obs=self.obs();r=next(r for r in obs['robots'] if r['slot']==3)
-        r.update(x=8.3,y=14.5,heading=math.pi/2,vx=0.,vy=0.)
+        r.update(x=8.3,y=14.5,heading=math.pi/2,vx=0.,vy=0.,wheel_loads_n=[50.,50.,0.,0.])
         memory={}
         with patch.object(self.policy,'_route_drive',return_value={'move':(0,0),'heading':0.}):
             for t in (10.,11.,12.,12.4):
@@ -304,7 +306,7 @@ class SolMaxNavigationTests(unittest.TestCase):
 
     def test_blocked_translation_prefers_to_reverse_when_both_axes_are_clear(self):
         obs=self.obs();r=next(r for r in obs['robots'] if r['slot']==3)
-        r.update(x=12.,y=9.7,heading=0.,vx=0.,vy=0.)
+        r.update(x=12.,y=9.7,heading=0.,vx=0.,vy=0.,wheel_loads_n=[50.,50.,0.,0.])
         memory={}
         with patch.object(self.policy,'_route_drive',return_value={'move':(1.,0.),'heading':0.}):
             for t in (10.,11.,12.,12.4):

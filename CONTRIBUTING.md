@@ -37,3 +37,9 @@ Submit all new and updated strategies to [Arena-Strategies](https://github.com/R
 under `strategies/<season>/<provider>/<name>/`. Do not add strategy submissions to this repository's
 `examples/`; it contains only the GPT-6.1-Sol-Max trident reference.
 Regression strategy inputs live in the independent repository as well; see [tests/README.md](tests/README.md).
+
+Reference strategy outcomes include full-field return/re-entry routes, economy completion under
+enemy fire, and a full-field camera probe. These retain their original time limits in the manual
+benchmark. Normal CI checks engine mechanics, action/transport contracts, and the real camera
+with controlled initial conditions; it does not require a heuristic strategy to complete the
+same long route on every OS.

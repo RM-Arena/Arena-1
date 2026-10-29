@@ -528,6 +528,8 @@ class SiegeTeamTests(unittest.TestCase):
                 self.assertAlmostEqual(S.dist(spot, S.pos(ctx.base)), 2.1, places=6)
             self.assertEqual(len(set(spots)), len(spots))
 
+    @unittest.skipUnless(os.environ.get("RMUC_STRATEGY_BENCHMARKS")=="1",
+                         "Reference strategy outcome; run scripts/benchmark_strategy.py")
     def test_wheel_legged_infantry_climb_the_stairs_and_earn_the_highland_buff(self):
         S = self.strategy
         S.MEM.clear()

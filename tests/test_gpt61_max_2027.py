@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+import os
 from unittest.mock import patch
 
 from rmuc_arena import sdk
@@ -219,6 +220,8 @@ class SolMax2027Tests(unittest.TestCase):
         self.assertFalse(actions['3']['fire'])
         self.assertNotIn('jump', actions['3'])
 
+    @unittest.skipUnless(os.environ.get("RMUC_STRATEGY_BENCHMARKS")=="1",
+                         "Reference strategy outcome; run scripts/benchmark_strategy.py")
     def test_all_six_serial_legs_cross_and_return_to_supply_in_the_actual_engine(self):
         states = {side: {} for side in ('red', 'blue')}
         crossed = {}

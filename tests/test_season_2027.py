@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+import os
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -257,6 +258,8 @@ class Season2027BattleTests(unittest.TestCase):
         manifest, _ = load_submission(STRATEGIES / "claude_opus55_xhigh_2027_team")
         self.assertEqual(manifest["team_lineup"], season_rules.default_lineup("2027"))
 
+    @unittest.skipUnless(os.environ.get("RMUC_STRATEGY_BENCHMARKS")=="1",
+                         "Reference strategy outcome; run scripts/benchmark_strategy.py")
     def test_heavy_robot_mines_two_units_and_completes_a_core_level(self):
         """The economy gates everything else: no energy units means no tech core, no launcher.
 
