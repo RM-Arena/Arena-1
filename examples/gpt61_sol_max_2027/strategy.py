@@ -1203,7 +1203,7 @@ def highland_entry(robot, ctx):
     fields.update(leg_height=.12, power=180, brake=True)
     if q['phase'] == 3:
         fields['heading'] = heading
-        if robot.get('grounded') and 8.45 < x < 10.65 and ctx.time - m['last_jump'] > 1.1:
+        if robot.get('grounded') and 8.65 < x < 10.65 and ctx.time - m['last_jump'] > 1.1:
             fields['jump'] = 1.
             m['last_jump'] = ctx.time
     return fields
@@ -1213,17 +1213,22 @@ def max_logistics(robot, ctx):
     """Reserve shared coins immediately so simultaneous orders cannot overspend."""
     fields = {}
     cost = 50 + math.ceil(ctx.time / 60 * 20)
-    if robot['hp'] < robot['max_hp'] * .70 and disengaged(robot, ctx.time) \
-            and not robot.get('pending_heal') and ctx.budget >= cost + 100:
+    reserve=0 if robot['role']=='heavy' and robot['hp']<robot['max_hp']*.6 else 100
+    contacts=set(robot.get('last_raw_zones',[]))
+    free_heal=f'{ctx.team}_supply' in contacts or any(f'{owner}_outpost' in contacts and ctx.controls(f'{owner}_outpost',full=True) for owner in (ctx.team,ctx.enemy))
+    if not free_heal and robot['hp'] < robot['max_hp'] * .70 and disengaged(robot, ctx.time) \
+            and not robot.get('pending_heal') and ctx.budget >= cost + reserve:
         fields['remote_heal'] = True
         ctx.budget -= cost
     if robot['role'] == 'heavy':
         return fields
     if robot['ammo'] < 25 and not robot.get('pending_ammo') and ctx.time >= 1.05:
         local = can_buy_here(robot, ctx)
-        amount = min(100, ctx.ammo_remaining // 10 * 10) if local else 100
+        ammo_reserve=0 if local and robot['ammo']==0 else 50
+        affordable=max(0,int(ctx.budget-ammo_reserve)//10*10)
+        amount = min(100,ctx.ammo_remaining//10*10,affordable) if local else 100
         price = amount if local else 150
-        if (local or disengaged(robot, ctx.time)) and ctx.budget >= price + 50 \
+        if (local or disengaged(robot, ctx.time)) and ctx.budget >= price + ammo_reserve \
                 and 0 < amount <= ctx.ammo_remaining:
             fields['buy_ammo'] = {'amount': amount, 'remote': not local}
             ctx.budget -= price
@@ -1301,23 +1306,48 @@ def weapon(robot, ctx, reach=9., structures=False, drones_too=False):
         actual_aim, actual_pitch = barrel_angles(robot)
         cone = max(.004, min(.05, .055 / max(.5, distance(robot, (target['x'], target['y'])))))
         aligned = abs(wrap(aim - actual_aim)) < cone and abs(pitch - actual_pitch) < cone
-        margin = 100 if robot['role'] == 'heavy' else 10 if robot['cooling_rate'] >= 20 else 20
+        # A policy command lasts two 50 ms frames. Reserve both 17 mm rounds,
+        # including when a posture change reduces cooling before the shots.
+        margin = 100 if robot['role'] == 'heavy' else 20
         fire = aligned and can_fire(robot) and robot['heat'] + margin <= robot['max_heat']
         return {'aim': aim, 'pitch': pitch, 'fire': fire}
     return {'fire': False}
 
 
 def max_guard(robot, ctx):
+    # Reach the protected rear receiver before the first enemy wave. Taking
+    # the module trip first leaves the base open against fast native chassis.
+    if ctx.time < 8:
+        points = [max_local(ctx, p) for p in ((3.85, 5.8), (1.05, 5.8), (1.05, 7.5))]
+        opening = ctx.state.setdefault('opening_base', {'i': 0, 'heading': robot['heading']})
+        while opening['i'] < 2 and distance(robot, points[opening['i']]) < .2:
+            opening['i'] += 1
+        goal = points[opening['i']]
+        dx, dy = goal[0] - robot['x'], goal[1] - robot['y']
+        gap = math.hypot(dx, dy)
+        pace = min(1.8, gap * 3) / robot['speed_reference_mps']
+        return {'move': (dx / max(.01, gap) * pace, dy / max(.01, gap) * pace),
+                'heading': opening['heading'], 'power': 200, 'brake': True}
     fields = max_logistics(robot, ctx)
     launcher = robot.get('launcher', 'locked')
-    if ctx.time < 25 and launcher in ('locked', 'unlocked', 'installing'):
+    relief = any(r['slot'] != robot['slot'] and r['alive'] and not r.get('weak')
+        and r['id'] in ctx.obs['zones'].get(f'{ctx.team}_base', {}).get('occupants', [])
+        for r in ctx.obs['robots'])
+    at_supply=f'{ctx.team}_supply' in robot.get('last_raw_zones',[])
+    fitting=ctx.state.setdefault('launcher_trip',{})
+    late_install=at_supply and relief and not robot.get('weak') and robot['hp']>=robot['max_hp']*.8 \
+        and ctx.time>25 and ctx.time>=fitting.get('retry_at',0)
+    if late_install:
+        fitting.setdefault('since',ctx.time)
+        if ctx.time-fitting['since']>8.:
+            fitting.update(retry_at=ctx.time+45.);fitting.pop('since',None);late_install=False
+    elif not at_supply:fitting.pop('since',None)
+    if late_install and launcher in ('locked', 'unlocked', 'installing'):
         bench = workbench_point(robot, ctx.arena)
         fields.update(drive(robot, bench, ctx.obs, ctx.memory, .16))
+        if distance(robot,bench)<1.5:fields['heading']=math.pi/2 if ctx.team=='red' else -math.pi/2
         if distance(robot, bench) < .24:
             fields.update(move=(0, 0), brake=True, install_launcher=True)
-            if robot['ammo'] < 5 and ctx.budget >= 150 and ctx.time > 1.05:
-                fields['buy_ammo'] = {'amount': 10, 'remote': False}
-                ctx.budget -= 100
         return fields
     goal = max_local(ctx, (1.05, 7.5))
     recovering = ctx.state.setdefault('guard_recover', False)
@@ -1442,21 +1472,31 @@ def max_fighter(robot, ctx):
     expendable = (not on_home or home_relief) and (not on_front or covered)
     if robot.get('weak') or robot['hp'] < robot['max_hp'] * .24 and expendable:
         recovering = True
-    front_quiet = not any(e['alive'] and not e.get('invulnerable') and
-        distance(e, max_local(ctx, (17.1, 7.5))) < 5. for e in ctx.obs['enemies'])
-    if robot['role'] == 'sentry' and robot['ammo'] < 20 and due_grants > 0 and covered and front_quiet:
+    if robot['role'] == 'sentry' and robot['ammo'] < 20 and due_grants > 0 \
+            and (covered or home_relief):
         recovering = True
-    supply = ctx.zone(ctx.team, 'supply')
+    supply = max_supply_point(robot, ctx)
+    needs_grant = robot['role'] == 'sentry' and robot['ammo'] < 100 and due_grants > 0
+    contacts = set(robot.get('last_raw_zones', []))
+    local_heal = any(f'{owner}_outpost' in contacts and ctx.controls(f'{owner}_outpost', full=True)
+                     for owner in (ctx.team, ctx.enemy))
     if recovering and robot['hp'] >= robot['max_hp'] * .85 and not robot.get('weak') \
             and (robot['role'] != 'sentry' or robot['ammo'] >= 100 or due_grants <= 0) \
-            and distance(robot, supply) < 1.:
+            and robot.get('grounded',True) \
+            and not leg_memory(robot,ctx.obs,ctx.memory).get('nav_jump') \
+            and not leg_memory(robot,ctx.obs,ctx.memory).get('rim_hop'):
         recovering = False
         leg_memory(robot, ctx.obs, ctx.memory).clear()
         leg_memory(robot, ctx.obs, ctx.memory)['last_jump'] = -10.
         ctx.state.get('max_routes', {}).pop(key, None)
     recovery[key] = recovering
     if recovering:
-        fields.update(max_homeward(robot, supply, ctx))
+        hospitals = [supply]
+        if not needs_grant:
+            hospitals.extend(outpost_card_spot(ctx, owner) for owner in (ctx.team, ctx.enemy)
+                             if ctx.controls(f'{owner}_outpost', full=True))
+        hospital = (robot['x'], robot['y']) if local_heal and not needs_grant else min(hospitals, key=lambda p: distance(robot, p))
+        fields.update(max_homeward(robot, hospital, ctx))
     elif ctx.time < 1.2:
         fields.update(move=(0, 0), brake=True)
     else:
@@ -1472,7 +1512,8 @@ def max_fighter(robot, ctx):
                     or ctx.state.get('guard_recover'):
                 cover = True
             if heavy_robot is not None and heavy_robot['alive'] and not heavy_robot.get('weak') \
-                    and heavy_robot['hp'] >= heavy_robot['max_hp'] * .8 \
+                    and (heavy_robot['hp'] >= heavy_robot['max_hp'] * .8 or
+                         ctx.state.get('guard_secure') and heavy_robot['hp']>=heavy_robot['max_hp']*.2) \
                     and f'{ctx.team}_base' in heavy_robot.get('last_raw_zones', []):
                 cover = False
             ctx.state['base_cover'] = cover
@@ -1480,10 +1521,10 @@ def max_fighter(robot, ctx):
                 m = leg_memory(robot, ctx.obs, ctx.memory)
                 m.pop('entry_done', None)
                 m.pop('entry', None)
-            goal = max_local(ctx, (3.8, 8.15)) if cover else outpost_card_spot(ctx, ctx.team)
+            goal = max_local(ctx, (3.8, 8.15) if cover else (10.8, 9.25))
             fields.update(max_homeward(robot, goal, ctx) if cover else max_hold(robot, goal, ctx))
         elif robot['slot'] == 7:
-            fields.update(max_hold(robot, max_local(ctx, (17.15, 8.1)), ctx))
+            fields.update(max_hold(robot, max_local(ctx, (17.4, 8.1)), ctx))
         else:
             # Do not sink a healthy infantry into a base card kept active by
             # an entrenched defender. Win the two-outpost clock with a 2-v-1
@@ -1498,7 +1539,7 @@ def max_fighter(robot, ctx):
                     if local_point(ctx.team, (robot['x'], robot['y']))[0] > 11.5
                     else max_hold(robot, max_local(ctx, (10.85, 7.3)), ctx))
             elif not committed and enemy_base_active:
-                fields.update(max_hold(robot, max_local(ctx, (17.15, 9.15)), ctx))
+                fields.update(max_hold(robot, max_local(ctx, (17.1, 5.8)), ctx))
             else:
                 # The end ramp and the narrow corridor between the enemy
                 # tunnel and road humps avoid the defended central card.
@@ -1530,3 +1571,831 @@ def revive_fields(robot, ctx, reserve=150):
     if not robot['alive']:
         ctx.state.get('max_routes', {}).pop(str(robot['slot']), None)
     return {'revive': affordable}
+
+
+"""Public-geometry routing for serial legs; embedded by the Sol Max builder."""
+import heapq
+from sdk import ARENAS_BY_SEASON, _terrain_surface
+
+
+class SerialRoadmap:
+    def __init__(self, arena, team):
+        self.arena, self.team = arena, team
+        margin = .29
+        self.boxes = []
+        walls = [w for w in arena['obstacles'] if 'roof' not in w.get('id', '') or '_tunnel_roof' in w['id']]
+        walls += [w for w in arena['forbidden'] if w['kind'] in ('base', 'dart_station', 'highway') or w.get('owner') not in (None, team)]
+        self.circles=[(x,y,.62) for x,y in arena['outposts'].values()]
+        walls += [dict(x=t['x'],y=t['y'],w=t['w'],h=t['h']) for t in arena['terrain'] if t['kind']=='bumps']
+        for w in walls:
+            angle = w.get('rotation', 0)
+            self.boxes.append((w['x']+w['w']/2,w['y']+w['h']/2,
+                w['w']/2+margin,w['h']/2+margin,math.cos(angle),math.sin(angle)))
+        self.tiles = {}
+        for t in arena['terrain']:
+            for x in range(math.floor(t['x']),math.ceil(t['x']+t['w'])+1):
+                for y in range(math.floor(t['y']),math.ceil(t['y']+t['h'])+1):
+                    self.tiles.setdefault((x,y),[]).append(t)
+        # Floor corridors, end ramps and both sides of the base body. No node
+        # lies on the road humps or under a tunnel roof.
+        red = [(1.1,7.5),(1.1,10.0),(2.9,10.0),(3.0,5.5),(3.0,10.4),(3.8,8.15),
+            (4.4,10.0),(4.5,11.5),(4.5,13.5),(5.0,5.4),(7.9,5.9),(7.95,9.25),
+            (8.0,7.5),(8.3,10.0),(8.3,11.5),(8.3,13.55),(10.8,13.55),(12.0,13.5),
+            (12.0,12.2),(11.8,10.0),(11.4,10.55),(10.8,9.25),(11.5,9.7),(11.5,7.5),
+            (11.8,5.3),(12.0,5.0),(16.2,3.0),(16.2,1.0),(19.7,1.0),(19.7,3.4),
+            (20.0,4.85),(23.7,4.85),(26.9,4.4),(27.0,7.5)]
+        self.nodes = list(dict.fromkeys(red+[(28-x,15-y) for x,y in red]))
+        self.edges = [[] for _ in self.nodes]
+        for i,a in enumerate(self.nodes):
+            for j,b in enumerate(self.nodes):
+                length=math.dist(a,b)
+                if i!=j and length<7 and self.clear(a,b):
+                    self.edges[i].append((j,length))
+        self.special={}
+        for a,b,kind in [((8.,7.5),(11.5,7.5),'highland'),
+                         ((11.5,7.5),(8.,7.5),'highland'),
+                         ((8.3,11.5),(8.3,13.55),'road'),
+                         ((8.3,13.55),(8.3,11.5),'road')]:
+            for start,end in ((a,b),((28-a[0],15-a[1]),(28-b[0],15-b[1]))):
+                for point in (start,end):
+                    if point in self.nodes:continue
+                    n=len(self.nodes);self.nodes.append(point);self.edges.append([])
+                    for old,other in enumerate(self.nodes[:-1]):
+                        length=math.dist(point,other)
+                        if length>=7:continue
+                        if self.clear(point,other):self.edges[n].append((old,length))
+                        if self.clear(other,point):self.edges[old].append((n,length))
+                i,j=self.nodes.index(start),self.nodes.index(end)
+                self.edges[i].append((j,math.dist(start,end)+1.8));self.special[i,j]=kind
+        self.reverse=[[] for _ in self.nodes]
+        for i,edges in enumerate(self.edges):
+            for j,d in edges:self.reverse[j].append((i,d))
+        self.costs = {}
+
+    def height(self, x, y):
+        h=0.
+        for t in self.tiles.get((math.floor(x),math.floor(y)),[]):
+            if t['x']<=x<=t['x']+t['w'] and t['y']<=y<=t['y']+t['h'] and point_in_polygon(x,y,t['polygon']):
+                h=max(h,_terrain_surface(t,x,y))
+        return h+min(y,15-y)*math.tan(math.radians(self.arena.get('floor_slope_deg',0)))
+
+    def clear(self, a, b, escape=False):
+        dx,dy=b[0]-a[0],b[1]-a[1]
+        length2=dx*dx+dy*dy
+        for x,y,radius in self.circles:
+            if escape and math.dist(a,(x,y))<radius and (a[0]-x)*dx+(a[1]-y)*dy>=0:continue
+            u=max(0.,min(1.,((x-a[0])*dx+(y-a[1])*dy)/max(1e-9,length2)))
+            if math.hypot(a[0]+dx*u-x,a[1]+dy*u-y)<radius:return False
+        for cx,cy,hw,hh,c,s in self.boxes:
+            ax,ay=(a[0]-cx)*c+(a[1]-cy)*s,-(a[0]-cx)*s+(a[1]-cy)*c
+            vx,vy=dx*c+dy*s,-dx*s+dy*c
+            if escape and abs(ax)<hw and abs(ay)<hh:
+                horizontal=abs(ax)-hw>=abs(ay)-hh
+                outward=ax*vx>=0 if horizontal else ay*vy>=0
+                if outward and max(abs(ax+vx)-hw,abs(ay+vy)-hh)>max(abs(ax)-hw,abs(ay)-hh)+.03:
+                    continue
+            lo,hi=0.,1.
+            for p,v,half in ((ax,vx,hw),(ay,vy,hh)):
+                if abs(v)<1e-9:
+                    if not -half<p<half:lo=2.;break
+                else:
+                    low,high=sorted(((-half-p)/v,(half-p)/v));lo,hi=max(lo,low),min(hi,high)
+            if lo<hi and hi>0 and lo<1:return False
+        count=max(1,math.ceil(math.hypot(dx,dy)/.08))
+        length=math.hypot(dx,dy)
+        side=(-dy/max(1e-9,length)*.25,dx/max(1e-9,length)*.25)
+        offsets=((0.,0.),side,(-side[0],-side[1]))
+        previous=[self.height(a[0]+ox,a[1]+oy) for ox,oy in offsets]
+        for i in range(1,count+1):
+            h=[self.height(a[0]+dx*i/count+ox,a[1]+dy*i/count+oy) for ox,oy in offsets]
+            spread_limit=.45 if escape and i<=4 else .17
+            if any(n-p>.075 or p-n>(.45 if escape else .15) for n,p in zip(h,previous)) or max(h)-min(h)>spread_limit:return False
+            previous=h
+        return True
+
+    def waypoint(self, start, goal, banned=()):
+        if self.clear(start,goal,True):return goal
+        blocked=set(banned)
+        key=(tuple(round(v,3) for v in goal),tuple(sorted(blocked)))
+        if key not in self.costs:
+            costs={i:math.dist(p,goal) for i,p in enumerate(self.nodes) if self.clear(p,goal,True)}
+            queue=[(d,i) for i,d in costs.items()];heapq.heapify(queue)
+            while queue:
+                d,i=heapq.heappop(queue)
+                if d!=costs[i]:continue
+                for j,edge in self.reverse[i]:
+                    if (j,i) in self.special and f'{self.nodes[j]}:{self.nodes[i]}' in blocked:continue
+                    if d+edge<costs.get(j,float('inf')):
+                        costs[j]=d+edge;heapq.heappush(queue,(d+edge,j))
+            if len(self.costs)>64:self.costs.clear()
+            self.costs[key]=costs
+        distances=self.costs[key]
+        for (i,j),kind in self.special.items():
+            if f'{self.nodes[i]}:{self.nodes[j]}' in blocked:continue
+            if i in distances and j in distances and math.dist(start,self.nodes[i])<1.:
+                edge=next(v for k,v in self.edges[i] if k==j)
+                if distances[j]+edge<=distances[i]+.02:
+                    return ('jump',self.nodes[i],self.nodes[j],kind)
+        choices=sorted((math.dist(start,self.nodes[i])+v,i) for i,v in distances.items()
+            if math.dist(start,self.nodes[i])>.32)
+        for _,i in choices:
+            if self.clear(start,self.nodes[i],True):return self.nodes[i]
+        return None
+
+
+_SERIAL_ROADMAPS = {team:SerialRoadmap(ARENAS_BY_SEASON['2027'],team) for team in ('red','blue')}
+_original_serial_drive = drive
+_opening_entry = highland_entry
+_proven_homeward = max_homeward
+
+
+def highland_entry(robot,ctx):
+    if ctx.time<25:return _opening_entry(robot,ctx)
+    memory=leg_memory(robot,ctx.obs,ctx.memory)
+    x,_=local_point(ctx.team,(robot['x'],robot['y']))
+    anchor=next((r for r in ctx.obs['robots'] if r['slot']==1),None)
+    covering=robot['slot']==4 and (ctx.state.get('base_cover') or not ctx.controls(f'{ctx.team}_base')
+        or anchor is None or not anchor['alive'] or anchor.get('weak') or anchor['hp']<anchor['max_hp']*.5 or ctx.state.get('guard_recover'))
+    if robot.get('weak') or memory.get('entry_done') or covering:
+        memory.pop('entry_wait',None)
+        return None
+    if not memory.get('entry') and x>=8.4:return None
+    queue=ctx.state.setdefault('sortie_queue',{'pending':{},'since':ctx.time})
+    queue['pending'][str(robot['slot'])]=ctx.time
+    eligible=[r for r in ctx.obs['robots'] if r['alive'] and not r.get('weak') and r['role'] in ('infantry','sentry')
+        and ctx.time-queue['pending'].get(str(r['slot']),-99)<.4]
+    owner=next((r for r in eligible if r['slot']==queue.get('owner')),None)
+    if owner is None and ctx.time-queue['since']>=.15:
+        owner=min(eligible,key=lambda r:distance(r,max_local(ctx,(7.95,9.15))),default=None)
+        if owner is not None:queue.update(owner=owner['slot'],owner_since=ctx.time)
+    memory['entry_wait']=True
+    if owner is None or owner['slot']!=robot['slot']:
+        return {'move':(0,0),'leg_height':.245,'brake':True}
+    if ctx.time-queue.get('owner_since',ctx.time)>40.:
+        memory['entry_done']=True;memory.pop('entry_wait',None)
+        queue['pending'].pop(str(robot['slot']),None);queue.pop('owner',None)
+        return None
+    if memory.get('sortie_ticket')!=queue.get('owner_since'):
+        sx,sy=local_point(ctx.team,(robot['x'],robot['y']))
+        memory.update(sortie_ticket=queue.get('owner_since'),sortie_from_supply=sx<4.2 and sy>10.5)
+    if not memory.get('entry') and not memory.get('sortie_from_supply'):
+        staging=max_local(ctx,(7.95,9.15))
+        if distance(robot,staging)>.22:return drive(robot,staging,ctx.obs,ctx.memory,tolerance=.15)
+        memory['entry']={'phase':1,'since':ctx.time,'began':ctx.time,'row':9.15}
+    fields=_opening_entry(robot,ctx)
+    if fields is None:
+        queue['pending'].pop(str(robot['slot']),None);queue.pop('owner',None)
+        memory.pop('entry_wait',None)
+    return fields
+
+
+def max_homeward(robot,goal,ctx):
+    return max_hold(robot,goal,ctx)
+
+
+def serial_escape(robot, obs, memory):
+    """Latch an axial escape until the complete chassis has cleared a hump band."""
+    m=leg_memory(robot,obs,memory)
+    active=m.get('road_escape')
+    if active:
+        t=active['band'];x,y=robot['x'],robot['y']
+        if not(t[0]-.55<x<t[2]+.55 and t[1]-.55<y<t[3]+.55) or obs['time']-active['began']>6.:
+            m.pop('road_escape',None)
+        else:
+            return {'move':active['move'],'heading':active['heading'],'leg_height':.245,'brake':True,'power':200}
+    escape=road_exit(robot,obs)
+    if escape is None:return None
+    band=next(t for t in obs['arena']['terrain'] if t['kind']=='bumps'
+        and t['x']-.3<robot['x']<t['x']+t['w']+.3 and t['y']-.3<robot['y']<t['y']+t['h']+.3)
+    m['road_escape']={'band':[band['x'],band['y'],band['x']+band['w'],band['y']+band['h']],
+        'began':obs['time'],'move':escape['move'],'heading':escape['heading']}
+    return escape
+
+
+def drive(robot, goal, obs, memory, tolerance=.25):
+    if not serial_leg(robot,obs):return _original_serial_drive(robot,goal,obs,memory,tolerance)
+    if goal is None or distance(robot,goal)<tolerance:return {'move':(0,0),'brake':True,'leg_height':.245}
+    escape=serial_escape(robot,obs,memory)
+    if escape is not None:return escape
+    start=(robot['x'],robot['y']);graph=_SERIAL_ROADMAPS[robot['team']]
+    m=leg_memory(robot,obs,memory)
+    locks=memory.setdefault('nav_locks',{})
+    if m.get('nav_jump'):
+        jump=m['nav_jump']
+        end=jump['end']
+        dx,dy=end[0]-jump['start'][0],end[1]-jump['start'][1]
+        progress=((start[0]-jump['start'][0])*dx+(start[1]-jump['start'][1])*dy)/(dx*dx+dy*dy)
+        rising=graph.height(*end)>graph.height(*jump['start'])+.1
+        complete=(.82 if rising else .72) if jump['kind']=='highland' else .92
+        if jump['kind']=='road' and progress>.83 and obs['time']-jump['began']<12.:
+            jump.setdefault('landing',obs['time'])
+            if obs['time']-jump['landing']<.7 or not robot.get('grounded') or math.hypot(robot['vx'],robot['vy'])>.2:
+                return {'move':(0,0),'heading':jump.get('heading',robot['heading']),'leg_height':.245,'brake':True}
+            progress=complete+1.
+        if progress>complete or obs['time']-jump['began']>12.:
+            if progress<=complete:m.setdefault('banned_jumps',{})[jump['lock']]=obs['time']+30.
+            locks.pop(jump['lock'],None)
+            m.pop('nav_jump',None)
+        else:
+            locks[jump['lock']]={'slot':robot['slot'],'until':obs['time']+3.}
+            course=math.atan2(dy,dx)
+            heading=jump.setdefault('heading',min((course,wrap(course+math.pi)),key=lambda h:abs(wrap(h-robot['heading']))))
+            if jump['phase']==-1:
+                fields=pointed_move(robot,jump['prep'],1.6)
+                fields.update(leg_height=.245,brake=True)
+                if distance(robot,jump['prep'])<.18:
+                    jump.update(phase=0,settled=obs['time'])
+                return fields
+            if jump['phase']==0:
+                if abs(wrap(heading-robot['heading']))<.12 and obs['time']-jump.get('settled',jump['began'])>.7:
+                    jump['phase']=1
+                return {'move':(0,0),'heading':heading,'leg_height':.12,'brake':True}
+            fields=pointed_move(robot,end,2.2)
+            fields.update(heading=heading,leg_height=.12,brake=True,power=180)
+            rising=graph.height(*end)>graph.height(*jump['start'])+.1
+            takeoff=(.13 if rising else .23) if jump['kind']=='highland' else (.35 if rising else .15)
+            if progress>takeoff and robot.get('grounded') and obs['time']-m['last_jump']>1.1 and (jump['kind']!='road' or not jump.get('launched')):
+                fields['jump']=1.;m['last_jump']=obs['time'];jump['launched']=True
+            return fields
+    banned=m.setdefault('banned_jumps',{})
+    for key in list(banned):
+        if banned[key]<=obs['time']:del banned[key]
+    blocked=set(banned)
+    local_goal=local_point(robot['team'],goal)
+    if obs['time']>=25 or local_goal[0]<9.2:
+        # The fast opening is a controlled jump from a known pose. Later
+        # sorties use end ramps instead of repeatedly attacking the tall rim.
+        blocked.update(f'{graph.nodes[i]}:{graph.nodes[j]}' for (i,j),kind in graph.special.items() if kind=='highland')
+    waypoint=graph.waypoint(start,goal,blocked)
+    if waypoint is not None and waypoint[0]=='jump':
+        _,a,b,kind=waypoint
+        lock=f'{a}:{b}'
+        held=locks.get(lock,{})
+        if held.get('slot') not in (None,robot['slot']) and held.get('until',0)>obs['time']:
+            return {'move':(0,0),'leg_height':.245,'brake':True}
+        owner='red' if (a[0] if a[0]<9. else b[0])<14 else 'blue'
+        offset={3:-.6,4:.6,7:0.}.get(robot['slot'],0.)*(1 if owner=='red' else -1)
+        if kind=='highland':a=(a[0],a[1]+offset);b=(b[0],b[1]+offset)
+        descending=graph.height(*a)>graph.height(*b)+.1
+        length=math.dist(a,b)
+        prep=(a[0]-(b[0]-a[0])/length*.65,a[1]-(b[1]-a[1])/length*.65) if descending and kind=='highland' else a
+        locks[lock]={'slot':robot['slot'],'until':obs['time']+3.}
+        m['nav_jump']={'start':a,'end':b,'prep':prep,'kind':kind,'phase':-1,'began':obs['time'],'lock':lock}
+        fields=pointed_move(robot,prep,1.6);fields.update(leg_height=.245,brake=True);return fields
+    if waypoint is None:
+        # A step up to the road has no continuous ramp from this side. The
+        # controller uses the same bounded crouch/run-up as the highland entry.
+        return _original_serial_drive(robot,goal,obs,memory,tolerance)
+    fields=pointed_move(robot,waypoint,2.5)
+    fields.update(leg_height=.245,brake=True)
+    if math.hypot(robot['vx'],robot['vy'])<.4 and math.hypot(*fields['move'])>.2:fields['power']=180
+    return fields
+
+
+_route_drive=drive
+
+
+def drive(robot,goal,obs,memory,tolerance=.25):
+    """A bounded axial backoff also recovers a chassis already touching a rim."""
+    if not serial_leg(robot,obs):
+        fields=_route_drive(robot,goal,obs,memory,tolerance)
+        design=obs['robot_models'].get(str(robot.get('model_slot')), {})
+        if design.get('chassis_type')=='swerve':fields.setdefault('heading',robot['heading'])
+        return fields
+    m=memory.setdefault('nav_stall',{}).setdefault(str(robot['slot']),{'trail':[]})
+    if obs['time']<m.get('until',-1):
+        return {'move':m['move'],'heading':m['heading'],'leg_height':.245,'brake':True,'power':200}
+    fields=_route_drive(robot,goal,obs,memory,tolerance)
+    if goal is None or distance(robot,goal)<.6:
+        m['trail']=[];return fields
+    trail=m['trail'];trail.append((obs['time'],robot['x'],robot['y'],robot['heading']))
+    while trail and obs['time']-trail[0][0]>2.5:trail.pop(0)
+    if trail and obs['time']-trail[0][0]>2.3 and distance(robot,trail[0][1:3])<.10 and abs(wrap(robot['heading']-trail[0][3]))<.12:
+        h=robot['heading'];graph=_SERIAL_ROADMAPS[robot['team']];start=(robot['x'],robot['y'])
+        move=fields.get('move',(0,0));dot=move[0]*math.cos(h)+move[1]*math.sin(h)
+        preferred=-1 if dot>=0 else 1
+        def escape_score(sign):
+            end=(start[0]+sign*.9*math.cos(h),start[1]+sign*.9*math.sin(h))
+            bounded=.3<end[0]<27.7 and .3<end[1]<14.7
+            reverse_bonus=.5*(sign==preferred) if abs(dot)>.12 else 0.
+            return 4.*(bounded and graph.clear(start,end,True))+reverse_bonus+.2*(math.dist(start,goal)-math.dist(end,goal))
+        sign=max((-1,1),key=escape_score);pace=1.4/robot['speed_reference_mps']
+        m.update(move=(sign*pace*math.cos(h),sign*pace*math.sin(h)),heading=h,until=obs['time']+.65,trail=[])
+        jump=leg_memory(robot,obs,memory).pop('nav_jump',None)
+        if jump:
+            memory.get('nav_locks',{}).pop(jump['lock'],None)
+            leg_memory(robot,obs,memory).setdefault('banned_jumps',{})[jump['lock']]=obs['time']+20.
+        return {'move':m['move'],'heading':h,'leg_height':.245,'brake':True,'power':200}
+    return fields
+
+
+# A bounded crouch and hop frees a healthy chassis straddling a tall rim.
+_unwedge_parent=drive
+
+def drive(robot,goal,obs,memory,tolerance=.25):
+    if not serial_leg(robot,obs) or robot.get('weak') or goal is None:return _unwedge_parent(robot,goal,obs,memory,tolerance)
+    m=leg_memory(robot,obs,memory);now=obs['time'];jump=m.get('rim_hop')
+    g=_SERIAL_ROADMAPS[robot['team']]
+    if jump and now-jump['since']>2.7:m.pop('rim_hop',None);jump=None
+    if not jump:
+        fields=_unwedge_parent(robot,goal,obs,memory,tolerance)
+        stall=memory.get('nav_stall',{}).get(str(robot['slot']),{})
+        heights=[g.height(robot['x']+dx,robot['y']+dy) for dx,dy in ((0,0),(.3,0),(-.3,0),(0,.3),(0,-.3))]
+        # Road ramps have their own jump state. This escape is only for a
+        # chassis touching a central-highland kerb, including its diagonal
+        # end sections, where an axial backoff may not clear the edge.
+        near_side=False
+        for wall in obs['arena']['obstacles']:
+            if not wall['id'].startswith('central_') or 'kerb' not in wall['id']:continue
+            angle=wall.get('rotation',0);c,q=math.cos(angle),math.sin(angle)
+            dx,dy=robot['x']-wall['x']-wall['w']/2,robot['y']-wall['y']-wall['h']/2
+            ax,ay=dx*c+dy*q,-dx*q+dy*c
+            if math.hypot(max(0.,abs(ax)-wall['w']/2),max(0.,abs(ay)-wall['h']/2))<.45:
+                near_side=True;break
+        if near_side and stall.get('until',0)>now and now-m.get('rim_hop_last',-99)>20 and max(heights)-min(heights)>.18:
+            m['rim_hop']=jump={'since':now,'goal':goal};m['rim_hop_last']=now
+        else:return fields
+    fields=pointed_move(robot,jump['goal'],2.2)
+    fields.update(leg_height=.12,brake=True,power=200)
+    if now-jump['since']<.7:fields['move']=(0,0)
+    elif robot.get('grounded') and now-m['last_jump']>1.1:
+        fields['jump']=1.;m['last_jump']=now
+    return fields
+
+
+"""Keep the base anchor on its card while using the base body as cover."""
+_previous_base_guard = max_guard
+
+
+def base_body_blocks(a, b, body):
+    lo,hi=0.,1.
+    for p,d,low,high in ((a[0],b[0]-a[0],body['x'],body['x']+body['w']),
+                          (a[1],b[1]-a[1],body['y'],body['y']+body['h'])):
+        if abs(d)<1e-9:
+            if not low<p<high:return False
+        else:
+            left,right=sorted(((low-p)/d,(high-p)/d));lo,hi=max(lo,left),min(hi,right)
+    return lo<hi and hi>0 and lo<1
+
+
+def max_guard(robot, ctx):
+    fields=_previous_base_guard(robot,ctx)
+    ctx.state['guard_secure']=False
+    if ctx.time<25 or robot.get('weak'):return fields
+    memory=ctx.state.setdefault('guard_cover',{})
+    base=ctx.obs['bases'][ctx.team]
+    on_card=robot['id'] in ctx.obs['zones'].get(f'{ctx.team}_base',{}).get('occupants',[])
+    relief=any(r['slot']!=robot['slot'] and r['alive'] and not r.get('weak')
+        and r['id'] in ctx.obs['zones'].get(f'{ctx.team}_base',{}).get('occupants',[])
+        for r in ctx.obs['robots'])
+    if ctx.state.get('guard_recover') and relief:return fields
+    if not on_card and (not memory or distance(robot,(base['x'],base['y']))>4.):return fields
+    threats=[e for e in ctx.obs['enemies'] if e['alive'] and not e.get('invulnerable')
+        and e.get('role')!='aerial' and distance(e,(base['x'],base['y']))<9.]
+    points=[max_local(ctx,p) for p in ((1.05,7.5),(1.05,8.8),(2.4,8.8),(3.85,8.8),
+                                      (3.85,7.5),(3.85,6.2),(2.4,6.2),(1.05,6.2))]
+    body=min((w for w in ctx.arena['forbidden'] if w['kind']=='base'),
+        key=lambda w:math.hypot(w['x']+w['w']/2-base['x'],w['y']+w['h']/2-base['y']))
+    def risk(point):
+        return sum((.015 if base_body_blocks((e['x'],e['y']),point,body) else 1.)/
+                   max(.6,distance(e,point)) for e in threats)
+    closest=min(range(len(points)),key=lambda i:distance(robot,points[i]))
+    recent=ctx.time-robot.get('last_damage_time',-99)<2.5
+    ctx.state['guard_secure']=on_card and not ctx.state.get('guard_recover') and not recent and ctx.time-robot.get('last_damage_time',-99)>6.2 and risk((robot['x'],robot['y']))<.08
+    exposed=risk((robot['x'],robot['y']))>min(risk(p) for p in points)+.08
+    if 'target' not in memory and not (exposed or recent and robot['hp']<robot['max_hp']*.85):
+        return fields
+    if threats:
+        desired=min((0,2,4,6),key=lambda i:risk(points[i])+.006*distance(robot,points[i]))
+        old=memory.get('target',desired)
+        if 'target' not in memory or risk(points[old])>risk(points[desired])+.08:
+            memory.update(target=desired,since=ctx.time,until=ctx.time+8.)
+    elif recent and robot['hp']<robot['max_hp']*.9:
+        # A close attacker can be outside every camera. React to our own
+        # damage telemetry without assuming a hidden opponent position.
+        if 'target' not in memory or ctx.time>memory.get('until',0):
+            memory.update(target=max((0,2,4,6),key=lambda i:distance(robot,points[i])),
+                since=ctx.time,until=ctx.time+8.)
+    if 'target' not in memory:return fields
+    desired=memory['target']
+    if memory.get('route_target')!=desired:
+        clockwise=(desired-closest)%len(points);counter=(closest-desired)%len(points)
+        direction=1 if clockwise<=counter else -1
+        route=[];index=closest
+        if distance(robot,points[index])>.25:route.append(index)
+        while index!=desired:
+            index=(index+direction)%len(points);route.append(index)
+        memory.update(route_target=desired,route=route,heading=robot['heading'])
+    route=memory['route']
+    while route and distance(robot,points[route[0]])<.18:route.pop(0)
+    goal=points[route[0]] if route else points[desired]
+    dx,dy=goal[0]-robot['x'],goal[1]-robot['y'];gap=math.hypot(dx,dy)
+    if gap<.15:fields.update(move=(0,0),brake=True)
+    else:
+        speed=min(1.8,gap*3.)/robot['speed_reference_mps']
+        fields.update(move=(dx/gap*speed,dy/gap*speed),heading=memory['heading'],brake=True,power=200)
+
+    return fields
+
+
+ROLES['heavy']=max_guard
+
+
+"""Keep useful firing lanes and maintain distance from armor targets."""
+_formation_hold=max_hold
+
+
+def max_hold(robot,goal,ctx,tolerance=.18):
+    if robot['role'] not in ('infantry','sentry') or robot.get('weak') or goal is None:
+        return _formation_hold(robot,goal,ctx,tolerance)
+    contacts=set(robot.get('last_raw_zones',[]))
+    card=next((z for z in ctx.arena['zones'] if z['kind']=='central' and z['id'] in contacts
+        and point_in_polygon(goal[0],goal[1],z['polygon'])),None)
+    enemies=[e for e in ctx.obs['enemies'] if e['alive'] and not e.get('invulnerable')
+        and distance(e,(robot['x'],robot['y']))<5.]
+    close=any(distance(e,(robot['x'],robot['y']))<1.35 for e in enemies)
+    spacing=ctx.state.setdefault('spacing',{})
+    memory=spacing.setdefault(str(robot['slot']),{})
+    if card and close and (ctx.time>=memory.get('until',0) or memory.get('card')!=card['id']):
+        owner=card['owner']
+        points=[local_point(owner,(x,y)) for x in (10.6,11.0) for y in (6.,7.7,9.25)]
+        friends=[]
+        for r in ctx.obs['robots']:
+            if r['id']==robot['id'] or not r['alive'] or r['role']=='aerial':continue
+            intent=spacing.get(str(r['slot']),{})
+            friends.append(intent['goal'] if intent.get('card')==card['id'] else (r['x'],r['y']))
+        def shadow(p,e,f):
+            dx,dy=e['x']-p[0],e['y']-p[1];square=dx*dx+dy*dy
+            u=((f[0]-p[0])*dx+(f[1]-p[1])*dy)/max(.01,square)
+            return .03<u<.97 and math.hypot(p[0]+u*dx-f[0],p[1]+u*dy-f[1])<.27
+        def score(p):
+            return sum(1/max(.5,distance(e,p)) for e in enemies) \
+                +sum(max(0.,1.-math.dist(f,p))*2 for f in friends) \
+                +sum(1.5*shadow(p,e,f) for f in friends for e in enemies)+.025*distance(robot,p)
+        memory.update(goal=min(points,key=score),until=ctx.time+3.,card=card['id'])
+    if card and memory.get('card')==card['id'] and (enemies or ctx.time<memory.get('until',0)):
+        goal=memory['goal']
+    if card and robot['slot']==4 and (enemies or ctx.time-robot.get('last_damage_time',-99)<2.):
+        # Move along the card rather than offering a stationary armor plate.
+        # Two frequencies change acceleration without reading the match seed.
+        candidate=(goal[0],goal[1]+.35*math.sin(ctx.time*3.7)+.15*math.sin(ctx.time*7.1))
+        if point_in_polygon(candidate[0],candidate[1]+.21,card['polygon']):goal=candidate
+    fields=_formation_hold(robot,goal,ctx,tolerance)
+    if card and distance(robot,goal)<.25 and not leg_memory(robot,ctx.obs,ctx.memory).get('nav_jump'):
+        # The receiver stays inside the narrow card while the gimbal remains
+        # free to aim in world coordinates.
+        fields['heading']=math.pi/2
+    return fields
+
+
+"""Use the free infantry to intercept base divers before the anchor is depleted."""
+_support_parent=ROLES['infantry']
+
+
+def support_goal(robot,ctx,threats):
+    points=[max_local(ctx,p) for p in ((3.8,8.15),(3.85,6.95),(2.4,9.),(2.4,6.),(1.05,6.4),(1.05,8.6))]
+    previous=ctx.state.setdefault('base_support_goal',{})
+    if ctx.time<previous.get('until',-1):return previous['point']
+    def score(p):
+        proxy=dict(robot,x=p[0],y=p[1],z=robot.get('z',0)+terrain_height(ctx.arena,*p)-terrain_height(ctx.arena,robot['x'],robot['y']))
+        shots=sum(max_shot_clear(proxy,e,ctx) and distance(e,p)>1.3 for e in threats)
+        crowd=sum(max(0.,.9-distance(r,p)) for r in ctx.obs['robots'] if r['id']!=robot['id'] and r['alive'] and r['role']!='aerial')
+        close=sum(max(0.,1.3-distance(e,p)) for e in threats)
+        return -3*shots+close*2+crowd+distance(robot,p)*.04
+    point=min(points,key=score) if threats else points[0]
+    previous.update(point=point,until=ctx.time+2.)
+    return point
+
+
+def support_fighter(robot,ctx):
+    if robot['slot']!=3:return _support_parent(robot,ctx)
+    base=ctx.obs['bases'][ctx.team]
+    threats=[e for e in ctx.obs['enemies'] if e['alive'] and not e.get('invulnerable')
+        and e.get('role')!='aerial' and distance(e,(base['x'],base['y']))<7.]
+    heavy_robot=next((r for r in ctx.obs['robots'] if r['role']=='heavy'),None)
+    active=ctx.enemy in ctx.positions.get(f'{ctx.team}_base',{}).get('active',[])
+    hurt=heavy_robot is not None and heavy_robot['hp']<heavy_robot['max_hp']*.8 \
+        and ctx.time-heavy_robot.get('last_damage_time',-99)<3.
+    # A protected, healthy anchor already denies the base clock. Do not pull
+    # the mobile infantry off the outpost solely because a diver is nearby.
+    unsafe=heavy_robot is None or not heavy_robot['alive'] or heavy_robot.get('weak') \
+        or heavy_robot['hp']<heavy_robot['max_hp']*.7 or not ctx.controls(f'{ctx.team}_base')
+    if hurt or unsafe and (threats or active):ctx.state['base_threat_until']=ctx.time+15.
+    wanted=ctx.time<ctx.state.get('base_threat_until',-1)
+    front=front_threats(ctx)
+    lost_home=not ctx.controls(f'{ctx.team}_outpost')
+    if lost_home or len(front)>=2 and any(e['role']=='sentry' for e in front):
+        ctx.state['front_reinforce_until']=ctx.time+6.
+    reinforce=ctx.time<ctx.state.get('front_reinforce_until',-1)
+    if ctx.controls(f'{ctx.enemy}_base') and robot['id'] in ctx.obs['zones'].get(f'{ctx.enemy}_base',{}).get('occupants',[]):
+        reinforce=False
+    base_critical=not ctx.controls(f'{ctx.team}_base') or heavy_robot is not None and heavy_robot['hp']<heavy_robot['max_hp']*.6
+    if not (wanted or reinforce) or robot.get('weak') or robot['hp']<robot['max_hp']*.24 \
+            or ctx.state.get('max_recovery',{}).get(str(robot['slot'])):
+        return _support_parent(robot,ctx)
+    fields=max_logistics(robot,ctx)
+    if ctx.obs['tick']==0:fields['profile']={'chassis':'hp','weapon':'cooling'}
+    goal=outpost_card_spot(ctx,ctx.team) if reinforce and not base_critical else support_goal(robot,ctx,threats)
+    fields.update(max_hold(robot,goal,ctx))
+    fields.update(weapon(robot,ctx,reach=9.,structures=False,drones_too=False))
+    ctx.state.get('max_routes',{}).pop(str(robot['slot']),None)
+    return fields
+
+
+ROLES['infantry']=support_fighter
+
+
+_front_parent=ROLES['sentry']
+
+
+def front_threats(ctx):
+    center=ctx.zone(ctx.team,'central')
+    return [e for e in ctx.obs['enemies'] if e['alive'] and e.get('role')!='aerial'
+        and e['hp']>e['max_hp']*.25 and local_point(ctx.team,(e['x'],e['y']))[0]>8.5
+        and distance(e,center)<4.]
+
+
+def front_response(robot,ctx):
+    threats=front_threats(ctx)
+    pressure=len(threats)>=2 and any(e['role']=='sentry' for e in threats)
+    if pressure or not ctx.controls(f'{ctx.team}_outpost'):
+        ctx.state['front_guard_until']=ctx.time+6.;ctx.state['home_sentry']=True
+    guardian=next((r for r in ctx.obs['robots'] if r['slot']==4),None)
+    relieved=guardian is not None and guardian['alive'] and not guardian.get('weak') \
+        and guardian['hp']>guardian['max_hp']*.6 \
+        and not ctx.state.get('base_cover') and not ctx.state.get('max_recovery',{}).get('4') \
+        and on_outpost_card(guardian,ctx.team,ctx)
+    if ctx.time>=ctx.state.get('front_guard_until',-1) and relieved:
+        ctx.state['home_sentry']=False
+    ration_due=int(ctx.time//60)>robot.get('supply_grants_taken',0)
+    needs_recovery=robot['hp']<robot['max_hp']*.24 or robot['ammo']<20 and ration_due and relieved
+    if not ctx.state.get('home_sentry') or robot.get('weak') or needs_recovery \
+            or ctx.state.get('max_recovery',{}).get(str(robot['slot'])):
+        return _front_parent(robot,ctx)
+    if ctx.time<25 and not leg_memory(robot,ctx.obs,ctx.memory).get('entry_done'):
+        return _front_parent(robot,ctx)
+    fields=max_logistics(robot,ctx)
+    fields.update(max_hold(robot,max_local(ctx,(10.8,6.)),ctx))
+    fields.update(weapon(robot,ctx,reach=10.,structures=False,drones_too=False))
+    fighting=any(e['alive'] and not e.get('invulnerable') and distance(e,(robot['x'],robot['y']))<9 for e in ctx.obs['enemies'])
+    wanted='attack' if fighting and robot['hp']>robot['max_hp']*.45 else 'defense'
+    if ctx.time>=(robot.get('posture_ready_at') or 0):
+        fields.update(posture=wanted,posture_enhanced=wanted=='defense' and robot['hp']<robot['max_hp']*.45
+            and ctx.time-robot.get('last_damage_time',-99)<2.)
+    return fields
+
+
+ROLES['sentry']=front_response
+
+
+"""Track public target motion and account for the first gimbal update before firing."""
+_motion_context=Context
+_motion_solution=firing_solution
+_motion_weapon=weapon
+
+
+class Context(_motion_context):
+    def zone(self,team,kind):
+        # The card is large; its nominal center is beside the workbench.
+        # This interior point clears both fixtures and the receiver margin.
+        if kind=='supply':return local_point(team,(2.5,12.4))
+        return super().zone(team,kind)
+
+    def __init__(self,obs,state):
+        history=state.setdefault('motion_history',{})
+        enemies=[];now=obs['time']
+        for enemy in obs['enemies']:
+            e=dict(enemy);old=history.get(e['id']);accel=(0.,0.)
+            if old and 0.<now-old['time']<.4 and e['alive'] and old['alive']:
+                dt=now-old['time']
+                raw=((e['vx']-old['vx'])/dt,(e['vy']-old['vy'])/dt)
+                length=math.hypot(*raw);scale=min(1.,6./max(.01,length))
+                accel=tuple(.65*value*scale+.35*previous for value,previous in zip(raw,old['accel']))
+            e['_accel']=accel
+            history[e['id']]={'time':now,'vx':e['vx'],'vy':e['vy'],'alive':e['alive'],'accel':accel}
+            enemies.append(e)
+        for key in list(history):
+            if now-history[key]['time']>3.:del history[key]
+        super().__init__(dict(obs,enemies=enemies),state)
+
+
+def firing_solution(robot,target):
+    if '_accel' not in target:return _motion_solution(robot,target)
+    lead=distance(robot,(target['x'],target['y']))/(muzzle_speed(robot)*.88)+.025
+    proxy=dict(target)
+    q=target.get('quaternion')
+    omega=target.get('angular_velocity',(0.,0.,0.))[2]
+    if q:
+        angle=max(-.7,min(.7,omega*lead))/2;c,s=math.cos(angle),math.sin(angle)
+        x,y,z,w=q
+        proxy['quaternion']=(c*x-s*y,s*x+c*y,c*z+s*w,c*w-s*z)
+    point=_aim_target(robot,proxy)
+    ax,ay=target['_accel']
+    proxy.update(x=point[0]+.5*ax*lead*lead,y=point[1]+.5*ay*lead*lead,aim_z=point[2])
+    return _motion_solution(robot,proxy)
+
+
+def weapon(robot,ctx,reach=9.,structures=False,drones_too=False):
+    fields=_motion_weapon(robot,ctx,reach,structures,drones_too)
+    if fields.get('fire') or 'aim' not in fields or 'pitch' not in fields:return fields
+    if not can_fire(robot) or math.sqrt(sum(v*v for v in robot.get('angular_velocity',(0.,0.,0.))))>.4:
+        return fields
+    design=ctx.obs['robot_models'].get(str(robot.get('model_slot')), {})
+    yaw_step=design.get('turret_yaw_rate_rad_s',6.5)/120
+    pitch_step=design.get('turret_pitch_rate_rad_s',2.5)/120
+    yaw,pitch=barrel_angles(robot)
+    margin=100 if robot['role']=='heavy' else 20
+    fields['fire']=abs(wrap(fields['aim']-yaw))<yaw_step+.004 \
+        and abs(fields['pitch']-pitch)<pitch_step+.004 and robot['heat']+margin<=robot['max_heat']
+    return fields
+
+
+"""Spend the public, per-posture enhanced budget on useful close engagements."""
+_sentry_decide=decide
+
+
+def decide(robot,ctx):
+    fields=_sentry_decide(robot,ctx)
+    if robot['role']!='sentry' or not robot['alive'] or robot.get('weak') or robot.get('tipped'):
+        return fields
+    if ctx.time<(robot.get('posture_ready_at') or 0):return fields
+    spent=robot.get('posture_enhanced_time',(0.,0.,0.))[0]
+    enemies=[e for e in ctx.obs['enemies'] if e['alive'] and not e.get('invulnerable')
+        and e.get('targetable',True) and distance(e,(robot['x'],robot['y']))<6.]
+    friends=sum(r['alive'] and not r.get('weak') and r['role']!='aerial'
+        and distance(r,(robot['x'],robot['y']))<5. for r in ctx.obs['robots'])
+    continuing=robot.get('posture')=='attack' and robot.get('posture_enhanced') and robot['hp']>robot['max_hp']*.4
+    start=robot['hp']>robot['max_hp']*.5 and robot['ammo']>=80 and len(enemies)<=max(1,friends+1)
+    if ('aim' in fields and 'pitch' in fields) and robot['ammo']>0 and enemies and spent<14.5 and (start or continuing):
+        fields.update(posture='attack',posture_enhanced=True)
+    return fields
+
+
+"""Give serial turns a bounded settling window instead of waiting at an edge."""
+_turn_context=Context
+_road_pointed=pointed_move
+_turn_time=0.
+_turn_memory={}
+_turn_models={}
+
+
+class Context(_turn_context):
+    def __init__(self,obs,state):
+        global _turn_time,_turn_memory,_turn_models
+        super().__init__(obs,state)
+        _turn_time=obs['time']
+        _turn_memory=state.setdefault('turn_settle',{})
+        _turn_models=obs['robot_models']
+
+
+def pointed_move(robot,goal,speed):
+    fields=_road_pointed(robot,goal,speed)
+    model=_turn_models.get(str(robot.get('model_slot')), {})
+    if model.get('leg_type')!='serial' or 'heading' not in fields:
+        return fields
+    key=robot['id'];heading=fields['heading'];turn=_turn_memory.get(key)
+    if turn is None or abs(wrap(heading-turn['heading']))>.3:
+        turn={'heading':heading,'since':_turn_time}
+        _turn_memory[key]=turn
+    if abs(wrap(heading-robot['heading']))>.18 and _turn_time-turn['since']<.7:
+        fields['move']=(0,0)
+    return fields
+
+
+"""Acquire hidden approaches through staggered, legal gimbal searches."""
+_search_weapon=weapon
+_search_decide=decide
+
+def search_bearing(robot,ctx):
+    phase={1:1.,3:0.,4:2.1,7:4.2}.get(robot['slot'],0.)
+    return wrap(ctx.time*2.2+phase+(math.pi if ctx.team=='blue' else 0.))
+
+def weapon(robot,ctx,reach=9.,structures=False,drones_too=False):
+    fields=_search_weapon(robot,ctx,reach,structures,drones_too)
+    if 'aim' not in fields:fields['aim']=search_bearing(robot,ctx)
+    return fields
+
+def decide(robot,ctx):
+    fields=_search_decide(robot,ctx)
+    if robot['alive'] and robot['role']!='aerial' and not robot.get('tipped'):
+        fields.setdefault('aim',search_bearing(robot,ctx))
+    return fields
+
+_transit_decide=decide
+
+def decide(robot,ctx):
+    fields=_transit_decide(robot,ctx)
+    if robot['role']!='sentry' or not robot['alive'] or robot.get('weak') or robot.get('tipped'):
+        return fields
+    memory=leg_memory(robot,ctx.obs,ctx.memory)
+    entry=(ctx.time<25. or memory.get('entry') or memory.get('entry_wait')) and not memory.get('entry_done')
+    jumping=bool(memory.get('nav_jump') or memory.get('rim_hop') or memory.get('road_escape'))
+    transit=entry or jumping or not robot.get('grounded',True)
+    if transit and ctx.time >= (robot.get('posture_ready_at') or 0):
+        fields.update(posture='move',posture_enhanced=False)
+    return fields
+
+def max_supply_point(robot,ctx):
+    return max_local(ctx,(2.7,{3:12.45,4:13.25,7:14.05}[robot['slot']]))
+
+# Preserve the forward sentry and the independent mobile infantry assignment.
+ROLES.update(infantry=max_fighter,sentry=max_fighter)
+
+_guarded_decide=decide
+
+def decide(robot,ctx):
+    fields=_guarded_decide(robot,ctx)
+    if robot['role']!='sentry' or not robot['alive'] or robot.get('weak') or robot.get('tipped') or not robot.get('grounded',True):return fields
+    if ctx.time<(robot.get('posture_ready_at') or 0):return fields
+    memory=leg_memory(robot,ctx.obs,ctx.memory)
+    transit=(ctx.time<25. or memory.get('entry') or memory.get('entry_wait')) and not memory.get('entry_done')
+    if transit or memory.get('nav_jump') or memory.get('rim_hop') or memory.get('road_escape'):return fields
+    spent=robot.get('posture_enhanced_time',(0.,0.,0.))[1]
+    threats=[e for e in ctx.obs['enemies'] if e['alive'] and not e.get('weak') and not e.get('invulnerable')
+        and (e['role'] in ('infantry','sentry') or e['role']=='heavy' and ctx.time-robot.get('last_damage_time',-99)<1.)
+        and distance(e,(robot['x'],robot['y']))<5.]
+    if spent<14.5 and threats and ('pitch' in fields or ctx.time-robot.get('last_damage_time',-99)<1.):
+        fields.update(posture='defense',posture_enhanced=True)
+    return fields
+
+_alarm_context=Context
+_alarm_hold=max_hold
+_alarm_entry=highland_entry
+
+class Context(_alarm_context):
+    def __init__(self,obs,state):
+        super().__init__(obs,state)
+        base=self.obs['bases'][self.team]
+        divers=[e for e in self.obs['enemies'] if e['alive'] and not e.get('invulnerable') and e['role'] in ('infantry','sentry','heavy')
+            and local_point(self.team,(e['x'],e['y']))[0]<9.7 and distance(e,(base['x'],base['y']))<8.5]
+        alarm=self.state.setdefault('base_alarm',{'until':-1.})
+        trigger=len(divers)>=2 or any(e['role']=='sentry' for e in divers)
+        if trigger or divers and self.time<alarm['until']:
+            if self.time>=alarm['until']:alarm['began']=self.time
+            alarm['until']=self.time+18.
+        heavy=next((r for r in self.obs['robots'] if r['slot']==1),None)
+        helper=next((r for r in self.obs['robots'] if r['slot']==alarm.get('slot')),None)
+        reached=helper is not None and helper['id'] in self.obs['zones'].get(f'{self.team}_base',{}).get('occupants',[])
+        safe=heavy is not None and heavy['alive'] and not heavy.get('weak') and heavy['hp']>=heavy['max_hp']*.8 and self.time-heavy.get('last_damage_time',-99)>6.2
+        if len(divers)<=1 and reached and safe and self.time-alarm.get('began',self.time)>20.:
+            alarm.update(until=self.time-1.,released_at=self.time)
+        if len(divers)<=1 and 'released_at' in alarm and heavy is not None and heavy['alive'] and not heavy.get('weak') and heavy.get('last_damage_time',-99)<=alarm['released_at'] and self.controls(f'{self.team}_base'):
+            alarm['until']=self.time-1.
+        if self.time>=alarm['until']:alarm.pop('slot',None);return
+        eligible=[r for r in self.obs['robots'] if r['alive'] and not r.get('weak') and r['slot'] in (3,4,7)
+            and r['hp']>r['max_hp']*.4 and r['ammo']>0 and not self.state.get('max_recovery',{}).get(str(r['slot']))]
+        old=next((r for r in eligible if r['slot']==alarm.get('slot')),None)
+        if old is None and eligible:
+            alarm['slot']=min(eligible,key=lambda r:{4:0,3:5,7:10}[r['slot']]+.2*distance(r,(base['x'],base['y'])))['slot']
+        if alarm.get('slot')==4:self.state['base_cover']=True
+
+def highland_entry(robot,ctx):
+    alarm=ctx.state.get('base_alarm',{})
+    if ctx.time>=25. and ctx.time<alarm.get('until',-1.) and robot['slot']==alarm.get('slot'):return None
+    return _alarm_entry(robot,ctx)
+
+def max_hold(robot,goal,ctx,tolerance=.18):
+    alarm=ctx.state.get('base_alarm',{})
+    if ctx.time>=25. and ctx.time<alarm.get('until',-1.) and robot['slot']==alarm.get('slot') and not robot.get('weak') and not ctx.state.get('max_recovery',{}).get(str(robot['slot'])):
+        goal=max_local(ctx,(3.8,8.15))
+        if robot['slot']==4:ctx.state['base_cover']=True
+    return _alarm_hold(robot,goal,ctx,tolerance)
+
+_escort_context=Context
+_escort_hold=max_hold
+
+class Context(_escort_context):
+    def __init__(self,obs,state):
+        previous=state.get('base_alarm',{}).get('slot')
+        super().__init__(obs,state)
+        alarm=self.state.get('base_alarm',{})
+        base=self.obs['bases'][self.team]
+        divers=[e for e in self.obs['enemies'] if e['alive'] and not e.get('invulnerable') and e['role'] in ('infantry','sentry','heavy')
+            and local_point(self.team,(e['x'],e['y']))[0]<9.7 and distance(e,(base['x'],base['y']))<8.5]
+        sentry=next((r for r in self.obs['robots'] if r['slot']==7),None)
+        if len(divers)>=2:alarm['multi_until']=self.time+15.
+        multiple=self.time<alarm.get('multi_until',-1.)
+        if multiple:
+            alarm['until']=max(alarm.get('until',-1.),alarm['multi_until'])
+            guardian=next((r for r in self.obs['robots'] if r['slot']==4),None)
+            if guardian is not None and guardian['alive'] and not guardian.get('weak') and guardian['hp']>guardian['max_hp']*.4 and guardian['ammo']>0 and not self.state.get('max_recovery',{}).get('4'):
+                alarm['slot']=4;self.state['base_cover']=True
+        if not multiple and self.time<alarm.get('until',-1.) and len(divers)==1 and divers[0]['role']=='sentry' and sentry is not None and sentry['alive'] and not sentry.get('weak') and sentry['hp']>sentry['max_hp']*.4 and sentry['ammo']>0 and not self.state.get('max_recovery',{}).get('7'):
+            alarm['slot']=7
+        if previous is not None and previous!=alarm.get('slot'):
+            relieved=next((r for r in self.obs['robots'] if r['slot']==previous),None)
+            if relieved is not None and relieved.get('grounded') and local_point(self.team,(relieved['x'],relieved['y']))[0]<8.4:
+                memory=leg_memory(relieved,self.obs,self.memory)
+                jump=memory.pop('nav_jump',None)
+                if jump:self.memory.get('nav_locks',{}).pop(jump['lock'],None)
+                for key in ('entry_done','entry','entry_wait','road_escape','rim_hop'):memory.pop(key,None)
+
+def max_hold(robot,goal,ctx,tolerance=.18):
+    alarm=ctx.state.get('base_alarm',{})
+    if robot['slot']==7 and alarm.get('slot')==7 and ctx.time<alarm.get('until',-1.) and not robot.get('weak') and not ctx.state.get('max_recovery',{}).get('7'):
+        base=ctx.obs['bases'][ctx.team]
+        threats=[e for e in ctx.obs['enemies'] if e['alive'] and not e.get('invulnerable') and e['role']!='aerial' and distance(e,(base['x'],base['y']))<9.]
+        goal=support_goal(robot,ctx,threats)
+        # Call the pre-alarm hold once so the selected firing lane is retained.
+        return _alarm_hold(robot,goal,ctx,tolerance)
+    return _escort_hold(robot,goal,ctx,tolerance)

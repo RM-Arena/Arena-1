@@ -130,7 +130,7 @@ def highland_entry(robot, ctx):
     fields.update(leg_height=.12, power=180, brake=True)
     if q['phase'] == 3:
         fields['heading'] = heading
-        if robot.get('grounded') and 8.45 < x < 10.65 and ctx.time - m['last_jump'] > 1.1:
+        if robot.get('grounded') and 8.65 < x < 10.65 and ctx.time - m['last_jump'] > 1.1:
             fields['jump'] = 1.
             m['last_jump'] = ctx.time
     return fields
@@ -140,17 +140,22 @@ def max_logistics(robot, ctx):
     """Reserve shared coins immediately so simultaneous orders cannot overspend."""
     fields = {}
     cost = 50 + math.ceil(ctx.time / 60 * 20)
-    if robot['hp'] < robot['max_hp'] * .70 and disengaged(robot, ctx.time) \
-            and not robot.get('pending_heal') and ctx.budget >= cost + 100:
+    reserve=0 if robot['role']=='heavy' and robot['hp']<robot['max_hp']*.6 else 100
+    contacts=set(robot.get('last_raw_zones',[]))
+    free_heal=f'{ctx.team}_supply' in contacts or any(f'{owner}_outpost' in contacts and ctx.controls(f'{owner}_outpost',full=True) for owner in (ctx.team,ctx.enemy))
+    if not free_heal and robot['hp'] < robot['max_hp'] * .70 and disengaged(robot, ctx.time) \
+            and not robot.get('pending_heal') and ctx.budget >= cost + reserve:
         fields['remote_heal'] = True
         ctx.budget -= cost
     if robot['role'] == 'heavy':
         return fields
     if robot['ammo'] < 25 and not robot.get('pending_ammo') and ctx.time >= 1.05:
         local = can_buy_here(robot, ctx)
-        amount = min(100, ctx.ammo_remaining // 10 * 10) if local else 100
+        ammo_reserve=0 if local and robot['ammo']==0 else 50
+        affordable=max(0,int(ctx.budget-ammo_reserve)//10*10)
+        amount = min(100,ctx.ammo_remaining//10*10,affordable) if local else 100
         price = amount if local else 150
-        if (local or disengaged(robot, ctx.time)) and ctx.budget >= price + 50 \
+        if (local or disengaged(robot, ctx.time)) and ctx.budget >= price + ammo_reserve \
                 and 0 < amount <= ctx.ammo_remaining:
             fields['buy_ammo'] = {'amount': amount, 'remote': not local}
             ctx.budget -= price
@@ -228,23 +233,48 @@ def weapon(robot, ctx, reach=9., structures=False, drones_too=False):
         actual_aim, actual_pitch = barrel_angles(robot)
         cone = max(.004, min(.05, .055 / max(.5, distance(robot, (target['x'], target['y'])))))
         aligned = abs(wrap(aim - actual_aim)) < cone and abs(pitch - actual_pitch) < cone
-        margin = 100 if robot['role'] == 'heavy' else 10 if robot['cooling_rate'] >= 20 else 20
+        # A policy command lasts two 50 ms frames. Reserve both 17 mm rounds,
+        # including when a posture change reduces cooling before the shots.
+        margin = 100 if robot['role'] == 'heavy' else 20
         fire = aligned and can_fire(robot) and robot['heat'] + margin <= robot['max_heat']
         return {'aim': aim, 'pitch': pitch, 'fire': fire}
     return {'fire': False}
 
 
 def max_guard(robot, ctx):
+    # Reach the protected rear receiver before the first enemy wave. Taking
+    # the module trip first leaves the base open against fast native chassis.
+    if ctx.time < 8:
+        points = [max_local(ctx, p) for p in ((3.85, 5.8), (1.05, 5.8), (1.05, 7.5))]
+        opening = ctx.state.setdefault('opening_base', {'i': 0, 'heading': robot['heading']})
+        while opening['i'] < 2 and distance(robot, points[opening['i']]) < .2:
+            opening['i'] += 1
+        goal = points[opening['i']]
+        dx, dy = goal[0] - robot['x'], goal[1] - robot['y']
+        gap = math.hypot(dx, dy)
+        pace = min(1.8, gap * 3) / robot['speed_reference_mps']
+        return {'move': (dx / max(.01, gap) * pace, dy / max(.01, gap) * pace),
+                'heading': opening['heading'], 'power': 200, 'brake': True}
     fields = max_logistics(robot, ctx)
     launcher = robot.get('launcher', 'locked')
-    if ctx.time < 25 and launcher in ('locked', 'unlocked', 'installing'):
+    relief = any(r['slot'] != robot['slot'] and r['alive'] and not r.get('weak')
+        and r['id'] in ctx.obs['zones'].get(f'{ctx.team}_base', {}).get('occupants', [])
+        for r in ctx.obs['robots'])
+    at_supply=f'{ctx.team}_supply' in robot.get('last_raw_zones',[])
+    fitting=ctx.state.setdefault('launcher_trip',{})
+    late_install=at_supply and relief and not robot.get('weak') and robot['hp']>=robot['max_hp']*.8 \
+        and ctx.time>25 and ctx.time>=fitting.get('retry_at',0)
+    if late_install:
+        fitting.setdefault('since',ctx.time)
+        if ctx.time-fitting['since']>8.:
+            fitting.update(retry_at=ctx.time+45.);fitting.pop('since',None);late_install=False
+    elif not at_supply:fitting.pop('since',None)
+    if late_install and launcher in ('locked', 'unlocked', 'installing'):
         bench = workbench_point(robot, ctx.arena)
         fields.update(drive(robot, bench, ctx.obs, ctx.memory, .16))
+        if distance(robot,bench)<1.5:fields['heading']=math.pi/2 if ctx.team=='red' else -math.pi/2
         if distance(robot, bench) < .24:
             fields.update(move=(0, 0), brake=True, install_launcher=True)
-            if robot['ammo'] < 5 and ctx.budget >= 150 and ctx.time > 1.05:
-                fields['buy_ammo'] = {'amount': 10, 'remote': False}
-                ctx.budget -= 100
         return fields
     goal = max_local(ctx, (1.05, 7.5))
     recovering = ctx.state.setdefault('guard_recover', False)
@@ -369,21 +399,31 @@ def max_fighter(robot, ctx):
     expendable = (not on_home or home_relief) and (not on_front or covered)
     if robot.get('weak') or robot['hp'] < robot['max_hp'] * .24 and expendable:
         recovering = True
-    front_quiet = not any(e['alive'] and not e.get('invulnerable') and
-        distance(e, max_local(ctx, (17.1, 7.5))) < 5. for e in ctx.obs['enemies'])
-    if robot['role'] == 'sentry' and robot['ammo'] < 20 and due_grants > 0 and covered and front_quiet:
+    if robot['role'] == 'sentry' and robot['ammo'] < 20 and due_grants > 0 \
+            and (covered or home_relief):
         recovering = True
-    supply = ctx.zone(ctx.team, 'supply')
+    supply = max_supply_point(robot, ctx)
+    needs_grant = robot['role'] == 'sentry' and robot['ammo'] < 100 and due_grants > 0
+    contacts = set(robot.get('last_raw_zones', []))
+    local_heal = any(f'{owner}_outpost' in contacts and ctx.controls(f'{owner}_outpost', full=True)
+                     for owner in (ctx.team, ctx.enemy))
     if recovering and robot['hp'] >= robot['max_hp'] * .85 and not robot.get('weak') \
             and (robot['role'] != 'sentry' or robot['ammo'] >= 100 or due_grants <= 0) \
-            and distance(robot, supply) < 1.:
+            and robot.get('grounded',True) \
+            and not leg_memory(robot,ctx.obs,ctx.memory).get('nav_jump') \
+            and not leg_memory(robot,ctx.obs,ctx.memory).get('rim_hop'):
         recovering = False
         leg_memory(robot, ctx.obs, ctx.memory).clear()
         leg_memory(robot, ctx.obs, ctx.memory)['last_jump'] = -10.
         ctx.state.get('max_routes', {}).pop(key, None)
     recovery[key] = recovering
     if recovering:
-        fields.update(max_homeward(robot, supply, ctx))
+        hospitals = [supply]
+        if not needs_grant:
+            hospitals.extend(outpost_card_spot(ctx, owner) for owner in (ctx.team, ctx.enemy)
+                             if ctx.controls(f'{owner}_outpost', full=True))
+        hospital = (robot['x'], robot['y']) if local_heal and not needs_grant else min(hospitals, key=lambda p: distance(robot, p))
+        fields.update(max_homeward(robot, hospital, ctx))
     elif ctx.time < 1.2:
         fields.update(move=(0, 0), brake=True)
     else:
@@ -399,7 +439,8 @@ def max_fighter(robot, ctx):
                     or ctx.state.get('guard_recover'):
                 cover = True
             if heavy_robot is not None and heavy_robot['alive'] and not heavy_robot.get('weak') \
-                    and heavy_robot['hp'] >= heavy_robot['max_hp'] * .8 \
+                    and (heavy_robot['hp'] >= heavy_robot['max_hp'] * .8 or
+                         ctx.state.get('guard_secure') and heavy_robot['hp']>=heavy_robot['max_hp']*.2) \
                     and f'{ctx.team}_base' in heavy_robot.get('last_raw_zones', []):
                 cover = False
             ctx.state['base_cover'] = cover
@@ -407,10 +448,10 @@ def max_fighter(robot, ctx):
                 m = leg_memory(robot, ctx.obs, ctx.memory)
                 m.pop('entry_done', None)
                 m.pop('entry', None)
-            goal = max_local(ctx, (3.8, 8.15)) if cover else outpost_card_spot(ctx, ctx.team)
+            goal = max_local(ctx, (3.8, 8.15) if cover else (10.8, 9.25))
             fields.update(max_homeward(robot, goal, ctx) if cover else max_hold(robot, goal, ctx))
         elif robot['slot'] == 7:
-            fields.update(max_hold(robot, max_local(ctx, (17.15, 8.1)), ctx))
+            fields.update(max_hold(robot, max_local(ctx, (17.4, 8.1)), ctx))
         else:
             # Do not sink a healthy infantry into a base card kept active by
             # an entrenched defender. Win the two-outpost clock with a 2-v-1
@@ -425,7 +466,7 @@ def max_fighter(robot, ctx):
                     if local_point(ctx.team, (robot['x'], robot['y']))[0] > 11.5
                     else max_hold(robot, max_local(ctx, (10.85, 7.3)), ctx))
             elif not committed and enemy_base_active:
-                fields.update(max_hold(robot, max_local(ctx, (17.15, 9.15)), ctx))
+                fields.update(max_hold(robot, max_local(ctx, (17.1, 5.8)), ctx))
             else:
                 # The end ramp and the narrow corridor between the enemy
                 # tunnel and road humps avoid the defended central card.

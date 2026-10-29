@@ -68,8 +68,8 @@ class SolMax2027Tests(unittest.TestCase):
         for r in (a, b):
             r.update(ammo=0, pending_ammo=[], last_raw_zones=['red_base'])
         self.assertEqual(self.policy.max_logistics(a, ctx)['buy_ammo']['amount'], 100)
-        self.assertNotIn('buy_ammo', self.policy.max_logistics(b, ctx))
-        self.assertEqual(ctx.budget, 50)
+        self.assertEqual(self.policy.max_logistics(b, ctx)['buy_ammo']['amount'],50)
+        self.assertEqual(ctx.budget, 0)
 
     def test_purchase_cap_allows_last_local_batch(self):
         obs = self.obs()
@@ -87,7 +87,7 @@ class SolMax2027Tests(unittest.TestCase):
             obs = self.obs(side)
             obs.update(time=6., tick=120)
             r = next(r for r in obs['robots'] if r['slot'] == 3)
-            r.update(x=8.5 if side == 'red' else 19.5, y=6.9 if side == 'red' else 8.1,
+            r.update(x=8.7 if side == 'red' else 19.3, y=6.9 if side == 'red' else 8.1,
                      grounded=True, heading=0 if side == 'red' else math.pi)
             ctx = self.policy.Context(obs, {})
             self.policy.leg_memory(r, obs, ctx.memory)['entry'] = {'phase': 3, 'since': 5., 'began': 1.}
@@ -254,7 +254,9 @@ class SolMax2027Tests(unittest.TestCase):
             [(r['id'], round(r['x'], 2), round(r['y'], 2), states[r['team']].get('max_routes'),
               states[r['team']].get('stuck', {}).get('serial', {}).get(str(r['slot'])))
              for r in frame['robots'] if r['slot'] in (3, 4, 7)])
-        self.assertLessEqual(max(returned.values()), 45.)
+        # The safer end-ramp route is longer than the opening jump. Keep a
+        # bounded return for all six robots queued into the same corridor.
+        self.assertLessEqual(max(returned.values()), 48.)
         self.assertFalse(invalid)
 
 
