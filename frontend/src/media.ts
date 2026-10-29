@@ -11,6 +11,35 @@ const THROTTLE:Record<string,number>={'shot':.02,'shot-hero':.06,impact:.035,hit
 const IMPORTANT=new Set(['destroy','explosion','finish','respawn','rune_activated','base_hit','outpost_hit','level_up']);
 const rand=(a:number,b:number)=>a+Math.random()*(b-a);
 
+// Every soundtrack is leveled to the same integrated loudness (-10 dBFS gated RMS) before playback,
+// so moving between cues (or through the arena's own hand-off) never jumps in volume. The measurement
+// is the gated RMS of 400 ms blocks: quiet intros and silence between phrases are excluded, which is
+// close to the LUFS mastering target without pulling an OfflineAudioContext into the hot path.
+const MUSIC_TARGET_DB=-10,MUSIC_CROSSFADE=1.4,MUSIC_SEEK_FADE=.22;
+function trackLevel(buffer:AudioBuffer):number|null{
+  if(typeof (buffer as {getChannelData?:unknown}).getChannelData!=='function')return null;
+  const rate=buffer.sampleRate||48000;
+  if(!(buffer.length>0)||!(rate>0))return null;
+  const channels=Math.max(1,buffer.numberOfChannels||1),stride=Math.max(1,Math.floor(rate/8000));
+  const window=Math.max(1,Math.round(rate*.4)),hop=Math.max(1,Math.round(rate*.5)),energies:number[]=[];
+  for(let start=0;start<buffer.length;start+=hop){
+    const end=Math.min(buffer.length,start+window);let sum=0,count=0;
+    for(let ch=0;ch<channels;ch++){
+      const data=buffer.getChannelData(ch);if(!data)continue;
+      for(let i=start;i<end;i+=stride){const v=data[i]??0;sum+=v*v;count++;}
+    }
+    if(count)energies.push(sum/count);
+  }
+  if(!energies.length)return null;
+  const db=(energy:number)=>10*Math.log10(energy+1e-12);
+  const audible=energies.filter(energy=>db(energy)>-70);
+  if(!audible.length)return null;
+  const mean=audible.reduce((a,b)=>a+b,0)/audible.length;
+  const gated=audible.filter(energy=>db(energy)>db(mean)-10);
+  const kept=gated.length?gated:audible;
+  return db(kept.reduce((a,b)=>a+b,0)/kept.length);
+}
+
 type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number;loop:boolean};
 type MusicRequest={cue:BgmCue;scope:string;remaining:number;rate:number;at:number};
 type DroneVoice={gain:GainNode;panner:PannerNode;noise:AudioBufferSourceNode;oscillators:OscillatorNode[];nodes:AudioNode[]};
@@ -23,12 +52,15 @@ export type InterfaceCue='hover'|'click'|'select'|'confirm'|'back'|'open'|'succe
 export class ArenaAudio {
   enabled=false;context:AudioContext|null=null;master!:GainNode;destination!:MediaStreamAudioDestinationNode;
   private bus!:GainNode;private wet!:GainNode;private noise!:AudioBuffer;private last=new Map<string,number>();private voices:number[]=[];private arena={width:28,height:15};
-  private music!:GainNode;private buffers=new Map<string,AudioBuffer>();private loading=new Map<BgmCue,Promise<void>>();private resolved=new Map<BgmCue,string>();private failures=new Map<BgmCue,string[]>();private source:Music|null=null;private saturation!:Float32Array<ArrayBuffer>;private musicError:string|null=null;private musicStarts=0;
+  private music!:GainNode;private buffers=new Map<string,AudioBuffer>();private loading=new Map<BgmCue,Promise<void>>();private resolved=new Map<BgmCue,string>();private levels=new Map<string,number>();private failures=new Map<BgmCue,string[]>();private source:Music|null=null;private saturation!:Float32Array<ArrayBuffer>;private musicError:string|null=null;private musicStarts=0;
   // Every stage owns its track; match sources always start at zero.
   private wanted:MusicRequest|null=null;private paused=false;
   // Which cue already played its opening recording out, per match/screen, so the hand-off to the
   // looping track happens exactly once and survives speed changes, pause and re-renders.
   private handedOver:{cue:BgmCue;scope:string}|null=null;
+  // A `once` cue (the MVP card) has already been heard for this scope; the crossfade owner never
+  // restarts it, however often the caller re-renders.
+  private playedOnce:{cue:BgmCue;scope:string}|null=null;
   private bgmVolume=.6;private rotorVoices=new Map<string,DroneVoice>();
   private announcementBus!:GainNode;private announcementBuffers=new Map<KillCue,AudioBuffer>();
   private announcementLoads=new Map<KillCue,Promise<boolean>>();private announcementQueue:AnnouncementRequest[]=[];
@@ -68,13 +100,15 @@ export class ArenaAudio {
     if(!this.context){
       const c=this.context=new AudioContext({latencyHint:'interactive'});
       this.master=c.createGain();this.master.gain.value=.8;this.master.connect(c.destination);this.destination=c.createMediaStreamDestination();this.master.connect(this.destination);
-      const limitedBus=()=>{const limiter=c.createDynamicsCompressor();limiter.threshold.value=-9;limiter.knee.value=8;limiter.ratio.value=6;limiter.attack.value=.002;limiter.release.value=.2;limiter.connect(this.master);return limiter;};
+      const limitedBus=(threshold=-9,knee=8,ratio=6)=>{const limiter=c.createDynamicsCompressor();limiter.threshold.value=threshold;limiter.knee.value=knee;limiter.ratio.value=ratio;limiter.attack.value=.002;limiter.release.value=.2;limiter.connect(this.master);return limiter;};
       const limiter=limitedBus();
       this.bus=c.createGain();this.bus.gain.value=.58;this.bus.connect(limiter);
       const reverb=c.createConvolver();reverb.buffer=this.room(c,1.25);this.wet=c.createGain();this.wet.gain.value=.34;this.wet.connect(reverb);reverb.connect(limiter);
       this.noise=c.createBuffer(1,c.sampleRate*2,c.sampleRate);const data=this.noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
-      // Announcer peaks must not trigger compression on the music channel.
-      this.music=c.createGain();this.music.gain.value=.8*this.bgmVolume;this.music.connect(limitedBus());
+      // Music is already leveled to the shared target, so its bus only needs a true-peak ceiling:
+      // compressing the body of the mix here would undo the loudness normalization. Effects keep the
+      // tighter -9 dB bus limiter; the -3 dB music ceiling leaves headroom for speech on top.
+      this.music=c.createGain();this.music.gain.value=.8*this.bgmVolume;this.music.connect(limitedBus(-3,0,20));
       // Leave headroom when speech is added over a full-volume, unchanged BGM.
       this.announcementBus=c.createGain();this.announcementBus.gain.value=.65;this.announcementBus.connect(limiter);
       this.saturation=new Float32Array(2048);for(let i=0;i<this.saturation.length;i++){const x=i/(this.saturation.length-1)*2-1;this.saturation[i]=Math.tanh(x*1.45)/Math.tanh(1.45);}
@@ -99,10 +133,11 @@ export class ArenaAudio {
     if(paused)void this.context.suspend();else void this.context.resume().then(()=>{this.sync();this.syncAnnouncements();});
   }
   bgm(cue:BgmCue|null,scope='default',remaining=5,rate=1){
-    if(cue===null){this.wanted=null;this.fadeOut(.2);return;}
+    // The old track keeps playing until the new file is decoded: `sync` then crossfades the two, so
+    // a slow decode never leaves a silent gap and every cue change is gradual.
+    if(cue===null){this.wanted=null;this.fadeOut(MUSIC_CROSSFADE);return;}
     const changed=this.wanted?.cue!==cue||this.wanted?.scope!==scope;
-    if(changed){this.fadeOut(.16);this.wanted={cue,scope,remaining,rate,at:this.context?.currentTime??0};}
-    else if(cue==='countdown'){this.wanted={cue,scope,remaining,rate,at:this.context?.currentTime??0};}
+    if(changed||cue==='countdown')this.wanted={cue,scope,remaining,rate,at:this.context?.currentTime??0};
     if(this.enabled){void this.loadTrack(cue);this.sync();}
   }
   get musicPlaying(){return !!this.source;}
@@ -182,8 +217,15 @@ export class ArenaAudio {
       });
     };
     const load=attempt([...listed(MUSIC[cue].override),url,...listed(MUSIC[cue].fallback)])
-      .then(track=>{this.buffers.set(used,track);this.resolved.set(cue,used);this.musicError=null;this.sync();})
-      .catch(e=>{this.musicError=String(e.message||e);this.loading.delete(cue);});
+      .then(track=>{
+        this.buffers.set(used,track);
+        const level=trackLevel(track);if(level!==null)this.levels.set(used,level);
+        this.resolved.set(cue,used);this.musicError=null;this.sync();
+      })
+      .catch(e=>{
+        this.musicError=String(e.message||e);this.loading.delete(cue);
+        if(this.wanted?.cue===cue)this.fadeOut(MUSIC_CROSSFADE);
+      });
     this.loading.set(cue,load);return load;
   }
   private position(m:Music){const p=m.offset+(this.context!.currentTime-m.startedAt)*m.rate;return m.loop?p%m.duration:Math.min(p,m.duration);}
@@ -200,19 +242,24 @@ export class ArenaAudio {
   private sync(){
     const want=this.wanted;if(!this.enabled||!this.context||!want||this.paused)return;
     const cue=this.scoring(want);
+    if(MUSIC[cue].once&&this.playedOnce?.cue===cue&&this.playedOnce.scope===want.scope)return;
     const chosen=this.resolved.get(cue);
     const buffer=chosen?this.buffers.get(chosen):undefined;if(!buffer)return;
     const countdown=cue==='countdown',rate=countdown?Math.max(.5,Math.min(8,want.rate)):1;
     const target=countdown?Math.max(0,Math.min(buffer.duration-.001,5-Math.max(0,want.remaining-(this.context.currentTime-want.at)*rate))):0;
-    const s=this.source;
-    if(s&&s.cue===cue&&s.scope===want.scope){
-      if(!countdown||Math.abs(this.position(s)-target)<.35&&s.rate===rate)return;
-    }
-    this.fadeOut(.12);const c=this.context,node=c.createBufferSource(),gain=c.createGain();node.buffer=buffer;
+    const s=this.source,same=!!s&&s.cue===cue&&s.scope===want.scope;
+    if(same&&(!countdown||Math.abs(this.position(s!)-target)<.35&&s!.rate===rate))return;
+    // A cue change crossfades both recordings over the same window; seeking inside one countdown
+    // uses a shorter fade so the pips stay in step with the referee clock.
+    const fade=same?MUSIC_SEEK_FADE:MUSIC_CROSSFADE;
+    if(s)this.retire(s,fade);
+    const c=this.context,node=c.createBufferSource(),gain=c.createGain();node.buffer=buffer;
     // A hand-off cue runs to its end once, so the loop that follows is the other recording.
     node.loop=MUSIC[cue].loop&&!MUSIC[cue].then;node.loopStart=0;node.loopEnd=buffer.duration;node.playbackRate.value=rate;
-    gain.gain.setValueAtTime(.0001,c.currentTime);gain.gain.exponentialRampToValueAtTime(MUSIC[cue].gain,c.currentTime+.12);
+    gain.gain.setValueAtTime(.0001,c.currentTime);
+    gain.gain.exponentialRampToValueAtTime(Math.max(.0001,this.cueGain(cue)),c.currentTime+fade);
     node.connect(gain).connect(this.music);node.start(c.currentTime,target);
+    if(MUSIC[cue].once)this.playedOnce={cue,scope:want.scope};
     const current:Music={node,gain,offset:target,startedAt:c.currentTime,cue,scope:want.scope,rate,duration:buffer.duration,loop:node.loop};this.source=current;this.musicStarts++;
     node.onended=()=>{node.disconnect();gain.disconnect();if(this.source!==current)return;
       this.source=null;
@@ -221,10 +268,27 @@ export class ArenaAudio {
       this.sync();
     };
   }
-  private fadeOut(seconds:number){
-    const s=this.source;if(!s||!this.context)return;this.source=null;const t=this.context.currentTime;
-    s.gain.gain.cancelScheduledValues(t);s.gain.gain.setValueAtTime(Math.max(.0001,s.gain.gain.value),t);s.gain.gain.exponentialRampToValueAtTime(.0001,t+seconds);s.node.stop(t+seconds+.02);
+  // The playback gain for a cue: its shared trim scaled so the decoded recording lands on the same
+  // measured loudness as every other cue. Without a measurement (an older browser, a test stub) the
+  // trim alone is used, which keeps the same relative levels including the MVP boost.
+  private cueGain(cue:BgmCue){
+    const trim=MUSIC[cue].gain,file=this.resolved.get(cue),level=file?this.levels.get(file):undefined;
+    if(level===undefined)return trim;
+    // The ceiling is +40 dB because real soundtracks here are mastered far below the target
+    // (mvp-theme is about -36 dBFS gated RMS); a four-times ceiling left them inaudible. Clamp only
+    // the measurement, so the shared trim stays exactly the same for every cue.
+    const scale=Math.max(.05,Math.min(100,10**((MUSIC_TARGET_DB-level)/20)));
+    return Math.max(.0001,trim*scale);
   }
+  private retire(source:Music,seconds:number){
+    if(this.source===source)this.source=null;
+    if(!this.context)return;
+    const t=this.context.currentTime,gain=source.gain.gain;
+    gain.cancelScheduledValues(t);gain.setValueAtTime(Math.max(.0001,gain.value),t);
+    gain.exponentialRampToValueAtTime(.0001,t+seconds);
+    try{source.node.stop(t+seconds+.02);}catch{}
+  }
+  private fadeOut(seconds:number){const s=this.source;if(s)this.retire(s,seconds);}
   dispose(){this.enabled=false;this.wanted=null;this.fadeOut(.02);this.stopDrones();this.cancelAnnouncements();void this.context?.close();void this.interfaceContext?.close();}
   // Persistent rotor voices follow the flight state, rather than triggering every frame.
   drones(frame:Frame|null){

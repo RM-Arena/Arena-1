@@ -440,6 +440,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | visible projectiles |
 | `arena` | map geometry |
 | `referee` | referee snapshot: `robots` (no positions), `bases`, `outposts`, `positions`, `control` (both teams), `logistics` (your λ), `economy`, `events` |
+| `logistics`, `logistics_effects` | your logistics coefficient λ and what table 5-19 currently resolves to: `respawn_time_scale`, `supply_heal_scale`, `remote_heal_scale`, `interaction_bandwidth_bytes` (effective per-message byte cap), `fpv_resolution` (`width`, `height`, `pixels_scale`) |
 
 Common fields of each robot in `robots`:
 

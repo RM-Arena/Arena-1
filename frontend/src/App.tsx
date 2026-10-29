@@ -17,7 +17,7 @@ import './interaction.css';
 import {TeamLineupDialog,DEFAULT_LINEUPS,legalIn,sameLineup,validLineup} from './TeamLineup';
 import {SEASON_LABELS,SEASON_SLOTS,frameSeason,seasonOfMap,type RobotHardware,type Season,type TeamLineup} from './types';
 import {Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState,useSyncExternalStore,type ChangeEvent,type CSSProperties} from 'react';
-import {Home as HomeIcon,GraduationCap,LibraryBig,Palette,Settings2,Activity,ArrowDownToLine,ArrowUpFromLine,ChevronDown,Code2,Crosshair,Eye,History,Layers3,Maximize2,Minimize2,Pause,Play,Radio,RotateCw,Shield,Square,Target,Trophy,Video,Volume2,VolumeX,X,Zap} from 'lucide-react';
+import {Home as HomeIcon,Gamepad2,GraduationCap,LibraryBig,Palette,Settings2,Activity,ArrowDownToLine,ArrowUpFromLine,ChevronDown,Code2,Crosshair,Eye,History,Layers3,Maximize2,Minimize2,Pause,Play,Radio,RotateCw,Shield,Square,Target,Trophy,Video,Volume2,VolumeX,X,Zap} from 'lucide-react';
 import {ArenaScene} from './ArenaScene';
 import {DeckBuilder} from './DeckBuilder';
 import {UploadWizard} from './UploadWizard';
@@ -37,20 +37,23 @@ import {HighlightHud,Highlights,MvpCard,Prematch,Results,StartFlash,Victory} fro
 import {MatchStats,mvp as pickMvp,statsFromFrames,verdict} from './matchStats';
 import {robotImage} from './thumbnails';
 import {MODE_LABELS,ROLE_NAMES,TEAM_COLORS,type CameraMode,type CatalogEntry,type Frame,type MatchEvent,type MatchRecord,type Metadata,type PilotView,type RenderFeed,type Replay,type Robot,type ServerState,type Standing,type TeamId} from './types';
-import {PickRobotCard,HalfBrief,LinkHoverCard,PlayerCockpit} from './pilot';
-import {CLIP_PREROLL,CLIP_SECONDS,highlightReel} from './highlights';
+import {PickRobotCard,LinkHoverCard,PlayerCockpit,SpectatorVitals} from './pilot';
+import {assemblyFailText} from './assemblyNotes';
+import {CLIP_PREROLL,CLIP_SECONDS,CLIP_SECOND_SHOT,clipRival,highlightReel} from './highlights';
 import {RobotPickShot} from './LineupIntro';
 
 // The gallery and its visualisations load on first visit.
 const StrategyGallery=lazy(()=>import('./StrategyGallery').then(m=>({default:m.StrategyGallery})));
 async function api<T>(path:string,body?:unknown):Promise<T>{const response=await fetch(path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const value=await response.json();if(!response.ok)throw new Error(typeof value.detail==='string'?value.detail:value.error||'服务请求失败');return value;}
-function eventText(e:MatchEvent){if(e.type==='yellow_card')return `${e.robot} 黄牌警告`;if(e.type==='yellow_both')return '双方黄牌警告';if(e.type==='red_card')return `${e.robot} 红牌罚下`;if(e.type==='overspeed')return `${e.robot} 超弹速锁定`;if(e.type==='launcher_speed_rejected')return `${e.robot} 非法硬件弹速，停止发射`;if(e.type==='base_armor_opened')return `${e.team==='red'?'红':'蓝'}方基地护甲展开`;if(e.type==='forfeit')return `${e.team==='red'?'红':'蓝'}方被判负`;if(e.type==='destroy')return `${e.killer} 击毁 ${e.robot}`;if(e.type==='capture'&&e.team)return `${e.team==='red'?'红':'蓝'}方控制 ${e.zone}`;if(e.type==='upgrade')return `${e.robot} 升级${{damage:'火力',armor:'装甲',mobility:'机动'}[e.branch||'damage']||e.branch}`;if(e.type==='overheat')return `${e.robot} 武器过热`;if(e.type==='policy_error')return policyErrorText(e);if(e.type==='invalid_action')return `${e.robot} 非法动作：${e.reason}`;if(e.type==='ammo_purchase')return `${e.robot} 兑换弹量`;if(e.type==='respawn')return e.instant?`${e.robot} 满血复活 · 花费 ${e.cost??'—'} 金币`:`${e.robot} 自然复活 · 10% 血量`;if(e.type==='level_up')return `${e.robot} 等级提升`;if(e.type==='assembly_success')return `${e.team} 完成科技核心装配`;if(e.type==='rune_activated')return `${e.team} 激活能量机关`;if(e.type==='outpost_rebuilt')return `${e.team} 重建前哨站`;if(e.type==='rescue_grip')return `${e.robot} 机械臂抓住 ${e.target}`;if(e.type==='rescue_complete')return `${e.robot} 扶正 ${e.target}`;if(e.type==='finish')return e.winner?`${e.winner==='red'?'红':'蓝'}方获胜`:'比赛结束';return '';}
+function eventText(e:MatchEvent){if(e.type==='yellow_card')return `${e.robot} 黄牌警告`;if(e.type==='yellow_both')return '双方黄牌警告';if(e.type==='red_card')return `${e.robot} 红牌罚下`;if(e.type==='overspeed')return `${e.robot} 超弹速锁定`;if(e.type==='launcher_speed_rejected')return `${e.robot} 非法硬件弹速，停止发射`;if(e.type==='base_armor_opened')return `${e.team==='red'?'红':'蓝'}方基地护甲展开`;if(e.type==='forfeit')return `${e.team==='red'?'红':'蓝'}方被判负`;if(e.type==='destroy')return `${e.killer} 击毁 ${e.robot}`;if(e.type==='capture'&&e.team)return `${e.team==='red'?'红':'蓝'}方控制 ${e.zone}`;if(e.type==='upgrade')return `${e.robot} 升级${{damage:'火力',armor:'装甲',mobility:'机动'}[e.branch||'damage']||e.branch}`;if(e.type==='overheat')return `${e.robot} 武器过热`;if(e.type==='policy_error')return policyErrorText(e);if(e.type==='invalid_action')return `${e.robot} 非法动作：${e.reason}`;if(e.type==='ammo_purchase')return `${e.robot} 兑换弹量`;if(e.type==='respawn')return e.instant?`${e.robot} 满血复活 · 花费 ${e.cost??'—'} 金币`:`${e.robot} 自然复活 · 10% 血量`;if(e.type==='level_up')return `${e.robot} 等级提升`;if(e.type==='assembly_success')return `${e.team} 完成科技核心装配`;if(e.type==='assembly_failed')return `${e.team==='red'?'红':'蓝'}方装配失败：${assemblyFailText(e.reason)}`;if(e.type==='assembly_units_recovered')return `${e.team==='red'?'红':'蓝'}方科技核心回收能量单元`;if(e.type==='core_overload')return `${e.team==='red'?'红':'蓝'}方科技核心过载：运动路径受阻`;if(e.type==='rune_activated')return `${e.team} 激活能量机关`;if(e.type==='outpost_rebuilt')return `${e.team} 重建前哨站`;if(e.type==='rescue_grip')return `${e.robot} 机械臂抓住 ${e.target}`;if(e.type==='rescue_complete')return `${e.robot} 扶正 ${e.target}`;if(e.type==='finish')return e.winner?`${e.winner==='red'?'红':'蓝'}方获胜`:'比赛结束';return '';}
 // Replays open with the same lineup intro as live matches (its length depends on the robot count) and the 5 s countdown.
 const PREROLL={countdown:5};
-// A strategy that declares no lineup is a bundled whole-team baseline: it drives whatever chassis the
-// team fields, so it stays selectable after the pilot edits the lineup in the three-dimensional picker.
-// Only a submission pinned to one lineup is hidden once that lineup changes — otherwise a custom
-// lineup (every slot's model chosen by hand) emptied both strategy lists and the match could not start.
+// The fullscreen transport (pause / time / speed / BGM) folds away only after the pointer has been
+// outside a 64 px margin around it for nearly a second: the sliders are small targets at the edge of
+// the screen, and a bar that vanished on the first stray pixel was hard to use.
+const AUDIO_LEAVE_MARGIN=64,AUDIO_LEAVE_MS=900;
+// A team strategy always runs the lineup it was developed on; every other mode runs the lineup
+// chosen in the picker. Both sides may field different hardware, so this only sorts the list.
 const usableFor=(entry:CatalogEntry,lineup:TeamLineup)=>!entry.team_lineup||sameLineup(entry.team_lineup,lineup);
 type Post=null|'victory'|'results'|'mvp'|'highlight';
 // Where the open replay came from, so export can re-read it; full matches are ~450 MB, so their text is never kept in memory.
@@ -77,16 +80,14 @@ export function App(){
   const setTeamLineup=(value:TeamLineup)=>setLineups(current=>({...current,[season]:value}));
   const decks=deckSets[season],setDecks=(value:Record<TeamId,string[]>)=>setDeckSets(current=>({...current,[season]:value}));
   const seasonCatalog=useMemo(()=>Object.fromEntries(Object.entries(catalog).filter(([,entry])=>(entry.season||'2026')===season)),[catalog,season]);
-  // Strategies a lineup can run. Submissions pinned to another lineup are still listed (sorted
-  // after the matching ones and marked in the label) because a hand-built lineup would otherwise
-  // leave both dropdowns empty and the match could not start at all.
+  // Every strategy of the season is selectable; ones matching the picker lineup are listed first,
+  // because a team strategy runs its own locked lineup while other modes use the picker.
   const seasonChoices=useMemo(()=>{
     const all=Object.entries(seasonCatalog);
     const matched=all.filter(([,entry])=>usableFor(entry,teamLineup));
     const rest=all.filter(([,entry])=>!usableFor(entry,teamLineup));
     return [...matched,...rest];
   },[seasonCatalog,teamLineup]);
-  const lineupUnmatched=useMemo(()=>Object.keys(seasonCatalog).length>0&&!Object.values(seasonCatalog).some(entry=>usableFor(entry,teamLineup)),[seasonCatalog,teamLineup]);
   const seasonCards=useMemo(()=>Object.fromEntries(Object.entries(robotCards).filter(([,entry])=>(entry.season||'2026')===season&&(!entry.robot||legalIn(models[String(entry.robot)],season)||!Object.keys(models).length))),[robotCards,models,season]);
   const seasonDefault=season==='2027'?['claude_opus55_xhigh_2027_team','claude_opus55_xhigh_2027_hold']:['claude_opus55_xhigh_team','claude_opus55_xhigh_hold'];
   const [camera,setCamera]=useState<CameraMode>('orbit'),[selected,setSelected]=useState('red-1'),[sound,setSound]=useState(true),[showSubmit,setShowSubmit]=useState(false),[post,setPostState]=useState<Post>(null);
@@ -99,6 +100,26 @@ export function App(){
   // clicked until the confirmation plate is accepted.
   const [linkMode,setLinkMode]=useState(false),[linkHover,setLinkHover]=useState<string|null>(null),[linkPending,setLinkPending]=useState<string|null>(null);
   const linkPrevCamera=useRef<CameraMode>('orbit');
+  // The battle HUD is drawn for a ~1000×520 stage, so the viewport publishes a proportional zoom:
+  // a smaller window shrinks the whole overlay instead of leaving 420 px chips over a 600 px field.
+  // A callback ref (not an effect) is used because the viewport only mounts with the arena frame.
+  const viewportResize=useRef<ResizeObserver|null>(null);
+  const viewportRef=useCallback((el:HTMLDivElement|null)=>{
+    viewportResize.current?.disconnect();
+    viewportResize.current=null;
+    if(!el)return;
+    const apply=()=>{
+      const {width,height}=el.getBoundingClientRect();
+      if(width<40||height<40)return;
+      const scale=Math.min(1.25,Math.max(.55,Math.min(width/1000,height/520)));
+      el.style.setProperty('--hud-zoom',scale.toFixed(3));
+    };
+    apply();
+    const observer=new ResizeObserver(apply);
+    observer.observe(el);
+    viewportResize.current=observer;
+  },[]);
+  useEffect(()=>()=>viewportResize.current?.disconnect(),[]);
   const [images,setImages]=useState<Record<string,string>>({}),[preroll,setPreroll]=useState<{left:number}|null>(null),[startFlash,setStartFlash]=useState(0),[,setClockTick]=useState(0);
   const stats=useRef(new MatchStats()),director=useRef(new BroadcastDirector()),prerollRef=useRef<{left:number}|null>(null),prerollIntro=useRef(introSeconds(12)),postRef=useRef<Post>(null),requested=useRef(new Set<string>());
   // Every event of the current match, for the post-match highlight reel.
@@ -112,6 +133,8 @@ export function App(){
   // Where each clip starts inside the returned window sequence, so seeking is an index copy.
   const reelStarts=useRef<number[]>([]);
   const [reelReady,setReelReady]=useState(false),[reelIndex,setReelIndex]=useState(0),[reelPending,setReelPending]=useState(false);
+  // Which side of a clip the camera is showing: the unit dealing the damage or the unit taking it.
+  const [reelSide,setReelSide]=useState<'output'|'input'>('output');
   const [matches,setMatches]=useState<MatchRecord[]>([]),[pendingDelete,setPendingDelete]=useState<MatchRecord[]|null>(null),[standings,setStandings]=useState<Standing[]>([]),[log,setLog]=useState<MatchEvent[]>([]),[replay,setReplay]=useState<Replay|null>(null),[replayFrame,setReplayFrame]=useState<Frame|null>(null),[replayPlaying,setReplayPlaying]=useState(true),[replaySpeed,setReplaySpeed]=useState(1),[replayPosition,setReplayPosition]=useState(0);
   const feed=useRef<RenderFeed>({frame:null,previous:null,received:0,speed:1,paused:false,events:[],generation:'initial',replay:false});
   const liveRef=useRef<ServerState|null>(null),replayRef=useRef<Replay|null>(null),sourceRef=useRef<ReplaySource|null>(null),positionRef=useRef(0),playingRef=useRef(true),speedRef=useRef(1),seen=useRef(new Set<string>()),wsMessages=useRef(0),replayGeneration=useRef(0),replayScope=useRef(0),fileInput=useRef<HTMLInputElement>(null);
@@ -273,6 +296,9 @@ export function App(){
   const linkHoverRobot=useMemo(()=>linkHover?frame?.robots.find(r=>r.id===linkHover)??null:null,[linkHover,frame]);
   const modelImage=useCallback((r:Robot|null|undefined)=>r?images[`${r.model_asset||`/assets/robot-${r.role}.glb`}|${r.team}`]:undefined,[images]);
   const linkPendingRobot=useMemo(()=>linkPending?frame?.robots.find(r=>r.id===linkPending)??null:null,[linkPending,frame]);
+  const pilotRobot=useMemo(()=>pilot?frame?.robots.find(r=>r.id===pilot)??null:null,[pilot,frame]);
+  // Audience first person: the camera rides `selected`, so the bottom-left strip follows the same chassis.
+  const observeRobot=useMemo(()=>!pilot&&frame?frame.robots.find(r=>r.id===selected)??null:null,[pilot,frame,selected]);
   // A strategy's standing is stored per version (`name:version`), so the side brief reports the whole
   // history of that strategy: every version's games, with the rating weighted by how many each played.
   const standingFor=useCallback((side:TeamId)=>{
@@ -289,6 +315,20 @@ export function App(){
       rating:games>0?rows.reduce((n,r)=>n+r.rating*r.games,0)/games:rows[0].rating,
     };
   },[metadata,standings]);
+  // Side-picker briefs are plain data: the scene renders them over the half each one describes. Keyed
+  // on the match's teams and the standings, so a per-tick `frame` never re-renders the scene tree.
+  const halfBriefs=useMemo(()=>{
+    const brief=(side:TeamId)=>{
+      const team=metadata?.teams[side],entry=catalog[side];
+      return {
+        team:side==='red'?'红方':'蓝方',
+        strategy:strategyDisplayName(team)||strategyDisplayName(entry)||(side==='red'?'赤焰阵线':'深蓝阵线'),
+        mode:MODE_LABELS[team?.mode||entry?.mode||'team'],
+        standing:standingFor(side),
+      };
+    };
+    return {red:brief('red'),blue:brief('blue')};
+  },[metadata,catalog,standings,standingFor]);
   const pickRobot=useCallback((id:string)=>{
     const robot=liveFrameRef.current?.robots.find(r=>r.id===id);
     if(!robot||robot.role==='aerial')return;
@@ -301,7 +341,7 @@ export function App(){
   useEffect(()=>{if(frame?.robots.length&&!frame.robots.some(r=>r.id===selected)&&!frame.robots.some(r=>r.drones?.some(d=>d.id===selected)))setSelected(frame.robots[0].id);},[frame,selected]);
   // A finished match or an opened replay hands the robot back to its strategy.
   useEffect(()=>{if(!busy||replay||frame?.status==='finished')setPilot(null);},[busy,replay,frame?.status]);
-  useEffect(()=>{(window as Window&{arenaDiagnostics?:()=>unknown}).arenaDiagnostics=()=>({tick:feed.current.frame?.tick,robots:feed.current.frame?.robots.length,engine:feed.current.frame?.engine,recording:rec.capture?.kind??null,recordedFrames:recorder.frames,videoSaves:rec.jobs.map(j=>({stage:j.stage,progress:j.progress})),audioEnabled:audio.enabled,mode:feed.current.replay?'replay':'live',wsMessages:wsMessages.current,pace:Math.round(feed.current.pace??0),render:(window as unknown as {arenaRender?:unknown}).arenaRender??null,connected,prematch:liveRef.current?.prematch?.stage||(prerollRef.current?'preroll':null),post:postRef.current,music:audio.musicPlaying,audio:audio.diagnostics,killAnnouncement:director.current.highlight?.cue??null,page,matchMode,bgmVolume,camera,selected,fullscreen:document.fullscreenElement?.id==='viewport'||!!document.querySelector('.page-fullscreen'),prerollLeft:prerollRef.current?Math.round(prerollRef.current.left*1000)/1000:null,highlights:highlightClips.map(c=>c.key),reel:{ready:reelReady,index:reelIndex,playing:playingRef.current,position:Math.round(positionRef.current),frames:reelRef.current?.frames.length??0,starts:reelStarts.current},events:allEvents.current.length,eventTypes:allEvents.current.reduce<Record<string,number>>((m,e)=>(m[e.type]=(m[e.type]||0)+1,m),{})});},[audio,recorder,rec,connected,page,matchMode,bgmVolume,camera,selected,highlightClips]);
+  useEffect(()=>{(window as Window&{arenaDiagnostics?:()=>unknown}).arenaDiagnostics=()=>({tick:feed.current.frame?.tick,robots:feed.current.frame?.robots.length,engine:feed.current.frame?.engine,recording:rec.capture?.kind??null,recordedFrames:recorder.frames,videoSaves:rec.jobs.map(j=>({stage:j.stage,progress:j.progress})),audioEnabled:audio.enabled,mode:feed.current.replay?'replay':'live',wsMessages:wsMessages.current,pace:Math.round(feed.current.pace??0),render:(window as unknown as {arenaRender?:unknown}).arenaRender??null,connected,prematch:liveRef.current?.prematch?.stage||(prerollRef.current?'preroll':null),post:postRef.current,music:audio.musicPlaying,audio:audio.diagnostics,killAnnouncement:director.current.highlight?.cue??null,page,matchMode,bgmVolume,camera,selected,fullscreen:document.fullscreenElement?.id==='viewport'||!!document.querySelector('.page-fullscreen'),prerollLeft:prerollRef.current?Math.round(prerollRef.current.left*1000)/1000:null,highlights:highlightClips.map(c=>c.key),reel:{ready:reelReady,index:reelIndex,side:reelSide,playing:playingRef.current,position:Math.round(positionRef.current),frames:reelRef.current?.frames.length??0,starts:reelStarts.current},events:allEvents.current.length,eventTypes:allEvents.current.reduce<Record<string,number>>((m,e)=>(m[e.type]=(m[e.type]||0)+1,m),{})});},[audio,recorder,rec,connected,page,matchMode,bgmVolume,camera,selected,reelSide,highlightClips]);
   // Studio renders of every robot model for the cards, kill feed and post-match screens.
   useEffect(()=>{if(!frame)return;const wanted=new Set(frame.robots.map(r=>`${r.model_asset||`/assets/robot-${r.role}.glb`}|${r.team}`));
     if(post)for(const r of frame.robots)wanted.add(`${r.model_asset||`/assets/robot-${r.role}.glb`}|${r.team}|showcase`);
@@ -405,9 +445,40 @@ export function App(){
   useEffect(()=>{const sync=()=>setNativeFullscreen(document.fullscreenElement?.id==='viewport');document.addEventListener('fullscreenchange',sync);return()=>document.removeEventListener('fullscreenchange',sync);},[]);
   // The strip stays folded behind a small tab: fullscreen is also where the ceremony's own buttons
   // sit along the bottom, and a bar that pops back on every mouse move covers them. The tab opens it,
-  // leaving the strip folds it, and a quiet timeout closes it even if the pointer never left.
+  // and a quiet timeout closes it even if the pointer never left.
   useEffect(()=>{if(!fullscreen)setControlsOpen(false);},[fullscreen]);
-  useEffect(()=>{if(!controlsOpen)return;const timer=window.setTimeout(()=>setControlsOpen(false),8000);return()=>window.clearTimeout(timer);},[controlsOpen]);
+  // Leaving the strip used to fold it the instant the pointer crossed its border, which made the BGM
+  // slider and the speed picker frustrating to reach: a hand that drifted a few pixels off the edge
+  // lost the whole bar. It now closes only after the pointer has stayed outside a generous margin
+  // around it (AUDIO_LEAVE_MARGIN) for a moment (AUDIO_LEAVE_MS), and any time inside that margin
+  // keeps it open.
+  const controlsRef=useRef<HTMLDivElement|null>(null),pointerAt=useRef<{x:number;y:number}|null>(null);
+  useEffect(()=>{
+    if(!controlsOpen)return;
+    const track=(event:PointerEvent)=>{pointerAt.current={x:event.clientX,y:event.clientY};};
+    window.addEventListener('pointermove',track,{passive:true});
+    return()=>window.removeEventListener('pointermove',track);
+  },[controlsOpen]);
+  useEffect(()=>{
+    if(!controlsOpen)return;
+    const idle=window.setTimeout(()=>setControlsOpen(false),8000);
+    let frame=0,awaySince=0;
+    const step=()=>{
+      const box=controlsRef.current?.getBoundingClientRect(),at=pointerAt.current;
+      if(box&&at){
+        const near=at.x>=box.left-AUDIO_LEAVE_MARGIN&&at.x<=box.right+AUDIO_LEAVE_MARGIN
+          &&at.y>=box.top-AUDIO_LEAVE_MARGIN&&at.y<=box.bottom+AUDIO_LEAVE_MARGIN;
+        if(near)awaySince=0;
+        else{
+          if(!awaySince)awaySince=performance.now();
+          else if(performance.now()-awaySince>AUDIO_LEAVE_MS){setControlsOpen(false);return;}
+        }
+      }
+      frame=requestAnimationFrame(step);
+    };
+    frame=requestAnimationFrame(step);
+    return()=>{window.clearTimeout(idle);cancelAnimationFrame(frame);};
+  },[controlsOpen]);
   // F toggles fullscreen and Space pauses, unless typing in a form field; a pilot owns the
   // keyboard and mouse, so the global shortcuts stand down while someone is driving.
   const keyActions=useRef({toggleFullscreen,pause:()=>control('pause')});keyActions.current={toggleFullscreen,pause:()=>control('pause')};
@@ -485,7 +556,7 @@ export function App(){
     if(!data||!clip)return;
     const at=Math.max(0,Math.min(data.frames.length-1,reelStarts.current[index]??0));
     replayGeneration.current++;positionRef.current=at;playingRef.current=true;
-    setReelIndex(index);setReplayFrame(data.frames[at]);setReplayPosition(at);setReplayPlaying(true);
+    setReelIndex(index);setReelSide('output');setReplayFrame(data.frames[at]);setReplayPosition(at);setReplayPlaying(true);
     // An aerial beat rides the drone that made the strike; every other beat follows its star.
     const target=clip.drone??clip.star;
     if(target)setSelected(target);
@@ -496,7 +567,7 @@ export function App(){
   const closeHighlights=useCallback((next:Post=null)=>{
     reelRef.current=null;reelClips.current=[];reelStarts.current=[];
     replayRef.current=null;prerollRef.current=null;playingRef.current=false;
-    setReelReady(false);setReelPending(false);setReelIndex(0);setReplay(null);setReplayFrame(null);setPreroll(null);
+    setReelReady(false);setReelPending(false);setReelIndex(0);setReelSide('output');setReplay(null);setReplayFrame(null);setPreroll(null);
     if(liveRef.current)accept(liveRef.current);
     setPost(next);
   },[accept,setPost]);
@@ -518,6 +589,23 @@ export function App(){
     },CLIP_SECONDS*1000);
     return()=>window.clearTimeout(timer);
   },[reelReady,post,reelIndex,startClip,closeHighlights,hidden]);
+  // A five-second beat has two sides: the output unit's chase view while the shot lands, then a cut
+  // to the unit that took it. A receiver that is already destroyed keeps the chase view because the
+  // cockpit camera would freeze on its last frame.
+  useEffect(()=>{
+    if(!reelReady||post!=='highlight'||hidden)return;
+    const clip=reelClips.current[reelIndex],rival=clip?clipRival(clip):null;
+    if(!rival)return;
+    const timer=window.setTimeout(()=>{
+      const receiving=feed.current.frame?.robots.find(r=>r.id===rival);
+      // A robot that left the frame (or the replay ended) keeps the output view rather than cutting
+      // to whatever the selection fallback would land on.
+      if(!receiving)return;
+      setSelected(rival);setReelSide('input');
+      setCamera(receiving.alive===false?'follow':'fpv');
+    },CLIP_SECOND_SHOT*1000);
+    return()=>window.clearTimeout(timer);
+  },[reelReady,post,reelIndex,hidden]);
   // Once the data panel has handed over, coming back to it must not restart its countdown.
   const sawMvp=useRef(false);
   // A match recording runs from the walk-on to the MVP card. It ends eight seconds into the card, as
@@ -533,27 +621,20 @@ export function App(){
   useEffect(()=>{if(!startFlash)return;const id=window.setTimeout(()=>setStartFlash(0),1400);return()=>window.clearTimeout(id);},[startFlash]);
 
   useEffect(()=>{const keys=seasonChoices.map(([k])=>k);if(keys.length){if(!keys.includes(red))setRed(keys.includes(seasonDefault[0])?seasonDefault[0]:keys[0]);if(!keys.includes(blue))setBlue(keys.includes(seasonDefault[1])?seasonDefault[1]:keys[0]);}else if(Object.keys(catalog).length){if(red)setRed('');if(blue)setBlue('');}},[catalog,seasonChoices,teamLineup,red,blue,season]);
-  // Hardware models each team fields, for the appearance picker and the start request.
-  const fielded:Record<TeamId,number[]>=matchMode==='deck'?{red:decks.red.map(id=>seasonCards[id]?.robot).filter((m):m is number=>!!m),blue:decks.blue.map(id=>seasonCards[id]?.robot).filter((m):m is number=>!!m)}:{red:slots.map(s=>teamLineup[String(s)]),blue:slots.map(s=>teamLineup[String(s)])};
+  // Hardware each team fields: its strategy's locked lineup, otherwise the picker lineup.
+  const sideLineup=(team:TeamId)=>catalog[team==='red'?red:blue]?.team_lineup||teamLineup;
+  const fielded:Record<TeamId,number[]>=matchMode==='deck'?{red:decks.red.map(id=>seasonCards[id]?.robot).filter((m):m is number=>!!m),blue:decks.blue.map(id=>seasonCards[id]?.robot).filter((m):m is number=>!!m)}:{red:slots.map(s=>sideLineup('red')[String(s)]),blue:slots.map(s=>sideLineup('blue')[String(s)])};
   const chosenSkins=(team:TeamId)=>Object.fromEntries(Object.entries(skins[team]||{}).filter(([model,id])=>fielded[team].includes(Number(model))&&customs.some(c=>c.id===id&&c.base_model===Number(model))));
   const skinCount=Object.keys(chosenSkins('red')).length+Object.keys(chosenSkins('blue')).length;
-  // The lineup the chosen team strategies were locked to (the bundled ones all pin the season default).
-  // Only `team` submissions carry one; the distributed/squad modes run any lineup.
-  function standardLineup():TeamLineup{
-    return catalog[red]?.team_lineup||catalog[blue]?.team_lineup||teamLineup;
-  }
   async function start(){
     if(busy||launching||capturing)return;
     setLaunching(true);
     try{
       // The match recording starts before the request so it opens on the walk-on.
       if(saveMp4){await session.start('match');setSound(true);}
-      // A team strategy is submitted against one locked lineup, and the engine insists both sides run
-      // the same one, so a lineup edited in the chassis picker cannot start a match with it. Take the
-      // lineup the chosen strategies were locked to instead of failing with a 409.
-      const locked=standardLineup();
-      if(locked&&!sameLineup(locked,teamLineup))setTeamLineup(locked);
-      const result=await api<{match_id:string}>('/api/start',{red,blue,seed,duration,map,save_mp4:saveMp4,mode:matchMode,red_skins:chosenSkins('red'),blue_skins:chosenSkins('blue'),...(matchMode==='standard'?{team_lineup:locked??teamLineup}:{}),...(matchMode==='deck'?{red_deck:decks.red,blue_deck:decks.blue,...freeStartOptions(freeControllers)}:{})});
+      // A team strategy always runs its own locked lineup; the picker only fills in a side whose
+      // strategy declares none. Sending both sides separately keeps two different lineups intact.
+      const result=await api<{match_id:string}>('/api/start',{red,blue,seed,duration,map,save_mp4:saveMp4,mode:matchMode,red_skins:chosenSkins('red'),blue_skins:chosenSkins('blue'),...(matchMode==='standard'?{team_lineup:teamLineup,red_lineup:catalog[red]?.team_lineup,blue_lineup:catalog[blue]?.team_lineup}:{}),...(matchMode==='deck'?{red_deck:decks.red,blue_deck:decks.blue,...freeStartOptions(freeControllers)}:{})});
       if(saveMp4)session.attach(result.match_id);
       replayRef.current=null;prerollRef.current=null;setPreroll(null);setReplay(null);setReplayFrame(null);seen.current.clear();allEvents.current=[];setLog([]);setPost(null);resetBroadcast();setError('');setPage('arena');feed.current.generation='live:'+result.match_id;
     }catch(e){if(saveMp4)await session.cancel();setError((e as Error).message);}finally{setLaunching(false);}
@@ -621,36 +702,24 @@ export function App(){
     {error&&<div className="global-error"><Shield size={15}/><span>{error}</span><button aria-label="关闭提示" onClick={()=>setError('')}><X size={15}/></button></div>}
     {page==='home'?<Home models={models} catalog={catalog} cards={robotCards} busy={busy} standings={standings} connected={connected} live={busy&&live?.metadata?{red:strategyDisplayName(live.metadata.teams.red),blue:strategyDisplayName(live.metadata.teams.blue)}:null} onTraining={()=>navigatePage('training')} onBattle={enterBattle} onHistory={()=>navigatePage('history')} onRankings={()=>navigatePage('leaderboard')} onGallery={()=>navigatePage('gallery')} onWatch={()=>{backToLive();enterBattle(liveMode);}}/>:page==='training'?<Training models={models} lineup={teamLineup} season={season} onSeason={value=>setMap(value==='2026'?'rmuc2026':'rmuc2027')} onLineup={()=>setShowTeamLineup(true)} onSubmit={submitTraining} onBattle={mode=>enterBattle(mode==='adaptive'?'deck':'standard')} onBack={()=>navigatePage('home')}/>:page==='arena'?<>
     <div className="page-heading"><div><span className="eyebrow">LIVE SIMULATION</span><h1>{matchMode==='standard'?`RM 对战 · ${SEASON_LABELS[season]} · ${slots.length}V${slots.length}`:`自由对战 · ${SEASON_LABELS[season]} · 阵容由你决定`}</h1></div><div className="architecture-tags"><span><Activity size={12}/>Rapier · 120 Hz</span><span><Shield size={12}/>{live?.sandbox==='trusted-local'?'本地开发':'Docker 隔离'}</span><span><Code2 size={12}/>Python · 10 Hz</span></div></div>
-    <main className={`arena-layout ${pilot?'pilot-locked':''}`}><aside className="setup-panel"><div className="panel-heading"><span className="eyebrow">MATCH SETUP</span><span className="tiny-badge">{matchMode==='deck'?`${decks.red.length} v ${decks.blue.length}`:`${slots.length} v ${slots.length}`}</span></div><div className="matchup-title">准备上场阵容</div>{matchMode==='standard'&&<button id="strategy-matchmaker" className="team-lineup-button" disabled={busy||launching||capturing} onClick={()=>setShowMatchmaker(true)}>浏览全部策略 / 并排比较与配对</button>}{matchMode==='standard'&&<button className="team-lineup-button" disabled={busy||launching||capturing} onClick={()=>setShowTeamLineup(true)}>调整共同阵容 / 开始策略开发</button>}{matchMode==='standard'&&lineupUnmatched&&<p className="team-lineup-summary">当前阵容没有专用策略：已列出本季全部策略，按通用阵容运行；想用专用策略可点「调整共同阵容」换回已有阵容。</p>}<p className="battle-mode-note">{matchMode==='standard'?(season==='2027'?'RMUC 2027：每方一台重型、两台步兵、一套空中机器人系统、一台全自动哨兵。双方构型一致，只能选符合 2027 制作规范的型号。':'RMUC 2026：每方一台英雄、一台工程、一台无人机、三台步兵。双方构型一致。'):`每种机器人都有 3 条预置策略。红蓝双方自由搭配，型号可重复；只列出符合 ${SEASON_LABELS[season]} 制作规范的型号${season==='2027'?'，每方最多一套空中机器人系统':''}。`}</p>{matchMode==='standard'?<><label><span className="team-dot red"/>红方策略<select id="red-select" value={red} onChange={e=>setRed(e.target.value)} disabled={busy}>{seasonChoices.map(([id,c])=><option key={id} value={id}>{strategyDisplayName(c)} · {MODE_LABELS[c.mode]}{usableFor(c,teamLineup)?'':' · 阵容不符'}</option>)}</select></label><div className="strategy-version">{catalog[red]?.version.slice(0,10)}<span>{catalog[red]?.mode==='team'?'1 个策略进程':`${slots.length} 个策略进程`}</span></div><label><span className="team-dot blue"/>蓝方策略<select id="blue-select" value={blue} onChange={e=>setBlue(e.target.value)} disabled={busy}>{seasonChoices.map(([id,c])=><option key={id} value={id}>{strategyDisplayName(c)} · {MODE_LABELS[c.mode]}{usableFor(c,teamLineup)?'':' · 阵容不符'}</option>)}</select></label><div className="strategy-version">{catalog[blue]?.version.slice(0,10)}<span>{catalog[blue]?.mode==='team'?'1 个策略进程':`${slots.length} 个策略进程`}</span></div></>:<div className="deck-setup-summary">{(['red','blue'] as const).map(team=><div key={team}><strong style={{color:TEAM_COLORS[team]}}>{team==='red'?'红方':'蓝方'} · {decks[team].length} 台</strong><small>{freeControllers[team].mode==='team'?`Team 全队 · ${strategyDisplayName(catalog[freeControllers[team].strategy])||'请选择策略'}`:'独立控制 · 每台运行单机策略'}</small><div className="deck-summary-chips">{summarizeDeck(decks[team]).map(({id,count})=><span key={id} title={seasonCards[id]?`${seasonCards[id].model_name} · ${strategyLabel(seasonCards[id])}`:strategyName(id)}>{seasonCards[id]?.robot||'?'} · {seasonCards[id]?strategyLabel(seasonCards[id]):'不可用'}{count>1?` ×${count}`:''}</span>)}{!decks[team].length&&<small>还没有上场机器人</small>}</div></div>)}<button id="edit-decks" disabled={busy} onClick={()=>setShowDecks(true)}>配置机器人与策略</button><small>按型号选择 · 每台策略随时切换</small></div>}<button className="skin-button" disabled={busy} onClick={()=>setShowSkins(true)}><Palette size={14}/>机器人外观<span>{skinCount?`${skinCount} 个自定义`:customs.length?`${customs.length} 个可用`:'上传模型'}</span></button><div className="form-row"><label>随机种子<input id="seed" type="number" value={seed} onChange={e=>setSeed(Number(e.target.value))} disabled={busy}/></label><label>比赛时长<select id="duration" value={duration} onChange={e=>setDuration(Number(e.target.value))} disabled={busy}>{[420].map(s=><option key={s} value={s}>{s} 秒</option>)}</select></label></div><label>比赛地图<select id="map-select" value={map} onChange={e=>setMap(e.target.value as typeof map)} disabled={busy}><option value="rmuc2027">RMUC 2027 / 28 × 15 m（默认）</option><option value="rmuc2026">RMUC 2026 / 28 × 15 m</option></select></label><div className="map-note"><Layers3 size={13}/><span>{season==='2027'?'控制点 · 中央高地 · 制高点 · 机库 · 科技核心':'前哨站 · 能量机关 · 资源区 · 科技核心'}</span></div><label className="save-mp4-option"><input id="save-match-mp4" type="checkbox" checked={saveMp4} disabled={busy||launching||capturing} onChange={e=>setSaveMp4(e.target.checked)}/><span>自动录制整场 MP4<small>从赛前阵容录到 MVP 结算，结束后在后台转码并保存到「比赛与回放」，进度显示在右下角。</small></span></label><button id="start" className="primary start-button" disabled={busy||launching||capturing||(matchMode==='deck'&&(!decks.red.length||!decks.blue.length||[...decks.red,...decks.blue].some(id=>!seasonCards[id])||Object.values(freeControllers).some(c=>c.mode==='team'&&seasonCatalog[c.strategy]?.mode!=='team')))||(matchMode==='standard'&&(!seasonCatalog[red]||!seasonCatalog[blue]||(Object.keys(models).length>0&&!validLineup(teamLineup,models,season))))} onClick={()=>{setPlayerJoin(true);void start();}}><Play size={15} fill="currentColor"/>{busy?'比赛运行中':'开始对战'}</button><button className="submission-button" id="open-submission" onClick={()=>{setTrainingMode(matchMode==='deck'?'adaptive':'team');setShowSubmit(true);}}><Code2 size={14}/>上传策略</button><div className="setup-divider"/><span className="eyebrow">BROADCAST DIRECTOR</span><CameraControls mode={camera} onChange={setCamera}/><label>跟随目标<select id="follow-select" value={selected} onChange={e=>selectRobot(e.target.value)}>{frame?.robots.map(robot=>robot.drones?.length?<optgroup key={robot.id} label={`${robot.team==='red'?'红':'蓝'}方 ${robot.slot} 号 · 空中机器人 / 机库`}><option value={robot.id}>空中机器人（自动跟随无人机）</option>{robot.drones.map(d=><option key={d.id} value={d.id}>{d.index} 号无人机 · {({docked:'待机',flying:'飞行',down:'回收',disabled:'损毁'} as Record<string,string>)[d.state]}</option>)}</optgroup>:<option key={robot.id} value={robot.id}>{robot.team==='red'?'红':'蓝'}方 {robot.slot} 号 · {ROLE_NAMES[robot.role]}{robot.model_slot?` / ${robot.model_slot} 型`:''}</option>)}</select></label><div className="broadcast-buttons"><button id="sound" className={sound?'active':''} onClick={toggleAudio}>{sound?<Volume2 size={15}/>:<VolumeX size={15}/>}音效{sound?'开':'关'}</button><button id="record" className={rec.capture?'recording':''} disabled={rec.starting||capturingMatch} onClick={toggleRecording}>{rec.capture?.kind==='clip'?<Square size={13} fill="currentColor"/>:<Video size={15}/>} {rec.starting?'准备录制…':capturingMatch?'整场录制中':rec.capture?'停止并保存':'录制片段'}</button></div><p className="record-note">1080p / 30 FPS · 含比分与合成音轨 · 停止后转成 MP4 下载</p><div className="sdk-note"><Shield size={15}/><div>只提交策略，规则由引擎裁定。<span>独立单机策略的内部状态独立，通过队内消息配合。</span></div></div></aside>
+    <main className={`arena-layout ${pilot?'pilot-locked':''}`}><aside className="setup-panel"><div className="panel-heading"><span className="eyebrow">MATCH SETUP</span><span className="tiny-badge">{matchMode==='deck'?`${decks.red.length} v ${decks.blue.length}`:`${slots.length} v ${slots.length}`}</span></div><div className="matchup-title">准备上场阵容</div>{matchMode==='standard'&&<button id="strategy-matchmaker" className="team-lineup-button" disabled={busy||launching||capturing} onClick={()=>setShowMatchmaker(true)}>浏览全部策略 / 并排比较与配对</button>}{matchMode==='standard'&&<button className="team-lineup-button" disabled={busy||launching||capturing} onClick={()=>setShowTeamLineup(true)}>调整阵容 / 开始策略开发</button>}<p className="battle-mode-note">{matchMode==='standard'?(season==='2027'?'RMUC 2027：每方一台重型、两台步兵、一套空中机器人系统、一台全自动哨兵。双方可以各用不同型号，但每方阵容必须完整且符合 2027 制作规范。':'RMUC 2026：每方一台英雄、一台工程、一台无人机、三台步兵。双方可以各用不同型号，但每方阵容必须完整。'):`每种机器人都有 3 条预置策略。红蓝双方自由搭配，型号可重复；只列出符合 ${SEASON_LABELS[season]} 制作规范的型号${season==='2027'?'，每方最多一套空中机器人系统':''}。`}</p>{matchMode==='standard'?<><label><span className="team-dot red"/>红方策略<select id="red-select" value={red} onChange={e=>setRed(e.target.value)} disabled={busy}>{seasonChoices.map(([id,c])=><option key={id} value={id}>{strategyDisplayName(c)} · {MODE_LABELS[c.mode]}</option>)}</select></label><div className="strategy-version">{catalog[red]?.version.slice(0,10)}<span>{catalog[red]?.mode==='team'?'1 个策略进程':`${slots.length} 个策略进程`}</span>{catalog[red]?.team_lineup&&<span title={`锁定阵容 ${Object.values(catalog[red]!.team_lineup!).join(' / ')}`}>锁定阵容</span>}</div><label><span className="team-dot blue"/>蓝方策略<select id="blue-select" value={blue} onChange={e=>setBlue(e.target.value)} disabled={busy}>{seasonChoices.map(([id,c])=><option key={id} value={id}>{strategyDisplayName(c)} · {MODE_LABELS[c.mode]}</option>)}</select></label><div className="strategy-version">{catalog[blue]?.version.slice(0,10)}<span>{catalog[blue]?.mode==='team'?'1 个策略进程':`${slots.length} 个策略进程`}</span>{catalog[blue]?.team_lineup&&<span title={`锁定阵容 ${Object.values(catalog[blue]!.team_lineup!).join(' / ')}`}>锁定阵容</span>}</div></>:<div className="deck-setup-summary">{(['red','blue'] as const).map(team=><div key={team}><strong style={{color:TEAM_COLORS[team]}}>{team==='red'?'红方':'蓝方'} · {decks[team].length} 台</strong><small>{freeControllers[team].mode==='team'?`Team 全队 · ${strategyDisplayName(catalog[freeControllers[team].strategy])||'请选择策略'}`:'独立控制 · 每台运行单机策略'}</small><div className="deck-summary-chips">{summarizeDeck(decks[team]).map(({id,count})=><span key={id} title={seasonCards[id]?`${seasonCards[id].model_name} · ${strategyLabel(seasonCards[id])}`:strategyName(id)}>{seasonCards[id]?.robot||'?'} · {seasonCards[id]?strategyLabel(seasonCards[id]):'不可用'}{count>1?` ×${count}`:''}</span>)}{!decks[team].length&&<small>还没有上场机器人</small>}</div></div>)}<button id="edit-decks" disabled={busy} onClick={()=>setShowDecks(true)}>配置机器人与策略</button><small>按型号选择 · 每台策略随时切换</small></div>}<button className="skin-button" disabled={busy} onClick={()=>setShowSkins(true)}><Palette size={14}/>机器人外观<span>{skinCount?`${skinCount} 个自定义`:customs.length?`${customs.length} 个可用`:'上传模型'}</span></button><div className="form-row"><label>随机种子<input id="seed" type="number" value={seed} onChange={e=>setSeed(Number(e.target.value))} disabled={busy}/></label><label>比赛时长<select id="duration" value={duration} onChange={e=>setDuration(Number(e.target.value))} disabled={busy}>{[420].map(s=><option key={s} value={s}>{s} 秒</option>)}</select></label></div><label>比赛地图<select id="map-select" value={map} onChange={e=>setMap(e.target.value as typeof map)} disabled={busy}><option value="rmuc2027">RMUC 2027 / 28 × 15 m（默认）</option><option value="rmuc2026">RMUC 2026 / 28 × 15 m</option></select></label><div className="map-note"><Layers3 size={13}/><span>{season==='2027'?'控制点 · 中央高地 · 制高点 · 机库 · 科技核心':'前哨站 · 能量机关 · 资源区 · 科技核心'}</span></div><label className="save-mp4-option"><input id="save-match-mp4" type="checkbox" checked={saveMp4} disabled={busy||launching||capturing} onChange={e=>setSaveMp4(e.target.checked)}/><span>自动录制整场 MP4<small>从赛前阵容录到 MVP 结算，结束后在后台转码并保存到「比赛与回放」，进度显示在右下角。</small></span></label><button id="start" className="primary start-button" disabled={busy||launching||capturing||(matchMode==='deck'&&(!decks.red.length||!decks.blue.length||[...decks.red,...decks.blue].some(id=>!seasonCards[id])||Object.values(freeControllers).some(c=>c.mode==='team'&&seasonCatalog[c.strategy]?.mode!=='team')))||(matchMode==='standard'&&(!seasonCatalog[red]||!seasonCatalog[blue]||(Object.keys(models).length>0&&!validLineup(teamLineup,models,season))))} onClick={()=>{setPlayerJoin(true);void start();}}><Play size={15} fill="currentColor"/>{busy?'比赛运行中':'开始对战'}</button><button className="submission-button" id="open-submission" onClick={()=>{setTrainingMode(matchMode==='deck'?'adaptive':'team');setShowSubmit(true);}}><Code2 size={14}/>上传策略</button><div className="setup-divider"/><span className="eyebrow">BROADCAST DIRECTOR</span><CameraControls mode={camera} onChange={setCamera}/><label>跟随目标<select id="follow-select" value={selected} onChange={e=>selectRobot(e.target.value)}>{frame?.robots.map(robot=>robot.drones?.length?<optgroup key={robot.id} label={`${robot.team==='red'?'红':'蓝'}方 ${robot.slot} 号 · 空中机器人 / 机库`}><option value={robot.id}>空中机器人（自动跟随无人机）</option>{robot.drones.map(d=><option key={d.id} value={d.id}>{d.index} 号无人机 · {({docked:'待机',flying:'飞行',down:'回收',disabled:'损毁'} as Record<string,string>)[d.state]}</option>)}</optgroup>:<option key={robot.id} value={robot.id}>{robot.team==='red'?'红':'蓝'}方 {robot.slot} 号 · {ROLE_NAMES[robot.role]}{robot.model_slot?` / ${robot.model_slot} 型`:''}</option>)}</select></label><div className="broadcast-buttons"><button id="sound" className={sound?'active':''} onClick={toggleAudio}>{sound?<Volume2 size={15}/>:<VolumeX size={15}/>}音效{sound?'开':'关'}</button><button id="record" className={rec.capture?'recording':''} disabled={rec.starting||capturingMatch} onClick={toggleRecording}>{rec.capture?.kind==='clip'?<Square size={13} fill="currentColor"/>:<Video size={15}/>} {rec.starting?'准备录制…':capturingMatch?'整场录制中':rec.capture?'停止并保存':'录制片段'}</button></div><p className="record-note">1080p / 30 FPS · 含比分与合成音轨 · 停止后转成 MP4 下载</p><div className="sdk-note"><Shield size={15}/><div>只提交策略，规则由引擎裁定。<span>独立单机策略的内部状态独立，通过队内消息配合。</span></div></div></aside>
     <section className="stage-column">{frame?<>
       <div className="scoreboard"><div className="team-score red-score"><div><span className="eyebrow">RED / 攻击伤害</span><h2>{strategyDisplayName(metadata?.teams.red)||strategyDisplayName(catalog[red])||'红方'}</h2><span>{MODE_LABELS[metadata?.teams.red.mode||catalog[red]?.mode||'team']} · 基地 {Math.ceil(frame.bases.red.hp)} / 前哨 {Math.ceil(frame.outposts?.red.hp||0)}</span></div><strong id="red-score">{Math.floor(frame.teams.red.score)}</strong></div><div className="match-clock"><span id="match-state">{replay?'回放模式':frame.status==='ready'?(busy?'启动策略容器':'等待开赛'):frame.status==='finished'?'比赛结束':live?.paused?'比赛已暂停':'比赛进行中'}</span><strong id="clock">{clock(frame.remaining)}</strong><span>SEED {frame.seed}</span></div><div className="team-score blue-score"><strong>{Math.floor(frame.teams.blue.score)}</strong><div><span className="eyebrow">BLUE / 攻击伤害</span><h2>{strategyDisplayName(metadata?.teams.blue)||strategyDisplayName(catalog[blue])||'蓝方'}</h2><span>{MODE_LABELS[metadata?.teams.blue.mode||catalog[blue]?.mode||'team']} · 基地 {Math.ceil(frame.bases.blue.hp)} / 前哨 {Math.ceil(frame.outposts?.blue.hp||0)}</span></div></div></div>
-      <div className={`viewport ${pageFullscreen?'page-fullscreen':''} ${introShot?'intro-active':''} ${pilot?'pilot-active':''} ${pilotTeam?`pilot-team-${pilotTeam}`:''} ${post==='highlight'?'highlight-reel':''} ${pilot&&pilotPanel?'pilot-panel-open':''} ${pilot&&!pilotPanel?'pilot-aiming':''} ${pilot&&focus&&!focus.alive?'pilot-dead':''} ${picking?'pilot-picking':''} ${pickMode?'pilot-pick-active':''} ${prematch?'prematch':''} ${linkMode?'link-scan':''}`} id="viewport"><ArenaScene frame={frame} feed={feed} mode={camera} selected={selected} audio={audio} onSelect={selectRobot} onCanvas={onCanvas} onRender={onRender} shot={introShot} pilot={pilot} pick={picking} onPick={pickRobot} onPickHalf={pickSide} onPickHalfHover={setPickHalfHover} onPickHover={setPickHover} pickView={pickView} linkPick={linkMode&&!pilot} onLinkPick={setLinkPending} onLinkHover={setLinkHover} onPickSpectate={()=>setJoinHidden(true)}/>{!prematch&&!post&&<BroadcastHud frame={frame} metadata={metadata} stats={stats.current} director={director.current} images={images} selected={selected} onSelect={selectRobot} round="Round 1/1" pilot={pilot?pilot.split('-')[0] as 'red'|'blue':null} player={pilot}/>}<KillAnnouncement director={director.current} frame={frame} images={images} paused={audioPaused||!!prematch}/><div className="viewport-bottom"><span className={`live-badge ${rec.capture?'rec':''}`}><Radio size={11}/>{rec.capture?'RECORDING':replay?'REPLAY':'LIVE ARENA'}</span><span>{linkMode?'悬停查看机体 · 点击机体建立连接':'拖动旋转 · 滚轮缩放 · 点击机器人跟随'}</span></div>
+      <div className={`viewport ${pageFullscreen?'page-fullscreen':''} ${introShot?'intro-active':''} ${pilot?'pilot-active':''} ${pilotTeam?`pilot-team-${pilotTeam}`:''} ${post==='highlight'?'highlight-reel':''} ${pilot&&pilotPanel?'pilot-panel-open':''} ${pilot&&!pilotPanel?'pilot-aiming':''} ${pilot&&focus&&!focus.alive?'pilot-dead':''} ${picking?'pilot-picking':''} ${pickMode?'pilot-pick-active':''} ${pickStage==='side'&&pickHalfHover?`pick-half-${pickHalfHover}`:''} ${prematch?'prematch':''} ${linkMode?'link-scan':''}`} id="viewport" ref={viewportRef}><ArenaScene frame={frame} feed={feed} mode={camera} selected={selected} audio={audio} onSelect={selectRobot} onCanvas={onCanvas} onRender={onRender} shot={introShot} pilot={pilot} pick={picking} onPick={pickRobot} onPickHalf={pickSide} onPickHalfHover={setPickHalfHover} onPickHover={setPickHover} pickView={pickView} linkPick={linkMode&&!pilot} onLinkPick={setLinkPending} onLinkHover={setLinkHover} briefs={halfBriefs} onPickSpectate={()=>setJoinHidden(true)}/>{!prematch&&!post&&<BroadcastHud frame={frame} metadata={metadata} stats={stats.current} director={director.current} images={images} selected={selected} onSelect={selectRobot} round="Round 1/1" pilot={pilot?pilot.split('-')[0] as 'red'|'blue':null} player={pilot}/>}<KillAnnouncement director={director.current} frame={frame} images={images} paused={audioPaused||!!prematch}/><div className="viewport-bottom"><span className={`live-badge ${rec.capture?'rec':''}`}><Radio size={11}/>{rec.capture?'RECORDING':replay?'REPLAY':'LIVE ARENA'}</span><span>{linkMode?'悬停查看机体 · 点击机体建立连接':'拖动旋转 · 滚轮缩放 · 点击机器人跟随 · 跟随中可拖动环绕 · 按 P 打开驾驶菜单'}</span></div>
       {linkMode&&!pilot&&!linkPending&&linkHoverRobot&&<LinkHoverCard robot={linkHoverRobot} hardware={models?.[String(linkHoverRobot.model_slot??linkHoverRobot.slot)]??frame.robot_models?.[String(linkHoverRobot.model_slot??linkHoverRobot.slot)]} image={modelImage(linkHoverRobot)}/>}
-      {started&&busy&&!replay&&frame&&<PlayerCockpit frame={frame} active={pilot} onEngage={engagePilot} onRelease={releasePilot} view={pilotView} open={pilotPanel} onOpen={setPilotPanel} paused={!!live?.paused} onError={setError} camera={camera} onCamera={setCamera} onPause={()=>void control('pause')} fullscreen={fullscreen} onFullscreen={toggleFullscreen} link={linkMode} onLink={toggleLink} linkPending={linkPending} onLinkPick={setLinkPending} linkImage={modelImage(linkPendingRobot)}/>}
+      {!prematch&&!post&&frame.status==='running'&&camera==='fpv'&&observeRobot&&<SpectatorVitals frame={frame} robot={observeRobot} portrait={modelImage(observeRobot)}/>}
+      {/* The cockpit owns the pilot's HUD, so it goes away the moment the match is decided: leaving it
+          mounted would keep the bottom-left status panel on top of the victory, data and MVP cards
+          (and keep the 20 Hz command loop running against a finished match). */}
+      {started&&busy&&!replay&&!post&&frame&&frame.status!=='finished'&&<PlayerCockpit frame={frame} active={pilot} onEngage={engagePilot} onRelease={releasePilot} view={pilotView} open={pilotPanel} onOpen={setPilotPanel} paused={!!live?.paused} onError={setError} camera={camera} onCamera={setCamera} onPause={()=>void control('pause')} fullscreen={fullscreen} onFullscreen={toggleFullscreen} link={linkMode} onLink={toggleLink} linkPending={linkPending} onLinkPick={setLinkPending} linkImage={modelImage(linkPendingRobot)} portrait={modelImage(pilotRobot)}/>}
         <button className="fullscreen-toggle" title={fullscreen?'退出全屏 (F / Esc)':'全屏观战 (F)'} aria-label={fullscreen?'退出全屏':'全屏观战'} onClick={toggleFullscreen}>{fullscreen?<Minimize2 size={16}/>:<Maximize2 size={16}/>}<span>{fullscreen?'退出全屏':'全屏'}</span></button>
         {fullscreen&&!controlsOpen&&<button className="fullscreen-tab" onClick={()=>setControlsOpen(true)} aria-expanded={false} aria-label="显示播放控制" title="显示播放控制（暂停 / 进度 / 音量 / 退出全屏）"><i/></button>}
-        {fullscreen&&controlsOpen&&<div className="fullscreen-controls" onPointerLeave={()=>setControlsOpen(false)}><button onClick={()=>control('pause')} disabled={!busy&&!replay} aria-label={playing?'暂停':'继续'}>{playing?<Pause size={18}/>:<Play size={18}/>}</button><span>{clock(frame.time)} / {clock(frame.duration)}</span>{replay&&<input type="range" min={0} max={replay.frames.length-1} value={Math.floor(replayPosition)} onChange={e=>seek(Number(e.target.value))} aria-label="回放进度"/>}<select value={currentSpeed} onChange={e=>control('speed',Number(e.target.value))} aria-label="播放速度">{[.5,1,2,4,8].map(v=><option key={v} value={v}>{v}×</option>)}</select><AudioControls compact sound={sound} volume={bgmVolume} onToggle={toggleAudio} onVolume={setBgmVolume}/><button onClick={()=>setControlsOpen(false)} aria-label="收起控制条" title="收起控制条"><ChevronDown size={18}/></button><button onClick={toggleFullscreen} aria-label="退出全屏"><Minimize2 size={18}/></button></div>}{busy&&frame.status==='ready'&&!prematch&&<div className="initializing"><Activity size={16}/>正在准备隔离策略进程…</div>}
+        {fullscreen&&controlsOpen&&<div className="fullscreen-controls" ref={controlsRef}><button onClick={()=>control('pause')} disabled={!busy&&!replay} aria-label={playing?'暂停':'继续'}>{playing?<Pause size={18}/>:<Play size={18}/>}</button><span>{clock(frame.time)} / {clock(frame.duration)}</span>{replay&&<input type="range" min={0} max={replay.frames.length-1} value={Math.floor(replayPosition)} onChange={e=>seek(Number(e.target.value))} aria-label="回放进度"/>}<select value={currentSpeed} onChange={e=>control('speed',Number(e.target.value))} aria-label="播放速度">{[.5,1,2,4,8].map(v=><option key={v} value={v}>{v}×</option>)}</select><AudioControls compact sound={sound} volume={bgmVolume} onToggle={toggleAudio} onVolume={setBgmVolume}/>{started&&busy&&!replay&&!pilot&&frame&&frame.status!=='finished'&&<button className={`pilot-entry compact ${pilotPanel?'active':''}`} onClick={()=>setPilotPanel(v=>!v)} aria-expanded={pilotPanel} aria-label="驾驶菜单" title="驾驶菜单（P）"><Gamepad2 size={17}/></button>}<button onClick={()=>setControlsOpen(false)} aria-label="收起控制条" title="收起控制条"><ChevronDown size={18}/></button><button onClick={toggleFullscreen} aria-label="退出全屏"><Minimize2 size={18}/></button></div>}{busy&&frame.status==='ready'&&!prematch&&<div className="initializing"><Activity size={16}/>正在准备隔离策略进程…</div>}
         {prematch&&!picking&&<Prematch stage={prematch.stage} remaining={prematch.remaining} duration={prematch.duration} offset={introBaseNow} frame={frame} metadata={metadata} standings={standings} images={images} models={models} free={free} paused={replay?!replayPlaying:!!live?.paused} replay={!!replay} onCut={onIntroCut} onSkip={skipPrematch}/>}
         {pickStage==='side'&&<>
-          {/* No banner: the half under the pointer names itself, with the side's standing riding just
-              above that half. The spectator seat sits at the bottom, out of the field's way. */}
-          {(['red','blue'] as const).map(side=><HalfBrief key={side} side={side}
-            active={pickHalfHover===side}
-            team={side==='red'?'红方':'蓝方'}
-            strategy={strategyDisplayName(metadata?.teams[side])||strategyDisplayName(catalog[side])||(side==='red'?'赤焰阵线':'深蓝阵线')}
-            mode={MODE_LABELS[metadata?.teams[side].mode||catalog[side]?.mode||'team']}
-            standing={standingFor(side)}
-            robots={frame.robots.filter(r=>r.team===side&&r.role!=='aerial').length}/>)}
-          {/* The stands are the third answer, so they carry a brief of their own between the two sides. */}
-          <div className={`half-brief seat ${pickHalfHover==='seat'?'active':''}`}>
-            <span className="hb-side"><i/>观众席 · 看台</span>
-            <b>观战席</b>
-            <div className="hb-rows">
-              <span>视角<em>自由</em></span>
-              <span>接管<em>随时</em></span>
-            </div>
-            <small>整局交给策略 · 单击入座</small>
-          </div>
+          {/* No banner and no cards: the two halves are named by floating labels anchored over them by
+              the scene, and the spectator seat gets one of its own over the stands. The field stays
+              unobstructed and a narrow window can no longer squeeze three boxes into one strip. */}
           <div className={`half-seat ${pickHalfHover==='seat'?'active':''}`}>
             <span className="half-seat-hint" role="status">{pickHalfHover==='seat'
               ?'观众席已高亮 · 单击进入观众席，整局交给策略'
@@ -670,8 +739,8 @@ export function App(){
         {post==='victory'&&<Victory frame={frame}/>}
         {post==='results'&&<Results paused={capturingMatch&&hidden} frame={frame} metadata={metadata} stats={stats.current} images={images} auto={!sawMvp.current} onNext={openHighlights} onClose={()=>setPost(null)}/>}
         {post==='mvp'&&mvpResult&&<MvpCard mvp={mvpResult} metadata={metadata} image={images[`${mvpResult.robot.model_asset}|${mvpResult.robot.team}|showcase`]} onBack={()=>setPost('results')} onClose={()=>setPost(null)}/>}
-        {post==='highlight'&&(reelReady?<HighlightHud clips={highlightClips} index={reelIndex} frame={frame} onDone={()=>closeHighlights('mvp')}/>:reelPending?<div className="hl-notice"><span className="hl-badge">HIGHLIGHT</span><p>正在从本场回放中剪出高光片段…</p></div>:highlightClips.length&&frame?<Highlights clips={highlightClips} frame={frame} metadata={metadata} images={images} onDone={()=>closeHighlights('mvp')}/>:<div className="hl-notice"><span className="hl-badge">HIGHLIGHT</span><p>{frame?'本局没有留下可用的高光素材：素材从裁判事件里剪，不会凭空补镜头。':'回放数据不可用'}</p><button className="hl-hud-skip" onClick={()=>closeHighlights('mvp')}>进入 MVP 结算</button></div>)}</div>
-      <div className="transport"><button id="pause" className="play-button" disabled={!busy&&!replay} onClick={()=>control('pause')}>{playing?<Pause size={16}/>:<Play size={16}/>}<span>{playing?'暂停':'继续'}</span></button><div className="timeline"><input id="timeline" type="range" min={0} max={replay?replay.frames.length-1:frame.duration/(frame.dt||.05)} value={replay?Math.floor(replayPosition):frame.tick} disabled={!replay} onChange={e=>seek(Number(e.target.value))}/><div><span>{clock(frame.time)}</span><span>{replay?'拖动以定位回放':'实时仿真'} / {clock(frame.duration)}</span></div></div><select id="speed" value={currentSpeed} onChange={e=>control('speed',Number(e.target.value))}>{[.5,1,2,4,8].map(s=><option key={s} value={s}>{s}×</option>)}</select><button id="stop" className="icon-button" title="结束比赛" aria-label="结束比赛" disabled={!busy||!!replay} onClick={()=>control('stop')}><Square size={14}/></button><span className="transport-separator"/><button id="download" className="icon-button" title="导出回放" aria-label="导出回放" onClick={exportReplay}><ArrowDownToLine size={17}/></button><button id="load" className="icon-button" title="载入回放" aria-label="载入回放" onClick={()=>fileInput.current?.click()}><ArrowUpFromLine size={17}/></button>{replay&&sourceRef.current&&'id' in sourceRef.current&&matches.some(m=>m.id===(sourceRef.current as {id:string}).id&&m.has_video)&&<button onClick={()=>openVideo((sourceRef.current as {id:string}).id)}>播放 MP4</button>}{replay&&<button id="live" className="back-live" onClick={backToLive}>实时</button>}<input ref={fileInput} id="replay-file" type="file" accept=".json" hidden onChange={importReplay}/></div>
+        {post==='highlight'&&(reelReady?<HighlightHud clips={highlightClips} index={reelIndex} frame={frame} side={reelSide} onDone={()=>closeHighlights('mvp')}/>:reelPending?<div className="hl-notice"><span className="hl-badge">HIGHLIGHT</span><p>正在从本场回放中剪出高光片段…</p></div>:highlightClips.length&&frame?<Highlights clips={highlightClips} frame={frame} metadata={metadata} images={images} onDone={()=>closeHighlights('mvp')}/>:<div className="hl-notice"><span className="hl-badge">HIGHLIGHT</span><p>{frame?'本局没有留下可用的高光素材：素材从裁判事件里剪，不会凭空补镜头。':'回放数据不可用'}</p><button className="hl-hud-skip" onClick={()=>closeHighlights('mvp')}>进入 MVP 结算</button></div>)}</div>
+      <div className="transport"><button id="pause" className="play-button" disabled={!busy&&!replay} onClick={()=>control('pause')}>{playing?<Pause size={16}/>:<Play size={16}/>}<span>{playing?'暂停':'继续'}</span></button><div className="timeline"><input id="timeline" type="range" min={0} max={replay?replay.frames.length-1:frame.duration/(frame.dt||.05)} value={replay?Math.floor(replayPosition):frame.tick} disabled={!replay} onChange={e=>seek(Number(e.target.value))}/><div><span>{clock(frame.time)}</span><span>{replay?'拖动以定位回放':'实时仿真'} / {clock(frame.duration)}</span></div></div><select id="speed" value={currentSpeed} onChange={e=>control('speed',Number(e.target.value))}>{[.5,1,2,4,8].map(s=><option key={s} value={s}>{s}×</option>)}</select><button id="stop" className="icon-button" title="结束比赛" aria-label="结束比赛" disabled={!busy||!!replay} onClick={()=>control('stop')}><Square size={14}/></button>{started&&busy&&!replay&&!post&&frame&&frame.status!=='finished'&&!pilot&&<button id="pilot-open" className={`pilot-entry ${pilotPanel?'active':''}`} onClick={()=>setPilotPanel(v=>!v)} aria-expanded={pilotPanel} title="打开第一视角驾驶面板（P）"><Gamepad2 size={14}/><span>驾驶菜单</span><kbd>P</kbd></button>}<span className="transport-separator"/><button id="download" className="icon-button" title="导出回放" aria-label="导出回放" onClick={exportReplay}><ArrowDownToLine size={17}/></button><button id="load" className="icon-button" title="载入回放" aria-label="载入回放" onClick={()=>fileInput.current?.click()}><ArrowUpFromLine size={17}/></button>{replay&&sourceRef.current&&'id' in sourceRef.current&&matches.some(m=>m.id===(sourceRef.current as {id:string}).id&&m.has_video)&&<button onClick={()=>openVideo((sourceRef.current as {id:string}).id)}>播放 MP4</button>}{replay&&<button id="live" className="back-live" onClick={backToLive}>实时</button>}<input ref={fileInput} id="replay-file" type="file" accept=".json" hidden onChange={importReplay}/></div>
       {focus&&<div className="robot-inspector"><div className="inspector-title"><Crosshair size={16} style={{color:TEAM_COLORS[focus.team]}}/><span>{focus.team==='red'?'R':'B'}{focus.slot}<strong>{ROLE_NAMES[focus.role]}</strong></span><small>LV {focus.level}</small></div><div className="inspector-stat"><span>生命</span><strong>{focus.role==='aerial'?'不适用':Math.ceil(focus.hp)}<small>{focus.role==='aerial'?(focus.support_active?' / 空中支援':' / 停机待命'):` / ${focus.max_hp}`}</small></strong></div><div className="inspector-stat"><span>武器热量</span><div className="stat-meter heat"><i style={{width:`${focus.max_heat>0?focus.heat/focus.max_heat*100:0}%`}}/></div><small>{focus.overheated?'冷却中':Math.ceil(focus.max_heat>0?focus.heat/focus.max_heat*100:0)+'%'}</small></div><div className="inspector-stat"><span>裁判底盘能量</span><div className="stat-meter energy"><i style={{width:`${Math.min(100,(focus.energy||0)/400)}%`}}/></div><small>{Math.floor(Math.min(100,(focus.energy||0)/400))}% / 40 kJ</small></div><div className="inspector-stat"><span>击杀 / 伤害</span><strong>{focus.kills}<small> / {Math.floor(focus.damage)}</small></strong></div><div className="inspector-stat"><span>高程 / 速度</span><strong>{(focus.z||0).toFixed(1)}<small>m / {Math.hypot(focus.vx||0,focus.vy||0).toFixed(1)} m/s</small></strong></div></div>}
       {focus?.mass_kg&&<div className="hardware-inspector"><span>{focus.design_name}</span><span>整机 {focus.mass_kg.toFixed(2)} kg</span><span>驱动 {Math.round(focus.motor_power_w||0)} W</span><span>电池 {(focus.battery_remaining_wh||0).toFixed(1)} Wh</span><span>{focus.role==='aerial'?`支援 / ${focus.support_active?'飞行':'待命'}`:`电容 ${Math.round(focus.supercap_energy_j||0)} / 1800 J`}</span><span>{focus.charging_power_w?`无线充电 ${Math.round(focus.charging_power_w)} W`:focus.grounded?'已接地':'腾空'}</span></div>}
     </>:<div className="loading-app"><Activity size={20}/>{live?'选择阵容与策略，开始这场对战。':'连接 Rust 仿真引擎…'}</div>}</section>

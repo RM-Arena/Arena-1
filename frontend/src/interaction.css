@@ -35,7 +35,7 @@ input:focus-visible,select:focus-visible{border-color:#edc77f;box-shadow:0 0 0 3
 .camera-compact kbd{font:10px monospace;color:#8194a4;border:1px solid #9fbbcc33;border-radius:3px;padding:1px 3px;margin-left:3px}
 .viewport:fullscreen .camera-compact button,.viewport.page-fullscreen .camera-compact button{font-size:13px;padding:8px 12px}
 .fullscreen-controls{max-width:calc(100vw - 32px);flex-wrap:wrap;justify-content:center;white-space:nowrap}
-@media(max-width:680px){.camera-compact kbd{display:none}.camera-compact button{padding:6px 8px}.fullscreen-controls{left:6px;bottom:8px;gap:8px;width:max-content;max-width:calc(100vw - 12px);padding:7px 10px}.fullscreen-controls input[type=range]{width:100%}.fullscreen-controls .audio-controls label{width:72px}.fullscreen-tab{bottom:6px;width:48px}}
+@media(max-width:680px){.camera-compact kbd{display:none}.camera-compact button{padding:6px 8px}.fullscreen-controls{right:6px;left:auto;bottom:8px;gap:8px;width:max-content;max-width:calc(100vw - 12px);padding:7px 10px}.fullscreen-controls input[type=range]{width:100%}.fullscreen-controls .audio-controls label{width:72px}.fullscreen-tab{right:6px;left:auto;bottom:6px;width:48px}}
 @keyframes interface-page-in{from{opacity:0;translate:0 10px}to{opacity:1;translate:0 0}}
 @keyframes interface-card-in{from{opacity:0;translate:-8px 5px}to{opacity:1;translate:0 0}}
 @keyframes interface-dialog-in{from{opacity:0;scale:.96;translate:0 14px}to{opacity:1;scale:1;translate:0 0}}

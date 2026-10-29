@@ -26,6 +26,33 @@ fn lineup(models: &[(u32, u32)]) -> Option<BTreeMap<String, Vec<Deployment>>> {
     let list: Vec<Deployment> = models.iter().map(|(slot, model)| Deployment { slot: *slot, model: *model }).collect();
     Some([("red".into(), list.clone()), ("blue".into(), list)].into())
 }
+/// One lethal 17 mm hit, so death-time rules can be checked without driving the chassis.
+fn slain(m: &mut Engine, id: &str) {
+    let i = robot(m, id);
+    m.robots[i].hp = 5.0;
+    let r = m.robots[i].clone();
+    let face = [r.x + r.chassis_size_m[0] / 2.0, r.y, r.z + r.armor_center_z_m];
+    let p = Projectile { id: 1, source: "blue-4".into(), team: "blue".into(), role: "infantry".into(),
+        x: face[0] + 0.2, y: face[1], z: face[2], vx: -25.0, vy: 0.0, vz: 0.0, remaining: 1.0, damage: 20.0,
+        radius: 0.0084, deployed: false };
+    m.robot_hit_2027(i, &p, face[0], face[1], face[2]);
+}
+
+#[test]
+fn an_infantry_chassis_never_drives_faster_than_the_rulebook_cap() {
+    // 5 m/s is the rulebook ceiling for an infantry chassis. The default lineup fields the
+    // wheel-legged balancing infantry, and the fastest design in the table (the light omni
+    // infantry) sits exactly on the cap instead of over it.
+    let rules = &config().rulebook_2027["speed_limits"]["infantry_mps"].as_f64().unwrap();
+    assert_eq!(*rules, 5.0);
+    for model in [3, 4, 7, 301, 302, 303, 304, 305, 2731, 2732] {
+        let m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, 2711), (3, model), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+        let r = &m.robots[robot(&m, "red-3")];
+        assert!(r.speed_reference_mps <= 5.0, "{model}: {} m/s", r.speed_reference_mps);
+    }
+    let m = match_();
+    assert_eq!(m.robots[robot(&m, "red-3")].speed_reference_mps, 4.3);
+}
 
 #[test]
 fn default_lineup_fields_heavy_infantry_sentry_and_aerial_system() {
@@ -35,6 +62,7 @@ fn default_lineup_fields_heavy_infantry_sentry_and_aerial_system() {
     assert_eq!(slots, vec![1, 3, 4, 6, 7]);
     let heavy = &m.robots[robot(&m, "red-1")];
     assert_eq!((heavy.role.as_str(), heavy.design_slot(), heavy.hp, heavy.launcher.as_str()), ("heavy", 2711, 400.0, "locked"));
+    assert_eq!(heavy.speed_reference_mps, 2.5);
     let sentry = &m.robots[robot(&m, "red-7")];
     assert_eq!((sentry.role.as_str(), sentry.hp, sentry.ammo, sentry.max_heat, sentry.posture.as_str()), ("sentry", 400.0, 300, 260.0, "move"));
     let aerial = &m.robots[robot(&m, "red-6")];
@@ -47,6 +75,73 @@ fn default_lineup_fields_heavy_infantry_sentry_and_aerial_system() {
         assert_eq!((p.control.as_str(), p.controller.as_str()), ("full", p.owner.as_str()));
     }
     assert_eq!(m.snapshot()["rules"], "rmuc-2027-v1.0.0-arena-v1");
+}
+
+#[test]
+fn every_wheel_legged_infantry_model_supports_f_step_climbing() {
+    let designs = config().robot_designs;
+    let infantry: Vec<_> = designs.values()
+        .filter(|design| design["role"] == "infantry" && design["chassis_type"] == "wheel_legged")
+        .collect();
+    assert_eq!(infantry.len(), 4);
+    for design in infantry {
+        assert_eq!(design["step_climb_m"], 0.2, "{}", design["slot"]);
+        assert_eq!(design["capabilities"]["step_climb_m"], 0.2, "{}", design["slot"]);
+    }
+    for model in [3, 304, 305, 2731] {
+        let mut m = Engine::new_with_lineups(
+            42,
+            30.0,
+            "rmuc2027",
+            lineup(&[(1, 2711), (3, model), (4, 2732), (6, 2761), (7, 2771)]),
+        ).unwrap();
+        assert_eq!(m.robots[robot(&m, "red-3")].step_climb_m, 0.2, "model {model}");
+        m.step(&json!({"red":{"3":{"climb":1.0}}}));
+        assert!(
+            !m.events.iter().any(|event| event["type"] == "invalid_action"),
+            "model {model} rejected the F step-climb command"
+        );
+    }
+}
+
+#[test]
+fn heavy_translation_keeps_its_speed_while_turning_at_50w() {
+    // Speed is sampled while the chassis still has clear ground ahead: the corner of the field is
+    // only a few metres away, and a longer run measures the wall, not the turning cost.
+    let speed = |yaw_rate: f64| {
+        let mut m = match_();
+        let i = robot(&m, "red-1");
+        place(&mut m, i, 6.0, 1.5);
+        for _ in 0..40 {
+            m.step(&json!({"red":{"1":{"move":[1.0,0.0],"power":50.0,"yaw_rate":yaw_rate}}}));
+        }
+        m.robots[i].vx.hypot(m.robots[i].vy)
+    };
+    let straight = speed(0.0);
+    let gentle = speed(0.8);
+    let turning = speed(2.0);
+    eprintln!("straight {straight:.3} / yaw 0.8 {gentle:.3} / yaw 2.0 {turning:.3} m/s");
+    assert!(straight <= 2.5 + 0.02, "straight-line speed was {straight:.3} m/s");
+    // A heavy chassis pays for its yaw rate: a hard turn must bleed ground speed, a gentle one less.
+    assert!(turning < straight * 0.85, "turning speed {turning:.3} m/s barely lost anything off {straight:.3} m/s");
+    assert!(turning > straight * 0.3, "turning speed {turning:.3} m/s collapsed against {straight:.3} m/s");
+    assert!(gentle < straight * 0.98, "even a slow turn must cost something: {gentle:.3} vs {straight:.3}");
+    assert!(gentle > turning, "a slow turn ({gentle:.3}) must cost less than a fast one ({turning:.3})");
+}
+
+#[test]
+fn only_the_heavy_robot_pays_for_turning() {
+    // The turning cost is a heavy-robot property. Every other design must be untouched by it, so
+    // the parameter cannot silently change infantry or sentry handling.
+    let designs = config().robot_designs;
+    let paying: Vec<u32> = designs.values()
+        .filter(|design| design.get("turn_speed_loss_per_rad_s").and_then(Value::as_f64).unwrap_or(0.0) > 0.0)
+        .map(|design| design["slot"].as_u64().unwrap() as u32)
+        .collect();
+    assert_eq!(paying, vec![2711, 2712, 2713], "only the 2027 heavy designs pay for turning");
+    for slot in paying {
+        assert_eq!(designs[&slot.to_string()]["turn_speed_loss_per_rad_s"], 0.6, "{slot}");
+    }
 }
 
 #[test]
@@ -281,6 +376,64 @@ fn sentry_collects_one_hundred_rounds_per_minute_at_its_supply_area() {
     assert_eq!(m.robots[s].ammo, 500);
 }
 
+// Rulebook p.74: death clears the shot heat and hands the chassis a buffer full to its ceiling.
+#[test]
+fn a_destroyed_chassis_clears_its_heat_and_refills_the_buffer() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    let capacity = m.rules["power"]["buffer_capacity_j"].as_f64().unwrap();
+    m.robots[i].heat = m.robots[i].max_heat;
+    m.robots[i].buffer_energy_j = 0.0;
+    slain(&mut m, "red-3");
+    assert!(!m.robots[i].alive);
+    assert_eq!(m.robots[i].heat, 0.0);
+    assert_eq!(m.robots[i].buffer_energy_j, capacity);
+}
+
+// Rulebook p.74 worked example: 120 s left and two paid revives already taken -> 10 + 30 + 40 = 80.
+#[test]
+fn the_free_revive_bar_matches_the_published_formula() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    m.robots[i].instant_revives = 2;
+    m.tick = 20 * 300;
+    slain(&mut m, "red-3");
+    assert_eq!(m.robots[i].respawn_required, 80.0);
+    // Each paid revive taken earlier adds its own 20 s to the next bar.
+    let j = robot(&m, "red-4");
+    m.robots[j].instant_revives = 3;
+    slain(&mut m, "red-4");
+    assert_eq!(m.robots[j].respawn_required, 100.0);
+}
+
+// Rulebook p.74: 1 point per second, 4 while on the supply buff card or with the own base below 4000.
+#[test]
+fn the_revive_bar_runs_four_times_faster_at_supply_or_below_four_thousand_base_hp() {
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    slain(&mut m, "red-3");
+    m.robots[i].respawn_required = 1000.0;
+    m.robots[i].zone_contacts.clear();
+    m.bases.get_mut("red").unwrap().hp = 4000.0;
+    assert!(!m.contacted_zone_2027(i, "supply", Some("red")));
+    m.step(&json!({}));
+    assert!((m.robots[i].respawn_progress - 0.05).abs() < 1e-9, "4000 is not below the threshold");
+    m.bases.get_mut("red").unwrap().hp = 3999.0;
+    m.step(&json!({}));
+    let fast = m.robots[i].respawn_progress;
+    assert!((fast - 0.25).abs() < 1e-9, "below 4000 the bar runs at 4/s: {fast}");
+    m.bases.get_mut("red").unwrap().hp = 10000.0;
+    let supply = zone_center(&m, "red_supply");
+    place(&mut m, i, supply[0], supply[1]);
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    m.step(&json!({}));
+    assert!(m.contacted_zone_2027(i, "supply", Some("red")), "the supply card is detected");
+    let before = m.robots[i].respawn_progress;
+    m.step(&json!({}));
+    let fast = m.robots[i].respawn_progress - before;
+    assert!((fast - 0.2).abs() < 1e-9, "on the supply card the bar runs at 4/s: {fast}");
+}
+
 #[test]
 fn lost_base_hp_slows_respawn_and_remote_healing() {
     let mut m = match_();
@@ -299,6 +452,27 @@ fn lost_base_hp_slows_respawn_and_remote_healing() {
     m.robot_hit_2027(i, &Projectile { x: face[0] + 0.2, y: face[1], z: face[2], ..p }, face[0], face[1], face[2]);
     assert!(!m.robots[i].alive);
     assert_eq!(m.robots[i].respawn_required, 25.0);
+}
+
+#[test]
+fn lost_base_hp_scales_bandwidth_and_fpv_pixels_while_the_ui_stays_sharp() {
+    let mut m = match_();
+    assert_eq!(m.interaction_bandwidth_bytes("red"), 512);
+    assert_eq!(m.fpv_video("red")["width"], 1920);
+    assert!((m.fpv_video("red")["pixels_scale"].as_f64().unwrap() - 1.0).abs() < 1e-12);
+    // λ = 1 − 4000/20000 = 0.8: 512 B → 409 B, and the picture keeps 0.64 × 1920×1080 pixels.
+    m.bases.get_mut("red").unwrap().hp = 6000.0;
+    assert_eq!(m.interaction_bandwidth_bytes("red"), 409);
+    let video = m.fpv_video("red");
+    assert_eq!((video["width"].as_u64(), video["height"].as_u64()), (Some(1536), Some(864)));
+    assert!((video["pixels_scale"].as_f64().unwrap() - 0.64).abs() < 1e-12);
+    let effects = &m.observation("red", Some(&[3]))["logistics_effects"];
+    assert_eq!(effects["interaction_bandwidth_bytes"], 409);
+    assert!((effects["respawn_time_scale"].as_f64().unwrap() - 1.25).abs() < 1e-12);
+    assert!((effects["supply_heal_scale"].as_f64().unwrap() - 0.8).abs() < 1e-12);
+    assert_eq!(effects["fpv_resolution"]["width"], 1536);
+    // The other team's intact base is unaffected.
+    assert_eq!(m.interaction_bandwidth_bytes("blue"), 512);
 }
 
 #[test]
@@ -368,6 +542,81 @@ fn tunnel_cards_in_order_give_the_through_or_over_buffs() {
         }
         assert!(m.robots[i].crossing_buffs.contains_key(buff), "{buff}: {:?}", m.robots[i].crossing_buffs);
     }
+}
+
+#[test]
+fn a_level_order_always_gets_an_answer_so_the_panel_never_looks_dead() {
+    // Off the card: the order must be answered, not swallowed.
+    let mut m = match_();
+    let h = robot(&m, "red-1");
+    place(&mut m, h, 3.0, 7.5);
+    let command = json!({"red":{"1":{"assembly":1,"brake":true}}});
+    let mut refused = Vec::new();
+    for _ in 0..6 {
+        m.step(&command);
+        refused.extend(m.events.iter().filter(|e| e["type"] == "assembly_refused").map(|e| (e["reason"].as_str().unwrap_or("").to_string(), e["difficulty"].as_u64())));
+    }
+    assert!(refused.iter().any(|(reason, level)| reason == "outside_zone" && *level == Some(1)),
+        "an order given off the card has to come back as outside_zone: {refused:?}");
+    // Asking again repeats the order but not the explanation: one event per second, not per tick.
+    let repeats = refused.iter().filter(|(reason, _)| reason == "outside_zone").count();
+    assert!(repeats <= 3, "the refusal flooded the feed: {repeats} events in 6 ticks");
+
+    // On the card with no unit the answer names what is missing, so a pilot knows what to fix.
+    let mut m = match_();
+    let h = robot(&m, "red-1");
+    let frame = m.arena.assembly_frames["red"]["origin"].as_array().unwrap().clone();
+    let (ax, ay) = (frame[0].as_f64().unwrap(), frame[1].as_f64().unwrap());
+    let z0 = m.arena.assembly_frames["red"]["z0_m"].as_f64().unwrap();
+    place(&mut m, h, ax, ay);
+    m.robots[h].z = z0;
+    m.robots[h].carried_units = 0;
+    m.robots[h].heading = 0.0;
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    let mut reasons = Vec::new();
+    for _ in 0..12 {
+        m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+        reasons.extend(m.events.iter().filter(|e| e["type"] == "assembly_refused").map(|e| e["reason"].as_str().unwrap_or("").to_string()));
+    }
+    assert!(!reasons.is_empty(), "an order with no unit has to be answered, not ignored");
+    assert!(reasons.iter().all(|r| ["no_unit", "outside_zone", "busy", "locked"].contains(&r.as_str())),
+        "an unexplained refusal code: {reasons:?}");
+}
+
+#[test]
+fn mining_one_unit_takes_the_deliberate_slow_arm_time() {
+    // The arm works a grab at half rate: the sequence is a docking manoeuvre on a dispenser mouth,
+    // not a fast flick. Pin the wall-clock cost so a future rate change has to update this test.
+    let mut m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, 2711), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+    let h = robot(&m, "red-1");
+    let station = m.arena.field_geometry["fixtures"].as_array().unwrap().iter()
+        .find(|f| f["kind"] == "resource" && f["team"] == "red").unwrap().clone();
+    let (point, dir) = (&station["pick_point"], &station["pick_dir"]);
+    let (dx, dy) = (dir[0].as_f64().unwrap(), dir[1].as_f64().unwrap());
+    place(&mut m, h, point[0].as_f64().unwrap() - dx * 0.60, point[1].as_f64().unwrap() - dy * 0.60);
+    let r = &mut m.robots[h];
+    r.heading = dy.atan2(dx);
+    r.aim = r.heading;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    let command = json!({"red":{"1":{"pick_unit":true,"brake":true,"heading":dy.atan2(dx)}}});
+    let mut ticks = 0;
+    let mut carried = false;
+    for _ in 0..600 {
+        m.step(&command);
+        ticks += 1;
+        if m.robots[h].carried_units > 0 {
+            carried = true;
+            break;
+        }
+    }
+    assert!(carried, "the grab never completed: {:?}", m.robots[h].unit_pickup.as_ref().map(|p| p.stage.clone()));
+    let seconds = ticks as f64 * DT;
+    // A full grab is four stages held for 0.4 / 0.7 / 0.6 / 0.8 s plus the joint travel. At half
+    // rate it measures about 7 s; the previous rate finished the same grab in roughly half that,
+    // so a value under 5 s means the arm is running too fast again.
+    assert!(seconds > 5.0, "a grab took only {seconds:.2} s");
+    assert!(seconds < 15.0, "a grab took {seconds:.2} s, far beyond the slow arm's budget");
 }
 
 #[test]
@@ -475,6 +724,42 @@ fn a_heavy_carries_a_third_unit_in_its_gripper() {
 }
 
 #[test]
+fn a_grab_out_of_the_arms_reach_is_cancelled_instead_of_hanging_at_zero() {
+    // The resource zone is 0.55 m around the hub, but the wrist can only arrive from the park
+    // point one arm-length out. Standing at the zone edge used to start a grab whose tip never
+    // reached the unit: the stage stayed "approaching" at 0 % for as long as the key was held.
+    let mut m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, 2711), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+    let h = robot(&m, "red-1");
+    let station = m.arena.field_geometry["fixtures"].as_array().unwrap().iter()
+        .find(|f| f["kind"] == "resource" && f["team"] == "red").unwrap().clone();
+    let (point, dir) = (&station["pick_point"], &station["pick_dir"]);
+    let (dx, dy) = (dir[0].as_f64().unwrap(), dir[1].as_f64().unwrap());
+    place(&mut m, h, point[0].as_f64().unwrap() - dx * 1.10, point[1].as_f64().unwrap() - dy * 1.10);
+    let r = &mut m.robots[h];
+    r.heading = dy.atan2(dx);
+    r.aim = r.heading;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    let command = json!({"red":{"1":{"pick_unit":true,"brake":true,"heading":dy.atan2(dx)}}});
+    m.step(&command);
+    assert!(m.robots[h].unit_pickup.is_some(), "the grab starts inside the zone");
+    // The arm now works at half rate, so the unreachable-grab window is twice as long: sample past
+    // it instead of stopping at the old four-second mark.
+    let mut cancelled = false;
+    for _ in 0..240 {
+        m.step(&command);
+        if m.events.iter().any(|e| e["type"] == "unit_pickup_cancelled" && e["reason"] == "unreachable") {
+            cancelled = true;
+            break;
+        }
+    }
+    assert!(cancelled, "an unreachable grab has to fail, not sit at {:?}", m.robots[h].unit_pickup.as_ref().map(|p| p.stage.clone()));
+    assert!(m.robots[h].unit_pickup.is_none());
+    assert_eq!(m.robots[h].carried_units, 0);
+    assert_eq!(m.teams["red"].energy_units_left, Some(6), "a failed grab must not consume stock");
+}
+
+#[test]
 fn launcher_fitting_restarts_when_the_heavy_robot_stops_asking_or_leaves_the_workbench() {
     let mut m = match_();
     let h = robot(&m, "red-1");
@@ -571,4 +856,264 @@ fn drones_pushed_into_a_spinning_outpost_stay_outside_its_armor_and_tower() {
         contacts += structures::outpost_overlap(o, p, radius * 1.3, radius * 0.6).is_some() as u32;
     }
     assert!(contacts > 20, "the drone should rest against the outpost, contacts {contacts}");
+}
+
+#[test]
+fn enemy_fortress_hold_opens_the_base_after_ten_seconds() {
+    let mut m = match_();
+    // Past the three-minute activation window, red controls blue's outpost position and blue's
+    // outpost itself lies destroyed.
+    m.tick = 4000;
+    m.outposts.get_mut("blue").unwrap().hp = 0.0;
+    m.outposts.get_mut("blue").unwrap().ever_destroyed = true;
+    {
+        let p = m.positions.get_mut("blue_outpost").unwrap();
+        p.control = "temporary".into();
+        p.controller = "red".into();
+    }
+    let i = robot(&m, "red-3");
+    let [x, y] = zone_center(&m, "blue_fortress");
+    place(&mut m, i, x, y);
+    // Activation needs control of the owner's outpost position; after that the count only needs the
+    // pilot to stay on the card. Let one tick elapse so the count has started, then simulate the
+    // position lapsing back to blue: the base armor must still open at ten seconds on the card.
+    m.update_buffs_2027();
+    m.tick += 1;
+    m.update_buffs_2027();
+    assert!(m.robots[i].fortress_hold > 0.0, "the count did not start");
+    m.positions.get_mut("blue_outpost").unwrap().controller = "blue".into();
+    for _ in 0..210 {
+        m.tick += 1;
+        m.update_buffs_2027();
+    }
+    assert!(m.bases["blue"].armor_open, "hold={}", m.robots[i].fortress_hold);
+}
+
+#[test]
+fn enemy_fortress_cannot_activate_without_the_owner_outpost_position() {
+    let mut m = match_();
+    m.tick = 4000;
+    m.outposts.get_mut("blue").unwrap().hp = 0.0;
+    m.outposts.get_mut("blue").unwrap().ever_destroyed = true;
+    let i = robot(&m, "red-3");
+    let [x, y] = zone_center(&m, "blue_fortress");
+    place(&mut m, i, x, y);
+    for _ in 0..400 {
+        m.tick += 1;
+        m.update_buffs_2027();
+    }
+    assert!(!m.bases["blue"].armor_open);
+    assert_eq!(m.robots[i].fortress_hold, 0.0);
+}
+
+/// A heavy parked on the plinth with `units` cores, ready for an assembly order.
+fn docked_heavy(m: &mut Engine, units: u32) -> usize {
+    let h = robot(m, "red-1");
+    let zone = m.arena.zones.iter().find(|z| z.id == "red_assembly").unwrap().clone();
+    place(m, h, zone.x + 0.14, zone.y + 0.14);
+    let r = &mut m.robots[h];
+    r.heading = std::f64::consts::FRAC_PI_4;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    r.carried_units = units;
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    h
+}
+/// Steps until the first unit sits in the core (or the attempt ends).
+fn push_first_unit(m: &mut Engine, h: usize) {
+    for _ in 0..600 {
+        m.step(&json!({"red":{"1":{"assembly_insert":true,"brake":true}}}));
+        if m.assemblies["red"].core_units > 0 || m.assemblies["red"].stage == "failed" { break; }
+    }
+    assert_eq!(m.assemblies["red"].core_units, 1, "{}", m.assembly_snapshots()["red"]);
+    assert_eq!(m.robots[h].carried_units, 1, "the unit leaves the bays for the core");
+}
+
+#[test]
+fn an_inserted_unit_locks_the_2027_assembly_grade_and_pose() {
+    // Rule 88: with a unit already in the core the operator may not change the grade, and the core
+    // keeps the same pose for that grade until a unit is actually assembled.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 2);
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    let (pose, rotation, attempt) = (m.assemblies["red"].pose, m.assemblies["red"].target_rotation, m.assemblies["red"].attempt);
+    push_first_unit(&mut m, h);
+    for grade in [1, 2] {
+        for _ in 0..5 {
+            m.step(&json!({"red":{"1":{"assembly":grade,"brake":true}}}));
+        }
+        assert_eq!(m.assemblies["red"].attempt, attempt, "grade {grade} restarted with a unit in the core");
+        assert_eq!(m.assemblies["red"].pose, pose, "the core re-rolled its pose under grade {grade}");
+        assert_eq!(m.assemblies["red"].target_rotation, rotation);
+        assert_eq!(m.assembly_snapshots()["red"]["difficulty_locked"], true);
+        assert_eq!(m.assemblies["red"].stage, "inserting");
+    }
+}
+
+#[test]
+fn pulling_the_unit_back_out_fails_the_attempt_and_returns_it_to_the_robot() {
+    // Rule 89: pulling the unit out (a 10 N axial pull at most) makes the core report the loss and
+    // the attempt fails on the spot; the unit goes back to the robot.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 2);
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    push_first_unit(&mut m, h);
+    let mut aligned = false;
+    for _ in 0..300 {
+        m.step(&json!({"red":{"1":{"assembly_insert":true,"brake":true}}}));
+        if m.assembly_snapshots()["red"]["blocked_reason"].is_null() { aligned = true; break; }
+    }
+    assert!(aligned, "the arm has to reach the unit before it can pull it: {}", m.assembly_snapshots()["red"]["blocked_reason"]);
+    m.step(&json!({"red":{"1":{"assembly_extract":true,"brake":true}}}));
+    assert_eq!(m.assemblies["red"].stage, "failed");
+    assert_eq!(m.assemblies["red"].fail_reason.as_deref(), Some("unit_extracted"));
+    assert_eq!(m.assemblies["red"].core_units, 0, "the unit left the core with the robot");
+    assert_eq!(m.robots[h].carried_units, 2, "the pulled unit goes back into the empty bay");
+    assert!(m.events.iter().any(|e| e["type"] == "assembly_unit_extracted"), "the pull has to be reported");
+}
+
+#[test]
+fn a_destroyed_heavy_fails_the_attempt_and_the_core_keeps_the_unit_for_fifteen_seconds() {
+    // Rule 89: dying during an assembly fails it at once. The operator gets 15 s to clear the core
+    // before it salvages the unit, and acknowledging the failure salvages immediately.
+    let mut m = match_();
+    m.tick = (60.0 / DT) as u64;
+    let h = docked_heavy(&mut m, 2);
+    let stock = m.teams["red"].energy_units_left.unwrap();
+    // The two cores on board came out of the team's stock.
+    *m.teams.get_mut("red").unwrap().energy_units_left.as_mut().unwrap() -= 2;
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    push_first_unit(&mut m, h);
+    // Own assembly bay protects the heavy robot, so death can only strike once it is off the card
+    // (the 15 s grace the rules give it to clear the core).
+    // The heavy is only invulnerable on its own supply or assembly card, so the shot lands on the
+    // open field (spawn protection has expired by the 60 s mark).
+    let mut spot = None;
+    for gx in 1..8 {
+        for gy in 1..8 {
+            let x = m.arena.width * gx as f64 / 8.0 - m.arena.width * 0.5;
+            let y = m.arena.height * gy as f64 / 8.0 - m.arena.height * 0.5;
+            place(&mut m, h, x, y);
+            let free = ["assembly", "supply", "base", "high_point", "central", "fortress"]
+                .iter().all(|kind| !m.raw_zone(h, kind, Some("red")));
+            if free { spot = Some([x, y]); break; }
+        }
+        if spot.is_some() { break; }
+    }
+    let spot = spot.expect("the field has open ground outside every zone");
+    place(&mut m, h, spot[0], spot[1]);
+    // The assembly bay keeps protecting the heavy for a moment after it is off the card, so drop the
+    // stale zone contact, step once for the position-driven buffs, and square the chassis up so the
+    // shot lands on its front plate instead of a corner.
+    m.robots[h].zone_contacts.clear();
+    m.step(&json!({"red":{"1":{"brake":true}}}));
+    m.robots[h].heading = 0.0;
+    m.robots[h].quaternion = [0.0, 0.0, 0.0, 1.0];
+    slain(&mut m, "red-1");
+    assert!(!m.robots[h].alive, "the heavy has to die off the assembly card");
+    m.step(&json!({"red":{"1":{"brake":true}}}));
+    assert_eq!(m.assemblies["red"].stage, "failed");
+    assert_eq!(m.assemblies["red"].fail_reason.as_deref(), Some("heavy_destroyed"));
+    assert_eq!(m.assemblies["red"].core_units, 1, "the core still holds the unit");
+    let wait = m.assemblies["red"].recover_at.unwrap() - m.time();
+    assert!((wait - 15.0).abs() < 0.5, "the operator's clearing window is 15 s, got {wait}");
+    // The robot cannot come back in 15 s, so the core salvages the unit into the team's stock.
+    let mut recovered = false;
+    for _ in 0..(17.0 / DT) as usize {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+        recovered |= m.events.iter().any(|e| e["type"] == "assembly_units_recovered");
+    }
+    assert_eq!(m.assemblies["red"].core_units, 0, "a failed attempt never destroys the unit");
+    assert_eq!(m.teams["red"].energy_units_left, Some(stock - 1), "the salvaged unit returns to the team's stock");
+    assert!(recovered, "the core has to report the salvage");
+}
+
+#[test]
+fn losing_the_interaction_card_for_fifteen_seconds_ends_the_attempt_and_salvages_at_once() {
+    // Rule 88: 15 s without the assembly card ends the attempt and the core salvages the unit right
+    // away, so the operator finds the unit back in the team's stock instead of lost in the core.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 2);
+    let stock = m.teams["red"].energy_units_left.unwrap();
+    *m.teams.get_mut("red").unwrap().energy_units_left.as_mut().unwrap() -= 2;
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    push_first_unit(&mut m, h);
+    let away = m.arena.zones.iter().find(|z| z.id == "red_resource").map(|z| [z.x, z.y]).unwrap();
+    place(&mut m, h, away[0], away[1]);
+    for _ in 0..(16.0 / DT) as usize {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+        if m.assemblies["red"].stage == "failed" { break; }
+    }
+    assert_eq!(m.assemblies["red"].stage, "failed");
+    assert_eq!(m.assemblies["red"].fail_reason.as_deref(), Some("left_assembly_area"));
+    for _ in 0..4 {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+    }
+    assert_eq!(m.assemblies["red"].core_units, 0);
+    assert_eq!(m.teams["red"].energy_units_left, Some(stock - 1));
+}
+
+#[test]
+fn a_robot_parking_in_the_cores_path_stalls_it_under_an_overload_alarm() {
+    // Rule 89: the core has no obstacle sensing. A robot on its path trips an overload alarm, the
+    // motion holds, and it resumes once the way is clear.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 1);
+    let zone = m.arena.zones.iter().find(|z| z.id == "red_assembly").map(|z| [z.x, z.y]).unwrap();
+    let walker = robot(&m, "red-3");
+    // Park the blocker on the core's own entry point, which is where the core would sweep through.
+    let (entry, _, _) = m.core_entry("red").unwrap();
+    place(&mut m, walker, entry[0], entry[1]);
+    m.robots[walker].alive = true;
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    let start = m.assemblies["red"].current_pose;
+    let mut alarm = false;
+    for _ in 0..40 {
+        m.step(&json!({"red":{"1":{"brake":true}},"red-3":{"brake":true}}));
+        alarm |= m.events.iter().any(|e| e["type"] == "core_overload");
+    }
+    assert!(alarm, "the blocked core has to alarm");
+    assert_eq!(m.assemblies["red"].current_pose, start, "a blocked core holds its pose");
+    place(&mut m, walker, zone[0] + 4.0, zone[1] + 4.0);
+    for _ in 0..40 {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+    }
+    assert_ne!(m.assemblies["red"].current_pose, start, "the core resumes once the path clears");
+    let _ = h;
+}
+
+#[test]
+fn a_finished_assembly_leaves_the_core_re_initialising_for_five_seconds() {
+    // Rule 88: the core has to re-initialise after a successful assembly, so the next order is
+    // refused until the countdown runs out and the frame reports how long is left.
+    let mut m = match_();
+    docked_heavy(&mut m, 2);
+    m.step(&json!({"red":{"1":{"assembly":1,"assembly_insert":true,"assembly_confirm":true,"brake":true}}}));
+    let mut done = false;
+    for _ in 0..1200 {
+        m.step(&json!({"red":{"1":{"assembly_insert":true,"assembly_confirm":true,"brake":true}}}));
+        if m.assemblies["red"].stage == "complete" { done = true; break; }
+    }
+    assert!(done, "{}", m.assembly_snapshots()["red"]);
+    let finished = m.assemblies["red"].clone();
+    let cooldown = m.assembly_snapshots()["red"]["repeat_cooldown_s"].as_f64().unwrap();
+    assert!((cooldown - 5.0).abs() < 0.5, "re-initialisation is 5 s, got {cooldown}");
+    // Ordering again right away is refused, so the attempt does not restart.
+    let mut refused = false;
+    for _ in 0..8 {
+        m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+        refused |= m.events.iter().any(|e| e["type"] == "assembly_refused");
+    }
+    assert!(refused, "the core has to answer the order while it re-initialises");
+    assert_eq!((m.assemblies["red"].stage.clone(), m.assemblies["red"].attempt), ("complete".into(), finished.attempt));
+    assert!(m.assemblies["red"].repeat_ready_at - m.time() > 3.0, "still re-initialising");
+    // Once the countdown is spent the core takes the next unit again.
+    let mut started = false;
+    for _ in 0..(7.0 / DT) as usize {
+        m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+        if m.assemblies["red"].stage != "complete" { started = true; break; }
+    }
+    assert!(started, "cooldown={} snap={}", m.assemblies["red"].repeat_ready_at - m.time(), m.assembly_snapshots()["red"]);
+    assert_eq!(m.assemblies["red"].stage, "moving");
+    assert!(m.assemblies["red"].attempt > finished.attempt);
+    assert_eq!(m.assembly_snapshots()["red"]["repeat_cooldown_s"].as_f64().unwrap(), 0.0);
 }

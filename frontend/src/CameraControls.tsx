@@ -11,6 +11,6 @@ export const CAMERA_MODES=[
 
 export function CameraControls({mode,onChange,compact=false}:{mode:CameraMode;onChange:(mode:CameraMode)=>void;compact?:boolean}){
   return <div className={`camera-buttons ${compact?'camera-compact':''}`} role="group" aria-label="镜头模式">
-    {CAMERA_MODES.map(({id,label,key,icon:Icon})=><button key={id} title={`${label}视角 (${key})`} aria-label={`${label}视角`} aria-pressed={mode===id} className={mode===id?'active':''} data-cam={id} data-sound="select" onClick={()=>onChange(id)}><Icon size={14}/><span>{label}</span>{compact&&<kbd>{key}</kbd>}</button>)}
+    {CAMERA_MODES.map(({id,label,key,icon:Icon})=><button key={id} title={`${label}视角 (${key})${id==='follow'?' · 拖动环绕机体':''}`} aria-label={`${label}视角`} aria-pressed={mode===id} className={mode===id?'active':''} data-cam={id} data-sound="select" onClick={()=>onChange(id)}><Icon size={14}/><span>{label}</span>{compact&&<kbd>{key}</kbd>}</button>)}
   </div>;
 }

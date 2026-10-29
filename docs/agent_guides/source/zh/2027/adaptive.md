@@ -44,7 +44,7 @@ def act(obs, state):
     return {slot: action(messages=outgoing)}, {"teammates": [r["id"] for r in teammates]}
 ```
 
-消息每轮最多 4 条，`data` 是最多 512 bytes 的 JSON 值，与其他动作一起计入自身动作的 1 KiB 上限。`to="all"` 广播给当前其余队友，或指定队友部署编号字符串（不是型号）。本轮发送在下一次决策（0.1 s 后）通过 `obs["messages"]` 接收一次。
+消息每轮最多 4 条，`data` 是最多 512 bytes 的 JSON 值，与其他动作一起计入自身动作的 1 KiB 上限。`to="all"` 广播给当前其余队友，或指定队友部署编号字符串（不是型号）。本轮发送在下一次决策（0.1 s 后）通过 `obs["messages"]` 接收一次。2027 中基地受损会按后勤系数 λ 缩小这个上限（见表 5-19，实际值见 `obs["logistics_effects"]["interaction_bandwidth_bytes"]`），超出当前上限的消息会被丢弃。
 
 ## 练习与提交
 

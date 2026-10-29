@@ -2,8 +2,12 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const code=ts.transpileModule(fs.readFileSync('frontend/src/broadcast.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const killCode=ts.transpileModule(fs.readFileSync('frontend/src/killAnnouncements.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const killScope={exports:{}};vm.runInNewContext(killCode,killScope);
+const alertCode=ts.transpileModule(fs.readFileSync('frontend/src/fortressAlert.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const alertScope={exports:{}};vm.runInNewContext(alertCode,{exports:alertScope.exports,require:()=>({pointInPolygon:()=>false})});
+const buffsCode=ts.transpileModule(fs.readFileSync('frontend/src/buffs.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const buffsScope={exports:{}};vm.runInNewContext(buffsCode,{exports:buffsScope.exports,require:()=>({frameSeason:()=>'2027'})});
 const identityScope={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('frontend/src/strategyIdentity.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,identityScope);
-const imports={'./strategyIdentity':identityScope.exports,'./types':{},'./matchStats':{TEAM_LABEL:{red:'红方',blue:'蓝方'}},'./media':{},'./broadcast.css':{},'./killAnnouncements':killScope.exports,'./agentLogos':{},'./agents':{}};
+const imports={'./strategyIdentity':identityScope.exports,'./types':{},'./matchStats':{TEAM_LABEL:{red:'红方',blue:'蓝方'},TEAMS:['red','blue'],other:(t)=>t==='red'?'blue':'red'},'./media':{},'./broadcast.css':{},'./killAnnouncements':killScope.exports,'./agentLogos':{},'./agents':{},'./fortressAlert':alertScope.exports,'./buffs':buffsScope.exports,'./BuffChips':{BuffChips:()=>null}};
 const scope={exports:{},performance,require:name=>name in imports?imports[name]:require(name)};vm.runInNewContext(code,scope);
 const {BroadcastDirector}=scope.exports;
 test('broadcast team headings normalize names recorded in older replays',()=>{
@@ -22,4 +26,22 @@ test('the director presents speech-synchronized highlights, freezes them on paus
  const director=new BroadcastDirector();const a={key:'penta-1',cue:'penta-kill',team:'red',killer:'red-3',victim:'blue-7',at:20,count:5};
  director.announce(a,4);assert.equal(director.highlight.cue,'penta-kill');director.advanceHighlight(1000,false);director.advanceHighlight(10000,true);assert.equal(director.highlight.age,1000);
  director.advanceHighlight(3000,false);assert.equal(director.highlight,null);director.announce(a,4);director.reset();assert.equal(director.highlight,null);
+});
+test('an enemy stepping onto the fortress announces the capture once, like a lost outpost',()=>{
+ const zone='blue_fortress',attacker='red-4';
+ const snapshot=(hold,armor=false)=>{const time=200+hold;return {status:'running',tick:4000+Math.round(hold*20),time,dt:.05,season:'2027',remaining:420,
+  arena:{name:'rmuc2027',zones:[{id:zone,x:21.4,y:7.5,radius:.56}]},
+  bases:{red:{hp:10000,armor_open:false},blue:{hp:8000,armor_open:armor}},
+  outposts:{red:{hp:1000,ever_destroyed:false},blue:{hp:0,ever_destroyed:true}},
+  zones:{[zone]:{occupants:[attacker],contested:false}},teams:{red:{},blue:{}},
+  robots:[{id:attacker,team:'red',role:'infantry',alive:true,weak:false,red_card:false,x:21.4,y:7.5,fortress_hold:hold,fortress_last_contact:time-.05,last_raw_zones:[zone]}]};};
+ const director=new BroadcastDirector();
+ director.frame(snapshot(0));assert.equal(director.active('banner').length,0,'contact alone is not a capture yet');
+ director.frame(snapshot(.05));
+ const banners=director.active('banner');
+ assert.equal(banners.length,1);assert.match(banners[0].title,/蓝方堡垒正在被占领/);assert.equal(banners[0].team,'blue');
+ director.frame(snapshot(3));assert.equal(director.active('banner').length,1,'the announcement is not repeated');
+ // The armor opening adds its own banner; the capture announcement itself must not repeat.
+ director.frame(snapshot(4,true));
+ assert.equal(director.active('banner').filter(b=>/堡垒正在被占领/.test(b.title)).length,1);
 });

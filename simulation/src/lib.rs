@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 mod rulebook;
 mod penalties;
 mod season2027;
@@ -444,6 +444,10 @@ pub struct Base {
     pub armor_open_progress: f64,
     pub ever_destroyed: bool,
     pub rotation: f64,
+    /// How far the structure itself is turned about its own axis. Blue's base is half a turn round so
+    /// its armour faces the field instead of the outside wall.
+    #[serde(default)]
+    pub yaw: f64,
     pub rotation_stopped: bool,
     pub rotation_stop_at: f64,
     pub rotation_stop_angle: f64,
@@ -553,6 +557,12 @@ pub struct Engine {
     pub teams: BTreeMap<String, Team>,
     pub zones: BTreeMap<String, ZoneState>,
     pub projectiles: Vec<Projectile>,
+    /// Robot index by id. Every projectile resolves its shooter once per substep and the roster
+    /// never changes during a match, so the lookup is built once instead of scanned per shot.
+    source_index: HashMap<String, usize>,
+    /// Drone collision radius per robot, straight from the design: the sweep used to re-read it
+    /// out of the model JSON for every projectile that passed an aerial robot.
+    drone_radius: Vec<f64>,
     pub events: Vec<Value>,
     referee_recent_events: Vec<Value>,
     specs: BTreeMap<String, Spec>,
@@ -563,6 +573,9 @@ pub struct Engine {
     sim: Value,
     pub runes: BTreeMap<String, rulebook::RuneState>,
     pub assemblies: BTreeMap<String, rulebook::AssemblyState>,
+    /// Last reported refusal per team, as ("difficulty:reason", time): a cockpit that keeps asking for
+    /// an order it cannot have gets one answer per second instead of one per tick.
+    assembly_refused_at: BTreeMap<String, (String, f64)>,
     rune_direction: f64,
     rune_angle: f64,
     rune_phase: [f64; 2],
@@ -711,7 +724,12 @@ pub fn segment_box(x: f64, y: f64, dx: f64, dy: f64, w: &Wall) -> Option<f64> {
     Some(lo)
 }
 fn wall_coordinates(x: f64, y: f64, dx: f64, dy: f64, w: &Wall) -> (f64, f64, f64, f64) {
-    let (c, s) = (w.rotation.cos(), w.rotation.sin());
+    wall_coordinates_rot(x, y, dx, dy, w, w.rotation.cos(), w.rotation.sin())
+}
+/// The same transform with the wall's rotation already resolved. A projectile sweep tests every
+/// wall, so `cos`/`sin` are hoisted out of the per-shot path.
+#[inline]
+fn wall_coordinates_rot(x: f64, y: f64, dx: f64, dy: f64, w: &Wall, c: f64, s: f64) -> (f64, f64, f64, f64) {
     let (ox, oy) = (x - w.x - w.w / 2.0, y - w.y - w.h / 2.0);
     (
         w.x + w.w / 2.0 + ox * c + oy * s,
@@ -751,13 +769,27 @@ fn slab(p: f64, d: f64, a: f64, b: f64) -> Option<(f64, f64)> {
         Some((a.min(b).max(0.0), a.max(b).min(1.0)))
     }
 }
-fn segment_box_3d(p: &Projectile, dx: f64, dy: f64, dz: f64, w: &Wall) -> Option<f64> {
-    let (x, y, dx, dy) = wall_coordinates(p.x, p.y, dx, dy, w);
+/// The 3-D sweep against one wall with its rotation already resolved (see `wall_coordinates_rot`).
+#[inline]
+#[allow(clippy::too_many_arguments)]
+fn segment_box_3d_rot(
+    px: f64,
+    py: f64,
+    pz: f64,
+    pradius: f64,
+    dx: f64,
+    dy: f64,
+    dz: f64,
+    w: &Wall,
+    c: f64,
+    s: f64,
+) -> Option<f64> {
+    let (x, y, dx, dy) = wall_coordinates_rot(px, py, dx, dy, w, c, s);
     let (mut lo, mut hi): (f64, f64) = (0.0, 1.0);
     for (pos, d, a, b) in [
         (x, dx, w.x, w.x + w.w),
         (y, dy, w.y, w.y + w.h),
-        (p.z, dz, w.bottom - p.radius, w.bottom + w.height + p.radius),
+        (pz, dz, w.bottom - pradius, w.bottom + w.height + pradius),
     ] {
         let (a, b) = slab(pos, d, a, b)?;
         lo = lo.max(a);
@@ -769,7 +801,8 @@ fn segment_box_3d(p: &Projectile, dx: f64, dy: f64, dz: f64, w: &Wall) -> Option
     Some(lo)
 }
 fn segment_cylinder(
-    p: &Projectile,
+    origin: [f64; 3],
+    pradius: f64,
     dx: f64,
     dy: f64,
     dz: f64,
@@ -779,7 +812,7 @@ fn segment_cylinder(
     bottom: f64,
     top: f64,
 ) -> Option<f64> {
-    let (ox, oy) = (p.x - cx, p.y - cy);
+    let (ox, oy) = (origin[0] - cx, origin[1] - cy);
     let a = dx * dx + dy * dy;
     let b = 2.0 * (ox * dx + oy * dy);
     let c = ox * ox + oy * oy - radius * radius;
@@ -799,7 +832,7 @@ fn segment_cylinder(
             ((-b + root) / (2.0 * a)).min(1.0),
         )
     };
-    let (lo, hi) = slab(p.z, dz, bottom - p.radius, top + p.radius)?;
+    let (lo, hi) = slab(origin[2], dz, bottom - pradius, top + pradius)?;
     let lo = lo.max(enter);
     let hi = hi.min(exit);
     if lo <= hi {
@@ -1100,7 +1133,15 @@ impl Engine {
                     armor_inset_m: d["armor_inset_m"].as_f64().unwrap(),
                     armor_mount_offset_m: d["armor_mount_offset_m"].as_f64().unwrap_or(0.0),
                     armor_hit_face_offset_m: d["armor_hit_face_offset_m"].as_f64().unwrap_or(0.0),
-                    speed_reference_mps: d["speed_reference_mps"].as_f64().unwrap(),
+                    // The 2027 rulebook caps an infantry chassis at 5 m/s: a design that asks for
+                    // more is driven at the cap instead of being fielded faster than the rules allow.
+                    speed_reference_mps: {
+                        let configured = d["speed_reference_mps"].as_f64().unwrap();
+                        match rules["speed_limits"]["infantry_mps"].as_f64() {
+                            Some(cap) if role == "infantry" => configured.min(cap),
+                            _ => configured,
+                        }
+                    },
                     arm_joints: if d["arm"].is_object() {
                         physics::arm_stowed(&d["arm"])
                     } else {
@@ -1174,6 +1215,7 @@ impl Engine {
                     armor_open_progress: 0.0,
                     ever_destroyed: false,
                     rotation: 0.0,
+                    yaw: structures::base_yaw(team),
                     rotation_stopped: false,
                     rotation_stop_at: -1000.0,
                     rotation_stop_angle: 0.0,
@@ -1195,6 +1237,7 @@ impl Engine {
                     armor_open_progress: 1.0,
                     ever_destroyed: false,
                     rotation: 0.0,
+                    yaw: 0.0,
                     rotation_stopped: false,
                     rotation_stop_at: -1000.0,
                     rotation_stop_angle: 0.0,
@@ -1209,6 +1252,25 @@ impl Engine {
             .map(|z| (z.id.clone(), ZoneState::default()))
             .collect();
         let robot_models = robots.iter().map(|r|(r.design_slot().to_string(),conf.robot_designs[&r.design_slot().to_string()].clone())).collect();
+        let source_index = {
+            let mut index: HashMap<String, usize> = HashMap::with_capacity(robots.len());
+            // First match wins, exactly like the linear search this replaces.
+            for (i, r) in robots.iter().enumerate() {
+                index.entry(r.id.clone()).or_insert(i);
+            }
+            index
+        };
+        let drone_radius = robots
+            .iter()
+            .map(|r| {
+                if r.drones.is_empty() {
+                    return 0.0;
+                }
+                conf.robot_designs[&r.design_slot().to_string()]["drone"]["radius_m"]
+                    .as_f64()
+                    .unwrap_or(0.07)
+            })
+            .collect::<Vec<f64>>();
         let mut engine = Self {
             seed,
             duration,
@@ -1239,6 +1301,8 @@ impl Engine {
             .into(),
             zones,
             projectiles: Vec::new(),
+            source_index,
+            drone_radius,
             events: Vec::new(),
             referee_recent_events: Vec::new(),
             robot_models,
@@ -1257,6 +1321,7 @@ impl Engine {
                 ("blue".into(), rulebook::AssemblyState::new()),
             ]
             .into(),
+            assembly_refused_at: BTreeMap::new(),
             rune_direction: if seed & 1 == 0 { 1.0 } else { -1.0 },
             rune_angle: 0.0,
             rune_phase: [0.0; 2],
@@ -1475,6 +1540,7 @@ impl Engine {
             info["positions"] = self.position_snapshots();
             info["control"] = json!({"red":self.teams["red"].control,"blue":self.teams["blue"].control});
             info["logistics"] = json!(self.logistics(team));
+            info["logistics_effects"] = self.logistics_effects(team);
         }
         info
     }
@@ -1665,6 +1731,10 @@ impl Engine {
             observation["season"] = json!("2027");
             observation["positions"] = self.position_snapshots();
             observation["enemy_drones"] = json!(enemy_drones);
+            // Table 5-19: the same lambda the referee feed shows, with the resolved budgets a
+            // strategy or custom terminal needs (bandwidth is data, FPV resolution is a picture).
+            observation["logistics"] = json!(self.logistics(team));
+            observation["logistics_effects"] = self.logistics_effects(team);
         }
         observation
     }
@@ -1939,8 +2009,45 @@ impl Engine {
     fn fly_projectiles(&mut self) {
         let projectiles = std::mem::take(&mut self.projectiles);
         let mut remaining = Vec::new();
+        // None of this changes while the projectiles fly, so it is resolved once per call instead
+        // of once per shot per substep: the wall rotations (`cos`/`sin` per wall would otherwise be
+        // recomputed for every sweep), the base shells, the armour plates and the drone radius.
+        let walls: Vec<(f64, f64)> = self
+            .arena
+            .obstacles
+            .iter()
+            .map(|w| (w.rotation.cos(), w.rotation.sin()))
+            .collect();
+        let mut covers: Vec<(Wall, f64, f64)> = Vec::new();
+        for team in ["red", "blue"] {
+            for cover in structures::covers(&self.bases[team]) {
+                let (c, s) = (cover.rotation.cos(), cover.rotation.sin());
+                covers.push((cover, c, s));
+            }
+        }
+        // x, y, z, outpost
+        let mut structures: Vec<(f64, f64, f64, bool)> = Vec::with_capacity(4);
+        // plates, outpost, team index, structure still standing, owner is red
+        let mut armor: Vec<(Vec<structures::Plate>, bool, usize, bool, bool)> = Vec::with_capacity(4);
+        for (ti, team) in ["red", "blue"].into_iter().enumerate() {
+            for (outpost, b) in [(false, &self.bases[team]), (true, &self.outposts[team])] {
+                structures.push((b.x, b.y, b.z, outpost));
+                let plates = if self.season == 2027 {
+                    Self::structure_plates_2027(b, outpost)
+                } else {
+                    structures::plates(b, outpost)
+                };
+                let owner_red = if self.season == 2027 {
+                    b.owner.as_deref().unwrap_or(team) == "red"
+                } else {
+                    team == "red"
+                };
+                armor.push((plates, outpost, ti, b.hp > 0.0, owner_red));
+            }
+        }
+        let mut hits: Vec<(f64, u8, usize)> = Vec::new();
         for mut p in projectiles {
-            let source = self.robots.iter().position(|r| r.id == p.source);
+            let source = self.source_index.get(&p.source).copied();
             if source.is_none() && self.season != 2027 {
                 continue;
             }
@@ -1964,9 +2071,9 @@ impl Engine {
                 p.vy * ratio + 0.5 * ay * ratio * ratio,
                 p.vz * ratio + 0.5 * az * ratio * ratio,
             );
-            let mut hits: Vec<(f64, u8, usize)> = Vec::new();
-            for w in &self.arena.obstacles {
-                if let Some(t) = segment_box_3d(&p, dx, dy, dz, w) {
+            hits.clear();
+            for (w, (c, s)) in self.arena.obstacles.iter().zip(walls.iter()) {
+                if let Some(t) = segment_box_3d_rot(p.x, p.y, p.z, p.radius, dx, dy, dz, w, *c, *s) {
                     hits.push((t, 0, 0));
                 }
             }
@@ -1986,15 +2093,19 @@ impl Engine {
                     }
                 }
             }
-            let enemy = if p.team == "red" { "blue" } else { "red" };
+            let p_red = p.team == "red";
+            let enemy = if p_red { "blue" } else { "red" };
             // 2027: flying aerial robots stop projectiles and are pushed by them.
             if self.season == 2027 {
                 for (ri, r) in self.robots.iter().enumerate() {
+                    if r.drones.is_empty() {
+                        continue;
+                    }
+                    let radius = self.drone_radius[ri];
                     for (k, d) in r.drones.iter().enumerate() {
                         if (d.state == "flying" || d.state == "down") && r.id != p.source {
-                            let radius = self.robot_models[&r.design_slot().to_string()]["drone"]["radius_m"].as_f64().unwrap_or(0.07);
-                            let probe = Projectile { x: p.x - d.x, y: p.y - d.y, z: p.z - d.z, ..p.clone() };
-                            if let Some(t) = segment_cylinder(&probe, dx, dy, dz, 0.0, 0.0, radius + p.radius, -radius * 0.5, radius * 0.5) {
+                            if let Some(t) = segment_cylinder([p.x - d.x, p.y - d.y, p.z - d.z], p.radius,
+                                dx, dy, dz, 0.0, 0.0, radius + p.radius, -radius * 0.5, radius * 0.5) {
                                 hits.push((t, 6, ri * 8 + k));
                             }
                         }
@@ -2002,33 +2113,31 @@ impl Engine {
                 }
             }
             // Finite armor is distinct from solid covers, supports and friendly structures.
-            for (ti, team) in ["red", "blue"].into_iter().enumerate() {
-                for (outpost, b) in [(false, &self.bases[team]), (true, &self.outposts[team])] {
-                    if !outpost {
-                        for cover in structures::covers(b) {
-                            if let Some(t) = segment_box_3d(&p, dx, dy, dz, &cover) { hits.push((t, 5, 0)); }
-                        }
-                    }
-                    if let Some(t) = segment_cylinder(&p, dx, dy, dz, b.x, b.y,
-                        if outpost {0.325} else {0.49}, b.z, b.z + if outpost {0.055} else {0.1}) {
-                        hits.push((t, 5, 0));
-                    }
-                    if let Some(t) = segment_cylinder(&p, dx, dy, dz, b.x, b.y, 0.065, b.z, b.z + if outpost {1.38} else {1.181}) {
-                        hits.push((t, 5, 0));
-                    }
-                    if self.season == 2027 {
-                        let hostile = b.hp > 0.0 && b.owner.as_deref().unwrap_or(team) != p.team;
-                        for plate in Self::structure_plates_2027(b, outpost) {
-                            if let Some(t) = structures::intersection(&plate, [p.x,p.y,p.z], [dx,dy,dz]) {
-                                hits.push((t, if hostile {if outpost {3} else {2}} else {5}, ti));
-                            }
-                        }
-                        continue;
-                    }
-                    for plate in structures::plates(b, outpost) {
-                        if let Some(t) = structures::intersection(&plate, [p.x,p.y,p.z], [dx,dy,dz]) {
-                            hits.push((t, if team == enemy && b.hp > 0.0 {if outpost {3} else {2}} else {5}, 0));
-                        }
+            for (cover, c, s) in &covers {
+                if let Some(t) = segment_box_3d_rot(p.x, p.y, p.z, p.radius, dx, dy, dz, cover, *c, *s) {
+                    hits.push((t, 5, 0));
+                }
+            }
+            for (x, y, z, outpost) in &structures {
+                let (outpost, z) = (*outpost, *z);
+                if let Some(t) = segment_cylinder([p.x, p.y, p.z], p.radius, dx, dy, dz, *x, *y,
+                    if outpost {0.325} else {0.49}, z, z + if outpost {0.055} else {0.1}) {
+                    hits.push((t, 5, 0));
+                }
+                if let Some(t) = segment_cylinder([p.x, p.y, p.z], p.radius, dx, dy, dz, *x, *y, 0.065, z, z + if outpost {1.38} else {1.181}) {
+                    hits.push((t, 5, 0));
+                }
+            }
+            for (plates, outpost, ti, live, owner_red) in &armor {
+                if plates.is_empty() {
+                    continue;
+                }
+                let hostile = *live && (*owner_red != p_red);
+                let kind = if hostile { if *outpost { 3 } else { 2 } } else { 5 };
+                let index = if self.season == 2027 { *ti } else { 0 };
+                for plate in plates {
+                    if let Some(t) = structures::intersection(plate, [p.x,p.y,p.z], [dx,dy,dz]) {
+                        hits.push((t, kind, index));
                     }
                 }
             }

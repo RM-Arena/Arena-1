@@ -949,6 +949,9 @@
       "difficulty_4_time_limit_s": 45,
       "difficulty_4_retry_lock_s": 90,
       "difficulty_4_secondary_insert_window_s": 3,
+      "salvage_delay_s": 3,
+      "overload_alarm_s": 1,
+      "overload_clearance_m": 0.45,
       "other_active_core_buffer_s": 15,
       "interrupted_level_4_failure_permanent_lock": true,
       "interrupted_level_4_failure_income_penalty": 25,
@@ -1413,9 +1416,9 @@
     "wireless_input_w": 100,
     "max_carried_units": 2,
     "resource_stock": "unlimited_virtual_dispenser",
-    "arm_insert_speed_mps": 0.1,
-    "arm_translate_speed_mps": 0.15,
-    "arm_rotate_speed_deg_s": 120,
+    "arm_insert_speed_mps": 0.05,
+    "arm_translate_speed_mps": 0.075,
+    "arm_rotate_speed_deg_s": 60,
     "manual_judging": "Illegal target and zone commands prevented; subjective human penalties and real hardware failures are not randomly simulated.",
     "map_fidelity": "Chapter 4 dimensioned module footprints and figure4-5 placement; unlabelled joints reconstructed from the plan, not rulebook CAD.",
     "central_elevation_m": 0.4,
@@ -2077,6 +2080,7 @@
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
       "leg_max_m": 0.34,
+      "step_climb_m": 0.2,
       "leg_nominal_m": 0.24500000000000002,
       "leg_speed_mps": 1.2,
       "leg_stiffness_npm": 1517.0,
@@ -2104,7 +2108,8 @@
         "self_righting": false,
         "tunnel": false,
         "arms": 0,
-        "drive": "wheel_legged"
+        "drive": "wheel_legged",
+        "step_climb_m": 0.2
       },
       "seasons": {
         "2026": {
@@ -4338,7 +4343,7 @@
       "wheel_radius_m": 0.085,
       "wheel_width_m": 0.055,
       "chassis_type": "omni",
-      "speed_reference_mps": 5.1,
+      "speed_reference_mps": 5.0,
       "tire_friction": 0.9,
       "lateral_friction_ratio": 0.75,
       "drive_efficiency": 0.85,
@@ -4607,6 +4612,7 @@
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
       "leg_max_m": 0.38,
+      "step_climb_m": 0.2,
       "leg_nominal_m": 0.24500000000000002,
       "leg_speed_mps": 1.45,
       "leg_stiffness_npm": 1692.2249999999997,
@@ -4639,7 +4645,8 @@
         "self_righting": false,
         "tunnel": false,
         "arms": 0,
-        "drive": "wheel_legged"
+        "drive": "wheel_legged",
+        "step_climb_m": 0.2
       },
       "seasons": {
         "2026": {
@@ -4835,6 +4842,7 @@
       "hip_height_m": 0.3,
       "leg_min_m": 0.12,
       "leg_max_m": 0.35,
+      "step_climb_m": 0.2,
       "leg_nominal_m": 0.24500000000000002,
       "leg_speed_mps": 1.3,
       "leg_stiffness_npm": 1615.1464285714285,
@@ -4872,7 +4880,8 @@
         "self_righting": true,
         "tunnel": false,
         "arms": 0,
-        "drive": "wheel_legged"
+        "drive": "wheel_legged",
+        "step_climb_m": 0.2
       },
       "seasons": {
         "2026": {
@@ -5261,6 +5270,7 @@
       "focus": "单臂取放能量单元、工作台装模块化42mm",
       "revision": "construction-2027-v1",
       "asset": "/assets/robot-2711-spec2027.glb",
+      "turn_speed_loss_per_rad_s": 0.6,
       "bare_mass_kg": 28.9,
       "referee_mass_kg": 2.9,
       "mass_kg": 31.8,
@@ -5292,7 +5302,7 @@
       "wheel_radius_m": 0.085,
       "wheel_width_m": 0.055,
       "chassis_type": "mecanum",
-      "speed_reference_mps": 3.2,
+      "speed_reference_mps": 2.5,
       "tire_friction": 1.05,
       "lateral_friction_ratio": 0.82,
       "drive_efficiency": 0.85,
@@ -5574,6 +5584,7 @@
       "focus": "双臂同时操作两枚能量单元，适合四级双核心",
       "revision": "construction-2027-v1",
       "asset": "/assets/robot-2712-spec2027.glb",
+      "turn_speed_loss_per_rad_s": 0.6,
       "bare_mass_kg": 31.2,
       "referee_mass_kg": 2.9,
       "mass_kg": 34.1,
@@ -5605,7 +5616,7 @@
       "wheel_radius_m": 0.085,
       "wheel_width_m": 0.055,
       "chassis_type": "swerve",
-      "speed_reference_mps": 2.8,
+      "speed_reference_mps": 2.5,
       "tire_friction": 1.2,
       "lateral_friction_ratio": 1.0,
       "drive_efficiency": 0.84,
@@ -5968,6 +5979,7 @@
       "focus": "轻量全向底盘、快速腕部与较轻发射模块",
       "revision": "construction-2027-v1",
       "asset": "/assets/robot-2713-spec2027.glb",
+      "turn_speed_loss_per_rad_s": 0.6,
       "bare_mass_kg": 26.4,
       "referee_mass_kg": 2.9,
       "mass_kg": 29.3,
@@ -5999,7 +6011,7 @@
       "wheel_radius_m": 0.085,
       "wheel_width_m": 0.055,
       "chassis_type": "omni",
-      "speed_reference_mps": 3.7,
+      "speed_reference_mps": 2.5,
       "tire_friction": 0.95,
       "lateral_friction_ratio": 0.82,
       "drive_efficiency": 0.85,
@@ -18945,6 +18957,10 @@
       "sha256": "9e2eed9295536c6fd547b62d634df1d5e70a2e1e2250e5dff3521d557e5d54be"
     },
     "season": "2027",
+    "speed_limits": {
+      "infantry_mps": 5.0,
+      "note": "Infantry chassis top speed is capped at 5 m/s by the rulebook. A design that asks for more is driven at the cap instead of being fielded faster than the rules allow; the balancing (wheel-legged) infantry reaches it."
+    },
     "match": {
       "duration_s": 420,
       "field_length_m": 28,
@@ -19145,6 +19161,14 @@
       "respawn_required": "x/lambda",
       "supply_heal_rate": "x*lambda",
       "remote_heal_ratio": "x*lambda",
+      "interaction_bandwidth": "x*lambda",
+      "interaction_bandwidth_bytes": 512,
+      "video_resolution": "x*lambda^2",
+      "video_resolution_px": [
+        1920,
+        1080
+      ],
+      "video_resolution_scaling": "area_downsample_then_bilinear_upscale",
       "source_pages": [
         94,
         95
@@ -19780,6 +19804,10 @@
       "difficulty_4_blocks_other_entry": true,
       "other_attempt_blocks_difficulty_4": true,
       "card_absence_fail_s": 15,
+      "core_reinit_s": 5,
+      "salvage_delay_s": 3,
+      "overload_alarm_s": 1,
+      "overload_clearance_m": 0.45,
       "insert_depth_m": 0.1,
       "lift_m": 0.1,
       "flip_deg": 90,
@@ -20684,8 +20712,8 @@
           "profile": "rulebook_2027",
           "note": "Small and idle large runes rotate at pi/3 rad/s; active large runes use a*sin(omega*t)+2.090-a, reset on each new large activation; both faces share the shaft."
         },
-        "arm_lift_speed_mps": 0.15,
-        "arm_flip_speed_deg_s": 180,
+        "arm_lift_speed_mps": 0.075,
+        "arm_flip_speed_deg_s": 90,
         "central_elevation_m": 0.3
       }
     }

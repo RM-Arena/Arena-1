@@ -60,13 +60,18 @@ class ModelTests(unittest.TestCase):
         (workspace/'lineup.json').write_text('{}')
         with self.assertRaisesRegex(ValueError,'Protected file'):validate_workspace(workspace,self.registry)
 
-    def test_different_lineups_change_version_and_are_rejected_before_matching(self):
-        source=ROOT/'examples/claude_opus55_xhigh_team/strategy.py'
+    def test_different_lineups_change_version_and_each_side_keeps_its_own(self):
+        source=self.root/'noop.py';source.write_text('def act(obs,state):\n return {},state\n')
         a=save_submission(self.root/'a','team',{'team':source},team_lineup=CUSTOM)
         b=save_submission(self.root/'b','team',{'team':source})
         self.assertNotEqual(a['version'],b['version'])
-        with self.assertRaisesRegex(ValueError,'identical registered'):
-            Battle(self.root/'a',self.root/'b',duration=1,sandbox='trusted-local')
+        with Battle(self.root/'a',self.root/'b',duration=1,sandbox='trusted-local') as battle:
+            battle.run();self.assertFalse(battle.diagnostics)
+            self.assertEqual(battle.metadata['red_lineup'],CUSTOM)
+            self.assertEqual(battle.metadata['blue_lineup'],DEFAULT_TEAM_LINEUP)
+            for team,expected in (('red',CUSTOM),('blue',DEFAULT_TEAM_LINEUP)):
+                models={str(r['slot']):r['model_slot'] for r in battle.match.robots if r['team']==team}
+                self.assertEqual(models,expected)
 
     def test_custom_team_match_has_the_same_models_on_both_sides(self):
         source=self.root/'noop.py';source.write_text('def act(obs,state):\n return {},state\n')
@@ -93,7 +98,7 @@ class ModelTests(unittest.TestCase):
         app=create_app('trusted-local',submission_root=self.root/'submissions',data_root=self.root/'data',workspace_registry=self.registry,test_mode=True)
         with TestClient(app) as client:
             generic=client.get('/api/agent-guide',params={'season':'2026'}).text
-            self.assertNotIn('已锁定的双方共同阵容',generic)
+            self.assertNotIn('已锁定的己方出战阵容',generic)
             self.assertNotIn('H42',generic)
             response=client.post('/api/team-briefing',json={'team_lineup':CUSTOM})
             self.assertEqual(response.status_code,200,response.text);briefing=response.json()

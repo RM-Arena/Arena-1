@@ -44,7 +44,9 @@ class FreeControllerTests(unittest.TestCase):
         for key in ['missing','claude_opus55_xhigh_adaptive_3','claude_opus55_xhigh_squad']:
             self.assertEqual(client.post('/api/start',json={**body,'red_team_strategy':key}).status_code,409)
         response=client.post('/api/start',json=body);self.assertEqual(response.status_code,200,response.text)
-        until=time.monotonic()+10
+        # A one-second match still has to be built and ticked to completion; a slow runner needs
+        # well over ten seconds for that, so wait for the arena instead of timing it.
+        until=time.monotonic()+120
         while app.state.arena.busy and time.monotonic()<until:time.sleep(.02)
         self.assertFalse(app.state.arena.busy);self.assertIsNone(app.state.arena.error)
         record=client.get('/api/matches/'+response.json()['match_id']).json();self.assertEqual(record['result']['policy_errors'],0)

@@ -5,6 +5,9 @@ import {MODE_LABELS,baseProtected,frameSeason,outpostHolder} from './types';
 import {TEAM_LABEL,TEAMS,other,robotName,type MatchStats} from './matchStats';
 import {clock} from './media';
 import {KillAnnouncer,type KillAnnouncement,type KillHighlight} from './killAnnouncements';
+import {fortressCapture,type FortressCapture} from './fortressAlert';
+import {robotBuffs,type BuffChip} from './buffs';
+import {BuffChips} from './BuffChips';
 import {AgentBadge,AgentLogo} from './agentLogos';
 import {PROVIDERS,agentLabel,providerOf,robotAgent,teamAgents,teamEmblem} from './agents';
 import './broadcast.css';
@@ -14,8 +17,11 @@ import './broadcast.css';
 export type Callout={key:string;kind:'banner'|'toast'|'kill';team:TeamId;at:number;life:number;title:string;detail?:string;chips?:string[];icon?:'assembly'|'rune'|'outpost'|'revive';killer?:string;victim?:string};
 export class BroadcastDirector{
   items:Callout[]=[];private last:Frame|null=null;private seen=new Set<string>();private serial=0;
+  // Sides whose fortress capture has already been announced, so a dropped snapshot cannot swallow
+  // the call-out: it is keyed on the capture episode, not on the 0 s crossing.
+  private captures=new Set<TeamId>();
   highlight:KillHighlight|null=null;private kills=new KillAnnouncer();
-  reset(){this.items=[];this.last=null;this.seen.clear();this.kills.reset();this.highlight=null;}
+  reset(){this.items=[];this.last=null;this.seen.clear();this.captures.clear();this.kills.reset();this.highlight=null;}
   restoreKills(frames:Frame[]){this.kills.restore(frames);this.highlight=null;}
   announce(announcement:KillAnnouncement,seconds:number){this.highlight={...announcement,key:`${announcement.key}-${this.serial++}`,age:0,life:seconds*1000};}
   advanceHighlight(milliseconds:number,paused:boolean){if(!this.highlight||paused)return;this.highlight.age+=milliseconds;if(this.highlight.age>=this.highlight.life)this.highlight=null;}
@@ -27,6 +33,14 @@ export class BroadcastDirector{
       const was=last.outposts?.[team],now=f.outposts?.[team];
       if(was&&now&&was.hp>0&&now.hp<=0){this.push({kind:'banner',team,life:2600,title:`${TEAM_LABEL[team]}前哨站被摧毁`});if(f.bases[team].hp>0)this.push({kind:'banner',team,life:2600,title:`${TEAM_LABEL[team]}基地无敌解除`},2700);}
       if(!last.bases[team].armor_open&&f.bases[team].armor_open)this.push({kind:'banner',team,life:2800,title:`${TEAM_LABEL[team]}基地护甲打开`});
+      // The enemy stepping onto this side's fortress card: same centre banner as a destroyed
+      // outpost, so the defender is told at once that the base armor countdown has started.
+      const capture=fortressCapture(f,team);
+      if(!capture)this.captures.delete(team);
+      else if(capture.hold>0&&!this.captures.has(team)){
+        this.captures.add(team);
+        this.push({kind:'banner',team,life:2600,title:`${TEAM_LABEL[team]}堡垒正在被占领`});
+      }
       const cap=(t:Frame,k:TeamId)=>(t.teams[k] as {level_cap?:number}).level_cap||0;
       if(cap(f,team)>cap(last,team)&&cap(last,team)>0)this.push({kind:'banner',team,life:2600,title:`${TEAM_LABEL[team]}等级上限提高至${cap(f,team)}`},600);
     }
@@ -62,6 +76,20 @@ export function Stage({children,className='',compactable=false}:{children:ReactN
 
 // ---------------------------------------------------------------- pieces
 const pct=(v:number,max:number)=>max>0?Math.max(0,Math.min(100,v/max*100)):0;
+// Circular capture readout under the base bar: the ring fills with the running hold and a hexagon
+// (the fortress plateau's own outline) sits in the middle.
+const FORTRESS_RING_R=11,FORTRESS_RING_C=2*Math.PI*FORTRESS_RING_R;
+function FortressRing({capture,team}:{capture:FortressCapture;team:TeamId}){
+  return <span className={`bc-fortress ${capture.attacker}`} data-fortress-capture={team} data-hold={capture.hold.toFixed(2)}
+    role="progressbar" aria-label={`${TEAM_LABEL[team]}堡垒正在被占领`} aria-valuemin={0} aria-valuemax={capture.holdSeconds} aria-valuenow={Math.round(capture.hold*100)/100}>
+    <svg viewBox="0 0 28 28" width="26" height="26" aria-hidden>
+      <circle className="bc-fortress-track" cx="14" cy="14" r={FORTRESS_RING_R}/>
+      <circle className="bc-fortress-arc" cx="14" cy="14" r={FORTRESS_RING_R} strokeDasharray={FORTRESS_RING_C} strokeDashoffset={FORTRESS_RING_C*(1-capture.progress)}/>
+      <polygon className="bc-fortress-hex" points="14,7.6 19.5,10.8 19.5,17.2 14,20.4 8.5,17.2 8.5,10.8"/>
+    </svg>
+    <b>{capture.remaining.toFixed(1)}<small>s</small></b>
+  </span>;
+}
 export const teamName=(m:Metadata|null,team:TeamId)=>strategyDisplayName(m?.teams[team])||(team==='red'?'红方':'蓝方');
 export function Emblem({team,name,size=64}:{team:TeamId;name:string;size?:number}){
   const letter=(strategyName(name).match(/[A-Za-z一-龥]/)?.[0]||'R').toUpperCase();
@@ -77,7 +105,7 @@ function Chevrons({level}:{level:number}){const n=level>=10?3:Math.ceil(level/3)
 
 // `hidden` is a pilot looking at the other team: the card keeps its normal look, but the enemy
 // robot's health, ammunition and level are not published.
-function RobotCard({r,image,selected,onSelect,assemblies,metadata,hidden=false,player=false}:{r:Robot;image?:string;selected:boolean;onSelect:(id:string)=>void;assemblies:number[];metadata:Metadata|null;hidden?:boolean;player?:boolean}){
+function RobotCard({r,image,selected,onSelect,assemblies,metadata,hidden=false,player=false,buffs}:{r:Robot;image?:string;selected:boolean;onSelect:(id:string)=>void;assemblies:number[];metadata:Metadata|null;hidden?:boolean;player?:boolean;buffs:BuffChip[]}){
   const agent=robotAgent(metadata,r.team,r.slot);
   const air=r.role==='aerial',fleet=r.drones,dead=!air&&!r.alive,hp=air?(fleet?pct(fleet.reduce((sum,d)=>sum+Math.max(0,d.integrity),0),fleet.length*Math.max(1,...fleet.map(d=>d.integrity),3)):r.support_active?100:0):pct(r.hp,r.max_hp),respawn=r.respawn_required>0?Math.floor(Math.min(1,r.respawn_progress/r.respawn_required)*100):0;
   return <button className={`bc-card ${r.team} ${dead?'dead':''} ${selected?'selected':''} ${player?'player':''}`} onClick={()=>onSelect(r.id)} aria-label={`${TEAM_LABEL[r.team]}${r.slot}号${robotName(r)}${player?' · 玩家操控':agent?` · 策略来自 ${agentLabel(agent)}`:''}`}>
@@ -90,6 +118,8 @@ function RobotCard({r,image,selected,onSelect,assemblies,metadata,hidden=false,p
         row's shape without publishing the value, and ammunition/level are not shown. */}
     <span className={`bc-card-hp${hidden?' muted':''}`} title={hidden?'对方血量不公开':undefined}><i style={{width:hidden?'100%':`${hp}%`}}/>{Array.from({length:4},(_,k)=><s key={k} style={{left:`${(k+1)*20}%`}}/>)}</span>
     <span className={`bc-card-meta${hidden?' muted':''}`}>{hidden?<span>· · ·</span>:r.role==='engineer'||(r.role==='heavy'&&r.launcher!=='installed'&&r.launcher!=='fitted')?<span className="bc-stars">{[0,1,2,3].map(k=><i key={k} className={assemblies[k]?'on':''}>★</i>)}</span>:fleet?<span>✈ {fleet.filter(d=>d.state==='flying').length}/{fleet.filter(d=>d.state!=='disabled').length}</span>:<span>≡ {r.ammo}</span>}{!hidden&&air&&!fleet&&<small>{r.support_active?'空中支援':'待命'}</small>}{!hidden&&r.role==='sentry'&&r.posture&&<small>{({attack:'进攻',defense:'防御',move:'移动'} as const)[r.posture]}{r.posture_enhanced?'·强化':''}</small>}</span>
+    {/* Buffs sit under the card, one row, so the row of chassis keeps its shape. */}
+    {!hidden&&<BuffChips chips={buffs} size={9} className="bc-card-buffs"/>}
   </button>;
 }
 
@@ -101,13 +131,19 @@ function Tickers({frame,team}:{frame:Frame;team:TeamId}){
   return <div className={`bc-tickers ${team}`}>{rows.map((r,i)=><div key={i} className="bc-ticker"><span className="bc-ticker-icon">{r.icon}</span><span>{r.text}</span><b>{Math.ceil(r.time)}s</b></div>)}</div>;
 }
 
-function MiniMap({frame,selected}:{frame:Frame;selected:string}){
+// One chassis as the pilot's map may draw it: identity, side and a position that can be a little stale.
+type GhostBot=Pick<Robot,'id'|'slot'|'team'|'x'|'y'|'alive'|'role'>;
+
+function MiniMap({frame,selected,team,ghosts}:{frame:Frame;selected:string;team?:TeamId;ghosts?:GhostBot[]}){
   const a=frame.arena,W=420,H=225,x=(v:number)=>v/a.width*W,y=(v:number)=>v/a.height*H;
+  // A pilot's map carries their own side from the live snapshot; the other three chassis are the 2 Hz
+  // ghost of where they were, because a pilot must not get a live enemy feed a spectator never sees.
+  const bots=team?[...frame.robots.filter(r=>r.team===team),...(ghosts||[])]:frame.robots;
   return <svg className="bc-minimap" viewBox={`0 0 ${W} ${H}`} aria-label="战术小地图"><rect width={W} height={H} fill="#0d1218"/>
     {a.terrain.filter(t=>t.elevation>0).map((t,i)=>t.polygon?<polygon key={i} points={t.polygon.map(([px,py])=>`${x(px)},${y(py)}`).join(' ')} fill="#3a4350" stroke="#56606d" strokeWidth=".6"/>:<rect key={i} x={x(t.x)} y={y(t.y)} width={x(t.w)} height={y(t.h)} fill="#3a4350"/>)}
     {a.obstacles.map((w,i)=><rect key={i} x={x(w.x)} y={y(w.y)} width={Math.max(1,x(w.w))} height={Math.max(1,y(w.h))} fill="#77818c" transform={`rotate(${(w.rotation||0)*180/Math.PI} ${x(w.x+w.w/2)} ${y(w.y+w.h/2)})`}/>)}
     {TEAMS.map(t=>{const b=frame.bases[t],o=frame.outposts?.[t];return <g key={t}><polygon points={[0,1,2,3,4,5].map(k=>`${x(b.x)+11*Math.cos(k*Math.PI/3)},${y(b.y)+11*Math.sin(k*Math.PI/3)}`).join(' ')} className={`mm-base ${t}`}/>{o&&<rect x={x(o.x)-4} y={y(o.y)-4} width="8" height="8" className={`mm-outpost ${outpostHolder(frame,t)} ${o.hp<=0?'down':''}`}/>}</g>;})}
-    {frame.robots.filter(r=>r.alive||r.role==='aerial').map(r=><g key={r.id} transform={`translate(${x(r.x)},${y(r.y)})`} className={`mm-bot ${r.team} ${r.id===selected?'sel':''}`}><circle r={r.id===selected?9:7.5}/><text y="3.6" textAnchor="middle">{r.slot}</text></g>)}
+    {bots.filter(r=>r.alive||r.role==='aerial').map(r=><g key={r.id} transform={`translate(${x(r.x)},${y(r.y)})`} className={`mm-bot ${r.team} ${r.id===selected?'sel':''}`}><circle r={r.id===selected?9:7.5}/><text y="3.6" textAnchor="middle">{r.slot}</text></g>)}
   </svg>;
 }
 
@@ -122,6 +158,16 @@ function ToastIcon({kind}:{kind?:Callout['icon']}){
 export function BroadcastHud({frame,metadata,stats,director,images,selected,onSelect,round,pilot=null,player=null}:{frame:Frame;metadata:Metadata|null;stats:MatchStats;director:BroadcastDirector;images:Record<string,string>;selected:string;onSelect:(id:string)=>void;round:string;pilot?:TeamId|null;player?:string|null}){
   const now=performance.now(),[,tick]=useState(0);
   useEffect(()=>{const id=window.setInterval(()=>tick(n=>n+1),500);return()=>window.clearInterval(id);},[]);
+  // The pilot's map is a team-filtered one: their own chassis comes from the live snapshot, the
+  // opposite side from a still taken twice a second. `frame` changes every render, so the interval
+  // reads it through a ref instead of restarting on every pass.
+  const frameRef=useRef(frame);frameRef.current=frame;
+  const [ghosts,setGhosts]=useState<GhostBot[]>([]);
+  useEffect(()=>{
+    if(!pilot){setGhosts([]);return;}
+    const snap=()=>setGhosts(frameRef.current.robots.filter(r=>r.team!==pilot).map(({id,slot,team,x,y,alive,role})=>({id,slot,team,x,y,alive,role})));
+    snap();const id=window.setInterval(snap,500);return()=>window.clearInterval(id);
+  },[pilot]);
   const damage=(t:TeamId)=>Math.floor((frame.teams[t] as {attack_damage?:number}).attack_damage??frame.teams[t].score),share=damage('red')+damage('blue')>0?damage('red')/(damage('red')+damage('blue'))*100:50;
   const wins=(t:TeamId)=>frame.status==='finished'&&frame.winner===t?1:0;
   const banner=director.active('banner',now).at(-1),toast=director.active('toast',now).at(-1),kills=director.active('kill',now).slice(-4);
@@ -138,7 +184,7 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
         <div className="bc-team-main">
           <div className="bc-team-name"><span>{teamName(metadata,team)}</span><small>{teamEmblem(metadata,team)==='mixed'?`${teamAgents(metadata,team).length} 个 Agent 混合`:teamAgents(metadata,team).length?agentLabel(teamAgents(metadata,team)[0]):metadata?MODE_LABELS[metadata.teams[team].mode]:''}</small></div>
           <div className="bc-basebar"><i className="fill" style={{width:`${pct(base.hp,base.max_hp)}%`}}/><span className="bc-basebar-hex"/><b>{Math.ceil(Math.max(0,base.hp))}</b><i className="bc-base-icon"/></div>
-          <div className="bc-team-sub"><span title="基地护盾">⛨ {Math.ceil(base.shield_hp||0)}</span>{invulnerable(team)&&base.hp>0&&<span className="bc-invuln">基地无敌</span>}{base.armor_open&&<span className="bc-armor">护甲展开</span>}</div>
+          <div className="bc-team-sub">{(()=>{const capture=fortressCapture(frame,team);return capture?<FortressRing capture={capture} team={team}/>:null;})()}<span title="基地护盾">⛨ {Math.ceil(base.shield_hp||0)}</span>{invulnerable(team)&&base.hp>0&&<span className="bc-invuln">基地无敌</span>}{base.armor_open&&<span className="bc-armor">护甲展开</span>}</div>
         </div>
         <TeamCrest metadata={metadata} team={team} size={70}/>
       </div>;})}
@@ -152,7 +198,7 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
       </div>
     </div>
     {TEAMS.map(team=>{const list=[...frame.robots.filter(r=>r.team===team)].sort((a,b)=>team==='red'?b.slot-a.slot:a.slot-b.slot);return <div key={team} className={`bc-cards ${team}`}>
-      {list.map(r=><RobotCard key={r.id} r={r} image={image(r)} selected={selected===r.id} onSelect={onSelect} assemblies={stats.teams[team].assemblies} metadata={metadata} hidden={pilot!==null&&pilot!==team} player={r.id===player}/>)}
+      {list.map(r=><RobotCard key={r.id} r={r} image={image(r)} selected={selected===r.id} onSelect={onSelect} assemblies={stats.teams[team].assemblies} metadata={metadata} hidden={pilot!==null&&pilot!==team} player={r.id===player} buffs={robotBuffs(r,frame)}/>)}
     </div>;})}
     {TEAMS.map(team=><Tickers key={team} frame={frame} team={team}/>)}
     {banner&&<div key={banner.key} className={`bc-banner ${banner.team}`}><span>{banner.title}</span></div>}
@@ -160,6 +206,6 @@ export function BroadcastHud({frame,metadata,stats,director,images,selected,onSe
       <span className={`bc-kill-bot ${killer?.team||other(k.team)}`}>{image(killer)&&<img src={image(killer)} alt=""/>}<em>{killer?.slot??'?'}</em></span><b>摧毁</b>
       <span className={`bc-kill-bot ${victim?.team||other(k.team)}`}>{image(victim)&&<img src={image(victim)} alt=""/>}<em>{victim?.slot??'?'}</em></span></div>;})}</div>
     {toast&&<div key={toast.key} className={`bc-toast ${toast.team}`}><span className="bc-toast-icon"><ToastIcon kind={toast.icon}/></span><div><strong>{toast.title}</strong><div className="bc-chips">{toast.chips?.map(c=><span key={c}>{c}</span>)}</div></div></div>}
-    {!pilot&&<div className="bc-mini"><MiniMap frame={frame} selected={selected}/></div>}    <div className="bc-plate"><span>对抗赛 · 策略联赛</span><b>ROBOMASTER {season}</b></div>
+    <div className="bc-mini"><MiniMap frame={frame} selected={selected} team={pilot||undefined} ghosts={pilot?ghosts:undefined}/></div>    <div className="bc-plate"><span>对抗赛 · 策略联赛</span><b>ROBOMASTER {season}</b></div>
   </Stage>;
 }

@@ -97,12 +97,19 @@ fn main() {
                 "observations" => {
                     // One round trip for every policy: a header with each observation's
                     // controlled ids, then one raw observation line per request.
+                    // `"static":false` leaves the arena out of the lines so a transport that
+                    // already handed the map over once does not resend 66 KB per decision.
+                    let with_arena = request.get("static").map(|v| v != &Value::Bool(false)).unwrap_or(true);
                     let mut controlled = Vec::new();
                     for item in request["requests"].as_array().ok_or("requests required")? {
                         let (team, slots) = viewer(item)?;
                         let observation = e.observation_without_arena(team, slots.as_deref());
                         controlled.push(observation["controlled_ids"].clone());
-                        extra.push(encode_with(&observation, &[("arena", &arena_json)])?);
+                        extra.push(if with_arena {
+                            encode_with(&observation, &[("arena", &arena_json)])?
+                        } else {
+                            encode_with(&observation, &[])?
+                        });
                     }
                     Ok(json!({"controlled_ids": controlled}))
                 }

@@ -19,6 +19,10 @@ export interface HighlightClip{
   drone?:string|null;
   /** Robots destroyed inside this clip. */
   victims:string[];
+  /** Robot on the receiving end of the beat, so the reel can show its side of the exchange too. */
+  rival:string|null;
+  /** Enemy side whose structure took the damage when the beat has no robot on the receiving end. */
+  rivalTeam:TeamId|null;
   /** Damage the star dealt inside the clip window. */
   damage:number;
   score:number;
@@ -30,9 +34,12 @@ const CLIP_SECONDS=5;
 export const CLIP_PREROLL=1.5;
 
 export {CLIP_SECONDS};
-// Six beats keep the reel near half a minute while leaving room for siege damage, a sustained
-// burst and the match's top output instead of four single kills.
-const MAX_CLIPS=6;
+// Three beats keep the reel near fifteen seconds and give the top-output moment, a two-sided
+// engagement and the decisive structure play room instead of six loosely related clips.
+const MAX_CLIPS=3;
+// The receiving unit takes the camera shortly after the moment, so a five-second beat shows both
+// the unit that dealt the damage and the unit that took it.
+export const CLIP_SECOND_SHOT=2.2;
 // How far apart two kills may be and still read as one highlight beat.
 const COMBO_GAP=8;
 const CLIP_WINDOW=COMBO_GAP;
@@ -41,6 +48,7 @@ const timeOf=(e:MatchEvent)=>e.time??e.tick*.05;
 const structureOf=(id?:string)=>!!id&&(id.includes('outpost')||id.includes('base'));
 const isRobotId=(id?:string)=>!!id&&(id.startsWith('red-')||id.startsWith('blue-'));
 const teamOf=(id?:string|null):TeamId|null=>id?.startsWith('red')?'red':id?.startsWith('blue')?'blue':null;
+const otherTeam=(team:TeamId|null):TeamId|null=>team==='red'?'blue':team==='blue'?'red':null;
 // A drone id is `<team>-<slot>-d<index>`; its hangar is the aerial robot that launched it.
 const droneParent=(id?:string)=>id&&/-d\d+$/.test(id)?id.slice(0,id.lastIndexOf('-d')):null;
 // Which robot gets the credit for an attack event. `hit.robot` is the victim, so only the shooter's
@@ -72,14 +80,16 @@ function damageIn(events:MatchEvent[],team:TeamId|null,t:number,window=CLIP_WIND
 }
 
 // One attacker's (or one team's) damage inside a five-second bucket.
-interface Burst{by:string|null;team:TeamId|null;damage:number;hits:number;peakAt:number;peakDamage:number;targets:Set<string>;drone:string|null}
-function addBurst(map:Map<string,Burst>,key:string,by:string|null,team:TeamId|null,at:number,damage:number,extra?:{target?:string;drone?:string}){
-  const cell=map.get(key)??{by,team,damage:0,hits:0,peakAt:at,peakDamage:-1,targets:new Set<string>(),drone:null};
+interface Burst{by:string|null;team:TeamId|null;damage:number;hits:number;peakAt:number;peakDamage:number;targets:Set<string>;drone:string|null;rivals:Map<string,number>;rivalTeam:TeamId|null}
+function addBurst(map:Map<string,Burst>,key:string,by:string|null,team:TeamId|null,at:number,damage:number,extra?:{target?:string;victim?:string;drone?:string;rivalTeam?:TeamId|null}){
+  const cell=map.get(key)??{by,team,damage:0,hits:0,peakAt:at,peakDamage:-1,targets:new Set<string>(),drone:null,rivals:new Map<string,number>(),rivalTeam:null};
   cell.damage+=damage;cell.hits++;
   // The clip is cut at the shot that actually landed hardest, not at the middle of the bucket.
   if(damage>=cell.peakDamage){cell.peakDamage=damage;cell.peakAt=at;}
   if(extra?.target)cell.targets.add(extra.target);
+  if(extra?.victim&&extra.victim!==by)cell.rivals.set(extra.victim,(cell.rivals.get(extra.victim)??0)+damage);
   if(extra?.drone)cell.drone=extra.drone;
+  if(extra?.rivalTeam)cell.rivalTeam=extra.rivalTeam;
   map.set(key,cell);
 }
 const biggest=(map:Map<string,Burst>,limit:number)=>[...map.values()].sort((a,b)=>b.damage-a.damage||b.hits-a.hits).slice(0,limit);
@@ -89,6 +99,12 @@ const peakOf=(map:Map<string,Burst>,by:string)=>{
     if(b.by!==by)continue;
     if(!best||b.damage>best.damage)best=b;
   }
+  return best;
+};
+// The unit that absorbed the most of a burst, i.e. the receiving side of the beat.
+const rivalOf=(b:Burst):string|null=>{
+  let best:string|null=null,top=-1;
+  for(const [id,damage] of b.rivals)if(damage>top){best=id;top=damage;}
   return best;
 };
 
@@ -108,7 +124,8 @@ function credits(events:MatchEvent[]){
  * Picks the post-match highlights out of a finished match. Multi-kills, structure kills, objective
  * plays, sustained fire and heavy structural damage all outrank a single kill on their own; the
  * match's top damage dealer always gets a beat that explains where that output came from, and an
- * aerial strike carries the drone whose chase camera should fly the clip.
+ * aerial strike carries the drone whose chase camera should fly the clip. Every beat also names the
+ * receiving unit (or the owning side of the structure) so the reel can cut to the other perspective.
  */
 export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLIPS):HighlightClip[]{
   if(!events.length||!frame)return [];
@@ -121,7 +138,12 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
     // Two beats less than one clip apart would replay frames the viewer just saw; anything wider
     // is a different moment and deserves its own cut.
     const twin=clips.find(c=>Math.abs(c.time-clip.time)<CLIP_SECONDS);
-    if(twin){if(clip.score>twin.score)Object.assign(twin,clip);return twin;}
+    if(twin){
+      // Keep whichever receiving side the earlier cut already found: a structure twin replaces a
+      // damage twin but must not erase the unit that was actually taking the hits.
+      if(clip.score>twin.score)Object.assign(twin,clip,{rival:clip.rival??twin.rival,rivalTeam:clip.rivalTeam??twin.rivalTeam});
+      return twin;
+    }
     clips.push(clip);return clip;
   };
 
@@ -142,15 +164,18 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
     const bonus=team&&team===winner?70:0;
     const count=list.length;
     const star=robots.find(r=>r.id===killer);
+    // The last destroyed robot is the receiving unit the camera cuts to after the shot lands.
+    const rival=list.at(-1)!.robot??null,victim=rival?robots.find(r=>r.id===rival)??null:null;
     // A lone kill is filler, not a highlight: it only enters the reel when the match produced too
     // little else. Multi-kills keep their weight.
     push({
       key:`kill:${killer}:${list[0].tick}`,kind:count>=2?'multi':'kill',time:at,
       title:comboTitle(count),
       caption:count>=2
-        ?`${star?labelOf(star):`${TEAM_LABEL[team||'red']} ${killer}`} 在 ${COMBO_GAP} 秒内连续击毁 ${count} 台敌方机器人`
-        :`${star?labelOf(star):`${TEAM_LABEL[team||'red']} ${killer}`} 击毁 1 台敌方机器人`,
-      star:star?.id??null,victims:list.map(k=>k.robot!),damage,
+        ?`${star?labelOf(star):`${TEAM_LABEL[team||'red']} ${killer}`} 在 ${COMBO_GAP} 秒内连续击毁 ${count} 台敌方机器人${victim?`，最后击毁 ${labelOf(victim)}`:''}`
+        :`${star?labelOf(star):`${TEAM_LABEL[team||'red']} ${killer}`} 击毁 ${victim?labelOf(victim):'1 台敌方机器人'}`,
+      star:star?.id??null,victims:list.map(k=>k.robot!),rival,
+      rivalTeam:teamOf(rival)??otherTeam(team),damage,
       score:count>=2?220+count*90+bonus+Math.min(60,damage*.4):70+bonus*.4+Math.min(20,damage*.2),
     });
   }
@@ -168,7 +193,7 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
       push({
         key:`outpost:${e.tick}`,kind:'structure',time:timeOf(e),title:'前哨站被摧毁',
         caption,
-        star:null,victims:[],damage:damageIn(timed,team,timeOf(e)),score:320,
+        star:null,victims:[],rival:null,rivalTeam:owner??otherTeam(team),damage:damageIn(timed,team,timeOf(e)),score:320,
       });
     }else if(e.type==='base_armor_opened'){
       const owner=e.team as TeamId|undefined,star=isRobotId(e.robot)?e.robot!:null;
@@ -177,7 +202,7 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
       push({
         key:`base-open:${e.tick}`,kind:'structure',time:timeOf(e),title:'基地装甲开启',
         caption:`${starRobot?labelOf(starRobot):(team?TEAM_LABEL[team]:'')}顶住基地火力，${owner?TEAM_LABEL[owner]:''}基地装甲被迫打开`,
-        star,victims:[],damage:damageIn(timed,team,timeOf(e)),score:240,
+        star,victims:[],rival:null,rivalTeam:owner??otherTeam(team),damage:damageIn(timed,team,timeOf(e)),score:240,
       });
     }else if(e.type==='destroy'&&structureOf(e.robot)){
       const team=teamOf(e.killer)??teamOf(e.robot);
@@ -185,7 +210,8 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
       push({
         key:`struct:${e.robot}:${e.tick}`,kind:'structure',time:timeOf(e),title:kind,
         caption:`${team?TEAM_LABEL[team]:''}完成对${e.robot!.includes('base')?'基地':'前哨站'}的压制，战场天平倾斜`,
-        star:e.killer&&isRobotId(e.killer)?e.killer:null,victims:[],damage:damageIn(timed,team,timeOf(e)),
+        star:e.killer&&isRobotId(e.killer)?e.killer:null,victims:[],rival:null,
+        rivalTeam:teamOf(e.robot)??otherTeam(team),damage:damageIn(timed,team,timeOf(e)),
         score:300+(team===winner?60:0),
       });
     }
@@ -197,14 +223,15 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
       const team=e.team as TeamId|undefined;
       push({key:`rune:${e.tick}`,kind:'objective',time:timeOf(e),title:'能量机关激活',
         caption:`${team?TEAM_LABEL[team]:''}触发能量机关，全队获得增益`,star:null,victims:[],
-        damage:damageIn(timed,team??null,timeOf(e)),score:150+(team===winner?40:0)});
+        rival:null,rivalTeam:null,damage:damageIn(timed,team??null,timeOf(e)),score:150+(team===winner?40:0)});
     }else if(e.type==='assembly_success'){
       const level=(e as {difficulty?:number}).difficulty||1;
       if(level<3)continue;
       const team=e.team as TeamId|undefined;
       push({key:`assembly:${e.tick}`,kind:'objective',time:timeOf(e),title:`${level} 级装配完成`,
         caption:`${team?TEAM_LABEL[team]:''}科技核心升级到 ${level} 级${level===4?'，本场唯一一次四级装配':''}`,
-        star:isRobotId(e.robot)?e.robot!:null,victims:[],damage:damageIn(timed,team??null,timeOf(e)),score:160});
+        star:isRobotId(e.robot)?e.robot!:null,victims:[],rival:null,rivalTeam:null,
+        damage:damageIn(timed,team??null,timeOf(e)),score:160});
     }
   }
 
@@ -217,18 +244,19 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
     if(e.type==='base_hit'||e.type==='outpost_hit'){
       const amount=Math.max(0,e.damage||0);
       const by=attackerOf(e),team=attackerTeam(e),drone=e.drone??null;
-      if(team)addBurst(teamBursts,`${team}:${slot}`,null,team,at,amount);
+      const target=e.type==='outpost_hit'?'前哨站':'基地',rivalTeam=e.target_team??otherTeam(team);
+      if(team)addBurst(teamBursts,`${team}:${slot}`,null,team,at,amount,{rivalTeam});
       if(by){
-        addBurst(attackerBursts,`${by}:${slot}`,by,team,at,amount);
+        addBurst(attackerBursts,`${by}:${slot}`,by,team,at,amount,{rivalTeam});
         if(drone){
           const hangar=droneParent(drone);
-          if(hangar)addBurst(airBursts,`${hangar}:${slot}`,hangar,team,at,amount,{target:e.type==='outpost_hit'?'前哨站':'基地',drone});
-        }else addBurst(siegeBursts,`${by}:${slot}`,by,team,at,amount,{target:e.type==='outpost_hit'?'前哨站':'基地'});
+          if(hangar)addBurst(airBursts,`${hangar}:${slot}`,hangar,team,at,amount,{target,drone,rivalTeam});
+        }else addBurst(siegeBursts,`${by}:${slot}`,by,team,at,amount,{target,rivalTeam});
       }
     }else if(e.type==='hit'){
-      const amount=Math.max(0,e.damage||0),team=attackerTeam(e);
-      if(team)addBurst(teamBursts,`${team}:${slot}`,null,team,at,amount);
-      if(e.source)addBurst(attackerBursts,`${e.source}:${slot}`,e.source,team,at,amount);
+      const amount=Math.max(0,e.damage||0),team=attackerTeam(e),victim=e.robot??undefined,rivalTeam=otherTeam(team);
+      if(team)addBurst(teamBursts,`${team}:${slot}`,null,team,at,amount,{victim,rivalTeam});
+      if(e.source)addBurst(attackerBursts,`${e.source}:${slot}`,e.source,team,at,amount,{victim,rivalTeam});
     }
   }
 
@@ -239,11 +267,13 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
     if(b.damage<40)break;
     const star=b.by?robots.find(r=>r.id===b.by)??null:null,team=b.team;
     const targets=[...b.targets].join('、')||'建筑';
+    const side=b.rivalTeam?`${TEAM_LABEL[b.rivalTeam]}${targets}`:targets;
     const clip=push({
       key:`siege:${b.by??team}:${Math.round(b.peakAt)}`,kind:'siege',time:b.peakAt,
       title:b.damage>=150?'建筑连续爆破':'建筑火力压制',
-      caption:`${star?labelOf(star):`${team?TEAM_LABEL[team]:''}全队`}在 5 秒内对${targets}造成 ${Math.round(b.damage)} 点结构伤害（${b.hits} 次命中）`,
-      star:star?.id??null,victims:[],damage:b.damage,score:300+b.damage*.5,
+      caption:`${star?labelOf(star):`${team?TEAM_LABEL[team]:''}全队`}在 5 秒内对${side}造成 ${Math.round(b.damage)} 点结构伤害（${b.hits} 次命中）`,
+      star:star?.id??null,victims:[],rival:null,rivalTeam:b.rivalTeam??otherTeam(team),
+      damage:b.damage,score:300+b.damage*.5,
     });
     if(clip.kind==='siege')siegeTop??=clip;
   }
@@ -255,11 +285,13 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
     if(b.damage<100&&b.hits<2)continue;
     const star=b.by?robots.find(r=>r.id===b.by)??null:null;
     const targets=[...b.targets].join('、')||'建筑';
+    const side=b.rivalTeam?`${TEAM_LABEL[b.rivalTeam]}${targets}`:targets;
     const clip=push({
       key:`air:${b.by}:${Math.round(b.peakAt)}`,kind:'air',time:b.peakAt,
       title:b.hits>=2?'无人机连续破甲':'无人机精准破甲',
-      caption:`${star?labelOf(star):'空中机器人'}的无人机在 5 秒内 ${b.hits} 次撞击${targets}，造成 ${Math.round(b.damage)} 点结构伤害`,
-      star:star?.id??null,drone:b.drone,victims:[],damage:b.damage,score:340+b.damage*.45,
+      caption:`${star?labelOf(star):'空中机器人'}的无人机在 5 秒内 ${b.hits} 次撞击${side}，造成 ${Math.round(b.damage)} 点结构伤害`,
+      star:star?.id??null,drone:b.drone,victims:[],rival:null,rivalTeam:b.rivalTeam??otherTeam(b.team),
+      damage:b.damage,score:340+b.damage*.45,
     });
     if(clip.kind==='air')airTop??=clip;
   }
@@ -271,10 +303,12 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
     if(!b.by||(b.hits<6&&b.damage<60))continue;
     const star=robots.find(r=>r.id===b.by);
     if(!star||star.role==='aerial')continue;
+    const rival=rivalOf(b),victim=rival?robots.find(r=>r.id===rival)??null:null;
     const clip=push({
       key:`pressure:${b.by}:${Math.round(b.peakAt)}`,kind:'pressure',time:b.peakAt,title:'连续火力输出',
-      caption:`${labelOf(star)}在 5 秒内命中 ${b.hits} 次，打出 ${Math.round(b.damage)} 点伤害，形成连续压制`,
-      star:star.id,victims:[],damage:b.damage,score:200+b.damage*.35+b.hits*4,
+      caption:`${labelOf(star)}在 5 秒内命中 ${b.hits} 次，对${victim?labelOf(victim):'敌方'}打出 ${Math.round(b.damage)} 点伤害，形成连续压制`,
+      star:star.id,victims:[],rival,rivalTeam:teamOf(rival)??b.rivalTeam??otherTeam(b.team),
+      damage:b.damage,score:200+b.damage*.35+b.hits*4,
     });
     if(clip.kind==='pressure')pressureTop??=clip;
   }
@@ -292,7 +326,10 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
       const parts:string[]=[];
       if(credit.robot>0)parts.push(`对机器人 ${Math.round(credit.robot)}`);
       if(credit.structure>0)parts.push(`对建筑 ${Math.round(credit.structure)}`);
-      const stamp=`${labelOf(top)}全场 ${Math.round(top.damage)} 点伤害${parts.length?`（${parts.join('、')}）`:''}，最高 5 秒 ${Math.round(peak.damage)} 点`;
+      const peakRival=rivalOf(peak),peakVictim=peakRival?robots.find(r=>r.id===peakRival)??null:null;
+      const peakTeam=teamOf(peakRival)??peak.rivalTeam??otherTeam(teamOf(top.id));
+      const focus=peakVictim?`，火力集中在${labelOf(peakVictim)}`:peakTeam?`，主要打在${TEAM_LABEL[peakTeam]}建筑`:'';
+      const stamp=`${labelOf(top)}全场 ${Math.round(top.damage)} 点伤害${parts.length?`（${parts.join('、')}）`:''}，最高 5 秒 ${Math.round(peak.damage)} 点${focus}`;
       // If the peak already is a siege/aerial/continuous beat, fold the output story into that beat
       // instead of cutting the same five seconds twice. The drone camera and kind stay intact.
       const twin=clips.find(c=>Math.abs(c.time-peak.peakAt)<CLIP_SECONDS);
@@ -300,6 +337,8 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
       // peak landed, so giving it the star both explains the output and gives the clip a camera.
       if(twin&&(!twin.star||twin.star===top.id)){
         twin.star=top.id;
+        twin.rival=twin.rival??peakRival;
+        twin.rivalTeam=twin.rivalTeam??peakTeam;
         twin.title=`输出王 · ${twin.title}`;
         twin.caption=`${stamp}。${twin.caption}`;
         twin.score=Math.max(twin.score,480+Math.min(100,top.damage*.05));
@@ -308,7 +347,8 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
         outputTop=push({
           key:`output:${top.id}`,kind:'output',time:peak.peakAt,title:'本局输出王',
           caption:`${stamp}，是全场最集中的火力`,
-          star:top.id,victims:[],damage:peak.damage,score:480+Math.min(100,top.damage*.05),
+          star:top.id,victims:[],rival:peakRival,rivalTeam:peakTeam,damage:peak.damage,
+          score:480+Math.min(100,top.damage*.05),
         });
       }
     }
@@ -318,11 +358,13 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
   // named the shooter. The star is left empty rather than guessed.
   for(const b of biggest(teamBursts,2)){
     if(b.damage<1)break;
+    const rival=rivalOf(b);
     push({
       key:`dmg:${b.team}:${Math.round(b.peakAt)}`,kind:'damage',time:b.peakAt,
       title:`${Math.round(b.damage)} 点火力输出`,
       caption:`${b.team?TEAM_LABEL[b.team]:''}全队在 5 秒内打出这一时段最高火力`,
-      star:null,victims:[],damage:b.damage,score:90+b.damage*.25,
+      star:null,victims:[],rival,rivalTeam:b.rivalTeam??otherTeam(b.team),
+      damage:b.damage,score:90+b.damage*.25,
     });
   }
 
@@ -330,11 +372,14 @@ export function highlightReel(events:MatchEvent[],frame:Frame|null,limit=MAX_CLI
   // card and the biggest siege/aerial strike replace the lowest-scoring filler when they miss it.
   const max=Math.max(1,Math.min(MAX_CLIPS,limit));
   // A single kill is the last resort: it only appears when the other beats cannot even make a
-  // four-beat reel. A match with real siege, air and sustained-fire moments never shows one.
+  // three-beat reel. A match with real siege, air and sustained-fire moments never shows one.
   const meaningful=clips.filter(c=>c.kind!=='kill');
   const pool=meaningful.length>=Math.min(max,4)?meaningful:clips;
   const picked=[...pool].sort((a,b)=>b.score-a.score||b.damage-a.damage||b.time-a.time).slice(0,max);
-  const must=[outputTop,siegeTop,airTop,pressureTop].filter((c):c is HighlightClip=>!!c);
+  // The output king leads: with only three beats it must not be displaced by a weaker guaranteed
+  // beat, so the remaining candidates are ordered by their own score.
+  const must=[outputTop,...[siegeTop,airTop,pressureTop].filter((c):c is HighlightClip=>!!c).sort((a,b)=>b.score-a.score)]
+    .filter((c):c is HighlightClip=>!!c);
   for(const clip of must){
     if(picked.includes(clip))continue;
     if(picked.length<max){picked.push(clip);continue;}
@@ -356,6 +401,13 @@ export function clipClock(seconds:number){
 
 export function clipStar(clip:HighlightClip,robots:Robot[]){
   return clip.star?robots.find(r=>r.id===clip.star)??null:null;
+}
+
+// The receiving unit when it can carry a second camera; a drone's own camera already owns the
+// output side, so the hangar's target is the other half of the exchange.
+export function clipRival(clip:HighlightClip){
+  const output=clip.drone??clip.star;
+  return clip.rival&&clip.rival!==output?clip.rival:null;
 }
 
 export function clipRole(clip:HighlightClip,robots:Robot[]){

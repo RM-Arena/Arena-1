@@ -70,6 +70,7 @@ class Match:
                                    "training_scenario":training_scenario})
             self._frame = frame
             self._static = {key: frame[key] for key in STATIC_FRAME_KEYS if key in frame}
+            self._observation_static = None
             self.raw_frame = None
             return self.snapshot()
 
@@ -119,21 +120,42 @@ class Match:
         else:
             # Restore the static fields, shared between frames, in the engine's sorted key order.
             self._frame = dict(sorted({**frame, **self._static}.items()))
-            self.raw_frame = line.rstrip(b"\n")
+            # A trailing newline is legal JSON whitespace and the replay log writes these records as
+            # array elements, so the line is kept exactly as read instead of copying 45 KB per tick.
+            self.raw_frame = line
         # Frames are treated as immutable once returned; callers may still extend their events.
         return {**self._frame, "events": list(self._frame["events"])}
 
     def observation(self, team, slots=None):
         return self._request({"op": "observation", "team": team, "slots": slots})
 
-    def observations(self, viewers):
+    def observation_static(self):
+        """The match-constant part of an observation as one encoded key set.
+
+        A policy receives this once; every later observation then arrives without the arena and
+        the two are merged in the sandbox, so 66 KB of unchanged map stops crossing the pipe (and
+        being decoded) on every decision.
+        """
+        static = getattr(self, "_observation_static", None)
+        if static is None:
+            static = self._observation_static = json.dumps(
+                {"arena": self._static["arena"]},
+                allow_nan=False, separators=(",", ":"))
+        return static
+
+    def observations(self, viewers, static=True):
         """Encoded observations for (team, slots) viewers in a single engine round trip.
 
         Returns each observation's controlled ids and its JSON line, which policies can
-        receive as is instead of being decoded and encoded again.
+        receive as is instead of being decoded and encoded again. `static=False` omits the
+        arena map: it never changes during a match, so a transport that has already sent it
+        once (see `observation_static`) need not resend 66 KB with every decision.
         """
         with self.lock:
-            header = self._request({"op": "observations", "requests": [{"team": team, "slots": slots} for team, slots in viewers]})
+            request = {"op": "observations", "requests": [{"team": team, "slots": slots} for team, slots in viewers]}
+            if not static:
+                request["static"] = False
+            header = self._request(request)
             # The engine builds every observation before replying, so the lines follow at once.
             return header["controlled_ids"], [self._read_line() for _ in viewers]
 

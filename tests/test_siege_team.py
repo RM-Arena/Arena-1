@@ -495,13 +495,16 @@ class SiegeTeamTests(unittest.TestCase):
         S = self.strategy
         for team in ("red", "blue"):
             mirror = lambda p: p if team == "red" else (28-p[0], 15-p[1])
-            wheels = S.astar(team, "mec", .4, S.RADIUS["engineer"], mirror((0.98, 13.0)), mirror((13.34, 6.84)))
+            # The search stops itself after 25 ms of wall clock. Freeze the clock so this checks the
+            # planned route on any runner speed instead of whether the machine finishes the search.
+            with patch.object(S.time, 'perf_counter', return_value=0):
+                wheels = S.astar(team, "mec", .4, S.RADIUS["engineer"], mirror((0.98, 13.0)), mirror((13.34, 6.84)))
+                legs = S.astar(team, "leg", .4, S.RADIUS["infantry"], mirror((5.0, 7.5)), mirror((21.4, 7.5)))
+                around = S.astar(team, "mec", .4, S.RADIUS["infantry"], mirror((8.0, 7.5)), mirror((11.0, 7.5)))
             self.assertIsNotNone(wheels, team)
             self.assertTrue(any(S.lift(*p) > .15 and mirror(p)[1] > 12.9 for p in wheels), team)   # via the highway
-            legs = S.astar(team, "leg", .4, S.RADIUS["infantry"], mirror((5.0, 7.5)), mirror((21.4, 7.5)))
             self.assertIsNotNone(legs, team)
             self.assertLess(max(abs(mirror(p)[1] - 7.5) for p in legs), 2.5, team)              # straight over
-            around = S.astar(team, "mec", .4, S.RADIUS["infantry"], mirror((8.0, 7.5)), mirror((11.0, 7.5)))
             self.assertGreater(sum(S.dist(a, b) for a, b in zip(around, around[1:])), 12, team)    # no wheels up the steps
 
     def test_deck_chain_keeps_wheeled_robots_on_the_validated_route(self):

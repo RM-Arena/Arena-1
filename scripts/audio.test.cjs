@@ -5,6 +5,10 @@ function compile(name,imports={},extras={}){
  const scope={exports:{},require:n=>{if(!(n in imports))throw new Error('Unexpected import '+n);return imports[n];},Float32Array,Map,Set,Math,Promise,Error,window:{setTimeout:()=>0},...extras};vm.runInNewContext(code,scope);return scope.exports;
 }
 const identity=compile('strategyIdentity'),playlist=compile('audioPlaylist'),killAnnouncements=compile('killAnnouncements'),{MUSIC,broadcastMusicCue,audibleEvents}=playlist;
+// Constant-level stand-ins for the masters: the shared target, a hot upload and the very quiet MVP
+// theme (the shipped file measures about -36 dBFS gated RMS; the stub uses -39 to exercise the same
+// path). The last one catches a clamp that would leave a quiet soundtrack inaudible.
+const LEVEL_AMPLITUDE=10**(-10/20),HOT_AMPLITUDE=10**(-6/20),QUIET_AMPLITUDE=10**(-39/20);
 class Param{value=0;setValueAtTime(v){this.value=v;}setTargetAtTime(v){this.value=v;}exponentialRampToValueAtTime(v){this.value=v;}cancelScheduledValues(){}}
 class Node{gain=new Param();frequency=new Param();Q=new Param();playbackRate=new Param();connections=[];connect(node){this.connections.push(node);return node;}disconnect(){}start(at,offset=0){this.started={at,offset};}stop(at){this.stopped=at;}}
 class Context{
@@ -13,7 +17,14 @@ class Context{
  createDynamicsCompressor(){const n=new Node();for(const p of ['threshold','knee','ratio','attack','release'])n[p]=new Param();return n;}
  createBuffer(channels,length,rate){return {duration:length/rate,getChannelData:()=>new Float32Array(length)};}
  createBufferSource(){const n=new Node();this.sources.push(n);return n;}createOscillator(){return new Node();}createWaveShaper(){return new Node();}createBiquadFilter(){return new Node();}
- decodeAudioData(data){return Promise.resolve({duration:data.url.includes('/announcer/')?3:data.url.includes('countdown')?5:(data.url.includes('summoning')||data.url.includes('match-theme'))?113.92:32,url:data.url});}
+ decodeAudioData(data){
+  const duration=data.url.includes('/announcer/')?3:data.url.includes('countdown')?5:(data.url.includes('summoning')||data.url.includes('match-theme'))?113.92:32;
+  // A real decoded buffer, so the player's loudness pass runs. The default already sits on the
+  // shared -10 dBFS target; victory is a hot upload and mvp-theme is the quiet real-world master.
+  const amplitude=data.url.includes('victory')?HOT_AMPLITUDE:data.url.includes('mvp-')?QUIET_AMPLITUDE:LEVEL_AMPLITUDE;
+  const channel=new Float32Array(Math.max(1,Math.round(duration*1000)));channel.fill(amplitude);
+  return Promise.resolve({duration,url:data.url,length:channel.length,sampleRate:1000,numberOfChannels:1,getChannelData:()=>channel});
+ }
  resume(){this.state='running';return Promise.resolve();}suspend(){this.state='suspended';return Promise.resolve();}close(){this.state='closed';return Promise.resolve();}
  advance(seconds){if(this.state==='running')this.currentTime+=seconds;}
 }
@@ -153,6 +164,24 @@ test('each post-match stage changes the actual source buffer',async()=>{
  const a=harness();a.bgm('match','game-1');await a.enable();
  for(const cue of ['victory','results','mvp','results']){a.bgm(cue,'game-1');await flush();assert.equal(a.diagnostics.cue,cue);assert.equal(a.diagnostics.track,MUSIC[cue].url);assert.notEqual(a.diagnostics.track,MUSIC.match.url);}
 });
+test('every cue shares one level trim, and cue changes crossfade',async()=>{
+ for(const cue of Object.keys(MUSIC))assert.equal(MUSIC[cue].gain,1,cue+' has an unequal level trim');
+ const a=harness();a.bgm('match','game-1');await a.enable();await flush();
+ assert.ok(Math.abs(a.source.gain.gain.value-1)<1e-6,'the shipped track lands on the common loudness');
+ const first=a.context.sources.at(-1),starts=a.diagnostics.starts;
+ a.context.advance(2);a.bgm('victory','game-1');await flush();
+ assert.equal(a.diagnostics.cue,'victory');assert.equal(a.diagnostics.starts,starts+1);
+ assert.ok(first.stopped>2.5,'the old track keeps playing through the crossfade');
+ // `victory` is the hot upload in the stub: -6 dBFS is attenuated to the shared -10 dBFS target.
+ assert.ok(a.source.gain.gain.value>.6&&a.source.gain.gain.value<.66,'a hot recording is leveled down');
+ // A quiet master (-39 dBFS in the stub) must receive the full normalization and land on the
+ // shared level, rather than being clamped back to inaudible.
+ a.bgm('mvp','game-1');await flush();
+ const mvpGain=a.source.gain.gain.value;
+ assert.ok(mvpGain>4,'a quiet master is not clamped back to the old 12 dB ceiling');
+ const mvpLevel=mvpGain*QUIET_AMPLITUDE,referenceLevel=LEVEL_AMPLITUDE;
+ assert.ok(Math.abs(20*Math.log10(mvpLevel/referenceLevel))<1e-6,'the MVP cue lands on the shared level');
+});
 test('home and match setup swap music while match, post-match and archive tracks stay original',async()=>{
  const a=harness();a.bgm(broadcastMusicCue({...state,page:'home',post:'mvp',status:'finished'}),'preview');await a.enable();await flush();
  assert.equal(a.diagnostics.track,'/assets/audio/arena-theme.m4a');
@@ -258,6 +287,8 @@ test('music does not share the compressor driven by gunfire and announcer peaks'
  const musicLimiter=a.music.connections[0],effectsLimiter=a.bus.connections[0];
  assert.notEqual(musicLimiter,effectsLimiter);assert.equal(a.announcementBus.connections[0],effectsLimiter);
  assert.equal(musicLimiter.connections[0],a.master);assert.equal(effectsLimiter.connections[0],a.master);
+ assert.equal(musicLimiter.threshold.value,-3,'music keeps a true-peak ceiling, not a -9 dB squash');
+ assert.equal(effectsLimiter.threshold.value,-9);
 });
 test('pause freezes the current speech and does not accumulate new paused announcements',async()=>{
  const a=harness();await a.enable();await flush();a.announce(announcement('first-blood'),()=>{});a.context.advance(1);
@@ -298,4 +329,15 @@ test('recording renders lineup credits, the actual data panel and MVP stats into
  assert.ok(labels.includes('赛后数据面板'));assert.ok(labels.includes('1234'));assert.ok(labels.includes('567'));
  r.overlay={kind:'mvp',name:'3号 步兵',team:'红方',lines:['击毁机器人  7']};r.draw(f,null);
  assert.ok(labels.includes('MVP'));assert.ok(labels.includes('击毁机器人  7'));
+});
+test('the MVP card theme plays once for the match and never restarts itself',async()=>{
+ const a=harness();a.bgm('mvp','live:m1');await a.enable();await flush();
+ assert.equal(a.diagnostics.starts,1);
+ assert.equal(a.source.loop,false,'the MVP theme is not a loop');
+ // The panel re-renders many times a second; none of those restarts the track.
+ a.bgm('mvp','live:m1');await flush();assert.equal(a.diagnostics.starts,1);
+ a.source.node.onended();await flush();
+ assert.equal(a.musicPlaying,false,'after its one play the card stays silent');
+ a.bgm('mvp','live:m1');await flush();assert.equal(a.diagnostics.starts,1,'returning to the card does not replay it');
+ a.bgm('mvp','live:m2');await flush();assert.equal(a.diagnostics.starts,2,'the next match is a new scope and may play it again');
 });

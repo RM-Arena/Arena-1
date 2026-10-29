@@ -33,6 +33,7 @@ def act(observation: dict, state) -> tuple[dict, object]:
 | `projectiles` | 可见弹丸 |
 | `arena` | 地图几何 |
 | `referee` | 裁判快照：`robots`（不含位置）、`bases`、`outposts`、`positions`、`control`（双方控制度）、`logistics`（己方 λ）、`economy`、`events` |
+| `logistics`、`logistics_effects` | 己方后勤系数 λ，以及表 5-19 在当前基地血量下的实际缩放：`respawn_time_scale`、`supply_heal_scale`、`remote_heal_scale`、`interaction_bandwidth_bytes`（每条消息的有效字节上限）、`fpv_resolution`（`width`、`height`、`pixels_scale`） |
 
 `robots` 中每台机器人的常用字段：
 

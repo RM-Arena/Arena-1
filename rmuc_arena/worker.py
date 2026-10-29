@@ -29,6 +29,9 @@ def main():
         pass
     output = sys.stdout
     state = None
+    # Match-constant observation fields (the arena map), delivered once with the first
+    # observation and merged into every later one by the host's request.
+    static = {}
     try:
         with contextlib.redirect_stdout(sys.stderr):
             spec = importlib.util.spec_from_file_location("strategy", sys.argv[1])
@@ -44,6 +47,11 @@ def main():
     for line in sys.stdin:
         try:
             observation = json.loads(line)
+            chunk = observation.pop("__static__", None)
+            if chunk is not None:
+                static = chunk
+            if static:
+                observation = {**static, **observation}
             with contextlib.redirect_stdout(sys.stderr):
                 result = strategy.act(observation, state)
             if not isinstance(result, (tuple, list)) or len(result) != 2:
@@ -51,9 +59,10 @@ def main():
             actions, new_state = result
             if not isinstance(actions, dict):
                 raise ValueError("actions must be a dict keyed by slot")
-            state_json = json.dumps(new_state, allow_nan=False, separators=(",", ":"))
-            if len(state_json.encode()) > STATE_LIMIT:
-                raise ValueError(f"state exceeds {STATE_LIMIT // 1024} KiB")
+            if new_state is not None:
+                state_json = json.dumps(new_state, allow_nan=False, separators=(",", ":"))
+                if len(state_json.encode()) > STATE_LIMIT:
+                    raise ValueError(f"state exceeds {STATE_LIMIT // 1024} KiB")
             response = json.dumps({"actions": actions}, allow_nan=False, separators=(",", ":"))
             if len(response.encode()) > ACTIONS_LIMIT:
                 raise ValueError(f"actions exceed {ACTIONS_LIMIT // 1024} KiB")

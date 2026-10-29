@@ -10,13 +10,37 @@ dashes, then the enemy base once it can be damaged.
 TACTIC selects the behaviour: balanced (the rulebook baseline), assault or guard.
 """
 import math
-from sdk import (action, aim_at, aim_pitch, assembly_work_point, ballistic_reachable, can_fire,
+from sdk import (DESIGNS, action, aim_at, aim_pitch, assembly_work_point, ballistic_reachable, can_fire,
                  drones, instant_revive_cost, intercept, message, navigate, rescue_point, resource_pickup_point,
-                 tipped_teammates, workbench_point, zone_center)
+                 terrain_height, tipped_teammates, workbench_point, zone_center)
 
 TACTIC = "guard"
 
 STEP_ORDER = ("positioning", "inserting", "lifting", "flipping", "rotating", "verifying", "complete")
+
+# A chassis spins at a fraction of its turret's slew rate: the gun has to keep pointing at the
+# target while the hull turns, and a spin faster than the turret can follow would trade every
+# shot for the armour rotation it buys.
+SPIN_TURRET_FRACTION = .55
+# 小陀螺 holds for this long after the last hit, and while an enemy is this close even without
+# new damage, so incoming fire keeps landing on a different plate.
+SPIN_HOLD_S = 1.6
+SPIN_RANGE_M = 8.0
+# Enemy inside this radius gets a retreat first and a shot second (per role).
+EVADE_RANGE = {'heavy': 3.2, 'infantry': 2.6, 'sentry': 2.2}
+# A retreat keeps a share of the current route: backing straight off lets a chaser pin the robot
+# in place, and the robot that never reaches its own plinth loses the whole economy of a match.
+EVADE_KEEP = .5
+# One dodge burst lasts this long, then the robot holds its line for `EVADE_REST_S`: a chaser
+# cannot freeze the task by staying close, and the gun keeps working either way.
+EVADE_HOLD_S = 2.5
+EVADE_REST_S = 1.5
+# Chassis types that can translate while the hull turns; a legged chassis drives along its own
+# heading, so it only spins while standing.
+STRAFE_CHASSIS = ('mecanum', 'omni', 'swerve')
+# Supercap reserve kept for the next climb: the store is 1800 J and a climb burns ~170 J/s.
+SUPERCAP_RESERVE_J = 250.0
+CLIMB_DELTA_M = .06
 
 
 def wrap(angle):
@@ -54,15 +78,72 @@ def unstick(robot, move, memory, now):
     return {'move': m['escape'], 'heading': m['heading']}
 
 
+def design(robot):
+    """The hardware record the engine plays: turret slew, chassis type, supercap."""
+    return DESIGNS.get(str(robot.get('model_slot') or robot['slot']), {})
+
+
+def turret_rate(robot):
+    return float(design(robot).get('turret_yaw_rate_rad_s') or 5.0)
+
+
+def can_strafe(robot):
+    return design(robot).get('chassis_type') in STRAFE_CHASSIS
+
+
+def supercap(robot):
+    return robot.get('supercap_energy_j', 0.0)
+
+
+def climb_ahead(robot, move, arena, lookahead=.55):
+    """Metres the ground rises over the next `lookahead` along `move`."""
+    pace = math.hypot(*move)
+    if pace < .05:
+        return 0.0
+    x = robot['x'] + move[0] / pace * lookahead
+    y = robot['y'] + move[1] / pace * lookahead
+    return terrain_height(arena, x, y) - terrain_height(arena, robot['x'], robot['y'])
+
+
+def give_way(robot, move, obs):
+    """Step around a teammate standing in the way instead of pushing into it.
+
+    Two robots driving into each other used to lock both on the same line: neither could pass
+    and the pair spun on the spot. The lower slot keeps the route and the other one sidesteps,
+    which is deterministic, so the two never mirror each other's dodge.
+    """
+    pace = math.hypot(*move)
+    if pace < .2:
+        return move
+    ux, uy = move[0] / pace, move[1] / pace
+    for mate in obs['robots']:
+        if mate['id'] == robot['id'] or not mate['alive']:
+            continue
+        rx, ry = mate['x'] - robot['x'], mate['y'] - robot['y']
+        gap = math.hypot(rx, ry)
+        if gap > 1.6 or gap < 1e-6 or (rx * ux + ry * uy) / gap < .45:
+            continue
+        if robot['slot'] < mate['slot']:
+            continue
+        side = 1.0 if (rx * uy - ry * ux) > 0 else -1.0
+        return (ux * .5 - uy * side * .86, uy * .5 + ux * side * .86)
+    return move
+
+
 def drive(robot, goal, obs, memory, tolerance=.35):
-    """Navigate to `goal`. The chassis draws on its supercap (`power`) while it is slow
-    under a move order: the 2027 heavy robot has only 50 W for slopes and steps."""
+    """Navigate to `goal`. The chassis draws on its supercap (`power`) on a climb and while it
+    is slow under a move order: the 2027 heavy robot has only 50 W for slopes and steps."""
     if goal is None or distance(robot, goal) <= tolerance:
         return {'move': (0, 0)}
     fields = unstick(robot, navigate(robot, goal, obs['arena']), memory, obs['time'])
-    # Spend the supercap only when stalled (a slope or step); the referee firmware already
-    # backs the drive on the road bumps, and a drained cap would strand the robot there.
-    if math.hypot(robot['vx'], robot['vy']) < .3 and math.hypot(*fields['move']) > .2:
+    fields['move'] = give_way(robot, fields['move'], obs)
+    # Spend the supercap *before* the chassis stalls: waiting for the stall meant the heavy
+    # robot burned its approach against the resource-island slope and then lost the momentum it
+    # needed to crest it. The cap is 1800 J and the boost is ~170 W, so a reserve is kept for
+    # the next climb instead of emptying it on the flat.
+    climbing = climb_ahead(robot, fields['move'], obs['arena']) > CLIMB_DELTA_M
+    stalled = math.hypot(robot['vx'], robot['vy']) < .3 and math.hypot(*fields['move']) > .2
+    if (climbing or stalled) and supercap(robot) > SUPERCAP_RESERVE_J:
         fields['power'] = 200
     return fields
 
@@ -152,6 +233,83 @@ def weapon(robot, ctx, reach=9.0, structures=True, drones_too=True):
     # 17 mm keeps a 20-heat margin: one decision can fire two rounds.
     fire = aligned and can_fire(robot) and (heavy or robot['heat'] + 20 <= robot['max_heat'])
     return {'aim': aim, 'pitch': aim_pitch(robot, target), 'fire': fire}
+
+
+def nearest_foe(robot, ctx):
+    """Closest visible ground enemy as (distance, enemy); aerial bodies are not a threat."""
+    best = None
+    for e in ctx.obs['enemies']:
+        if not e['alive'] or not e.get('targetable', True) or e.get('invulnerable'):
+            continue
+        d = distance(robot, (e['x'], e['y']))
+        if best is None or d < best[0]:
+            best = (d, e)
+    return best
+
+
+def evade(robot, ctx, fields, foe, reach=None):
+    """贴近就脱离再输出: back out of an enemy's reach, then keep shooting from there.
+
+    A rowing chassis can only drive along its heading, so it turns away and accepts the turret
+    swing; a strafing one keeps the gun on the target and slides sideways out of reach. The
+    retreat is a burst, not a state: after `EVADE_HOLD_S` the robot takes its route back for
+    `EVADE_REST_S`, which is what stops an enemy that merely stands nearby from pinning it.
+    """
+    reach = EVADE_RANGE.get(robot['role'], 2.6) if reach is None else reach
+    memory = ctx.memory.setdefault('evade-' + str(robot['slot']), {})
+    if foe is None or foe[0] > reach:
+        memory['since'] = None
+        return fields
+    if ctx.time < memory.get('rest_until', -1):
+        return fields
+    since = memory.get('since')
+    if since is None or ctx.time < since:
+        since = memory['since'] = ctx.time
+    if ctx.time - since >= EVADE_HOLD_S:
+        memory['since'], memory['rest_until'] = None, ctx.time + EVADE_REST_S
+        return fields
+    ax, ay = robot['x'] - foe[1]['x'], robot['y'] - foe[1]['y']
+    gap = math.hypot(ax, ay) or 1.0
+    away = (ax / gap, ay / gap)
+    task = fields.get('move') or (0, 0)
+    pace = math.hypot(*task)
+    if pace > .05:
+        away = (away[0] + task[0] / pace * EVADE_KEEP, away[1] + task[1] / pace * EVADE_KEEP)
+        length = math.hypot(*away) or 1.0
+        away = (away[0] / length, away[1] / length)
+    fields.pop('heading', None)
+    if can_strafe(robot):
+        fields['move'] = away          # the hull keeps its bearing, the turret keeps the target
+    else:
+        fields['move'] = (away[0] * .7, away[1] * .7)
+        fields['heading'] = math.atan2(away[1], away[0])
+    if supercap(robot) > SUPERCAP_RESERVE_J:
+        fields['power'] = 200          # leaving is worth the capacitor
+    return fields
+
+
+def spin(robot, ctx, fields, foe):
+    """小陀螺: turn the hull under fire so successive hits land on different armour plates.
+
+    A hit makes the robot stop and spin: that is the whole point of the move, and a chassis
+    that keeps driving cannot turn its hull. Merely having an enemy inside `SPIN_RANGE_M` is
+    not enough to stop it, so a robot on a task only spins when it is already standing.
+    """
+    if foe is None or robot.get('weak'):
+        return fields
+    hit = ctx.time - robot.get('last_damage_time', -99) <= SPIN_HOLD_S
+    pressed = foe[0] <= SPIN_RANGE_M
+    if not (hit or pressed):
+        return fields
+    if not can_strafe(robot):
+        if hit:
+            fields['move'] = (0, 0)
+            fields['brake'] = True
+        elif math.hypot(*fields.get('move', (0, 0))) > .2:
+            return fields
+    fields.pop('heading', None)
+    fields['yaw_rate'] = round(turret_rate(robot) * SPIN_TURRET_FRACTION, 2)
+    return fields
 
 
 def can_buy_here(robot, ctx):
@@ -248,13 +406,52 @@ def heavy(robot, ctx):
 
 
 def pick(robot, ctx):
+    """Take an energy unit at the own resource hub.
+
+    A two-arm heavy parks square to the dispenser: its arms sit at ±0.21 m off the centreline,
+    so a chassis that arrives at an angle leaves the second arm outside the unit's reach and
+    the grab stalls until the engine times it out. The heading is squared up during the
+    approach (not only at the station), and the grabbing arm is named explicitly so the two
+    arms take turns instead of both reaching for the same unit.
+
+    The grab request must stay asserted for the whole sequence: releasing `pick_unit` reads as
+    an abandoned grab and cancels it mid-way. Recovery therefore keys off the engine dropping
+    the pickup itself (its own stall timeout), never off a frozen progress number.
+    """
     goal = resource_pickup_point(robot, ctx.arena)
-    if distance(robot, goal) <= .12:
-        station = next(f for f in ctx.arena['field_geometry']['fixtures'] if f['kind'] == 'resource' and f['team'] == ctx.team)
-        return {'move': (0, 0), 'brake': True, 'pick_unit': True,
-                'heading': math.atan2(station['pick_dir'][1], station['pick_dir'][0])}
-    fields = drive(robot, goal, ctx.obs, ctx.memory, .1)
-    fields['pick_unit'] = distance(robot, goal) < .6
+    station = next(f for f in ctx.arena['field_geometry']['fixtures'] if f['kind'] == 'resource' and f['team'] == ctx.team)
+    facing = math.atan2(station['pick_dir'][1], station['pick_dir'][0])
+    arms = int(design(robot).get('arm_count', 1))
+    arm = robot['carried_units'] % 2 if arms >= 2 else 0
+    gap = distance(robot, goal)
+    # A private memory slot: `unstick` owns the plain slot key and expects its own fields there.
+    memory = ctx.memory.setdefault('grab-' + str(robot['slot']), {})
+    state = robot.get('unit_pickup') or {}
+    # A grab the engine cancelled (unreachable, wrong side, chassis drifted out of the zone)
+    # needs a new pose: back off the dispenser lane once, then drive in again.
+    if memory.get('grab_stage') and not state and robot['carried_units'] <= memory.get('grab_carry', 0) \
+            and ctx.time >= memory.get('retry_until', -1):
+        memory['retry_until'] = ctx.time + .8
+    memory['grab_stage'] = state.get('stage')
+    memory['grab_carry'] = robot['carried_units']
+    if ctx.time < memory.get('retry_until', -1):
+        back = (goal[0] + station['pick_dir'][0] * -.4, goal[1] + station['pick_dir'][1] * -.4)
+        fields = drive(robot, back, ctx.obs, ctx.memory, .1)
+        fields['heading'] = facing
+        return fields
+    # Drift across the dispenser lane: the two arms stand ±0.21 m off the centreline, so a
+    # chassis that parks a few centimetres to the side leaves the far arm short of the unit and
+    # the grab can only time out. Request the grab from the lane, and keep closing until there.
+    lateral = abs((robot['x'] - goal[0]) * math.sin(facing) - (robot['y'] - goal[1]) * math.cos(facing))
+    on_lane = lateral <= .05
+    if gap <= .12 and on_lane:
+        return {'move': (0, 0), 'brake': True, 'pick_unit': True, 'pickup_arm': arm, 'heading': facing}
+    fields = drive(robot, goal, ctx.obs, ctx.memory, .03)
+    # Square up while still approaching: a chassis that only aligns once it has stopped needs a
+    # second pass, and a two-arm heavy cannot reach across its own deck.
+    fields['heading'] = facing
+    fields['pickup_arm'] = arm
+    fields['pick_unit'] = gap <= .3 and on_lane
     return fields
 
 
@@ -324,7 +521,10 @@ def heavy_combat(robot, ctx):
         fields.update(drive(robot, ctx.zone(ctx.team, 'supply'), obs, ctx.memory))
         return fields
     fields.update(drive(robot, heavy_post(ctx), obs, ctx.memory, .5))
+    foe = nearest_foe(robot, ctx)
     fields.update(weapon(robot, ctx, reach=12.0))
+    evade(robot, ctx, fields, foe)
+    spin(robot, ctx, fields, foe)
     return fields
 
 
@@ -383,6 +583,9 @@ def infantry(robot, ctx):
             goal = ctx.zone(enemy, 'central') if TACTIC != 'assault' else outpost_card_spot(ctx, enemy, side)
     fields.update(drive(robot, goal, obs, ctx.memory, .3))
     fields.update(weapon(robot, ctx, reach=7 if job == 'guard' else 9))
+    foe = nearest_foe(robot, ctx)
+    evade(robot, ctx, fields, foe)
+    spin(robot, ctx, fields, foe)
     return fields
 
 
@@ -430,6 +633,11 @@ def sentry(robot, ctx):
     memory['last'] = wanted
     # The sentry holds the card without ammo too, so it rebuys remotely with a small reserve.
     fields.update(ammo_fields(robot, ctx, 40, 100, 100, 50))
+    foe = nearest_foe(robot, ctx)
+    # A sentry does not abandon its card, but it still slides out of a body check and spins
+    # under fire; the hull has enough yaw authority that the gun keeps the target.
+    evade(robot, ctx, fields, foe, EVADE_RANGE['sentry'] * .8)
+    spin(robot, ctx, fields, foe)
     return fields
 
 

@@ -5,7 +5,7 @@ function load(name,deps={}){
  const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}});
  const context={exports:{},require:key=>deps[key]};vm.runInNewContext(compiled.outputText,context);return context.exports;
 }
-const {fortressAlert}=load('fortressAlert',{'./terrain':load('terrain')});
+const {fortressAlert,fortressCapture}=load('fortressAlert',{'./terrain':load('terrain')});
 function fixture(defender='blue',hold=14){
  const attacker=defender==='blue'?'red':'blue',id=`${attacker}-4`,zone=`${defender}_fortress`;
  return {status:'running',time:200,dt:.05,arena:{zones:[{id:zone,x:7,y:7,radius:.56}]},
@@ -49,4 +49,37 @@ test('pause and backward replay seek read snapshot time and progress; older fram
  f.arena.zones[0].polygon=[[6.4,6.4],[7.6,6.4],[7.6,7.6],[6.4,7.6]];
  f.robots[0].x=7.5;assert.equal(fortressAlert(f,'blue').remaining,6);
  f.robots[0].x=8;assert.equal(fortressAlert(f,'blue'),null);
+});
+test('2027 counts ten seconds, ignores a rebuilt outpost and accepts any ground holder',()=>{
+ const f=fixture();f.season='2027';
+ f.robots[0].fortress_hold=3.95;assert.equal(fortressAlert(f,'blue'),null);
+ f.robots[0].fortress_hold=4;assert.equal(fortressAlert(f,'blue').remaining,6);
+ f.robots[0].fortress_hold=9.5;assert.equal(fortressAlert(f,'blue').remaining,.5);
+ f.robots[0].fortress_hold=10;assert.equal(fortressAlert(f,'blue'),null);
+ // The 2027 count is live once started, so a rebuilt defender outpost must not hide it.
+ f.robots[0].fortress_hold=5;f.outposts.blue.hp=500;assert.equal(fortressAlert(f,'blue').remaining,5);
+ delete f.outposts;assert.equal(fortressAlert(f,'blue').remaining,5);
+ f.robots[0].role='heavy';assert.equal(fortressAlert(f,'blue').remaining,5);
+ f.robots[0].role='aerial';assert.equal(fortressAlert(f,'blue'),null);
+});
+test('a running capture reports its whole progress, not only the final seconds',()=>{
+ const f=fixture();f.season='2027';f.robots[0].fortress_hold=0;
+ let c=fortressCapture(f,'blue');
+ assert.equal(c.hold,0);assert.equal(c.holdSeconds,10);assert.equal(c.progress,0);assert.equal(c.remaining,10);assert.equal(c.attacker,'red');
+ f.robots[0].fortress_hold=2.5;c=fortressCapture(f,'blue');
+ assert.equal(c.progress,.25);assert.equal(c.remaining,7.5);assert.equal(fortressAlert(f,'blue'),null);
+ f.robots[0].fortress_hold=12;c=fortressCapture(f,'blue');
+ assert.equal(c.hold,10);assert.equal(c.progress,1);assert.equal(c.remaining,0);
+ f.bases.blue.armor_open=true;assert.equal(fortressCapture(f,'blue'),null,'a captured base leaves no plate');
+});
+test('2026 keeps its twenty second clock and its infantry-only card',()=>{
+ const f=fixture('blue',5);let c=fortressCapture(f,'blue');
+ assert.equal(c.holdSeconds,20);assert.equal(c.progress,.25);
+ f.robots[0].role='hero';assert.equal(fortressCapture(f,'blue'),null);
+});
+test('the capture picks the leading occupant and ignores a stale contact',()=>{
+ const f=fixture('blue',3);f.season='2027';
+ f.robots.push({...f.robots[0],id:'red-7',fortress_hold:6});f.zones.blue_fortress.occupants.push('red-7');
+ assert.equal(fortressCapture(f,'blue').robot,'red-7');
+ f.robots[1].fortress_last_contact=198;assert.equal(fortressCapture(f,'blue').robot,'red-4');
 });

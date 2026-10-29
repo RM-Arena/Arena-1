@@ -68,6 +68,20 @@ class NavigationTests(unittest.TestCase):
         self.assertGreater(move[0], 0)
         self.assertLess(move[1], 0)
 
+    def test_a_heavy_past_the_resource_hub_brakes_then_routes_back_from_the_corner(self):
+        # The heavy only has its base power to brake with: arriving at the dispenser flat out
+        # carried it past the zone into the corner behind the station. There the only escape
+        # waypoint was underfoot and the "already passed" skip hid it, so the chassis sat still
+        # for the rest of the match. It has to brake in time, and still have a route home.
+        arena = sdk.ARENAS_BY_SEASON["2027"]
+        robot = {"team": "blue", "role": "heavy", "x": 26.84, "y": 1.62, "vx": .6, "vy": -1.6,
+                 "speed_reference_mps": 3.2, "radius": .389, "transform_progress": 0.0}
+        goal = sdk.resource_pickup_point(robot, arena)
+        self.assertEqual(sdk.navigate(robot, goal, arena), (0.0, 0.0))
+        robot.update(x=27.297, y=.482, vx=0.0, vy=0.0)
+        move = sdk.navigate(robot, goal, arena)
+        self.assertLess(move[0], -.01, "the corner escape waypoint must not be skipped")
+
     def test_robot_inside_a_guard_margin_never_closes_in_on_the_guard(self):
         # A hero pushed against the north end of the east guard of the red 10.5 degree end
         # slope used to be sent straight down the ramp into that guard and wedged the lane.

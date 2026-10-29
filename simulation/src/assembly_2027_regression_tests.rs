@@ -45,6 +45,10 @@ fn failed_retry_preserves_pose_and_rotation_until_success() {
     assert_eq!(m.assemblies["red"].pose, s.pose);
     assert_eq!(m.assemblies["red"].target_rotation, s.target_rotation);
     m.complete_assembly_2027("red", h, 3);
+    // A finished assembly leaves the core re-initialising, so the next order has to wait it out.
+    m.assembly_rpc_2027(h, &json!({"assembly":3}));
+    assert_eq!(m.assemblies["red"].stage, "complete");
+    m.assemblies.get_mut("red").unwrap().repeat_ready_at = 0.0;
     m.assembly_rpc_2027(h, &json!({"assembly":3}));
     assert_eq!(m.assemblies["red"].stage, "moving");
     assert_ne!(m.assemblies["red"].pose, s.pose);

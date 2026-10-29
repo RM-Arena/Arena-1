@@ -5,6 +5,7 @@ import socket
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -68,5 +69,18 @@ def main():
         run("node", "--test", "desktop/backend.test.cjs")
 
 
+def cli():
+    """Run the requested command, turning Ctrl+C into a quiet exit."""
+    try:
+        main()
+    except KeyboardInterrupt:
+        # `run` and `desktop` stay in the foreground until the user stops them, and Ctrl+C is how a
+        # desktop session ends. An unhandled KeyboardInterrupt made that normal exit print a
+        # traceback that reads like a crash.
+        print("\n已停止。", file=sys.stderr)
+        return 130
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(cli())

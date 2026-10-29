@@ -9,12 +9,15 @@ import type {IntroSegment} from './intro';
 import {TEAM_COLORS} from './types';
 import {terrainHeight} from './terrain';
 import {Effects,pulse} from './effects';
-import {CombatText,MechanismHud,PickupHud,RobotHud,RuneBoard,RuneBurst,StructureHud} from './hud';
+import {CombatText,MechanismHud,PickupHud,RobotHud,RuneBoard,RuneBurst,StructureHud,alignBillboards} from './hud';
+import {HalfBrief,SeatBrief,type HalfBriefData} from './pilot';
 import {cloneForTeam,LED_COLORS,SHELL} from './teamMaterials';
 import {Venue} from './venue';
 import type {ArenaAudio} from './media';
-import {FPV_EYE_LIFT,feedAlpha,robotWorld} from './world';
-import {lobScope} from './scope';
+import {FPV_EYE_LIFT,dampFactor,displayRate,feedAlpha,robotWorld} from './world';
+import {fpvResolutionScale} from './logistics';
+import {createShakeState,shakeOf,type ShakeState} from './cockpitMotion';
+import {lobScope,pilotAim} from './scope';
 import {useSightRenderer,SightRig} from './sight';
 import {legRig,poseLegs,applyArmorNumber} from './robotRig';
 import {runeActive,runeArmLight} from './runeLights';
@@ -34,8 +37,9 @@ const BROADCAST_EYE:[number,number,number]=[0,20.5,21.3],BROADCAST_TARGET:[numbe
 // (80° read as too wide: the field edge pulled the eye off the crosshair).
 const BROADCAST_FOV=42,FPV_FOV=64;
 // A spectator's eye eases toward the engine turret at up to this rate (rad/s). A pilot's eye takes
-// the engine gimbal angle directly, matching the barrel model frame for frame.
-const EYE_RATE=8;
+// the engine gimbal angle directly, matching the barrel model frame for frame. 9.6 is the old 8 +
+// 20 %, so the observer camera keeps a tighter line on the gun without any extra frame cost.
+const EYE_RATE=9.6;
 // Ceilings are 15 % higher too: the broadcast preset and the first-person eye both look down on
 // the field from further up.
 const CINEMATIC_EYE=27.6,FOLLOW_EYE=4.4;
@@ -89,14 +93,22 @@ function droneOnField(frame:Frame,id:string){
   return null;
 }
 const workEyeAt=new THREE.Vector3();
+// Shared up axis for `setFromUnitVectors`, which only reads its arguments: the rune rigs rebuild
+// their beams every frame, so allocating a fresh one there was pure garbage.
+const Y_UP=new THREE.Vector3(0,1,0);
 // A camera change eases over this long, so switching first person → follow → broadcast reads as one
 // move instead of a cut.
 const TRANSITION_S=.5;
 const armBooms=new Map<string,{at:THREE.Vector3;dir:THREE.Vector3}>();
 // Stable tuples: a fresh array on every React render would make R3F resize the renderer each frame.
 const BROADCAST_DPR:[number,number]=[1,1.2],FPV_DPR:[number,number]=[.8,1.05];
-// Adaptive resolution trades pixels for frames; below this the image is too soft to read the field.
-const DPR_FLOOR=.6;
+// Adaptive resolution trades pixels for frames only when frames are genuinely too slow: below this
+// frame time the field keeps its full device-pixel-ratio cap, and a step down never goes past
+// `SLOW_FLOOR` of that cap. The thresholds are absolute wall-clock times so they mean the same on a
+// 60 Hz and a 240 Hz panel.
+const SLOW_FRAME_S=1/45,FAST_FRAME_S=1/70,SLOW_FLOOR=.75;
+// Zone tints are read every frame; parsing the palette strings there would be pure churn.
+const ZONE_TINTS={red:new THREE.Color(TEAM_COLORS.red),blue:new THREE.Color(TEAM_COLORS.blue),neutral:new THREE.Color('#d4b57c')};
 const point=(r:{x:number;y:number;z?:number},h=0,width=28,height=15)=>new THREE.Vector3(r.x-width/2,(r.z||0)+h,r.y-height/2);
 // Shortest signed difference between two wrapped yaw angles.
 const yawDelta=(from:number,to:number)=>{const d=(to-from+Math.PI)%(Math.PI*2);return (d<0?d+Math.PI*2:d)-Math.PI;};
@@ -104,27 +116,39 @@ const yawDelta=(from:number,to:number)=>{const d=(to-from+Math.PI)%(Math.PI*2);r
 // camera that used them directly would disagree with the barrel whenever the chassis sat on a
 // ramp, climbed a step or tipped. Carrying the local angles through the hull attitude keeps the
 // first-person lens exactly on the bore line.
-const barrelView=(r:Robot)=>{
-  const fallback={yaw:r.aim??r.heading??0,pitch:r.pitch??0};
+// Two results are needed per frame (this sample and the previous one), so the answer is written into
+// one of two slots instead of handed back as a fresh object: this runs on every rendered frame.
+const barrelSlots=[{yaw:0,pitch:0},{yaw:0,pitch:0}];
+const barrelView=(r:Robot,slot=0)=>{
+  const out=barrelSlots[slot];
+  out.yaw=r.aim??r.heading??0;out.pitch=r.pitch??0;
   const q=r.quaternion;
-  if(!q||q.length!==4)return fallback;
+  if(!q||q.length!==4)return out;
   const localYaw=(r.aim??r.heading??0)-(r.heading??0),pitch=r.pitch??0,cos=Math.cos(pitch);
   const vx=Math.cos(localYaw)*cos,vy=Math.sin(localYaw)*cos,vz=Math.sin(pitch);
   const [qx,qy,qz,qw]=q;
   const tx=2*(qy*vz-qz*vy),ty=2*(qz*vx-qx*vz),tz=2*(qx*vy-qy*vx);
   const x=vx+qw*tx+qy*tz-qz*ty,y=vy+qw*ty+qz*tx-qx*tz,z=vz+qw*tz+qx*ty-qy*tx;
-  return {yaw:Math.atan2(y,x),pitch:Math.asin(Math.max(-1,Math.min(1,z)))};
+  out.yaw=Math.atan2(y,x);out.pitch=Math.asin(Math.max(-1,Math.min(1,z)));
+  return out;
 };
 const colors={red:new THREE.Color(LED_COLORS.red),blue:new THREE.Color(LED_COLORS.blue)},WHITE=new THREE.Color('#ffffff');
 const toHeight=(frame:Frame,x:number,y:number)=>terrainHeight(frame.arena,x,y);
+// The diagnostics record republished every frame (see the `arenaMotion` publisher in the director).
+const arenaMotion={alpha:1,age:0,pace:null as number|null,aimYaw:0,aimPitch:0,corrYaw:0,cmdYaw:0,mode:'',
+  steerRuns:0,steerStep:0,frameNo:0,frame:null as import('./types').Frame|null};
 
 // Structures are static scenery with a few named hinges, so they are merged by material as soon as
 // they are cloned: the field and the two bases are most of the draw calls in a broadcast frame.
 // The field map is left as loaded: its materials are restyled by name and carry baked contact shadows per material.
-const STRUCTURE_ASSET=/^\/assets\/(?:base-|outpost-|tech-core-|rune-)/;
+// Picked-up energy units are scenery too, and forty tiny parts each; they merge but keep their shadows.
+const STRUCTURE_ASSET=/^\/assets\/(?:base-|outpost-|tech-core-|rune-)/,PROP_ASSET=/^\/assets\/energy-unit-/;
 function useAsset(url:string,team?:TeamId){
   const scene=useRobotScene(url);
-  const asset=useMemo(()=>{const clone=cloneForTeam(scene,team);return STRUCTURE_ASSET.test(url)?batchStaticStructure(clone):clone;},[scene,team,url]),gl=useThree(state=>state.gl);
+  const asset=useMemo(()=>{const clone=cloneForTeam(scene,team);
+    if(STRUCTURE_ASSET.test(url))return batchStaticStructure(clone);
+    if(PROP_ASSET.test(url))return batchStaticStructure(clone,{trimShadows:false});
+    return clone;},[scene,team,url]),gl=useThree(state=>state.gl);
   // A newly loaded caster also invalidates the cached shadow while paused.
   useEffect(()=>{gl.shadowMap.needsUpdate=true;},[gl,asset]);
   return asset;
@@ -132,7 +156,7 @@ function useAsset(url:string,team?:TeamId){
 
 function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,onPick}:{id:string;role:string;team:TeamId;url:string;feed:MutableRefObject<RenderFeed>;selected:string;onSelect:(id:string)=>void;hidden?:boolean;hover?:MutableRefObject<string|null>;pick?:boolean;onPick?:(id:string)=>void}){
   const asset=useAsset(url,team),group=useRef<THREE.Group>(null),body=asset.getObjectByName('Chassis'),turret=asset.getObjectByName('Turret'),pitch=asset.getObjectByName('GunPitch');
-  const poseNow=useMemo(()=>new THREE.Quaternion(),[]),poseOld=useMemo(()=>new THREE.Quaternion(),[]);
+  const poseNow=useMemo(()=>new THREE.Quaternion(),[]),poseOld=useMemo(()=>new THREE.Quaternion(),[]),posePos=useMemo(()=>new THREE.Vector3(),[]);
   useEffect(()=>applyArmorNumber(asset,id.slice(id.lastIndexOf('-')+1)),[asset,id]);
   useEffect(()=>()=>{armBooms.delete(id);},[id]);
   const lift=asset.getObjectByName('GunElevator'),shoulder=asset.getObjectByName('ArmShoulder'),forearm=asset.getObjectByName('ArmForearm');
@@ -157,7 +181,9 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
     const physicalAlive=r.role==='aerial'||r.alive;
     const old=feed.current.previous?.robots.find(r=>r.id===id)||r;
     const alpha=feedAlpha(feed.current);
-    const pos=point(r,0,f.arena.width,f.arena.height);pos.lerp(point(old,0,f.arena.width,f.arena.height),1-alpha);group.current.position.copy(pos);
+    // Same velocity-continuous sampler the first-person eye uses, so the hull under a pilot's lens
+    // cannot drift away from the camera by the difference between a straight line and the real path.
+    robotWorld(feed.current,r,alpha,posePos);group.current.position.copy(posePos);
     if(r.quaternion){const a=r.quaternion,b=old.quaternion||a;poseNow.set(-a[0],-a[2],-a[1],a[3]);poseOld.set(-b[0],-b[2],-b[1],b[3]);group.current.quaternion.copy(poseOld.slerp(poseNow,alpha));}else group.current.rotation.y=-r.heading;
     // Turret and gun are posed with the same interpolation the first-person eye uses, so the view
     // and the barrel hold an identical yaw and pitch on every rendered frame.
@@ -171,7 +197,7 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
     const hardware=f.robot_models?.[String(r.model_slot??r.slot)];
     steering.forEach((node,i)=>{if(node&&r.steering_angles)node.rotation.y=-r.steering_angles[i^1];});
     const twoWheel=wheelNodes.length===2;
-    const travel=lastPosition.current.distanceTo(pos);if(travel<1)for(const [i,node] of wheelNodes.entries()){const k=twoWheel?1-i:i^1;node.rotation.z-=r.wheel_angular_velocity?r.wheel_angular_velocity[k]*dt:travel/(hardware?.wheel_radius_m||((r.model_slot??r.slot)===1?.09:(r.model_slot??r.slot)===2||(r.model_slot??r.slot)===7?.085:(r.model_slot??r.slot)===4?.08:.075));if(legs)continue;if(r.suspension)node.position.y=(hardware?.wheel_radius_m||((r.model_slot??r.slot)===1?.09:(r.model_slot??r.slot)===2||(r.model_slot??r.slot)===7?.085:(r.model_slot??r.slot)===4?.08:.075))+(hardware?.suspension_rest_m||.09)-r.suspension[k];if(steering[i]&&r.suspension)node.position.y=-r.suspension[k]+(hardware?.suspension_rest_m||.09);}lastPosition.current.copy(pos);
+    const travel=lastPosition.current.distanceTo(posePos);if(travel<1)for(const [i,node] of wheelNodes.entries()){const k=twoWheel?1-i:i^1;node.rotation.z-=r.wheel_angular_velocity?r.wheel_angular_velocity[k]*dt:travel/(hardware?.wheel_radius_m||((r.model_slot??r.slot)===1?.09:(r.model_slot??r.slot)===2||(r.model_slot??r.slot)===7?.085:(r.model_slot??r.slot)===4?.08:.075));if(legs)continue;if(r.suspension)node.position.y=(hardware?.wheel_radius_m||((r.model_slot??r.slot)===1?.09:(r.model_slot??r.slot)===2||(r.model_slot??r.slot)===7?.085:(r.model_slot??r.slot)===4?.08:.075))+(hardware?.suspension_rest_m||.09)-r.suspension[k];if(steering[i]&&r.suspension)node.position.y=-r.suspension[k]+(hardware?.suspension_rest_m||.09);}lastPosition.current.copy(posePos);
     if(legs&&r.legs){
       // Legs follow the frame interpolation; a whole hip turn dropped by the engine is not replayed.
       const was=old.legs??r.legs,turn=(r.hip_angle??0)-(old.hip_angle??r.hip_angle??0),wrapped=turn-Math.round(turn/(2*Math.PI))*2*Math.PI;
@@ -194,8 +220,8 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
       const known=armBooms.get(id);
       if(!known)armBooms.set(id,{at:boomAt.clone(),dir:boomDir.clone()});
       else{
-        known.at.lerp(boomAt,Math.min(1,dt*14));
-        known.dir.lerp(boomDir,Math.min(1,dt*10)).normalize();
+        known.at.lerp(boomAt,dampFactor(14,dt));
+        known.dir.lerp(boomDir,dampFactor(10,dt)).normalize();
       }
     }
     for(const node of rotorNodes)node.rotation.y+=dt*((r.motor_power_w??(r.z>.5?1000:0))>100?90:0);
@@ -239,7 +265,7 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
   // pointer, which is exactly the one highlighted. Raycasting here as well would hand the pick to a
   // different chassis than the one lit up for anything standing in front of another.
   const pick_=(e:ThreeEvent<PointerEvent>)=>{e.stopPropagation();document.body.dataset.lastPick=id;if(!pick)onSelect(id);};
-  return <group ref={group} onPointerDown={pick_}>
+  return <group ref={group} name={'robot:'+id} onPointerDown={pick_}>
     <primitive object={asset}/>
     {(role==='engineer'||role==='heavy')&&<><group ref={heldUnit} visible={false}>
       <primitive object={unitAsset} rotation={[0,0,-Math.PI/2]}/>
@@ -293,7 +319,10 @@ function BaseModel({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed
   // TeamGlow materials is pure overhead on the render thread.
   const glows=useMemo(()=>{const list:THREE.MeshStandardMaterial[]=[];asset.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])if(m instanceof THREE.MeshStandardMaterial&&m.name.startsWith('TeamGlow'))list.push(m);});return list;},[asset]);
   const rotation=useMemo(()=>new THREE.Quaternion(),[]),up=useMemo(()=>new THREE.Vector3(0,1,0),[]);
-  useFrame(({clock},dt)=>{const b=feed.current.frame?.bases[team];if(!b||!group.current)return;group.current.position.copy(point(b,0,feed.current.frame!.arena.width,feed.current.frame!.arena.height));opening.current=b.armor_open_progress??THREE.MathUtils.damp(opening.current,b.armor_open?1:0,5,dt);for(const h of hinges)h.node.quaternion.copy(h.original).multiply(rotation.setFromAxisAngle(up,h.swing*opening.current*1.15));const glow=1.1+Math.sin(clock.elapsedTime*2)*.15+pulse('base-'+team,.25)*2.5;for(const m of glows)m.emissiveIntensity=glow;});
+  useFrame(({clock},dt)=>{const b=feed.current.frame?.bases[team];if(!b||!group.current)return;group.current.position.copy(point(b,0,feed.current.frame!.arena.width,feed.current.frame!.arena.height));
+    // The structure's own turn: blue's base faces the field, half a turn from the asset's own axes.
+    group.current.rotation.y=-(b.yaw??(team==='blue'?Math.PI:0));
+    opening.current=b.armor_open_progress??THREE.MathUtils.damp(opening.current,b.armor_open?1:0,5,dt);for(const h of hinges)h.node.quaternion.copy(h.original).multiply(rotation.setFromAxisAngle(up,h.swing*opening.current*1.15));const glow=1.1+Math.sin(clock.elapsedTime*2)*.15+pulse('base-'+team,.25)*2.5;for(const m of glows)m.emissiveIntensity=glow;});
   return <group ref={group}><primitive object={asset}/><pointLight color={LED_COLORS[team]} intensity={2.2} distance={3.2} decay={2} position={[0,.9,0]}/></group>;
 }
 
@@ -337,7 +366,9 @@ function RuneFace({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>
     const targets=(state.targets||[]) as {x:number;y:number;z:number;arm:number}[];
     inverse.copy(group.current.matrixWorld).invert();
     const blend=feedAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
-    const angles=targets.map(t=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t;local.copy(point({x:old.x+(t.x-old.x)*blend,y:old.y+(t.y-old.y)*blend,z:old.z+(t.z-old.z)*blend},0,f.arena.width,f.arena.height)).applyMatrix4(inverse);return Math.atan2(local.z,local.y);});
+    const angles=targets.map(t=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t,px=old.x+(t.x-old.x)*blend,py=old.y+(t.y-old.y)*blend,pz=old.z+(t.z-old.z)*blend;
+      // Inline of `point(x, y, z, 0)`: this runs for five arms on each of the two faces every frame.
+      local.set(px-f.arena.width/2,pz,py-f.arena.height/2).applyMatrix4(inverse);return Math.atan2(local.z,local.y);});
     if(angles.length)rotor.rotation.x=angles[0];
     // Map each modelled arm to the engine arm it covers after the rotation.
     const active=runeActive(state,f.time),activating=state.status==='activating';
@@ -389,16 +420,16 @@ function TechCore({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>
 
 function LegacyRuneModel({team,feed}:{team:TeamId;feed:MutableRefObject<RenderFeed>}){
   const heads=useRef<Array<THREE.Group|null>>([]),cards=useRef<Array<THREE.Mesh|null>>([]),beams=useRef<Array<THREE.Mesh|null>>([]);
-  const direction=useMemo(()=>new THREE.Vector3(),[]);
+  const direction=useMemo(()=>new THREE.Vector3(),[]),beamCenter=useMemo(()=>new THREE.Vector3(),[]),beamTarget=useMemo(()=>new THREE.Vector3(),[]);
   useFrame(()=>{const f=feed.current.frame,state=f?.runes?.[team],targets=state?.targets;if(!f||!targets?.length)return;
-    const center=point({x:targets.reduce((s:number,t:any)=>s+t.x,0)/5,y:targets.reduce((s:number,t:any)=>s+t.y,0)/5,z:targets.reduce((s:number,t:any)=>s+t.z,0)/5});
+    const center=beamCenter.set(targets.reduce((s:number,t:any)=>s+t.x,0)/5-f.arena.width/2,targets.reduce((s:number,t:any)=>s+t.z,0)/5,targets.reduce((s:number,t:any)=>s+t.y,0)/5-f.arena.height/2);
     const yaw=f.arena.rune?.axis_yaw||0;
     const blend=feedAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
-    targets.forEach((t:any,i:number)=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t;const target=point({x:old.x+(t.x-old.x)*blend,y:old.y+(t.y-old.y)*blend,z:old.z+(t.z-old.z)*blend}),head=heads.current[i],card=cards.current[i];
+    targets.forEach((t:any,i:number)=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t;const x=old.x+(t.x-old.x)*blend,y=old.y+(t.y-old.y)*blend,z=old.z+(t.z-old.z)*blend,target=beamTarget.set(x-f.arena.width/2,z,y-f.arena.height/2),head=heads.current[i],card=cards.current[i];
       if(head){head.position.copy(target);head.rotation.y=Math.PI/2-yaw;}
       const light=runeArmLight(state,t.arm??i,f.time),tint=light==='hit'?RUNE_HIT:light==='impact'?RUNE_IMPACT:colors[team];
       if(card)lamp(card.material as THREE.MeshStandardMaterial,light!=='off',tint,1.4);
-      const beam=beams.current[i];if(beam){direction.copy(target).sub(center);beam.position.copy(center).add(target).multiplyScalar(.5);beam.scale.y=direction.length();beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());}
+      const beam=beams.current[i];if(beam){direction.copy(target).sub(center);beam.position.copy(center).add(target).multiplyScalar(.5);beam.scale.y=direction.length();beam.quaternion.setFromUnitVectors(Y_UP,direction.normalize());}
       if(beam)lamp(beam.material as THREE.MeshStandardMaterial,['active','hit','impact'].includes(light),tint,1.1);
     });
   });
@@ -451,10 +482,10 @@ function ArenaMap({frame,feed}:{frame:Frame;feed:MutableRefObject<RenderFeed>}){
   return <group><primitive object={asset}/>{frame.arena.zones.filter(z=>!z.id.includes('_road_')&&!z.id.includes('_highland_')&&!z.id.includes('_tunnel_')&&!z.id.includes('_fly_')).map(z=><Zone key={z.id} id={z.id} x={z.x} y={z.y} radius={z.radius} elevation={toHeight(frame,z.x,z.y)} feed={feed} floorOnly={!!frame.arena.layout_revision}/>)}</group>;
 }
 function Zone({id,x,y,radius,elevation,feed,floorOnly}:{id:string;x:number;y:number;radius:number;elevation:number;feed:MutableRefObject<RenderFeed>;floorOnly:boolean}){
-  const ring=useRef<THREE.Mesh>(null),pad=useRef<THREE.Mesh>(null),beacon=useRef<THREE.Mesh>(null);
-  useFrame(({clock})=>{const zone=feed.current.frame?.zones[id];if(!zone)return;const color=zone.owner?TEAM_COLORS[zone.owner]:'#d4b57c';
-    if(ring.current)(ring.current.material as THREE.MeshBasicMaterial).color.set(color);if(pad.current){const m=pad.current.material as THREE.MeshBasicMaterial;m.color.set(color);m.opacity=.035+Math.abs(zone.progress)*.07;}
-    if(beacon.current){const m=beacon.current.material as THREE.MeshStandardMaterial;m.color.set(color);m.emissive.set(color);m.emissiveIntensity=zone.contested?1+Math.sin(clock.elapsedTime*12)*.7:.7;}
+  const ring=useRef<THREE.Mesh>(null),pad=useRef<THREE.Mesh>(null),beacon=useRef<THREE.Mesh>(null),tint=useMemo(()=>new THREE.Color(),[]);
+  useFrame(({clock})=>{const zone=feed.current.frame?.zones[id];if(!zone)return;const color=tint.copy(zone.owner?ZONE_TINTS[zone.owner]:ZONE_TINTS.neutral);
+    if(ring.current)(ring.current.material as THREE.MeshBasicMaterial).color.copy(color);if(pad.current){const m=pad.current.material as THREE.MeshBasicMaterial;m.color.copy(color);m.opacity=.035+Math.abs(zone.progress)*.07;}
+    if(beacon.current){const m=beacon.current.material as THREE.MeshStandardMaterial;m.color.copy(color);m.emissive.copy(color);m.emissiveIntensity=zone.contested?1+Math.sin(clock.elapsedTime*12)*.7:.7;}
   });
   return <group position={[x-14,elevation+.016,y-7.5]}><mesh ref={ring} visible={!floorOnly} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[radius-.06,radius,64]}/><meshBasicMaterial color="#d4b57c" transparent opacity={.7} side={THREE.DoubleSide}/></mesh><mesh ref={pad} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[radius-.1,48]}/><meshBasicMaterial color="#d4b57c" transparent opacity={.05} depthWrite={false}/></mesh>{!floorOnly&&<><mesh position={[0,.19,0]}><cylinderGeometry args={[.19,.25,.38,12]}/><meshStandardMaterial color="#71848b" metalness={.7} roughness={.4}/></mesh><mesh ref={beacon} position={[0,.54,0]}><cylinderGeometry args={[.085,.085,.35,12]}/><meshStandardMaterial color="#d4b57c" emissive="#d4b57c"/></mesh></>}</group>;
 }
@@ -478,14 +509,17 @@ function introCamera(shot:IntroShot,u:number,frame:Frame,camera:THREE.Camera,loo
   camera.lookAt(look);
 }
 function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pickView,pickHover,pickSeat,linkHover}:{mode:CameraMode;selected:string;feed:MutableRefObject<RenderFeed>;audio?:ArenaAudio;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null;pilot?:string|null;hud:boolean;pickView?:PickView|null;pickHover?:MutableRefObject<string|null>;pickSeat?:MutableRefObject<boolean>;linkHover?:MutableRefObject<string|null>}){
-  const {camera,gl,setDpr,size}=useThree(),controls=useRef<Controls>(null),target=useMemo(()=>new THREE.Vector3(),[]);const previousMode=useRef('');
+  const {camera,gl,size}=useThree(),controls=useRef<Controls>(null),target=useMemo(()=>new THREE.Vector3(),[]);const previousMode=useRef('');
   const renderSight=useSightRenderer();
   const shadow=useRef({slot:-1,frame:null as Frame|null,generation:'',paused:false,shown:0});
   // Adaptive resolution: the scene is heavy enough that a fixed pixel ratio is wrong on both a
   // 4K desktop and a small laptop. Frame time is sampled and the renderer trades resolution for
   // frame rate inside a narrow band so the pilot sees a steady image either way.
   // `shadow`: the shadow map is refreshed on every n-th rendered frame while the field moves.
-  const perf=useRef({time:0,frames:0,ratio:1.3,ceiling:1.3,shadow:1});
+  // `hz` is the display's refresh rate, measured from the render callbacks: the frame budget the
+  // controller aims at is 1/hz, so a 60 Hz panel keeps its 16.7 ms of quality while a 120 Hz panel is
+  // pushed to 8.3 ms instead of being judged against a 60 Hz budget it was already beating.
+  const perf=useRef({time:0,frames:0,ratio:1.3,ceiling:1.3,shadow:1,fast:0,cool:0,mode:'',stepFrom:1.3,stepAvg:0,verify:false,hz:60,link:1,applied:1.3,stamp:'',changes:0,miss:0,feed:'',quiet:0,probeWait:4});
   const look=useMemo(()=>new THREE.Vector3(),[]),cut=useRef({key:'',at:0});
   const ear=useMemo(()=>new THREE.Vector3(),[]),ahead=useMemo(()=>new THREE.Vector3(),[]),up=useMemo(()=>new THREE.Vector3(),[]),origin=useMemo(()=>new THREE.Vector3(),[]);
   const eyePoint=useMemo(()=>new THREE.Vector3(),[]),eyeLook=useMemo(()=>new THREE.Vector3(),[]);
@@ -500,6 +534,12 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   const blendTo=useMemo(()=>new THREE.Quaternion(),[]);
   // Chassis choice: eased camera pose plus the last chassis the pointer settled on.
   const pickEye=useMemo(()=>new THREE.Vector3(),[]),pickLook=useMemo(()=>new THREE.Vector3(),[]),pickNow=useMemo(()=>new THREE.Vector3(),[]);
+  // Scratch for the follow cameras: the chasing pose is rebuilt every rendered frame, so allocating
+  // there handed the collector a small vector per frame for no change in the picture.
+  const followFocus=useMemo(()=>new THREE.Vector3(),[]),followFrom=useMemo(()=>new THREE.Vector3(),[]),followWanted=useMemo(()=>new THREE.Vector3(),[]);
+  // Audience follow: once the pointer takes the camera, `followOrbit` hands the pose to OrbitControls,
+  // which keeps the audience's own offset while the target rides the chassis.
+  const followOrbit=useRef(false),followId=useRef('');
   const pickAt=useRef({id:'',ready:false});
   // The picker eases into its first pose from whatever the broadcast left behind, and between the two
   // stages it glides instead of cutting, so side choice → chassis choice is one continuous move.
@@ -513,11 +553,34 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   // True between a pilot's death and their respawn, when the rules hold the camera pose.
   const dead=useRef(false);
   // The rendered turret angles: eased toward the engine's reported ones every frame, so 20 Hz
-  // simulation steps do not turn into 20 Hz camera steps.
-  const eye=useRef({id:'',yaw:0,pitch:0});
+  // simulation steps do not turn into 20 Hz camera steps. `corrYaw`/`corrPitch` carry the small
+  // standing difference between the pilot's own command and the engine's echo of it.
+  // `sYaw`/`sPitch` are the angles actually drawn: the commanded ones with sub-degree chatter filtered
+  // out (see the first-person block).
+  const eye=useRef({id:'',yaw:0,pitch:0,corrYaw:0,corrPitch:0,sYaw:0,sPitch:0});
+  // Cockpit vibration state (see `shakeOf` in `cockpitMotion`).
+  const shake=useRef<ShakeState>(createShakeState());
+  // The pilot's eye height, filtered against chassis chatter: the hull's vertical pose is reported at
+  // 20 Hz and a legged or suspended chassis buzzes between samples, so a lens bolted straight onto it
+  // inherited the buzz. The horizontal pose stays exact, so the eye cannot drift off the bore line.
+  const eyeStable=useRef({id:'',y:0,ready:false});
+  // Whether the camera this frame is the cockpit's own lens. Only that feed carries the 5.6.1 picture:
+  // the broadcast, follow and picker cameras show the field to spectators, and the heavy's mining and
+  // feeding steps are deliberately watched from a third-person chase view, so none of those may be
+  // degraded when the team's base takes damage.
+  const firstPerson=useRef(false);
   useEffect(()=>onCanvas(gl.domElement),[gl,onCanvas]);
+  // Fullscreen resizes the canvas, and three's own `setSize` re-applies the store's pixel ratio.
+  // Clearing the bookkeeping makes the next frame hand the resolved feed ratio back to the renderer
+  // straight away instead of waiting for the comparison below to notice it. The frame-time window is
+  // dropped as well: the transition itself is a long frame, and averaging it in used to buy a step
+  // down the resolution ladder for nothing.
+  useEffect(()=>{const sync=()=>{perf.current.applied=-1;perf.current.time=0;perf.current.frames=0;};document.addEventListener('fullscreenchange',sync);return()=>document.removeEventListener('fullscreenchange',sync);},[]);
   useEffect(()=>{const restore=()=>{gl.shadowMap.needsUpdate=true;};gl.domElement.addEventListener('webglcontextrestored',restore);return()=>gl.domElement.removeEventListener('webglcontextrestored',restore);},[gl]);
   useFrame(({clock},dt)=>{
+    // Reset first: every branch below either leaves the camera on a spectator/third-person pose or
+    // marks it as the cockpit lens, so the resolution controller reads the truth for this frame.
+    firstPerson.current=false;
     // Pre-match picker: a fixed 45-degree oblique view of the whole field for the side choice, then
     // the same angle over the chosen team's start area for the chassis choice. It outranks the intro
     // because the pilot is actively choosing where to look.
@@ -541,7 +604,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
           const cam=camera as THREE.PerspectiveCamera;
           const base=sidePickDistance(halfW,halfH,cam.fov,cam.aspect||1.6);
           const want=pickSeat?.current?1:0;
-          seatZoom.current+=(want-seatZoom.current)*Math.min(1,dt*4.5);
+          seatZoom.current+=(want-seatZoom.current)*dampFactor(4.5,dt);
           const distance=base*(1+.28*seatZoom.current);
           const elevation=THREE.MathUtils.degToRad(SIDE_PICK_ELEVATION);
           pickEye.set(0,Math.sin(elevation)*distance,Math.cos(elevation)*distance);
@@ -625,6 +688,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       // The camera still holds the old mode's pose here, so that is what the move starts from.
       blendQ.fromPos.copy(camera.position);blendQ.fromQuat.copy(camera.quaternion);blendQ.t=0;
       previousMode.current=mode;
+      followOrbit.current=false;
       if(mode==='orbit'){camera.position.set(...BROADCAST_EYE);controls.current?.target.set(...BROADCAST_TARGET);}}
     // Only the top view leans the world over; every other mode wants the normal world up, and the
     // orbit controls derive their own gimbal from it.
@@ -655,7 +719,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         dive.spot=[p.x,p.z];
       }
       const want=robot?1:0;
-      dive.k+=(want-dive.k)*Math.min(1,dt*3.4);
+      dive.k+=(want-dive.k)*dampFactor(3.4,dt);
       const k=dive.k<.001?0:dive.k,spot=dive.spot??[0,0];
       const near=dist+(dive.near-dist)*k;
       camera.position.set(spot[0]*k,near,spot[1]*k);
@@ -669,7 +733,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
     // continuous while a pilot's input is in flight.
     if(mode==='fpv'){const f=feed.current.frame,r=f?.robots.find(r=>r.id===selected);if(f&&r){
       // The rules keep the view pose while the chassis is destroyed; nothing turns until respawn.
-      if(!r.alive){dead.current=true;settle();return;}
+      if(!r.alive){dead.current=true;eyeStable.current.ready=false;settle();return;}
       const own=pilot&&pilot===r.id;
       const was=feed.current.previous?.robots.find(o=>o.id===r.id)||r,alpha=feedAlpha(feed.current);
       robotWorld(feed.current,r,alpha,eyePoint);
@@ -691,11 +755,11 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         if(view.id!==r.id){restart();view.id=r.id;view.look=null;view.eye.copy(camera.position);}
         const focus=point(r,.40,f.arena.width,f.arena.height);
         if(!view.look)view.look=focus.clone();
-        else view.look.lerp(focus,Math.min(1,dt*6));
+        else view.look.lerp(focus,dampFactor(6,dt));
         workEyeAt.set(view.look.x-Math.cos(hd)*FOLLOW_BACK,view.look.y+FOLLOW_EYE,view.look.z-Math.sin(hd)*FOLLOW_BACK);
         workEyeAt.x=THREE.MathUtils.clamp(workEyeAt.x,-f.arena.width/2+.6,f.arena.width/2+.6);
         workEyeAt.z=THREE.MathUtils.clamp(workEyeAt.z,-f.arena.height/2+.6,f.arena.height/2+.6);
-        view.eye.lerp(workEyeAt,Math.min(1,dt*3));
+        view.eye.lerp(workEyeAt,dampFactor(3,dt));
         camera.position.copy(view.eye);
         camera.up.set(0,1,0);camera.lookAt(view.look);
         dead.current=false;
@@ -703,6 +767,9 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         return;
       }
       if(workEye.current.id){restart();workEye.current.id='';}
+      // Past this point the camera is the cockpit's own lens (arm camera or barrel), which is the
+      // feed table 5-19 describes.
+      firstPerson.current=true;
       const armView=heavy&&!['fitted','installed'].includes(r.launcher??'');
       if(!armView)eyePoint.y+=(r.muzzle_height_m??.5)*FPV_EYE_LIFT;
       if(armView){
@@ -714,7 +781,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         eyePoint.x+=Math.cos(hd)*ARM_EYE_FORWARD;
         eyePoint.z+=Math.sin(hd)*ARM_EYE_FORWARD;
         eyePoint.y+=ARM_EYE_M;
-        const yaw=barrelView(r).yaw;
+        const yaw=barrelView(r,0).yaw;
         const working=!!core&&['moving','inserting','buffered','verifying'].includes(core.stage);
         const workbench=working?(f.arena.assembly_frames as Record<string,{origin?:number[];z0_m?:number}>|undefined)?.[r.team]:undefined;
         const boom=armBooms.get(r.id);
@@ -728,8 +795,13 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
           eyeLook.set(plinth.x,plinth.y+(workbench.z0_m??.4)+.05,plinth.z);
         }else eyeLook.set(eyePoint.x+Math.cos(yaw)*5,eyePoint.y-.35,eyePoint.z+Math.sin(yaw)*5);
         if(!arm.look)arm.look=eyeLook.clone();
-        else arm.look.lerp(eyeLook,Math.min(1,dt*9));
-        camera.position.copy(eyePoint);
+        else arm.look.lerp(eyeLook,dampFactor(9,dt));
+        // The arm lens is close to the deck, so it inherits the same suspension chatter as the gun
+        // lens; the vertical filter keeps the boom steady without moving the eye off the mast.
+        const stable=eyeStable.current;
+        if(stable.id!==r.id||!stable.ready||Math.abs(eyePoint.y-stable.y)>.75){stable.id=r.id;stable.y=eyePoint.y;stable.ready=true;}
+        else stable.y+=(eyePoint.y-stable.y)*dampFactor(33,dt);
+        camera.position.copy(eyePoint);camera.position.y=stable.y;
         camera.up.set(0,1,0);camera.lookAt(arm.look);
         dead.current=false;
         settle();
@@ -738,19 +810,35 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       // The barrel's own world angles, interpolated between the 20 Hz samples exactly like the
       // model's turret and gun, so the view pitch is the barrel pitch on flat ground, ramps and
       // while the hull is climbing.
-      const nowView=barrelView(r),wasView=barrelView(was);
+      const nowView=barrelView(r,0),wasView=barrelView(was,1);
       const targetYaw=(wasView.yaw+yawDelta(wasView.yaw,nowView.yaw)*alpha+Math.PI*2)%(Math.PI*2);
       const targetPitch=wasView.pitch+(nowView.pitch-wasView.pitch)*alpha;
       const view=eye.current;
-      // A respawn teleports the chassis, so the new pose is taken as-is instead of being swept to.
-      if(view.id!==r.id||dead.current){view.id=r.id;view.yaw=targetYaw;view.pitch=targetPitch;dead.current=false;}
+      // A respawn teleports the chassis, so the new pose is taken as-is — but the lens still *glides*
+      // to it (`restart` re-arms the mode blend) instead of cutting, which is the difference between
+      // "the camera was thrown" and "the picture jumped".
+      if(view.id!==r.id||dead.current){if(view.id===r.id)restart();view.id=r.id;view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;view.sYaw=targetYaw;view.sPitch=targetPitch;eyeStable.current.ready=false;dead.current=false;}
       if(own){
-        // Piloting: the eye takes the interpolated gimbal angle itself. The robot model poses its
-        // turret with the very same alpha, so the view pitch is the barrel pitch — no second easing.
+        // Piloting: the eye follows the angle the pilot is commanding right now, which the cockpit
+        // integrates on every rendered frame. Reading the engine's echo here instead — and that echo
+        // only lands with a match snapshot, about ten times a second — left the view standing still
+        // for a few frames and then jumping, which is what a jerky turn actually was. The echo still
+        // has the last word: the standing difference is carried and eased out at 8 s⁻¹, so the lens
+        // can never drift away from where the gun really points.
         // With the lobbed-fire scope up the gun is pointed far above the target, so the eye keeps the
         // cockpit's own sight line instead: the reticle stays on the point the shell has to hit.
-        if(scoped){view.yaw=lobScope.yaw;view.pitch=lobScope.pitch;}
-        else{view.yaw=targetYaw;view.pitch=targetPitch;}
+        if(scoped){view.yaw=lobScope.yaw;view.pitch=lobScope.pitch;view.corrYaw=view.corrPitch=0;}
+        else if(pilotAim.live){
+          const dy=yawDelta(pilotAim.yaw,targetYaw),dp=targetPitch-pilotAim.pitch;
+          // A respawn — or the rules taking the gun away — is a whole turn away: take the new angle,
+          // and let the blend carry the lens across so the move is a glide rather than a cut.
+          if(Math.abs(dy)>2||Math.abs(dp)>.9){view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;restart();}
+          else{
+            const k=dampFactor(8,dt);
+            view.corrYaw+=(dy-view.corrYaw)*k;view.corrPitch+=(dp-view.corrPitch)*k;
+            view.yaw=pilotAim.yaw+view.corrYaw;view.pitch=pilotAim.pitch+view.corrPitch;
+          }
+        }else{view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;}
       }else if(scoped){
         view.yaw=lobScope.yaw;view.pitch=lobScope.pitch;
       }else{
@@ -758,13 +846,37 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         view.yaw=(view.yaw+Math.max(-maxStep,Math.min(maxStep,yawDelta(view.yaw,targetYaw))))%(Math.PI*2);
         view.pitch+=Math.max(-maxStep,Math.min(maxStep,targetPitch-view.pitch));
       }
+      view.pitch=Math.max(-1.45,Math.min(1.45,view.pitch));
+      // Sub-degree chatter — the hull breathing on its suspension and legs between 20 Hz samples —
+      // is filtered off the lens, while any real aim change passes straight through: below 0.6° the
+      // drawn angle eases toward the commanded one, above it the new angle is taken on the same
+      // frame, so a flick of the mouse is never delayed. This is the layer that removes the residual
+      // "micro-shake" a pilot sees while holding the reticle still.
+      const gate=.0105,dyDraw=yawDelta(view.sYaw,view.yaw),dpDraw=view.pitch-view.sPitch;
+      view.sYaw=Math.abs(dyDraw)<gate?view.sYaw+dyDraw*dampFactor(30,dt):view.yaw;
+      view.sPitch=Math.abs(dpDraw)<gate?view.sPitch+dpDraw*dampFactor(30,dt):view.pitch;
+      const vib=shakeOf(shake.current,r,Math.min(.05,dt));
+      // Suspension chatter is filtered out of the eye's height (about 30 ms), so a kerb is one soft
+      // heave instead of a buzz; the horizontal pose is exact, so the sight line stays on the bore.
+      const stable=eyeStable.current;
+      if(stable.id!==r.id||!stable.ready||Math.abs(eyePoint.y-stable.y)>.75){stable.id=r.id;stable.y=eyePoint.y;stable.ready=true;}
+      else stable.y+=(eyePoint.y-stable.y)*dampFactor(33,dt);
       camera.position.copy(eyePoint);
-      eyeLook.set(eyePoint.x+Math.cos(view.yaw)*Math.cos(view.pitch),eyePoint.y+Math.sin(view.pitch),eyePoint.z+Math.sin(view.yaw)*Math.cos(view.pitch));
+      camera.position.y=stable.y+vib.y;
+      eyeLook.set(eyePoint.x+Math.cos(view.sYaw)*Math.cos(view.sPitch),stable.y+Math.sin(view.sPitch),eyePoint.z+Math.sin(view.sYaw)*Math.cos(view.sPitch));
       camera.up.set(0,1,0);camera.lookAt(eyeLook);
+      // The vibration rides on the lens, after the sight line is set: the reticle stays on the point
+      // the pilot aimed at while the picture around it shakes with the machine.
+      if(vib.pitch)camera.rotateX(vib.pitch);
+      if(vib.roll)camera.rotateZ(vib.roll);
     }}
     if(mode==='follow'){
       const f=feed.current.frame;
       if(f){
+        // Audience grab: from the first drag or wheel the pose belongs to OrbitControls, which keeps
+        // the audience's own angle and distance around the chassis instead of the scripted chase.
+        if(followId.current!==selected){followId.current=selected;followOrbit.current=false;}
+        const orbiting=followOrbit.current&&!pilot;
         // A drone is followed as a body of its own. Selecting the hangar does not park the camera on
         // the hangar either: it rides the lead drone, while every drone of that hangar is ringed.
         const onField=droneOnField(f,selected);
@@ -774,35 +886,160 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
           const owner=onField?.robot??hangar!;
           const previous=feed.current.previous?.robots.find(r=>r.id===owner.id)?.drones?.find(d=>d.id===drone.id)||drone;
           const alpha=feedAlpha(feed.current);
-          const focus=point(drone,0,f.arena.width,f.arena.height).lerp(point(previous,0,f.arena.width,f.arena.height),1-alpha);
-          target.lerp(focus,Math.min(1,dt*8));
-          const speed=Math.hypot(drone.vx,drone.vy),angle=speed>.15?Math.atan2(drone.vy,drone.vx):droneYaw(drone.quaternion);
-          const desired=target.clone().add(new THREE.Vector3(-Math.cos(angle)*DRONE_FOLLOW_BACK,DRONE_FOLLOW_EYE,-Math.sin(angle)*DRONE_FOLLOW_BACK));
-          desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
-          desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
-          camera.position.lerp(desired,Math.min(1,dt*4));camera.lookAt(target);
+          const focus=followFocus.set(drone.x-f.arena.width/2,drone.z||0,drone.y-f.arena.height/2).lerp(followFrom.set(previous.x-f.arena.width/2,previous.z||0,previous.y-f.arena.height/2),1-alpha);
+          target.lerp(focus,dampFactor(8,dt));
+          if(orbiting){controls.current?.target.copy(target);}
+          else{
+            const speed=Math.hypot(drone.vx,drone.vy),angle=speed>.15?Math.atan2(drone.vy,drone.vx):droneYaw(drone.quaternion);
+            const desired=followWanted.copy(target);desired.x-=Math.cos(angle)*DRONE_FOLLOW_BACK;desired.y+=DRONE_FOLLOW_EYE;desired.z-=Math.sin(angle)*DRONE_FOLLOW_BACK;
+            desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
+            desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
+            camera.position.lerp(desired,dampFactor(4,dt));camera.lookAt(target);
+          }
         }else{
           const r=f.robots.find(r=>r.id===selected);
-          if(r){target.lerp(point(r,.40),Math.min(1,dt*6));const angle=r.heading;const desired=target.clone().add(new THREE.Vector3(-Math.cos(angle)*FOLLOW_BACK,FOLLOW_EYE,-Math.sin(angle)*FOLLOW_BACK));desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);camera.position.lerp(desired,Math.min(1,dt*3));camera.lookAt(target);}
+          if(r){
+            target.lerp(followFocus.set(r.x-f.arena.width/2,(r.z||0)+.40,r.y-f.arena.height/2),dampFactor(6,dt));
+            if(orbiting){controls.current?.target.copy(target);}
+            else{
+              // The follow lens rides the gimbal, not the hull. A robot spinning its chassis (小陀螺)
+              // keeps its `heading` turning for seconds at a time, and a camera keyed to it would
+              // orbit the machine for as long as the spin lasts; `aim` is the absolute turret yaw, so
+              // the view only turns when the gun is actually re-aimed.
+              const angle=r.aim??r.heading,desired=followWanted.copy(target);
+              desired.x-=Math.cos(angle)*FOLLOW_BACK;desired.y+=FOLLOW_EYE;desired.z-=Math.sin(angle)*FOLLOW_BACK;
+              desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
+              desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
+              camera.position.lerp(desired,dampFactor(3,dt));camera.lookAt(target);
+            }
+          }
         }
       }
     }
     settle();
+  });
+  // Adaptive resolution and the 5.6.1 logistics link run in their own frame callback. The first-person
+  // arm and mining views return early from the camera director, but they show the same FPV feed, so
+  // the resolution trade and the base-damage degradation have to apply to every one of them.
+  useFrame(({gl},dt)=>{
     // Sample ~1 s of frames and move the pixel ratio one notch toward the frame-time target.
     const p=perf.current;
+    // Table 5-19: a damaged own base lowers the *first-person feed* to λ² of its pixels, so each side
+    // of the canvas backing store scales by λ. Only the cockpit lens carries that feed: the broadcast,
+    // follow and picker cameras, the intro shots and the heavy's third-person mining/feeding chase view
+    // all keep full clarity, and the cockpit HUD is DOM above the canvas so it is never scaled either.
+    // `p.ratio` keeps the link-independent adaptive quality and λ multiplies what is actually drawn:
+    // capping the ceiling alone made the damage invisible on a client that had already stepped down
+    // for frame time.
+    const fpvFrame=feed.current.frame,fpvTeam=fpvFrame?.robots.find(r=>r.id===selected)?.team;
+    const link=mode==='fpv'&&firstPerson.current&&fpvTeam?fpvResolutionScale(fpvFrame,fpvTeam):1;
     p.ceiling=mode==='fpv'?FPV_DPR[1]:BROADCAST_DPR[1];
-    if(p.ratio>p.ceiling){p.ratio=p.ceiling;setDpr(p.ceiling);}
-    p.time+=dt;p.frames++;
+    if(p.ratio>p.ceiling)p.ratio=p.ceiling;
+    const applied=p.ratio*link;
+    // The buffer is set on the renderer directly, never through R3F's `setDpr`: the store's dpr is
+    // compared against the `<Canvas dpr>` prop on *every* React render, and this tree re-renders about
+    // eight times a second while a snapshot stream is running — each of those renders put the sharp
+    // prop value back over the degraded one, so the picture only looked blurred for a moment at a
+    // time. Leaving `viewport.dpr` at the prop's own value means `configure()` never disagrees with
+    // it, and nothing but a canvas resize (which three handles through `setPixelRatio`) changes the
+    // ratio underneath us. `setPixelRatio` also re-applies the drawing-buffer size, so the CSS size
+    // stays the viewport's and the browser scales the smaller buffer up with linear filtering.
+    // The target is quantized to 1/32 of a device pixel: a fraction of a per-cent from the link or
+    // the frame-time controller must not rebuild the drawing buffer, because every rebuild is a fresh
+    // GPU allocation that lands as a dropped frame.
+    const setRatio=(value:number)=>{
+      const target=Math.round(value*32)/32;
+      if(Math.abs(gl.getPixelRatio()-target)>.005){gl.setPixelRatio(target);p.changes++;}
+    };
+    setRatio(applied);
+    p.applied=applied;p.link=link;
+    // Published for diagnostics, and only when it changes: writing canvas attributes every frame
+    // dirties the element (and its accessibility node) a hundred times a second for no reason.
+    // `fpvFeed` names the lens ('fpv' is the cockpit), while `fpvScale` carries the 5.6.1 factor, so
+    // a full-health cockpit reads `fpv` with `1.000` rather than looking like a third-person view.
+    const feedKind=mode==='fpv'&&firstPerson.current?'fpv':'other';
+    const stamp=`${feedKind}/${link.toFixed(3)}/${applied.toFixed(3)}`;
+    if(stamp!==p.stamp){
+      p.stamp=stamp;
+      gl.domElement.dataset.fpvFeed=feedKind;
+      gl.domElement.dataset.fpvScale=link.toFixed(3);
+      gl.domElement.dataset.renderDpr=applied.toFixed(3);
+    }
+    // A camera-mode change (or a hidden window resuming) leaves a window of samples that belong to a
+    // different workload; starting fresh keeps the first decision of a mode from being made on the
+    // previous mode's frame times. A hitch (fullscreen resize, shader compile, a replay snapshot being
+    // decoded) poisons the window it lands in, so that window is thrown away instead of averaged: the
+    // only thing a transition used to accomplish here was one step down the resolution ladder.
+    if(p.mode!==mode){p.mode=mode;p.time=0;p.frames=0;p.fast=0;p.cool=0;p.verify=false;}
+    if(dt>.1){p.time=0;p.frames=0;}
+    else{
+      p.time+=dt;p.frames++;
+      // Kept for diagnostics only; the resolution decision no longer chases the measured rate.
+      if(dt>1/400)p.hz=p.hz*.9+THREE.MathUtils.clamp(1/dt,50,480)*.1;
+    }
     if(p.time>=1){
       const avg=p.time/p.frames;p.time=0;p.frames=0;
-      const next=avg>.019?Math.max(DPR_FLOOR,p.ratio-.12):avg<.0135?Math.min(p.ceiling,p.ratio+.08):p.ratio;
-      if(Math.abs(next-p.ratio)>.01){p.ratio=next;setDpr(next);}
-      // The shadow pass is the first cost to give up when the frame budget is already missed, but only
-      // down to every fourth frame: a map refreshed a few times a second leaves each robot's shadow
-      // trailing a step behind it, which reads as lag rather than as a cheaper picture.
+      // Quality first. The field renders at the mode's full cap unless a frame is genuinely too slow to
+      // play: the controller used to aim at the measured refresh rate, but `requestAnimationFrame` is
+      // not always vsynced — Electron and some compositors simply report how fast the loop runs (230 Hz
+      // was measured here) — so it chased a 4 ms budget, missed every window and stepped the whole
+      // field, third person included, down to the floor. A healthy machine now stays at full quality
+      // and only a machine that cannot hold 45 fps trades pixels, at most down to `SLOW_FLOOR` of the
+      // cap. The 5.6.1 base-damage degradation is applied separately, on top, and only to the cockpit.
+      const slow=SLOW_FRAME_S,fast=FAST_FRAME_S;
+      if(p.cool>0)p.cool-=1;
+      // Pixels are only one of the ways to miss the budget. A frame that is bound by draw submission
+      // (or by the browser's own compositing) runs just as slow at half the resolution, so the window
+      // after a step down is checked: when it is not measurably faster the sharper ratio comes back
+      // and further steps wait out a cool-down instead of blurring the field for nothing.
+      if(p.verify){
+        p.verify=false;
+        if(avg>p.stepAvg*.9){
+          p.ratio=Math.min(p.stepFrom,p.ceiling);setRatio(p.ratio*link);p.applied=p.ratio*link;p.cool=20;p.fast=0;
+          // The sharper ratio was not faster in practice: wait longer before probing again.
+          p.probeWait=Math.min(32,p.probeWait*2);
+        }
+      }
+      const floor=p.ceiling*SLOW_FLOOR;
+      let next=p.ratio;
+      // A single slow window (a snapshot decode, a shader compile, a hitched transition) is never worth
+      // rebuilding the drawing buffer for, in any view: two consecutive windows have to miss.
+      p.miss=avg>slow?p.miss+1:0;
+      if(p.cool>0)p.fast=0;
+      else if(avg>slow&&p.miss>=2){p.fast=0;p.cool=1;next=Math.max(floor,p.ratio-(avg>slow*1.6?.2:.1));}
+      else if(avg<fast){if(++p.fast>=2){p.fast=0;next=Math.min(p.ceiling,p.ratio+.08);}}
+      else p.fast=0;
+      // A ratio between the two thresholds is neither slow nor fast enough to move, so a step down
+      // taken during an earlier hitch would keep the picture soft forever. Every few quiet windows one
+      // step is tried on its own; a failed attempt doubles the wait, so a machine that really cannot
+      // afford the pixels settles instead of stepping up and down in a loop.
+      p.quiet=avg>slow?0:p.quiet+1;
+      if(next<=p.ratio&&p.ratio<p.ceiling-.01&&p.quiet>=p.probeWait){next=Math.min(p.ceiling,p.ratio+.08);p.quiet=0;}
+      if(Math.abs(next-p.ratio)>.01){
+        if(next<p.ratio){p.stepFrom=p.ratio;p.stepAvg=avg;p.verify=true;}
+        if(next>p.ratio)p.probeWait=4;
+        p.ratio=next;setRatio(next*link);p.applied=next*link;
+      }
+      // The shadow pass is the first cost to give up when frames are already slow, but only down to
+      // every fourth frame: a map refreshed a few times a second leaves each robot's shadow trailing a
+      // step behind it, which reads as lag rather than as a cheaper picture. The thresholds are
+      // absolute milliseconds so they mean the same thing on a 60 Hz and a 240 Hz panel.
       p.shadow=avg>.026?Math.min(4,p.shadow+1):avg<.018?Math.max(1,p.shadow-1):p.shadow;
     }
   });
+  // Per-frame publish of the interpolation phase, so a stutter can be read off the live page
+  // (`arenaMotion.alpha` / `age`) instead of guessed at from a screen recording. The record is
+  // reused: this runs every frame, so it must not hand the collector an object per frame. `frame` is
+  // the live snapshot itself (a reference, not a copy) so a cockpit experiment can read the same
+  // robots and fixtures the HUD does.
+  useFrame(()=>{
+    const m=arenaMotion;
+    m.alpha=feedAlpha(feed.current);m.age=Math.round(performance.now()-feed.current.received);m.pace=feed.current.pace??null;
+    m.aimYaw=eye.current.yaw;m.aimPitch=eye.current.pitch;m.corrYaw=eye.current.corrYaw;m.cmdYaw=pilotAim.yaw;m.mode=mode;
+    m.steerRuns=pilotAim.runs;m.steerStep=pilotAim.step;m.frameNo=(m.frameNo??0)+1;
+    m.frame=feed.current.frame;
+    (window as unknown as {arenaMotion?:unknown}).arenaMotion=m;
+  },2);
   useFrame(()=>{if(!audio?.enabled)return;const focus=mode==='orbit'?controls.current?.target||origin:mode==='follow'?target:origin;ear.copy(camera.position).sub(focus);ear.setLength(Math.min(ear.length(),9)).add(focus);camera.getWorldDirection(ahead);up.set(0,1,0).applyQuaternion(camera.quaternion);audio.listen(ear,ahead,up,feed.current.frame?.arena);});
   useFrame(()=>{audio?.drones(feed.current.frame);},-2);
   // A fixed directional light does not need new shadows for camera motion, only for moving casters.
@@ -817,6 +1054,11 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       gl.shadowMap.needsUpdate=true;s.frame=f.frame;s.generation=f.generation;s.paused=f.paused;
     }
     s.slot=slot;
+    // The plates are billboards, and this is the only point in the frame where the camera pose is
+    // final: the director above has just written it, and nothing else touches it until the draw. The
+    // size of a plate is fitted against that same pose, so a follow camera never scales a bar with a
+    // frame-old distance.
+    alignBillboards(camera,size);
     // The frame is drawn either straight to the canvas or, with the lobbed-fire sight on the eye,
     // through the lens pass that magnifies the aperture and keeps the rest of the field plain.
     renderSight(scene as THREE.Scene,camera as THREE.PerspectiveCamera,size.width,size.height,FPV_FOV,mode==='fpv');
@@ -829,13 +1071,20 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       let meshes=0,casters=0;
       scene.traverse(o=>{if((o as THREE.Mesh).isMesh){meshes++;if(o.castShadow)casters++;}});
       (window as unknown as {arenaRender?:unknown}).arenaRender={calls:r.calls,triangles:r.triangles,frame:r.frame,dpr:perf.current.ratio,
+        feedScale:perf.current.link,effectiveDpr:perf.current.applied,ratioChanges:perf.current.changes,
+        refreshHz:Math.round(perf.current.hz),targetHz:displayRate(perf.current.hz),
+        // The frame time the resolution controller reacts to, not the panel rate it used to chase.
+        budgetMs:Math.round(SLOW_FRAME_S*100000)/100,slowFloor:SLOW_FLOOR,probeWait:perf.current.probeWait,
         meshes,shadowCasters:casters,materials:gl.info.memory.geometries,textures:gl.info.memory.textures,shadowEvery:perf.current.shadow,
         eye:[camera.position.x,camera.position.y,camera.position.z].map(v=>Math.round(v*100)/100),up:[camera.up.x,camera.up.y,camera.up.z]};
+      // Same census, but the live objects behind it: an ablation in the console (hide the robots,
+      // turn the shadow pass off) is the quickest way to tell what a slow frame is actually paying for.
+      (window as unknown as {arenaDebug?:unknown}).arenaDebug={gl,scene,camera};
     }
     // Copy the just-rendered frame synchronously, before WebGL releases its buffer.
     onRender();
   },1);
-  return <OrbitControls ref={controls} enabled={mode==='orbit'&&!shot&&!pickView} enableDamping dampingFactor={.075} maxPolarAngle={Math.PI*.47} minDistance={4} maxDistance={72} target={BROADCAST_TARGET}/>;
+  return <OrbitControls ref={controls} enabled={(mode==='orbit'||(mode==='follow'&&!pilot))&&!shot&&!pickView} enablePan={mode!=='follow'} onStart={()=>{if(mode==='follow'&&!pilot){followOrbit.current=true;blend.current.t=1;controls.current?.target.copy(target);}}} enableDamping dampingFactor={.075} maxPolarAngle={Math.PI*.47} minDistance={1.5} maxDistance={72} target={BROADCAST_TARGET}/>;
 }
 
 // RMUC 2027 lighting: the broadcast fill plus a faint studio environment for reflections, so the baked contact shadows
@@ -883,7 +1132,11 @@ function Sun({mode}:{mode:CameraMode}){
 // wall stands up on the outer edge. A click there opens that side's chassis choice; the stands
 // around the field are the third answer — pointing at the audience seats and clicking watches instead.
 type PickZone=TeamId|'seat';
-function HalfPicker({feed,onPick,onHover,onSpectate,seatHot}:{feed:MutableRefObject<RenderFeed>;onPick:(team:TeamId)=>void;onHover?:(zone:PickZone|null)=>void;onSpectate?:()=>void;seatHot?:MutableRefObject<boolean>}){
+// The picker's three answers, anchored over the region each one is about: the two halves of the field
+// and the audience bowl outside them. They are text only — the arena is the background — so a narrow
+// window squeezes the field, never the labels into each other.
+export type HalfBriefs={red:HalfBriefData;blue:HalfBriefData};
+function HalfPicker({feed,onPick,onHover,onSpectate,seatHot,briefs}:{feed:MutableRefObject<RenderFeed>;onPick:(team:TeamId)=>void;onHover?:(zone:PickZone|null)=>void;onSpectate?:()=>void;seatHot?:MutableRefObject<boolean>;briefs?:HalfBriefs|null}){
   const {camera,gl,size}=useThree();
   const arena=feed.current.frame?.arena,halfW=(arena?.width??28)/2,halfH=(arena?.height??15)/2;
   const midX={red:-halfW/2,blue:halfW/2},outerX={red:-halfW,blue:halfW};
@@ -919,6 +1172,9 @@ function HalfPicker({feed,onPick,onHover,onSpectate,seatHot}:{feed:MutableRefObj
   },[halfW,halfH]);
   // Corner pylons are the only tall elements, so hovering a side reads from any camera angle.
   const corners=useMemo(()=>[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz])=>({sx,sz})),[]);
+  // Grounded counts are read from the feed at paint time: the side briefs are chrome around a snapshot
+  // the scene already renders, so they never need the frame passed in as a prop.
+  const robotsFor=(team:TeamId)=>(feed.current.frame?.robots??[]).filter(r=>r.team===team&&r.role!=='aerial').length;
   useEffect(()=>{
     const move=(event:PointerEvent)=>{const rect=gl.domElement.getBoundingClientRect();pointer.current={x:event.clientX-rect.left,y:event.clientY-rect.top};};
     window.addEventListener('pointermove',move,{passive:true});
@@ -1037,6 +1293,15 @@ function HalfPicker({feed,onPick,onHover,onSpectate,seatHot}:{feed:MutableRefObj
       <ringGeometry args={[.95,1.12,48]}/>
       <meshBasicMaterial ref={cursorMat} color="#ffffff" transparent opacity={.75} side={THREE.DoubleSide} depthWrite={false} depthTest={false} blending={THREE.AdditiveBlending}/>
     </mesh>
+    {/* The three answers float over the regions they stand for: the two halves of the field and the
+        audience bowl around them. Ground-anchored instead of docked to the frame, they can never
+        crowd each other, and the highlight for the region under the pointer is pure text: no card,
+        no border, nothing between the viewer and the arena. */}
+    {briefs&&<>
+      <Html center position={[midX.red,2.8,0]} zIndexRange={[13,11]} style={{pointerEvents:'none'}}><HalfBrief side="red" robots={robotsFor('red')} {...briefs.red}/></Html>
+      <Html center position={[midX.blue,2.8,0]} zIndexRange={[13,11]} style={{pointerEvents:'none'}}><HalfBrief side="blue" robots={robotsFor('blue')} {...briefs.blue}/></Html>
+      <Html center position={[0,3.2,-(halfH+1.2)]} zIndexRange={[13,11]} style={{pointerEvents:'none'}}><SeatBrief/></Html>
+    </>}
   </group>;
 }
 
@@ -1131,7 +1396,7 @@ function Prewarm({feed}:{feed:MutableRefObject<RenderFeed>}){
   return null;
 }
 
-function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRender,shot,pilot,pick,onPick,onPickHalf,onPickHalfHover,onPickSpectate,onPickHover,pickView,linkPick,onLinkPick,onLinkHover}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null;pilot?:string|null;pick?:boolean;onPick?:(id:string)=>void;onPickHalf?:(team:TeamId)=>void;onPickHalfHover?:(zone:'red'|'blue'|'seat'|null)=>void;onPickSpectate?:()=>void;onPickHover?:(id:string|null)=>void;pickView?:PickView|null;linkPick?:boolean;onLinkPick?:(id:string)=>void;onLinkHover?:(id:string|null)=>void}){
+function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRender,shot,pilot,pick,onPick,onPickHalf,onPickHalfHover,onPickSpectate,onPickHover,pickView,linkPick,onLinkPick,onLinkHover,briefs}:{frame:Frame;feed:MutableRefObject<RenderFeed>;mode:CameraMode;selected:string;audio?:ArenaAudio;onSelect:(id:string)=>void;onCanvas:(canvas:HTMLCanvasElement)=>void;onRender:()=>void;shot?:IntroShot|null;pilot?:string|null;pick?:boolean;onPick?:(id:string)=>void;onPickHalf?:(team:TeamId)=>void;onPickHalfHover?:(zone:'red'|'blue'|'seat'|null)=>void;onPickSpectate?:()=>void;onPickHover?:(id:string|null)=>void;pickView?:PickView|null;linkPick?:boolean;onLinkPick?:(id:string)=>void;onLinkHover?:(id:string|null)=>void;briefs?:HalfBriefs|null}){
   // A pilot sees the field through a first-person HUD, so the broadcast plates — enemy health bars,
   // structure bars, mechanism prompts — are switched off with the same flag.
   const hud=!pilot;
@@ -1177,7 +1442,7 @@ function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRend
     {/* Link Start scans the overhead field: every chassis of both teams in reach, and the pointer
         resting on the cockpit rail or its panel counts as no pointer at all. */}
     <PickProbe pick={!!linkPick} feed={feed} hover={hoverLink} onPick={onLinkPick} onHover={onLinkHover} radius={46} hysteresis={1} canvasOnly dataKey="linkHover"/>
-    {pickView?.stage==='side'&&onPickHalf&&<HalfPicker feed={feed} onPick={onPickHalf} onHover={onPickHalfHover} onSpectate={onPickSpectate} seatHot={pickSeat}/>}
+    {pickView?.stage==='side'&&onPickHalf&&<HalfPicker feed={feed} onPick={onPickHalf} onHover={onPickHalfHover} onSpectate={onPickSpectate} seatHot={pickSeat} briefs={briefs}/>}
     {frameSeason(frame)==='2027'?<FieldLights2027/>:<><hemisphereLight args={['#e4eefb','#1c2128',1.9]}/><ambientLight intensity={.22}/><Sun mode={mode}/></>}<directionalLight position={[-18,12,-14]} color="#9fb9ff" intensity={1.1}/><directionalLight position={[18,9,14]} color="#c9b8ff" intensity={.45}/>
     <Venue season={frameSeason(frame)} seatHot={pickView?.stage==='side'?pickSeat:undefined}/>
     <Suspense fallback={<Html center><div className="scene-loading">加载 Blender / glTF 资产…</div></Html>}><Prewarm feed={feed}/><ArenaMap frame={frame} feed={feed}/><BaseModel team="red" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/><BaseModel team="blue" feed={feed} url={frame.arena.structure_assets?.base||'/assets/base.glb'}/>{frame.outposts&&<><OutpostModel team="red" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/><OutpostModel team="blue" feed={feed} url={frame.arena.structure_assets?.outpost||'/assets/outpost.glb'}/></>}{frame.runes&&<><RuneModel team="red" feed={feed}/><RuneModel team="blue" feed={feed}/></>}{frame.arena.structure_assets?.core&&frame.arena.assembly_frames&&<><TechCore team="red" feed={feed} url={frame.arena.structure_assets.core}/><TechCore team="blue" feed={feed} url={frame.arena.structure_assets.core}/></>}{frame.robots.map(r=><RobotModel key={r.id} id={r.id} role={r.role} team={r.team} url={r.model_asset||`/assets/robot-${r.role}.glb`} feed={feed} selected={selected} onSelect={onSelect} hidden={mode==='fpv'&&r.id===selected} hover={hoverPick} pick={pick} onPick={onPick}/>)}{frame.robots.filter(r=>r.drones?.length&&r.model_asset).flatMap(r=>r.drones!.map((d,k)=><DroneModel key={d.id} robot={r.id} droneId={d.id} index={k} team={r.team} url={r.model_asset!.replace('/robot-','/drone-')} feed={feed} selected={selected} onSelect={onSelect}/>))}</Suspense>
@@ -1187,7 +1452,11 @@ function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRend
     {hud&&<group visible={!shot}>{frame.robots.map(r=><RobotHud key={r.id} id={r.id} team={r.team} feed={feed} focus={selected===r.id} onSelect={onSelect}/>)}
     {(['red','blue'] as const).map(team=><group key={team}><StructureHud team={team} kind="base" feed={feed}/>{frame.outposts&&<StructureHud team={team} kind="outpost" feed={feed}/>}</group>)}</group>}
     {hud&&<CombatText feed={feed}/>}{hud&&frame.runes&&<><RuneBoard feed={feed}/><RuneBurst feed={feed}/></>}
-    {hud&&(['red','blue'] as const).map(team=><group key={team}><MechanismHud team={team} kind="outpost" feed={feed}/><FortressWarning defender={team} feed={feed}/></group>)}
+    {hud&&(['red','blue'] as const).map(team=><MechanismHud key={team} team={team} kind="outpost" feed={feed}/>)}
+    {/* The capture plate belongs to the world rather than the broadcast furniture: a pilot in a
+        third-person view still sees the base-armour countdown on the enemy plateau, and the first
+        person lens (or an intro shot) hides it. */}
+    {(['red','blue'] as const).map(team=><FortressWarning key={team} defender={team} feed={feed} hidden={mode==='fpv'||!!shot}/>)}
     <SightRig/><Effects feed={feed}/><Director mode={mode} selected={selected} feed={feed} audio={audio} onCanvas={onCanvas} onRender={onRender} shot={shot} pilot={pilot} hud={hud} pickView={pickView} pickHover={hoverPick} pickSeat={pickSeat} linkHover={linkPick?hoverLink:undefined}/>
   </Canvas></SceneBoundary>;
 }
@@ -1195,7 +1464,7 @@ function ArenaSceneView({frame,feed,mode,selected,audio,onSelect,onCanvas,onRend
 // per-tick robot motion is read from `feed` inside the render loop.
 export const ArenaScene=memo(ArenaSceneView,(a,b)=>
   a.feed===b.feed&&a.mode===b.mode&&a.selected===b.selected&&a.pilot===b.pilot&&a.shot===b.shot
-  &&a.pick===b.pick&&a.onPick===b.onPick&&a.onPickHalf===b.onPickHalf&&a.onPickHalfHover===b.onPickHalfHover&&a.onPickSpectate===b.onPickSpectate&&a.onPickHover===b.onPickHover&&a.pickView===b.pickView
+  &&a.pick===b.pick&&a.onPick===b.onPick&&a.onPickHalf===b.onPickHalf&&a.onPickHalfHover===b.onPickHalfHover&&a.onPickSpectate===b.onPickSpectate&&a.onPickHover===b.onPickHover&&a.pickView===b.pickView&&a.briefs===b.briefs
   &&a.linkPick===b.linkPick&&a.onLinkPick===b.onLinkPick&&a.onLinkHover===b.onLinkHover
   &&a.linkPick===b.linkPick&&a.onLinkPick===b.onLinkPick&&a.onLinkHover===b.onLinkHover
   &&a.audio===b.audio&&a.onSelect===b.onSelect&&a.onCanvas===b.onCanvas&&a.onRender===b.onRender

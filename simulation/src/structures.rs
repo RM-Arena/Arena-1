@@ -17,6 +17,16 @@ pub(crate) struct Plate {
 /// 1116 / 1216 / 1316 mm above its base; face k keeps its own height as it turns.
 pub(crate) const OUTPOST_MIDDLE_Z: [f64; 3] = [1.116, 1.216, 1.316];
 
+/// A base faces the field. Red sits on the low-x side, so its faces already point in; blue sits on
+/// the high-x side and the whole structure is turned half a turn about its own axis.
+pub(crate) fn base_yaw(team: &str) -> f64 {
+    if team == "blue" {
+        std::f64::consts::PI
+    } else {
+        0.0
+    }
+}
+
 pub(crate) fn plates(b: &Base, outpost: bool) -> Vec<Plate> {
     let mut result = Vec::new();
     // Figure 4-11: the large base modules are 287 mm above the pedestal once exposed.
@@ -35,10 +45,14 @@ pub(crate) fn plates(b: &Base, outpost: bool) -> Vec<Plate> {
     };
     for (level, (z, radius, width, heavy_only, weakspot, tilt)) in levels.into_iter().enumerate() {
         for face in 0..3 {
-            let a = if outpost && level == 0 {
-                b.rotation
+            let a = if outpost {
+                if level == 0 {
+                    b.rotation
+                } else {
+                    0.0
+                }
             } else {
-                0.0
+                b.yaw
             } + face as f64 * std::f64::consts::TAU / 3.0;
             let z = z.unwrap_or(OUTPOST_MIDDLE_Z[face]);
             result.push(Plate {
@@ -93,14 +107,15 @@ pub(crate) fn intersection(plate: &Plate, origin: [f64; 3], delta: [f64; 3]) -> 
 pub(crate) const BASE_SHELL_OPEN_RAD: f64 = 1.15;
 
 pub(crate) fn covers(b: &Base) -> Vec<Wall> {
-    cover_geometry(b.x, b.y, b.z, b.armor_open_progress)
+    cover_geometry(b.x, b.y, b.z, b.armor_open_progress, b.yaw)
 }
 
-pub(crate) fn cover_geometry(x: f64, y: f64, z: f64, progress: f64) -> Vec<Wall> {
+pub(crate) fn cover_geometry(x: f64, y: f64, z: f64, progress: f64, yaw: f64) -> Vec<Wall> {
     let (radius, reach, length) = (0.43, 0.265, 0.24);
     let mut walls = Vec::new();
     for face in 0..3 {
-        let a = face as f64 * std::f64::consts::TAU / 3.0;
+        // The shells follow the plates: blue's whole structure is turned half a turn.
+        let a = yaw + face as f64 * std::f64::consts::TAU / 3.0;
         let (n, t) = ([a.cos(), a.sin()], [-a.sin(), a.cos()]);
         for (k, side) in [-1.0_f64, 1.0].into_iter().enumerate() {
             // Hinge at the corner end; closed, the half-shell runs back toward the slit.
@@ -118,7 +133,7 @@ pub(crate) fn cover_geometry(x: f64, y: f64, z: f64, progress: f64) -> Vec<Wall>
                 h: length,
                 height: 0.78,
                 bottom: z + 0.08,
-                // Local +y runs along the half-shell.
+                // Local +y runs along the half-shell; `a` already carries the structure's own turn.
                 rotation: (-dir[0]).atan2(dir[1]),
                 kind: "base_cover".into(),
                 id: format!("base_cover_{face}_{k}"),

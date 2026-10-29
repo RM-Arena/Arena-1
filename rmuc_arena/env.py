@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .action_protocol import validate_actions
 from .battle_settings import normalize
-from .communication import TeamCommunication
+from .communication import TeamCommunication, limit_messages, message_byte_limit
 from .engine import Match, DT, POLICY_INTERVAL
 from .models import mirrored_lineups, normalize_team_lineup
 from .replays import write_replay
@@ -165,7 +165,9 @@ class ArenaEnv:
                 held = {t:{} for t in TEAMS}
                 for team in TEAMS:
                     if self.opponent and team == other:
-                        futures = [(slots,p,self.pool.submit(p.decide,self._observation(team,slots))) for slots,p in self.policies]
+                        futures = [(slots,p,self.pool.submit(p.decide,self._observation(team,slots),
+                                    message_byte_limit(self.match.bases.get(team), self.match._static.get('rulebook_rules'))))
+                                   for slots,p in self.policies]
                         for slots, policy, future in futures:
                             chosen, error = future.result()
                             held[team].update(chosen)
@@ -181,7 +183,8 @@ class ArenaEnv:
                             for action in held[team].values():
                                 action.pop('messages',None)
                     for slot, action in held[team].items():
-                        messages = action.pop('messages',[])
+                        messages = limit_messages(action.pop('messages',[]),
+                            message_byte_limit(self.match.bases.get(team), self.match._static.get('rulebook_rules')))
                         if messages:
                             outgoing.append((team,slot,messages))
                 communication = self.communication.route(outgoing,self.match.tick,self.match.tick+POLICY_INTERVAL)

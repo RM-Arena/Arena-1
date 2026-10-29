@@ -22,8 +22,11 @@ class MatchDeleteTests(unittest.TestCase):
         response=self.client.post('/api/start',json={'duration':1})
         self.assertEqual(response.status_code,200,response.text)
         match_id=response.json()['match_id']
-        deadline=time.monotonic()+10
-        while self.app.state.arena.state()['busy'] and time.monotonic()<deadline:
+        # A one-second match still has to be built, ticked and saved; a heavily loaded CI runner
+        # needs far more than ten seconds for that, so poll for the saved replay instead of the flag.
+        deadline=time.monotonic()+180
+        while time.monotonic()<deadline:
+            if not self.app.state.arena.state()['busy'] and self.store.replay_path(match_id):break
             time.sleep(.02)
         replay=self.store.replay_path(match_id)
         self.assertTrue(replay.is_file())

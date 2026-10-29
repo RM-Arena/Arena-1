@@ -1,5 +1,5 @@
 """Policy isolation, deadlines, action ownership, and replay recording."""
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from collections import deque
 from collections.abc import Sequence
 import hashlib
@@ -20,8 +20,8 @@ import uuid
 from .engine import Match, POLICY_INTERVAL, DT, SLOT_IDS, RULES_PROFILE, STATIC_FRAME_KEYS
 from .referee import validate_referee
 from .submissions import load_submission
-from .communication import TeamCommunication, validate_messages
-from .action_protocol import validate_actions
+from .communication import MAX_MESSAGE_BYTES, TeamCommunication, limit_messages, message_byte_limit
+from .action_protocol import ACTION_FIELDS, validate_action, validate_actions
 from .decks import prepare_decks
 from .showcase import load_profile
 from .worker import MEMORY_LIMIT
@@ -50,32 +50,6 @@ ASSIST_PITCH = 0.56
 # reads as a floating crosshair instead of a stable aim point.
 ASSIST_PITCH_RANGE_M = 10.0
 ASSIST_FAR_PITCH_SCALE = 0.8
-# Every field a strategy or a pilot may send for one robot.
-ACTION_FIELDS = frozenset({
-    "move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support",
-    "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm",
-    "rune_start", "heading", "crouch", "rescue", "yaw_rate", "yaw_boost", "brake", "leg_height", "jump", "climb", "lean", "arm", "arm2",
-    "pickup_arm", "transform",
-    # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
-    "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture",
-    "posture_enhanced", "drones",
-    # A pilot's lobbed shot: the world point under the crosshair, solved into a high arc server-side.
-    "aim_point",
-})
-
-
-def validate_action(action, has_messages=False):
-    """Reject unknown fields and payloads larger than the 1 KiB action budget."""
-    if not isinstance(action, dict):
-        raise ValueError("Invalid action object")
-    allowed = ACTION_FIELDS | {"messages"} if has_messages else ACTION_FIELDS
-    if not set(action) <= allowed:
-        raise ValueError("Action contains unsupported fields")
-    if len(json.dumps(action, allow_nan=False).encode()) > 1024:
-        raise ValueError("Each robot action must be <=1 KiB")
-    return action
-
-
 def sight_blocked(arena, start, end):
     """True when a wall, a deck or a ramp stands on the line between two 3-D points.
 
@@ -302,6 +276,7 @@ class LatestFrameLog:
     """A single current frame, with no replay spool or per-tick action history."""
     def __init__(self, initial):
         self.current = initial
+        self.static = {key: initial[key] for key in STATIC_FRAME_KEYS if key in initial}
 
     def append(self, frame, raw=None):
         self.current = frame
@@ -320,9 +295,15 @@ class LatestFrameLog:
 
 
 class EncodedObservation:
-    """An engine observation line forwarded to a policy without decoding it."""
-    def __init__(self, payload, controlled_ids, has_messages):
+    """An engine observation line forwarded to a policy without decoding it.
+
+    `static` is the match-constant prefix (the arena map) and is non-empty only on the first
+    observation a policy receives: the worker keeps it and merges it into every later line, so the
+    unchanged 66 KB map is neither piped nor decoded again.
+    """
+    def __init__(self, payload, controlled_ids, has_messages, static=b""):
         self.payload, self.controlled_ids, self.has_messages = payload, controlled_ids, has_messages
+        self.static = static
 
 
 class Policy:
@@ -415,7 +396,7 @@ class Policy:
                 return
             self.logs.append(chunk.decode("utf-8", errors="replace"))
 
-    def decide(self, observation):
+    def decide(self, observation, message_limit=MAX_MESSAGE_BYTES):
         if self.disabled:
             return {}, None
         self.calls += 1
@@ -433,13 +414,13 @@ class Policy:
                 # Only one request may be in flight. Discard its late response before
                 # sending fresh observations, preserving private state without ever
                 # applying old actions to a new tick or building a stdin backlog.
-                self._receive(until)
+                self._receive(until, message_limit)
             if time.monotonic() >= until:
                 raise queue.Empty
             self.pending_response = controlled, has_messages
             self.process.stdin.write(payload)
             self.process.stdin.flush()
-            actions = self._receive(until)
+            actions = self._receive(until, message_limit)
             self.consecutive_timeouts = 0
             return actions, None
         except queue.Empty:
@@ -457,7 +438,7 @@ class Policy:
             self.close()
             return {}, message
 
-    def _receive(self, until):
+    def _receive(self, until, message_limit=MAX_MESSAGE_BYTES):
         remaining = until - time.monotonic()
         if remaining <= 0:
             raise queue.Empty
@@ -468,7 +449,18 @@ class Policy:
         if response.get("error"):
             raise ValueError(response["error"])
         actions = response.get("actions")
-        return validate_actions(actions, controlled, has_messages, getattr(self, 'dynamic_messages', False))
+        actions = validate_actions(actions, controlled, has_messages, self.dynamic_messages)
+        for slot, action in list(actions.items()):
+            if "messages" in action:
+                # 512 bytes is the protocol ceiling and stays a hard error. The 2027 logistics
+                # bandwidth can be lower, and a message that no longer fits is dropped rather than
+                # disabling the policy: the team chose to spend the base HP that carried that data.
+                kept = limit_messages(action["messages"], message_limit)
+                if len(kept) != len(action["messages"]):
+                    self.logs.append(f"bandwidth: dropped {len(action['messages']) - len(kept)} message(s) over {message_limit} bytes")
+                    action = {**action, "messages": kept}
+                    actions[slot] = action
+        return actions
 
     def close(self):
         self.disabled = True
@@ -510,7 +502,7 @@ class Policy:
 
 
 class Battle:
-    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, practice_lineup=False, free_team_strategies=None, battle_settings=None, record=True):
+    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, team_lineups=None, practice_lineup=False, free_team_strategies=None, battle_settings=None, record=True):
         # The field follows the strategies' rules season unless the caller names it.
         if map_name is None:
             from .submissions import manifest_season
@@ -522,22 +514,36 @@ class Battle:
         lineups, deck_policies, deck_metadata = prepare_decks(decks, seed, free_team_strategies, season) if decks is not None else (None, None, None)
         if decks is None:
             if free_team_strategies:raise ValueError("Free controllers require free battle")
-            from .models import normalize_team_lineup,mirrored_lineups
+            from .models import normalize_team_lineup,lineup_deployments
             manifests=[load_submission(source)[0] for source in (red,blue)]
             if any(m.get("rules_profile") != rules_profile for m in manifests):
                 raise ValueError(f"Both strategies must be written for the {season} season to play on {map_name}")
-            selected=[normalize_team_lineup(m.get('team_lineup'),season) for m in manifests]
-            chosen=normalize_team_lineup(team_lineup,season) if team_lineup is not None else selected[0]
-            if not practice_lineup and (selected[0]!=selected[1] or any(s!=chosen for s in selected)):
-                raise ValueError('Team matches require identical registered robot lineups; develop both strategies on the same lineup')
-            if chosen!=season_rules.default_lineup(season) or season!=season_rules.LEGACY_SEASON:lineups=mirrored_lineups(chosen,season)
-        elif team_lineup is not None:raise ValueError('Decks and shared team lineups cannot be combined')
+            # Each side keeps the lineup its own strategy was developed on; a side without one runs
+            # the requested lineup. The two sides never need the same hardware, only a complete
+            # lineup for the season.
+            shared=normalize_team_lineup(team_lineup,season) if team_lineup is not None else None
+            chosen={}
+            for team,manifest in zip(("red","blue"),manifests):
+                locked=manifest.get('team_lineup')
+                requested=(team_lineups or {}).get(team)
+                lineup=(shared if practice_lineup and shared is not None else
+                        locked if locked is not None else
+                        requested if requested is not None else shared)
+                chosen[team]=normalize_team_lineup(lineup,season)
+            if season!=season_rules.LEGACY_SEASON or any(chosen[team]!=season_rules.default_lineup(season) for team in ("red","blue")):
+                lineups={team:lineup_deployments(chosen[team],season) for team in ("red","blue")}
+        elif team_lineup is not None or team_lineups:raise ValueError('Decks and team lineups cannot be combined')
         from .battle_settings import normalize
         battle_settings = normalize(battle_settings or {}, season)
         self.match, self.sandbox, self.policies, self.closed = Match(seed, duration, map_name, lineups=lineups, battle_settings=battle_settings), sandbox, [], False
         self.deck_mode = decks is not None
         self.deadline, self.stop_event = deadline, stop_event
         self.pool = ThreadPoolExecutor(max_workers=24 if self.deck_mode else 12)
+        # One decision in flight per policy, keyed by the worker: a slow agent is skipped on the next
+        # policy tick instead of being asked twice, which keeps its single-request protocol intact.
+        self.inflight = {}
+        # Policies that already received the match-constant part of an observation (the arena).
+        self.static_sent = set()
         self.metadata = {"api_version": 3, "engine": "rust", "rules": rules_profile, "season": season, "decision_timeout_s":timeout, "policy_timeout_limit":POLICY_TIMEOUT_LIMIT, "roster":list(slot_ids), "test_match":duration!=420, "dt": DT, "policy_interval": POLICY_INTERVAL, "seed": seed, "duration": duration,
                          "map": map_name, "sandbox": sandbox, "match_mode":"deck" if self.deck_mode else "standard", "teams": {}}
         if battle_settings:
@@ -558,11 +564,17 @@ class Battle:
         # The solved lob aim a `lob_ready` deadline belongs to, so a moving reticle re-arms the climb.
         self.lob_ready_aim = {}
         self.communication = TeamCommunication({team:[d["slot"] for d in items] for team, items in lineups.items()} if lineups else None, slot_ids)
-        if lineups:
+        if self.deck_mode:
             self.metadata.update({"lineups":lineups,"test_match":True,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
-        if not self.deck_mode:
-            self.metadata['team_lineup']=chosen
-            self.metadata['test_match']=duration!=420 or practice_lineup or bool(battle_settings)
+        else:
+            if lineups:
+                self.metadata.update({"lineups":lineups,"roster":{team:[d["slot"] for d in items] for team,items in lineups.items()}})
+            # A replay needs one lineup per side; keep the shared key only when both happen to match.
+            if chosen["red"]==chosen["blue"]:
+                self.metadata['team_lineup']=chosen["red"]
+            else:
+                self.metadata['red_lineup'],self.metadata['blue_lineup']=chosen["red"],chosen["blue"]
+            self.metadata['test_match']=duration!=420 or practice_lineup or bool(battle_settings) or "lineups" in self.metadata
         self.pending_referee = []
         self.metadata["agents"] = {}
         try:
@@ -721,19 +733,44 @@ class Battle:
         observation["messages"] = [message for inbox in inboxes.values() for message in inbox]
         return observation
 
-    def encoded_observations(self, policies):
-        """The same observations as `observation`, fetched together and left encoded."""
-        controlled, lines = self.match.observations([(team, slots) for team, slots, _ in policies])
+    def message_byte_limit(self, team):
+        """The team's current per-message data budget (table 5-19 scales it with base HP)."""
+        return message_byte_limit(self.match.bases.get(team), self.frames.static.get("rulebook_rules"))
+
+    def encoded_observations(self, policies, hoist_static=True):
+        """The same observations as `observation`, fetched together and left encoded.
+
+        With `hoist_static` the arena is sent once per policy and cached in its sandbox: it is
+        identical for every decision of a match, and resending it cost 66 KB of pipe traffic and
+        about 2 ms of decoding per decision per policy. `hoist_static=False` is the previous
+        behaviour, kept so a test can prove both transports feed policies the same observation.
+        """
+        controlled, lines = self.match.observations([(team, slots) for team, slots, _ in policies], static=not hoist_static)
         encoded = []
-        for (team, _, _), ids, line in zip(policies, controlled, lines):
+        for (team, _, policy), ids, line in zip(policies, controlled, lines):
             inboxes = {slot: self.communication.inboxes[team][slot] for slot in ids}
             messages = [message for inbox in inboxes.values() for message in inbox]
             # Append both keys last, in the order `observation` adds them.
             tail = ',"message_inboxes":' + json.dumps(inboxes, allow_nan=False, separators=(",", ":")) + ',"messages":' + json.dumps(messages, allow_nan=False, separators=(",", ":"))
-            encoded.append(EncodedObservation(line.rstrip(b"\n")[:-1] + tail.encode() + b"}\n", ids, True))
+            payload = line.rstrip(b"\n")[:-1] + tail.encode() + b"}\n"
+            static = b""
+            if hoist_static and policy not in self.static_sent:
+                self.static_sent.add(policy)
+                # `{"__static__":{...arena...},` + the observation's own keys.
+                static = b'{"__static__":' + self.match.observation_static().encode() + b","
+                payload = static + payload[1:]
+            encoded.append(EncodedObservation(payload, ids, True, static))
         return encoded
 
-    def step(self):
+    def step(self, budget: float | None = None):
+        """Advance one engine tick.
+
+        `budget` bounds how long a policy decision may hold this tick. Left unset, a decision is
+        awaited to completion, which is what headless runs, tests and replay verification want. The
+        live loop passes the tick's own budget: an agent that needs longer keeps its previous command
+        for this tick and the clock keeps running, instead of the whole field freezing for the
+        decision (a 200 ms LLM call used to stall four ticks every other tick).
+        """
         if self.match.status == "finished":
             return self.frames[-1]
         if self.cancelled():
@@ -741,16 +778,50 @@ class Battle:
             self.frames[-1] = self.match.snapshot()
             return self.frames[-1]
         policy_tick = bool(self.policies) and self.match.tick % POLICY_INTERVAL == 0
-        # Disabled policies return no actions, so they need no observation.
-        deciding = [item for item in self.policies if not item[2].disabled] if policy_tick else []
+        # Disabled policies return no actions, so they need no observation. A policy that is still
+        # deciding is skipped as well: `PolicyWorker` owns one subprocess and one in-flight request,
+        # so a second concurrent `decide` would corrupt its protocol. Skipping keeps that invariant
+        # while the clock keeps running.
+        deciding = []
+        if policy_tick:
+            for item in self.policies:
+                p = item[2]
+                if p.disabled:
+                    continue
+                pending = self.inflight.get(p)
+                if pending is not None:
+                    if not pending.done():
+                        continue
+                    # Its answer missed the tick it was asked for, so it is not applied at all.
+                    self.inflight.pop(p, None)
+                deciding.append(item)
         futures = []
         if deciding:
             for (team, slots, p), observation in zip(deciding, self.encoded_observations(deciding)):
-                futures.append((team, slots, p, self.pool.submit(p.decide, observation)))
+                future = self.pool.submit(p.decide, observation, self.message_byte_limit(team))
+                self.inflight[p] = future
+                futures.append((team, slots, p, future, time.monotonic()))
         commands, failures = ({"red": {}, "blue": {}} if policy_tick else self.held_commands), []
         outgoing = []
-        for team, slots, p, future in futures:
-            actions, error = future.result()
+        for team, slots, p, future, submitted in futures:
+            wait = None if budget is None else max(0.0, submitted + budget - time.monotonic())
+            try:
+                actions, error = future.result(timeout=wait)
+                self.inflight.pop(p, None)
+            except FutureTimeout:
+                # The team keeps the command it had — for this policy's own robots only, so a
+                # per-robot policy that did answer this tick keeps its fresh action. The worker
+                # discards its late answer before the next request, so nothing stale is applied.
+                held = self.held_commands.get(team, {})
+                for key, action in held.items():
+                    if slots is None or str(key) in {str(slot) for slot in slots}:
+                        commands[team].setdefault(key, action)
+                if not getattr(p, "lag_reported", False):
+                    p.lag_reported = True
+                    self.diagnostics.append({"type": "policy_lag", "id": f"policy-lag:{team}:{slots}:{self.match.tick}",
+                        "tick": self.match.tick, "time": self.match.time, "team": team, "slots": slots,
+                        "budget_s": budget})
+                continue
             for slot, action in actions.items():
                 action = dict(action)
                 messages = action.pop("messages", [])
