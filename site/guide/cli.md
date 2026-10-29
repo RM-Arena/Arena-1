@@ -71,7 +71,7 @@ rmuc-arena run --season 2027 --games 16 -j 4 \
   --settings battle-settings-2027.json --output replays/custom
 ```
 
-`--settings` 接受设置页导出的平面参数 JSON，或直接传 JSON 对象。`--lineup` 接受共同阵容 JSON 或文件；标准对局继续要求双方的已注册阵容一致。地图省略时由策略赛季推断；只指定 `--season 2026` 时会使用该季的默认策略。
+`--settings` 接受设置页导出的平面参数 JSON，或直接传 JSON 对象。标准对局中红蓝各自使用策略锁定的合规阵容，只要求双方赛季一致；`--lineup` 接受 JSON 或文件，供未声明阵容的一方使用。地图省略时由策略赛季推断；只指定 `--season 2026` 时会使用该季的默认策略。
 
 自由对战绑定已保存的单机策略，型号和阵容约束由现有引擎校验。可重复部署同型号策略：
 

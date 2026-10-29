@@ -337,7 +337,12 @@ def drive(robot,goal,obs,memory,tolerance=.25):
             ax,ay=dx*c+dy*q,-dx*q+dy*c
             if math.hypot(max(0.,abs(ax)-wall['w']/2),max(0.,abs(ay)-wall['h']/2))<.45:
                 near_side=True;break
-        if near_side and stall.get('until',0)>now and now-m.get('rim_hop_last',-99)>20 and max(heights)-min(heights)>.18:
+        # A hull resting on an end ramp can be grounded while both wheel probes carry
+        # no load. Axial backoffs then have no traction; crouch and hop to put the wheels
+        # back down, using the same bounded recovery as a kerb.
+        unloaded = (robot.get('grounded') and .4 < robot.get('upright',1.) < .8
+            and sum(robot.get('wheel_loads_n',(1.,))) < 1.)
+        if stall.get('until',0)>now and now-m.get('rim_hop_last',-99)>20 and (unloaded or near_side and max(heights)-min(heights)>.18):
             m['rim_hop']=jump={'since':now,'goal':goal};m['rim_hop_last']=now
         else:return fields
     fields=pointed_move(robot,jump['goal'],2.2)

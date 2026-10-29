@@ -54,9 +54,9 @@ def play(job):
         for team, _, policy in battle.policies:
             original = policy.decide
 
-            def measured(obs, original=original, team=team):
+            def measured(obs, *args, original=original, team=team, **kwargs):
                 begin = time.perf_counter()
-                result = original(obs)
+                result = original(obs, *args, **kwargs)
                 timing[team].append((time.perf_counter() - begin) * 1000)
                 return result
 

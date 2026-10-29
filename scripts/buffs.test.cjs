@@ -43,8 +43,8 @@ test('attack, power and status chips use the engine values',()=>{
  assert.equal(chip(status,'heat').text,'过热');
 });
 test('a robot with no gains has no chips, and permanent locks replace the soft ones',()=>{
- assert.deepEqual(robotBuffs(robot(),frame()),[]);
+ assert.equal(robotBuffs(robot(),frame()).length,0);
  const locked=robotBuffs(robot({overheated:true,heat_permanent_lock:true,overspeed_locked:true}),frame());
- assert.deepEqual(locked.map(c=>c.kind),['lock']);
+ assert.deepEqual(Array.from(locked,c=>c.kind),['lock']);
  assert.equal(chip(locked,'lock').text,'禁发');
 });

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from rmuc_arena.env import ArenaEnv
 from rmuc_arena.vector_env import VectorArena, VectorEnvError
@@ -14,6 +15,27 @@ from rmuc_arena.submissions import ROOT,save_submission
 
 
 class TrainingEnvTests(unittest.TestCase):
+    def test_new_commands_and_live_bandwidth_apply_to_external_and_saved_actors(self):
+        messages = [{'to':'4','data':'x'*100}, {'to':'4','data':'x'*200}]
+        actions = {'1':{'assembly_extract':True,'assembly_cancel':True},
+                   '3':{'climb':True,'yaw_boost':True,'messages':messages}}
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);source=root/'policy.py'
+            source.write_text(f'def act(obs,state):\n return {actions!r},state\n')
+            opponent=root/'opponent';save_submission(opponent,'team',{'team':source},season='2027')
+            with ArenaEnv(duration=1,opponent=opponent,sandbox='trusted-local') as env:
+                env.reset(41)
+                # Model a damaged base's live allowance without changing the protocol ceiling.
+                with patch('rmuc_arena.env.message_byte_limit',return_value=128):
+                    state=env.step({'red':actions})
+                for team in ('red','blue'):
+                    inbox=state['observations'][team]['message_inboxes']['4']
+                    self.assertEqual([m['data'] for m in inbox],['x'*100])
+                self.assertEqual(state['info']['policy_errors'],0)
+                self.assertTrue(any('over 128 bytes' in line for line in env.policies[0][1].logs))
+                with self.assertRaisesRegex(ValueError,'<=512 bytes'):
+                    env.step({'red':{'3':{'messages':[{'to':'4','data':'x'*512}]}}})
+
     def test_vector_matches_serial_and_partial_reset_reuses_simulators(self):
         with VectorArena(2,duration=1,compact=True) as vector:
             initial=vector.reset([17,18])

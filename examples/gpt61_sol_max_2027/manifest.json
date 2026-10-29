@@ -7,7 +7,7 @@
     "team": "strategy.py"
   },
   "hashes": {
-    "strategy.py": "94984ee511f2d480f460fe9ebdf6d17d5a71f57e12846adff6b6a482fc22147f"
+    "strategy.py": "ef5b575cac238c1e65c5868d601301ebb96200f4a008902b21dd9a397e3ad0a3"
   },
   "team_lineup": {
     "1": 2712,
@@ -16,5 +16,5 @@
     "6": 2763,
     "7": 2772
   },
-  "version": "fe7100d3a78e3262"
+  "version": "ec23a59152c45a12"
 }

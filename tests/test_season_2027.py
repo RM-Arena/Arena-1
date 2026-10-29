@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -211,6 +212,28 @@ class SeasonApiTests(unittest.TestCase):
 
 
 class Season2027ExampleTests(unittest.TestCase):
+    def test_loaded_heavy_delivers_before_rescue_and_empty_heavy_still_rescues(self):
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('robot_policy_2027',ROOT/'scripts/robot_policy_2027.py')
+        policy=importlib.util.module_from_spec(spec)
+        with patch.dict('sys.modules',{'sdk':sdk}):
+            spec.loader.exec_module(policy)
+        with Match(map_name='rmuc2027') as match:
+            for team in ('red','blue'):
+                with self.subTest(team=team):
+                    obs=match.observation(team)
+                    heavy=next(r for r in obs['robots'] if r['slot']==1)
+                    work=sdk.assembly_work_point(heavy,obs['arena'])
+                    heavy.update(x=work[0],y=work[1],carried_units=2)
+                    mate=next(r for r in obs['robots'] if r['slot']==3)
+                    mate.update(x=work[0]+.5,y=work[1],tipped=True)
+                    delivery=policy.heavy(heavy,policy.Context(obs,{}))
+                    self.assertEqual(delivery.get('assembly'),1)
+                    self.assertNotIn('rescue',delivery)
+                    heavy['carried_units']=0
+                    rescue=policy.heavy(heavy,policy.Context(obs,{}))
+                    self.assertEqual(rescue.get('rescue'),3)
+
     def test_2027_examples_match_their_generator(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location("build_examples_2027", ROOT / "scripts/build_examples_2027.py")

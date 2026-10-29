@@ -1,10 +1,12 @@
 """Training initial conditions share ordinary physics, observations and replay verification."""
 import copy
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from rmuc_arena.env import ArenaEnv
+from rmuc_arena.engine import Match
 from rmuc_arena.vector_env import VectorArena
 from rmuc_arena.replays import verify_replay
 
@@ -13,6 +15,14 @@ SCENARIO={'robots':{'red-3':{'x':4.7,'y':5.1,'heading':.4,'ammo':200}}}
 
 
 class TrainingScenarios(unittest.TestCase):
+    def test_reset_refreshes_the_cached_static_observation(self):
+        with Match(duration=1,map_name='rmuc2027') as match:
+            self.assertEqual(json.loads(match.observation_static())['arena']['name'],'rmuc2027')
+            match.reset(duration=1,map_name='rmuc2026')
+            cached=json.loads(match.observation_static())['arena']
+            self.assertEqual(cached['name'],'rmuc2026')
+            self.assertEqual(cached,match.observation('red')['arena'])
+
     def test_reset_reuses_actor_and_records_deterministic_replay(self):
         with ArenaEnv(season='2027',lineups=LINEUPS,record=True) as env:
             first=env.reset(73,scenario=SCENARIO)

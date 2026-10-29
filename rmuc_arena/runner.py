@@ -449,7 +449,7 @@ class Policy:
         if response.get("error"):
             raise ValueError(response["error"])
         actions = response.get("actions")
-        actions = validate_actions(actions, controlled, has_messages, self.dynamic_messages)
+        actions = validate_actions(actions, controlled, has_messages, getattr(self, 'dynamic_messages', False))
         for slot, action in list(actions.items()):
             if "messages" in action:
                 # 512 bytes is the protocol ceiling and stays a hard error. The 2027 logistics

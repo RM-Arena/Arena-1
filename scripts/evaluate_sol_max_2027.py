@@ -88,9 +88,9 @@ def play(job):
         for team, _, policy in battle.policies:
             if team == side:
                 decide = policy.decide
-                def measured(obs, decide=decide):
+                def measured(obs, *args, decide=decide, **kwargs):
                     begin = time.perf_counter()
-                    result = decide(obs)
+                    result = decide(obs, *args, **kwargs)
                     decision_ms.append((time.perf_counter() - begin) * 1000)
                     return result
                 policy.decide = measured

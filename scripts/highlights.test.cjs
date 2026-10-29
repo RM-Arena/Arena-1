@@ -27,7 +27,8 @@ const frame={winner:'red',robots};
 test('the reel is three beats long and carries both sides of every exchange',()=>{
  const reel=highlights.highlightReel(events,frame);
  assert.equal(reel.length,3,'the post-match reel is three beats');
- assert.deepEqual(reel.map(c=>c.time),[...reel.map(c=>c.time)].sort((a,b)=>a-b),'beats stay in match order');
+ const times=Array.from(reel,c=>c.time);
+ assert.deepEqual(times,[...times].sort((a,b)=>a-b),'beats stay in match order');
  for(const clip of reel)assert.ok(clip.rival||clip.rivalTeam,clip.key+' names the receiving side');
  const destroyed=reel.find(c=>c.victims.length>0);
  assert.ok(destroyed,'a kill beat survives the cut');

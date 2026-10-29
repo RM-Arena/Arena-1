@@ -531,7 +531,9 @@ class SiegeTeamTests(unittest.TestCase):
         S = self.strategy
         S.MEM.clear()
         S.RUNE_MOTOR.__init__()
-        with Match(2, 40, "rmuc2026", lineups=mirrored_lineups(LINEUP)) as match:
+        # This checks the planned route and physical climb. The strategy's wall-clock
+        # search/decision budgets otherwise skip plans on slow or contended CI runners.
+        with patch.object(S.time, 'perf_counter', return_value=0), Match(2, 40, "rmuc2026", lineups=mirrored_lineups(LINEUP)) as match:
             state, buffs = None, set()
             while match.time < 30:
                 if match.tick % 2 == 0:
