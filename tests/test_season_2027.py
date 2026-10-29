@@ -268,7 +268,11 @@ class Season2027BattleTests(unittest.TestCase):
             battle.run()
             red = battle.match.snapshot()["teams"]["red"]
             self.assertLessEqual(red["energy_units_left"], 4, "the heavy robot never took two units")
-            self.assertTrue(red["completed_difficulties"], battle.diagnostics)
+            frame=battle.match.snapshot()
+            heavy=next(r for r in frame['robots'] if r['id']=='red-1')
+            self.assertTrue(red["completed_difficulties"], {'diagnostics':battle.diagnostics,
+                'heavy':{k:heavy.get(k) for k in ('x','y','z','heading','hp','alive','grounded','carried_units','unit_pickup')},
+                'core':frame['assemblies']['red']})
 
 
 if __name__ == "__main__":

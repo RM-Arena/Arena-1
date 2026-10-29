@@ -1,6 +1,7 @@
 """Check that native-hardware validation really uses both registered lineups."""
 from tests.strategy_fixtures import STRATEGIES
 import json
+import csv
 import os
 from pathlib import Path
 import signal
@@ -50,7 +51,12 @@ play((str(ROOT / 'examples/gpt61_sol_max_2027'),str(STRATEGIES/'dsv41_1017_pair'
                 process.communicate(timeout=10.)
                 self.assertNotEqual(process.returncode,0)
                 for pid in workers:
-                    with self.assertRaises(ProcessLookupError):os.kill(pid,0)
+                    if os.name == 'nt':
+                        # Windows os.kill(pid, 0) is not a process-existence probe.
+                        listing=subprocess.check_output(['tasklist','/FI',f'PID eq {pid}','/FO','CSV','/NH'],text=True)
+                        self.assertFalse(any(len(row)>1 and row[1]==str(pid) for row in csv.reader(listing.splitlines())),listing)
+                    else:
+                        with self.assertRaises(ProcessLookupError):os.kill(pid,0)
             finally:
                 if process.poll() is None:
                     stop.write_text('stop\n');process.kill();process.communicate()

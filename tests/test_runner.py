@@ -16,6 +16,17 @@ from rmuc_arena.cli import verify_replay
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_response_consumed_after_the_deadline_is_discarded(self):
+        policy = Policy.__new__(Policy)
+        policy.pending_response = ({'1'}, False)
+        policy.lines = queue.Queue()
+        policy.lines.put(b'{"actions":{"1":{"aim":0.3}}}\n')
+        with patch('rmuc_arena.runner.time.monotonic', side_effect=[10.0,10.3]):
+            with self.assertRaises(queue.Empty):
+                policy._receive(10.2)
+        self.assertIsNone(policy.pending_response)
+        self.assertTrue(policy.lines.empty())
+
     def test_frame_spool_replacement_slices_and_event_window(self):
         frames = FrameLog({"events": [], "tick": 0})
         self.addCleanup(frames.file.close)

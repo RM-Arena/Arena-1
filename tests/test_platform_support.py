@@ -21,7 +21,8 @@ from rmuc_arena.submissions import scaffold, start_training, validate_workspace
 class PlatformSupportTests(unittest.TestCase):
     def test_generated_submissions_keep_lf_when_text_writes_default_to_crlf(self):
         from rmuc_arena.submissions import write_json
-        from scripts import build_examples_2027, build_robot_presets
+        from scripts import build_examples_2027, build_robot_presets, build_gpt61_max_2027
+        expected_sol_max = build_gpt61_max_2027.output()
 
         original_open = Path.open
         def windows_text_open(path, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
@@ -38,6 +39,7 @@ class PlatformSupportTests(unittest.TestCase):
             write_json(output, {"名称": "策略"})
             self.assertNotIn(b"\r\n", output.read_bytes())
             self.assertEqual(json.loads(output.read_bytes()), {"名称": "策略"})
+            self.assertEqual(build_gpt61_max_2027.output(), expected_sol_max)
             for path, data in build_examples_2027.outputs().items():
                 with self.subTest(path=str(path)):
                     self.assertEqual(data, path.read_bytes())

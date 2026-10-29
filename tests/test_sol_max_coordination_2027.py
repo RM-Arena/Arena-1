@@ -92,7 +92,12 @@ class SolMaxCoordinationTests(unittest.TestCase):
                                     fields['fire']=False;commands[team][str(r['slot'])]=sdk.action(**fields)
                         match.step(commands)
                 self.assertEqual(len(returned),6,returned)
-                self.assertEqual(len(crossed),6,crossed)
+                frame=match.snapshot()
+                self.assertEqual(len(crossed),6,{'crossed':crossed,'remaining':[
+                    {**{k:r.get(k) for k in ('id','x','y','z','heading','tipped','upright','grounded','wheel_loads_n')},
+                     'serial':states[r['team']].get('stuck',{}).get('serial',{}).get(str(r['slot'])),
+                     'queue':states[r['team']].get('sortie_queue')}
+                    for r in frame['robots'] if r['slot'] in (3,4,7) and r['id'] not in crossed]})
                 self.assertLessEqual(max(crossed.values()),105.)
 
 

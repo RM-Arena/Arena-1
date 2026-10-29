@@ -141,7 +141,10 @@ class SolMaxVisionTests(unittest.TestCase):
                             if 'blue-7' in red_obs['vision']['1']['enemies'] and seen is None:
                                 seen=red_obs['time']
                     match.step(commands)
-            self.assertIsNotNone(arrived,'Probe did not physically reach the rear card')
+            self.assertIsNotNone(arrived,{'message':'Probe did not physically reach the rear card',
+                'probe':{k:probe.get(k) for k in ('x','y','z','heading','tipped','upright','grounded','wheel_loads_n')},
+                'serial':states['blue'].get('stuck',{}).get('serial',{}).get('7'),
+                'route':states['blue'].get('max_routes',{}).get('7')})
             results[search]=(arrived,seen)
         self.assertIsNone(results[False][1])
         self.assertIsNotNone(results[True][1])

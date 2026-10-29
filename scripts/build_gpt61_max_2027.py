@@ -64,7 +64,7 @@ def output():
     with tempfile.TemporaryDirectory(prefix='gpt61-sol-max-') as temporary:
         folder = Path(temporary)
         policy = folder / 'policy.py'
-        policy.write_text(source(), encoding='utf-8')
+        policy.write_bytes(source().encode('utf-8'))
         showcase, profile = metadata()
         target = folder / NAME
         save_submission(target, 'team', {'team': policy}, team_lineup=LINEUP,

@@ -460,6 +460,11 @@ class Policy:
                     self.logs.append(f"bandwidth: dropped {len(action['messages']) - len(kept)} message(s) over {message_limit} bytes")
                     action = {**action, "messages": kept}
                     actions[slot] = action
+        # Queue.get can return an item after its timeout if the host thread was descheduled.
+        # The response is consumed, so the next call can send a fresh observation; late actions
+        # still must not be applied to this tick.
+        if time.monotonic() >= until:
+            raise queue.Empty
         return actions
 
     def close(self):

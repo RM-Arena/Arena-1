@@ -1,0 +1,46 @@
+name: Release portability checks
+on:
+  push:
+    branches: [codex/release-portability]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  targeted:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    env:
+      PYTHONUTF8: '1'
+      RMUC_TEST_STRATEGIES: .arena_data/strategy-tests/fixtures/arena1-4303d7c/examples
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: RM-Arena/Arena-Strategies
+          ref: a2ee3ca3971e368a3ee8d598a0d90aa108539d66
+          path: .arena_data/strategy-tests
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.1'
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: simulation
+      - run: uv sync --locked
+      - run: cargo build --locked --release --manifest-path simulation/Cargo.toml
+      - name: Targeted platform and physical-route regressions
+        run: >-
+          uv run --locked python -m unittest -v
+          tests.test_runner.LocalRunnerTests
+          tests.test_platform_support.PlatformSupportTests.test_generated_submissions_keep_lf_when_text_writes_default_to_crlf
+          tests.test_gpt61_max_2027.SolMax2027Tests.test_reproducible_submission_and_explicit_author
+          tests.test_sol_max_evaluation_2027
+          tests.test_season_2027.Season2027BattleTests.test_heavy_robot_mines_two_units_and_completes_a_core_level
+          tests.test_siege_team.SiegeTeamTests.test_wheel_legged_infantry_climb_the_stairs_and_earn_the_highland_buff
+          tests.test_gpt61_max_2027.SolMax2027Tests.test_all_six_serial_legs_cross_and_return_to_supply_in_the_actual_engine
+          tests.test_sol_max_coordination_2027.SolMaxCoordinationTests.test_six_robots_depart_again_from_supply_and_base_without_state_injection
+          tests.test_sol_max_vision_2027.SolMaxVisionTests.test_rear_intruder_is_seen_by_the_anchors_real_camera

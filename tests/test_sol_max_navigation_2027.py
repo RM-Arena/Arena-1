@@ -164,7 +164,7 @@ class SolMaxNavigationTests(unittest.TestCase):
         r=next(r for r in obs['robots'] if r['slot']==4)
         memory={'nav_stall':{'4':{'until':41.}}}
         with patch.object(self.policy,'_unwedge_parent',return_value={'move':(0,0)}):
-            r.update(x=8.3,y=12.7,weak=False)
+            r.update(x=8.3,y=12.7,weak=False,wheel_loads_n=[50.,50.,0.,0.])
             self.policy.drive(r,(10.8,9.25),obs,memory)
             self.assertNotIn('rim_hop',self.policy.leg_memory(r,obs,memory))
 
