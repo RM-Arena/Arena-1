@@ -26,6 +26,10 @@ SPIN_TURRET_FRACTION = .55
 # new damage, so incoming fire keeps landing on a different plate.
 SPIN_HOLD_S = 1.6
 SPIN_RANGE_M = 8.0
+# One burst of spinning, then a pause to move in: under sustained fire a robot is hit again inside
+# the hold window every time, so an unbounded spin would keep the hull turning for the whole match.
+SPIN_BURST_S = 0.5
+SPIN_REST_S = 2.0
 # Enemy inside this radius gets a retreat first and a shot second (per role).
 EVADE_RANGE = {'heavy': 3.2, 'infantry': 2.6, 'sentry': 2.2}
 # A retreat keeps a share of the current route: backing straight off lets a chaser pin the robot
@@ -41,6 +45,13 @@ STRAFE_CHASSIS = ('mecanum', 'omni', 'swerve')
 # Supercap reserve kept for the next climb: the store is 1800 J and a climb burns ~170 J/s.
 SUPERCAP_RESERVE_J = 250.0
 CLIMB_DELTA_M = .06
+# A robot under this many rounds looks for a local exchange point to drive to.
+AMMO_RUN_BELOW = 25
+# …but only if the shop is this close; past it, remote delivery is cheaper than the detour.
+AMMO_RUN_RANGE = 12.0
+# The sentry leaves its card for the supply zone below this many rounds: the engine grants 100 a
+# minute there and banks the unclaimed grant, so one trip refills it for several minutes.
+SENTRY_SUPPLY_BELOW = 40
 
 
 def wrap(angle):
@@ -288,36 +299,83 @@ def evade(robot, ctx, fields, foe, reach=None):
     return fields
 
 
-def spin(robot, ctx, fields, foe):
+def spin(robot, ctx, fields, foe, busy=False):
     """小陀螺: turn the hull under fire so successive hits land on different armour plates.
 
     A hit makes the robot stop and spin: that is the whole point of the move, and a chassis
     that keeps driving cannot turn its hull. Merely having an enemy inside `SPIN_RANGE_M` is
     not enough to stop it, so a robot on a task only spins when it is already standing.
+
+    Being hit is enough on its own. The old form bailed out when no enemy was *visible*, which is
+    exactly the case a robot is shot from — behind cover, from the flank, or by a sentry across
+    the field — so the robots that most needed the move stood still and took it.
+
+    It runs in bursts, not as a state. A robot under sustained fire is hit again within the hold
+    window every time, so a plain "spin while recently hit" kept the hull turning for the rest of
+    the match: the heavy never reached its plinth and the infantry never reached a shop. Bursts
+    give it one second of armour rotation and then a pause to move in.
+
+    `busy` suppresses the mere-pressure trigger for a robot in the middle of a task the rules read
+    from its pose (a grab, a core insertion): those phases are stationary by definition.
     """
-    if foe is None or robot.get('weak'):
+    if robot.get('weak') or busy:
+        # A robot in the middle of a task the rules read from its pose (a grab, a core insertion)
+        # does not spin at all: the order is refused unless the chassis holds its dock heading and
+        # angular rate, so a spin there would keep it refused for the rest of the match.
         return fields
-    hit = ctx.time - robot.get('last_damage_time', -99) <= SPIN_HOLD_S
-    pressed = foe[0] <= SPIN_RANGE_M
-    if not (hit or pressed):
+    now = ctx.time
+    strafes = can_strafe(robot)
+    damaged = now - robot.get('last_damage_time', -99) <= SPIN_HOLD_S
+    # Pressure alone only counts for a chassis that can spin *while* translating, and only while it
+    # is standing: a robot driving to its plinth or to a shop is not going to give up the trip for
+    # a hull rotation it does not need, while one holding a card has nothing better to do.
+    standing = math.hypot(*fields.get('move', (0, 0))) < .2
+    pressed = strafes and standing and foe is not None and foe[0] <= SPIN_RANGE_M
+    if not (damaged or pressed):
         return fields
-    if not can_strafe(robot):
-        if hit:
-            fields['move'] = (0, 0)
-            fields['brake'] = True
-        elif math.hypot(*fields.get('move', (0, 0))) > .2:
-            return fields
+    memory = ctx.memory.setdefault('spin-' + str(robot['slot']), {})
+    if damaged and now >= memory.get('until', -1) and now >= memory.get('rest_until', -1):
+        memory['until'] = now + SPIN_BURST_S
+        memory['rest_until'] = memory['until'] + SPIN_REST_S
+    burst = now < memory.get('until', -1)
+    if not (burst or pressed):
+        return fields
+    if burst and not strafes:
+        fields['move'] = (0, 0)
+        fields['brake'] = True
     fields.pop('heading', None)
     fields['yaw_rate'] = round(turret_rate(robot) * SPIN_TURRET_FRACTION, 2)
     return fields
 
 
+def shops(ctx):
+    """Every place the rulebook takes a local exchange, as (name, point, contact radius).
+
+    Rulebook p.74 lists four: the own base, the own supply zone, the own high point and **any
+    outpost position the team fully controls**. The policy only knew the first three, so a robot
+    that ran dry on the enemy half drove all the way home past a shop it was standing on.
+    """
+    points = [(kind, ctx.zone(ctx.team, kind), 1.6 if kind == 'base' else 1.0)
+              for kind in ('base', 'supply', 'high_point')]
+    for site in (ctx.team, ctx.enemy):
+        if ctx.controls(f'{site}_outpost', full=True):
+            points.append((f'{site}_outpost', ctx.zone(site, 'outpost'), 1.0))
+    return points
+
+
 def can_buy_here(robot, ctx):
-    """Local exchange: own base, supply zone or high point (contact lasts 2 s)."""
-    for kind in ('base', 'supply', 'high_point'):
-        if distance(robot, ctx.zone(ctx.team, kind)) < (1.6 if kind == 'base' else 1.0):
-            return True
-    return False
+    """True when the robot stands inside one of the local exchange points."""
+    return any(distance(robot, point) <= reach for _, point, reach in shops(ctx))
+
+
+def nearest_shop(robot, ctx):
+    """The closest local exchange point to drive to for ammunition, or None without one."""
+    best = None
+    for name, point, _ in shops(ctx):
+        gap = distance(robot, point)
+        if best is None or gap < best[0]:
+            best = (gap, name, point)
+    return None if best is None else best[2]
 
 
 def disengaged(robot, now):
@@ -325,7 +383,15 @@ def disengaged(robot, now):
 
 
 def ammo_fields(robot, ctx, low, local_amount, remote_amount, reserve):
-    """Buy ammo when low: locally where allowed, otherwise remotely once disengaged."""
+    """Buy ammo when low: locally where allowed, otherwise remotely once disengaged.
+
+    The sentry never buys. The rulebook gives it 100 rounds a minute on its own supply card and
+    lets the unclaimed grant accumulate, while the team's purchase pool is a single 1000-round
+    budget shared with the infantry — so a sentry buying from it starves the robots that cannot
+    collect the card at all. It goes to the supply zone instead (see `sentry`).
+    """
+    if robot['role'] == 'sentry':
+        return {}
     if robot['ammo'] >= low or ctx.time < 1.05 or robot.get('pending_ammo'):
         return {}
     unit = 10 if robot['role'] == 'heavy' else 1
@@ -470,8 +536,12 @@ def start_assembly(robot, ctx, level, core, work, memory):
         # Keep enough pace up the plinth bevel; a creeping approach stalls on its slope.
         if gap < 1 and 0 < pace < .25:
             fields['move'] = (move[0] / pace * .25, move[1] / pace * .25)
+        # The last metre is a docking manoeuvre: the engine reads the chassis heading to accept the
+        # core, so a pressure-driven spin there would keep the order refused for the whole match.
+        if gap < 1.2:
+            fields['_busy'] = True
         return fields
-    fields = {'move': (0, 0), 'brake': True, 'heading': dock_heading(ctx)}
+    fields = {'move': (0, 0), 'brake': True, 'heading': dock_heading(ctx), '_busy': True}
     if ctx.time + 1e-6 >= UNLOCK[level] and core['stage'] not in ('moving', 'inserting'):
         fields['assembly'] = level
         if level == 4:
@@ -482,7 +552,7 @@ def start_assembly(robot, ctx, level, core, work, memory):
 def assemble(robot, ctx, core, work):
     fields = {'move': (0, 0) if distance(robot, work) < .16 else drive(robot, work, ctx.obs, ctx.memory, .1)['move'],
               'brake': True, 'heading': dock_heading(ctx), 'assembly_insert': True, 'assembly_lift': True,
-              'assembly_flip': True, 'assembly_confirm': True}
+              'assembly_flip': True, 'assembly_confirm': True, '_busy': True}
     cores = core.get('cores') or [{'core': 0, 'operation': core.get('operation'), 'target_rotation': core.get('target_rotation', 0)}]
     if core['difficulty'] == 4 and len(cores) == 2:
         if robot.get('arm_count', 1) >= 2:
@@ -515,16 +585,21 @@ def heavy_combat(robot, ctx):
     fields = {}
     fields.update(ammo_fields(robot, ctx, 3, 20, 10, 60))
     if robot['ammo'] == 0 and not robot.get('pending_ammo') and not fields:
-        # Out of 42 mm and coins: hold at the supply zone, where the heavy robot is invulnerable.
-        return drive(robot, ctx.zone(ctx.team, 'supply'), obs, ctx.memory)
+        # Out of 42 mm and coins: hold at the nearest local exchange point, where the heavy robot
+        # is invulnerable. That used to mean driving home past a captured outpost shop.
+        return drive(robot, nearest_shop(robot, ctx) or ctx.zone(ctx.team, 'supply'), obs, ctx.memory)
     if robot['hp'] < robot['max_hp'] * .3:
         fields.update(drive(robot, ctx.zone(ctx.team, 'supply'), obs, ctx.memory))
+        return fields
+    shop = resupply_goal(robot, ctx)
+    if shop is not None:
+        fields.update(drive(robot, shop, obs, ctx.memory, .3))
+        fields.update(weapon(robot, ctx, reach=12.0))
         return fields
     fields.update(drive(robot, heavy_post(ctx), obs, ctx.memory, .5))
     foe = nearest_foe(robot, ctx)
     fields.update(weapon(robot, ctx, reach=12.0))
     evade(robot, ctx, fields, foe)
-    spin(robot, ctx, fields, foe)
     return fields
 
 
@@ -549,6 +624,21 @@ def outpost_card_spot(ctx, owner, side=0):
     return (x + ux * .62 - uy * side * .3, y + uy * .62 + ux * side * .3)
 
 
+def resupply_goal(robot, ctx):
+    """Where to drive when the robot cannot buy ammunition from where it stands.
+
+    The rulebook's local exchange also works on an outpost position the team fully controls, so a
+    robot that runs dry on the far half can turn to the nearest shop instead of driving home past
+    one it is already standing on.
+    """
+    if robot['ammo'] >= AMMO_RUN_BELOW or can_buy_here(robot, ctx):
+        return None
+    shop = nearest_shop(robot, ctx)
+    if shop is None:
+        return None
+    return shop if distance(robot, shop) <= AMMO_RUN_RANGE else None
+
+
 def infantry(robot, ctx):
     obs, team, enemy = ctx.obs, ctx.team, ctx.enemy
     fields = {}
@@ -560,6 +650,15 @@ def infantry(robot, ctx):
         fields.update(weapon(robot, ctx, reach=6, structures=False))
         return fields
     if ctx.time < 1.2:
+        return fields
+    shop = resupply_goal(robot, ctx)
+    if shop is not None:
+        # Dry and standing next to a shop: take it before anything else, and keep shooting on the
+        # way so a resupply run is not a free kill.
+        fields.update(drive(robot, shop, obs, ctx.memory, .3))
+        fields.update(weapon(robot, ctx, reach=9))
+        foe = nearest_foe(robot, ctx)
+        evade(robot, ctx, fields, foe)
         return fields
     job = infantry_job(robot, ctx)
     side = 1 if robot['slot'] % 2 else -1
@@ -585,7 +684,6 @@ def infantry(robot, ctx):
     fields.update(weapon(robot, ctx, reach=7 if job == 'guard' else 9))
     foe = nearest_foe(robot, ctx)
     evade(robot, ctx, fields, foe)
-    spin(robot, ctx, fields, foe)
     return fields
 
 
@@ -602,11 +700,20 @@ def sentry(robot, ctx):
     memory = ctx.state.setdefault('sentry', {})
     fields = {}
     # Holding the card matters more than rations: while our outpost position is held only
-    # by our presence, leaving it for 5 s hands it to the enemy. Ammo is bought remotely;
-    # the rations are collected when the sentry has to heal at the supply zone anyway.
+    # by our presence, leaving it for 5 s hands it to the enemy. The sentry never touches the
+    # team's shared 1000-round purchase pool — the rulebook gives it 100 rounds a minute on its
+    # own supply card and lets the unclaimed grant accumulate, so it collects instead of buying,
+    # and the whole pool stays with the infantry that has no card of its own.
     covered = any(r['alive'] and not r['weak'] and r['slot'] != robot['slot'] and r['role'] != 'aerial'
                   and distance(r, ctx.zone(team, 'central')) < .6 for r in obs['robots'])
-    if robot['weak'] or (robot['hp'] < robot['max_hp'] * .25 and (covered or ctx.controls(f'{team}_outpost', full=True))):
+    low = robot['ammo'] < SENTRY_SUPPLY_BELOW
+    dry = robot['ammo'] == 0
+    if low and (covered or dry or ctx.controls(f'{team}_outpost', full=True)):
+        # A sentry out of rounds cannot contest the card at all, so a dry one leaves even when it
+        # is the only machine holding the position: the alternative is a sentry that stands there
+        # for the rest of the match with nothing to fire.
+        goal = ctx.zone(team, 'supply')              # collect the accumulating supply grant
+    elif robot['weak'] or (robot['hp'] < robot['max_hp'] * .25 and (covered or ctx.controls(f'{team}_outpost', full=True))):
         goal = ctx.zone(team, 'supply')
     elif TACTIC == 'assault' and ctx.controls(f'{ctx.enemy}_outpost'):
         goal = ctx.zone(ctx.enemy, 'central')
@@ -631,13 +738,10 @@ def sentry(robot, ctx):
     if bool(robot.get('posture_enhanced')) != enhanced and ctx.time >= (robot.get('posture_ready_at') or 0):
         fields['posture_enhanced'] = enhanced
     memory['last'] = wanted
-    # The sentry holds the card without ammo too, so it rebuys remotely with a small reserve.
-    fields.update(ammo_fields(robot, ctx, 40, 100, 100, 50))
     foe = nearest_foe(robot, ctx)
-    # A sentry does not abandon its card, but it still slides out of a body check and spins
-    # under fire; the hull has enough yaw authority that the gun keeps the target.
+    # A sentry does not abandon its card, but it still slides out of a body check; the hull has
+    # enough yaw authority that the gun keeps the target.
     evade(robot, ctx, fields, foe, EVADE_RANGE['sentry'] * .8)
-    spin(robot, ctx, fields, foe)
     return fields
 
 
@@ -760,7 +864,16 @@ ROLES = {'heavy': heavy, 'infantry': infantry, 'sentry': sentry, 'aerial': aeria
 def decide(robot, ctx):
     if robot['role'] != 'aerial' and not robot['alive']:
         return revive_fields(robot, ctx, 100 if robot['role'] == 'heavy' else 200)
-    return ROLES[robot['role']](robot, ctx)
+    fields = ROLES[robot['role']](robot, ctx)
+    if robot['role'] != 'aerial':
+        # 小陀螺 belongs to every role, not just the ones that happened to call it: a heavy
+        # pushing a core into a plinth and an infantry running for the supply zone are shot at
+        # exactly like a sentry holding the highland. Applying it here, after the role has built
+        # its fields, means no task can forget it.
+        busy = bool(fields.pop('_busy', False) or fields.get('pick_unit') or fields.get('assembly')
+                    or fields.get('assembly_confirm') or robot.get('unit_pickup'))
+        fields = spin(robot, ctx, fields, nearest_foe(robot, ctx), busy)
+    return fields
 
 
 def act(obs, state):

@@ -11,11 +11,11 @@
     "7": "robot_7.py"
   },
   "hashes": {
-    "robot_1.py": "bb16c38e2b4a8bdbd22e07ebfa559947ba68529384ee75cef072910670c68ce0",
-    "robot_3.py": "57511bd90c6a74dc2067b0fc271bec99ba9c9faebf27a52f0be74b96d86a0e35",
-    "robot_4.py": "82ea8ad1131128de169334358249801bbee9b1632cfb0159b371883c1d8a79d4",
-    "robot_6.py": "f738ef7ba78e56b7357d1deede690fec706fe0a61c75943ecce224bf11cc3c48",
-    "robot_7.py": "7b76bf52959479622534443f5f5612d171dcccfa3be930a8a152321757b0b68f"
+    "robot_1.py": "1003db7177101632f6a477d2f48c53c71e9610fd6eac8da1670352fc344f2932",
+    "robot_3.py": "cf693723ff3d74b07dc9b184fb5e1c3e167c5044e8c1857f86c9164da199ef4b",
+    "robot_4.py": "56077afa2009d2def919bde0a2abf9daed0f464e0a9e9b5948bb52bdd604a32d",
+    "robot_6.py": "0df34ae4bfdcc9554c31a841270ff12feac8465011c4717ed13e7b4d4e620251",
+    "robot_7.py": "4f53353b733441c495cef1a573f8aeac4f18ed71939aee4b5b0eaf1c9aec2c7a"
   },
-  "version": "4fbaf7343a973d2c"
+  "version": "6b21d6e40585e1e5"
 }

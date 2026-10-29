@@ -15,6 +15,12 @@ pub struct PickupState {
     /// travel limit, so a unit outside the workspace would otherwise sit at "approaching" forever.
     #[serde(default)]
     pub stall: f64,
+    /// The clamped unit was taken out of the robot's own storage bay for an assembly (the unload
+    /// pre-stage) and is still counted by `carried_units`. Without this flag the bay count would drop
+    /// the moment the jaws close, and a strategy that only reads `carried_units` would think it had
+    /// run out of ore in the middle of an attempt and drive back to the dispenser.
+    #[serde(default)]
+    pub from_bay: bool,
 }
 
 /// A grab that cannot reach its target must fail instead of hanging: the pilot would hold the key
@@ -25,41 +31,82 @@ const PICKUP_STALL_S: f64 = 8.0;
 
 impl Engine {
     pub(super) fn request_pickup(&mut self, i: usize, rpc: &Value) {
-        let r = &self.robots[i];
-        if r.arm_count == 0 {
+        let (team, id) = {
+            let r = &self.robots[i];
+            (r.team.clone(), r.id.clone())
+        };
+        let (
+            arm_count,
+            bays,
+            carrying,
+            holding,
+            borrowed,
+            pickup_arm,
+            on_board,
+            capacity,
+            alive,
+            weak,
+            red_card,
+        ) = {
+            let r = &self.robots[i];
+            (
+                r.arm_count,
+                r.carried_units,
+                r.gripper_unit(),
+                r.unit_pickup.is_some(),
+                r.gripper_borrowed(),
+                r.unit_pickup.as_ref().map(|s| s.arm),
+                r.units_on_board(),
+                r.unit_capacity(),
+                r.alive,
+                r.weak,
+                r.red_card,
+            )
+        };
+        if arm_count == 0 {
             return;
         }
-        let arm=rpc["pickup_arm"].as_u64().unwrap_or(if r.arm_count==2 {r.carried_units as u64%2} else {0}) as u32;
+        let arm=rpc["pickup_arm"].as_u64().unwrap_or(if arm_count==2 {bays as u64%2} else {0}) as u32;
+        // A unit the jaws borrowed out of a bay for an assembly is cargo the robot can put back
+        // where it came from, as long as no attempt is using it.
+        let restow = borrowed && !self.assembly_active_for(&team);
         let requested = rpc["pick_unit"].as_bool() == Some(true)
-            && arm<r.arm_count
+            && arm<arm_count
             && !rpc[if arm==0 {"arm"}else{"arm2"}].is_object()
             && (arm==1 || rpc.get("rescue").is_none());
         let eligible = requested
-            && r.alive
-            && !r.weak
-            && !r.red_card
-            && r.unit_pickup.as_ref().map(|s|s.arm==arm).unwrap_or(true)
-            && r.units_on_board() < r.unit_capacity()
-            && self.teams[&r.team].energy_units_left.map(|left| left > 0).unwrap_or(true)
-            && self.raw_zone(i, "resource", Some(&r.team));
+            && alive
+            && !weak
+            && !red_card
+            && (restow || pickup_arm.map(|a|a==arm).unwrap_or(true))
+            && on_board < capacity
+            && self.teams[&team].energy_units_left.map(|left| left > 0).unwrap_or(true)
+            && self.raw_zone(i, "resource", Some(&team));
         if !eligible {
             // A unit already clamped in the gripper is cargo, not a grab in progress: releasing the
             // key (or backing away) must not throw the third unit away.
-            let carrying = r.gripper_unit();
             if !carrying && self.robots[i].unit_pickup.take().is_some() {
-                self.event("unit_pickup_cancelled", json!({"robot":self.robots[i].id}));
+                self.event("unit_pickup_cancelled", json!({"robot":id}));
             }
             return;
         }
-        if r.unit_pickup.is_some() {
+        if holding {
             // A unit already clamped in the gripper rides there until it is inserted or the robot
-            // dies; asking again must not restart the sequence.
-            return;
+            // dies; asking again must not restart the sequence. The one exception is a borrowed bay
+            // unit: it goes back into that bay (`carried_units` never stopped counting it), so a
+            // pilot or a strategy that drove back to the dispenser can keep mining instead of
+            // holding a key the engine silently ignores.
+            if restow {
+                self.robots[i].unit_pickup = None;
+                self.event("unit_pickup_restowed", json!({"robot":id}));
+            } else {
+                return;
+            }
         }
         // A card lineup may contain multiple engineers. The physical dispenser
         // presents one unit at a time, so only one arm can claim that unit.
         if self.robots.iter().enumerate().any(|(j, other)| {
-            j != i && other.team == r.team && other.unit_pickup.is_some()
+            j != i && other.team == team && other.unit_pickup.is_some()
         }) {
             return;
         }
@@ -67,7 +114,7 @@ impl Engine {
             .as_array()
             .and_then(|f| {
                 f.iter()
-                    .find(|f| f["kind"] == "resource" && f["team"].as_str() == Some(&r.team))
+                    .find(|f| f["kind"] == "resource" && f["team"].as_str() == Some(&team))
             });
         let Some(station) = station else {
             return;
@@ -90,6 +137,7 @@ impl Engine {
             held: false,
             arm,
             stall: 0.0,
+            from_bay: false,
         });
         self.event("unit_pickup_started", json!({"robot":self.robots[i].id}));
     }

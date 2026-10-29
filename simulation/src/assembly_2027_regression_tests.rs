@@ -13,7 +13,14 @@ fn setup(difficulty: u32) -> (Engine, usize) {
     m.tick = 3600;
     m.teams.get_mut("red").unwrap().completed_difficulties = (1..difficulty).collect();
     m.assembly_rpc_2027(h, &json!({"assembly":difficulty}));
-    assert_eq!(m.assemblies["red"].stage, "moving");
+    // An attempt opens by unloading the ore into the gripper; these tests drive the core itself, so
+    // they start from the stage the pre-stage hands over to.
+    assert!(m.assemblies["red"].stage == "unloading", "{}", m.assemblies["red"].stage);
+    let s = m.assemblies.get_mut("red").unwrap();
+    s.stage = "moving".into();
+    s.unload_step = 0;
+    s.unload_elapsed = 0.0;
+    s.ready_at = 0.0;
     (m, h)
 }
 
@@ -50,7 +57,7 @@ fn failed_retry_preserves_pose_and_rotation_until_success() {
     assert_eq!(m.assemblies["red"].stage, "complete");
     m.assemblies.get_mut("red").unwrap().repeat_ready_at = 0.0;
     m.assembly_rpc_2027(h, &json!({"assembly":3}));
-    assert_eq!(m.assemblies["red"].stage, "moving");
+    assert!(m.assemblies["red"].stage == "unloading", "{}", m.assemblies["red"].stage);
     assert_ne!(m.assemblies["red"].pose, s.pose);
 }
 

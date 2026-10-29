@@ -78,6 +78,8 @@ pub struct PhysicsWorld {
     last: Vec<[f64; 3]>,
     /// Footprints (x0, y0, x1, y1) of humped road sections, where tyres need their radius.
     hump_areas: Vec<[f64; 4]>,
+    /// Drive force applied last substep, so a balancing chassis can ramp it instead of stepping.
+    drive_last: Vec<Vector<f64>>,
     last_alive: Vec<bool>,
     impacts: BTreeMap<usize, Value>,
     grasps: Vec<Option<(usize, Point<f64>)>>,
@@ -278,6 +280,7 @@ impl PhysicsWorld {
             designs: Vec::new(),
             last: Vec::new(),
             hump_areas: Vec::new(),
+            drive_last: Vec::new(),
             last_alive: Vec::new(),
             impacts: BTreeMap::new(),
             grasps: Vec::new(),
@@ -434,6 +437,7 @@ impl PhysicsWorld {
                 world.carriers.push(None);
                 world.designs.push(d);
                 world.last.push([r.x, r.y, r.z]);
+                world.drive_last.push(Vector::zeros());
                 world.last_alive.push(r.alive);
                 world.grasps.push(None);
                 world.rescuing.push(None);
@@ -499,6 +503,7 @@ impl PhysicsWorld {
             world.carriers.push(carrier);
             world.designs.push(d);
             world.last.push([r.x, r.y, r.z]);
+            world.drive_last.push(Vector::zeros());
             world.last_alive.push(r.alive);
             world.grasps.push(None);
             world.rescuing.push(None);
@@ -930,11 +935,14 @@ impl PhysicsWorld {
                 let held_unit = r.unit_pickup.as_ref().is_some_and(|s| s.held);
                 // A fitted modular 42 mm launcher adds its own mass to the heavy robot.
                 let module = if ["fitted", "installed"].contains(&r.launcher.as_str()) { n(d, "launcher_module_kg") } else { 0.0 };
-                let payload = 0.45 * (r.carried_units as f64 + if held_unit {1.0} else {0.0}) + module;
+                // A unit the jaws borrowed out of a bay is at the tip, not in the bay, so it is
+                // counted once and placed once.
+                let bays = r.bays_stowed() as f64;
+                let payload = 0.45 * (bays + if held_unit {1.0} else {0.0}) + module;
                 let mass = n(d, "mass_kg") + payload;
                 let mut com = p3(&d["com_m"]);
                 let lever = (points[1].coords + points[2].coords) * 0.5;
-                com.x = (0.45 * r.carried_units as f64 * -0.17 + if held_unit {0.45 * points[3].x} else {0.0} + 2.4 * lever.x) / mass;
+                com.x = (0.45 * bays * -0.17 + if held_unit {0.45 * points[3].x} else {0.0} + 2.4 * lever.x) / mass;
                 com.y = (if held_unit {0.45 * points[3].y} else {0.0} + 2.4 * lever.y) / mass;
                 self.bodies[h].set_additional_mass_properties(
                     MassProperties::new(point![com.x, com.y, com.z], mass, p3(&d["inertia_kgm2"])),
@@ -965,10 +973,11 @@ impl PhysicsWorld {
                 let tip=pose*second[3];r.arm2_tip=[tip.x,tip.y,tip.z];r.arm2_mode=if r.alive {goal.map(|g|g.mode.clone()).unwrap_or_else(||"stow".into())} else {"stow".into()};
                 let held=r.unit_pickup.as_ref().filter(|s|s.held);
                 let module=if ["fitted","installed"].contains(&r.launcher.as_str()) {n(d,"launcher_module_kg")} else {0.0};
-                let payload=0.45*(r.carried_units as f64+if held.is_some(){1.0}else{0.0})+module;let mass=n(d,"mass_kg")+payload;
+                let bays=r.bays_stowed() as f64;
+                let payload=0.45*(bays+if held.is_some(){1.0}else{0.0})+module;let mass=n(d,"mass_kg")+payload;
                 let held_tip=if held.is_some_and(|s|s.arm==1){second[3]}else{first[3]};
                 let lever=(first[1].coords+first[2].coords+second[1].coords+second[2].coords)*0.5*1.8;
-                let mut com=p3(&d["com_m"]);com.x=(0.45*r.carried_units as f64*-0.17+if held.is_some(){0.45*held_tip.x}else{0.0}+lever.x)/mass;
+                let mut com=p3(&d["com_m"]);com.x=(0.45*bays*-0.17+if held.is_some(){0.45*held_tip.x}else{0.0}+lever.x)/mass;
                 com.y=(if held.is_some(){0.45*held_tip.y}else{0.0}+lever.y)/mass;
                 self.bodies[h].set_additional_mass_properties(MassProperties::new(point![com.x,com.y,com.z],mass,p3(&d["inertia_kgm2"])),true);r.mass_kg=mass;
                 self.colliders[self.hulls[i]].set_shape(Self::hull_with_arms(d,false,Some(r.arm_joints),Some(r.arm2_joints),goals[i].mode!="rescue",None).build().shared_shape().clone());
@@ -1525,6 +1534,16 @@ impl PhysicsWorld {
             } else {
                 (desired - planar) * r.mass_kg * n(d, "velocity_gain_per_s")
             };
+            // Response scale: a balancing chassis answers its throttle more gently than a wheeled
+            // one, and the rulebook-side requirement is a 30 % longer ramp in both directions. It
+            // multiplies only the *commanded* force — acceleration here, braking below — so holding
+            // a position on a slope keeps every newton it had.
+            let response = if legged {
+                d.get("drive_response_scale").and_then(Value::as_f64).unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            drive *= response;
             let magnitude = drive.norm();
             let local_force = pose.rotation.inverse() * drive;
             let lateral = local_force.y.abs() / magnitude.max(1e-9);
@@ -1595,7 +1614,7 @@ impl PhysicsWorld {
                         * reach;
                     yaw_brake = (-angular.z * inertia_z * 12.0).clamp(-limit, limit);
                 }
-                let mut brake = -planar * r.mass_kg * 9.0;
+                let mut brake = -planar * r.mass_kg * 9.0 * response;
                 let norm = brake.norm();
                 // Grip is the real limit: the tyre force the contact patch can carry caps the stop
                 // before the brake motors do, so a heavier chassis still sheds speed quickly.
@@ -1627,6 +1646,19 @@ impl PhysicsWorld {
                         normal_total * n(d, "tire_friction"),
                     );
             }
+            // The ramp belongs here, after every branch that can replace the force: the brake path
+            // swaps the drive for `-planar * m * 9` in a single step, which is the hardest input a
+            // balancing chassis ever sees — that step, not the launch, was the nose-dive. Nothing
+            // else is limited: the full force is back a few ticks later, so a hump or a ramp is
+            // climbed exactly as before.
+            if legged && powered && !righting {
+                let slew = n(d, "drive_slew_mps2") * r.mass_kg * PHYSICS_DT;
+                let step = drive - self.drive_last[i];
+                if slew > 0.0 && step.norm() > slew {
+                    drive = self.drive_last[i] + step * (slew / step.norm());
+                }
+            }
+            self.drive_last[i] = if powered { drive } else { Vector::zeros() };
             for (point, normal, support) in &contacts {
                 let share = if normal_total > 0.0 {
                     support / normal_total
@@ -1678,6 +1710,19 @@ impl PhysicsWorld {
                 let roll = body_y.z.clamp(-1.0, 1.0).asin();
                 let lying = nose_up.abs() > 0.8 && roll.abs() < 0.8;
                 let target = -a.lean;
+                // The envelope is a *lean*, not a world pitch: standing on the 70 mm road humps or a
+                // ramp tilts the hull without the machine leaning at all, and measuring against the
+                // horizon made the recovery term press the nose into every climb. The reference is
+                // the ground the tyres are actually on.
+                let ground = {
+                    let mut sum = Vector::zeros();
+                    for (_, normal, support) in &contacts {
+                        sum += normal * *support;
+                    }
+                    if sum.norm() > 1e-6 { sum.normalize() } else { Vector::z() }
+                };
+                let slope_pitch = (-(ground.dot(&forward))).clamp(-1.0, 1.0).asin();
+                let lean = nose_up - slope_pitch;
                 if righting {
                     // Roll the floor into the legs' plane (the lower leg pushes off beside the
                     // body); with the legs planted the hip motors turn the body over the axle.
@@ -1713,9 +1758,28 @@ impl PhysicsWorld {
                     // limited by tyre friction at the hip height.
                     let cap = n(d, "balance_torque_max_nm")
                         .min(n(d, "tire_friction") * normal_total * n(d, "hip_height_m"));
+                    // Outside the envelope the legs take over: they push back toward it (a bump, a
+                    // landing or a kerb can still throw the hull further than the drive ramp
+                    // prevents) and the damping is tripled, because the overshoot at the end of a
+                    // brake is a rate problem, not a torque one — the recovery push alone was
+                    // saturated at `stand_torque_max_nm` and still let the nose reach 10.4°.
+                    // Inside the envelope both terms are exactly what they were.
+                    let hold = n(d, "pitch_hold_rad").max(0.0);
+                    let excess = lean - target;
+                    // The envelope is only enforced on ground the chassis can actually read: both
+                    // wheels down and the surface within a few degrees of level. On the fly-slope
+                    // crest and the road humps the average of two contacts describes neither tyre,
+                    // and a push computed from it left the hull leaning at the end of the run.
+                    let outside = hold > 0.0 && contacts.len() >= 2 && ground.z > 0.985 && excess.abs() > hold;
+                    let damping = n(d, "balance_kd_nms_per_rad") * if outside { 3.0 } else { 1.0 };
                     balance = (n(d, "balance_kp_nm_per_rad") * (nose_up - target)
-                        - n(d, "balance_kd_nms_per_rad") * local_w.y)
+                        - damping * local_w.y)
                         .clamp(-cap, cap);
+                    if outside {
+                        let extra = ((excess.abs() - hold) * n(d, "pitch_recover_kp_nm_per_rad"))
+                            .min(n(d, "stand_torque_max_nm"));
+                        balance += extra.copysign(excess);
+                    }
                     let level = (-60.0 * roll - 6.0 * local_w.x).clamp(-25.0, 25.0);
                     self.bodies[h].add_torque(pose.rotation * vector![level, balance, 0.0], true);
                 } else if powered && lying && r.z - field_height(arena, r.x, r.y, false) < 0.4 {

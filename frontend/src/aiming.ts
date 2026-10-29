@@ -26,18 +26,38 @@ export const GROUND_PRIORITY_SLOTS=new Set([1,3,4,7]);
 
 export const shortest=(from:number,to:number)=>{const d=(to-from)%(Math.PI*2);return (d>Math.PI?d-Math.PI*2:d<-Math.PI?d+Math.PI*2:d);};
 
+// Prepared sight geometry for one arena. `sightBlocked` runs thousands of times per assist tick
+// (12 plates × 2 eyes × a grid of samples each, and once per 0.1 m of terrain), and it used to take
+// the sine and cosine of every barrier's rotation on every one of those calls. The field never
+// changes during a match and the frame's static half is a single object, so the box list is built
+// once per arena and reused.
+interface SightBox {cx:number;cy:number;c:number;s:number;hw:number;hh:number;bottom:number;top:number}
+const prepared=new WeakMap<Arena,{boxes:SightBox[]}>();
+function sightGeometry(arena:Arena){
+  let ready=prepared.get(arena);
+  if(!ready){
+    const boxes:SightBox[]=(arena.obstacles??[]).map(w=>{
+      const a=w.rotation??0;
+      return {cx:w.x+w.w/2,cy:w.y+w.h/2,c:Math.cos(a),s:Math.sin(a),
+        hw:w.w/2,hh:w.h/2,bottom:w.bottom??0,top:(w.bottom??0)+(w.height??1)};
+    });
+    ready={boxes};
+    prepared.set(arena,ready);
+  }
+  return ready;
+}
+
 // Sight line from the gimbal eye to a point, through the field the pilot sees: the same obstacle
 // boxes and terrain the renderer draws, so a plate behind a wall or a deck never locks.
 export function sightBlocked(arena:Arena,from:[number,number,number],to:[number,number,number]){
   const dx=to[0]-from[0],dy=to[1]-from[1],dz=to[2]-from[2];
   // Exact segment/box test for every barrier. Walking the ray in fixed steps could step over a
-  // 0.15 m wall and report a plate behind it as visible.
-  for(const w of arena.obstacles){
-    const a=w.rotation??0,c=Math.cos(a),s=Math.sin(a);
-    const cx=w.x+w.w/2,cy=w.y+w.h/2;
-    const ax=from[0]-cx,ay=from[1]-cy,bx=to[0]-cx,by=to[1]-cy;
-    const x0=ax*c+ay*s,y0=-ax*s+ay*c,x1=bx*c+by*s,y1=-bx*s+by*c;
-    const bottom=w.bottom??0;
+  // 0.15 m wall and report a plate behind it as visible. The boxes arrive with their rotation
+  // already resolved (see `sightGeometry`), which is the difference between a 12 ms and a 1 ms
+  // assist tick.
+  for(const w of sightGeometry(arena).boxes){
+    const ax=from[0]-w.cx,ay=from[1]-w.cy,bx=to[0]-w.cx,by=to[1]-w.cy;
+    const x0=ax*w.c+ay*w.s,y0=-ax*w.s+ay*w.c,x1=bx*w.c+by*w.s,y1=-bx*w.s+by*w.c;
     let t0=0,t1=1;
     const slab=(p0:number,p1:number,lo:number,hi:number)=>{
       const d=p1-p0;
@@ -47,7 +67,7 @@ export function sightBlocked(arena:Arena,from:[number,number,number],to:[number,
       t0=Math.max(t0,near);t1=Math.min(t1,far);
       return t0<=t1;
     };
-    if(slab(x0,x1,-w.w/2,w.w/2)&&slab(y0,y1,-w.h/2,w.h/2)&&slab(from[2],to[2],bottom,bottom+(w.height??1)))return true;
+    if(slab(x0,x1,-w.hw,w.hw)&&slab(y0,y1,-w.hh,w.hh)&&slab(from[2],to[2],w.bottom,w.top))return true;
   }
   // Terrain has no simple box form, so sample it; the step is small enough for the 0.15 m rims.
   const length=Math.hypot(dx,dy,dz),steps=Math.max(1,Math.ceil(length/.1));
@@ -125,7 +145,9 @@ export function facingPlate(structure:Structure,eye:[number,number,number]){
   return best?{point:best.point,normal:best.normal}:null;
 }
 
-export type PlateCandidate={id:string;angle:number;distance:number;priority:number;exposure:number;side?:TeamId};
+export type PlateCandidate={id:string;angle:number;distance:number;priority:number;exposure:number;side?:TeamId;
+  /** The face the exposure was measured on; filled in by `lockTarget` before ranking. */
+  plate?:{point:[number,number,number];normal:number[]|null}};
 
 // Which enemy plate the assisted lock takes: gather every plate inside the lens with a clear line
 // from both the eye and the muzzle, measure how exposed each face is, then rank them.
@@ -153,7 +175,7 @@ export function lockTarget(robot:Robot,robots:Robot[],arena:Arena,view:{yaw:numb
       +Math.cos(view.pitch)*Math.cos(platePitch)*Math.cos(shortest(view.yaw,Math.atan2(dy,dx)));
     const angle=Math.acos(Math.max(-1,Math.min(1,cosine)));
     if(angle>LOCK_ANGLE)return;
-    hits.push({id,angle,distance,priority,exposure:normal?plateExposure(arena,eye,point,normal):1,side});
+    hits.push({id,angle,distance,priority,exposure:-1,side,plate:{point,normal}});
   };
   for(const other of robots){
     if(other.team===robot.team||!other.alive||other.role==='aerial')continue;
@@ -175,6 +197,17 @@ export function lockTarget(robot:Robot,robots:Robot[],arena:Arena,view:{yaw:numb
   for(const [key,structure] of hostileOutposts){
     const plate=facingPlate(structure,eye);
     if(plate)consider(`${key}_outpost`,plate.point,plate.normal,2,structure.owner??key);
+  }
+  // Occlusion is the expensive part of the assist (nine sight lines per plate), and `pickPlate`
+  // can only ever choose a plate within `LOCK_EXPOSURE_BAND` of the closest one — so the faces
+  // further out than that are measured only when they could still win. A cockpit looking at an
+  // empty field used to pay for every plate in the lens on every tick.
+  if(hits.length){
+    const best=Math.min(...hits.map(c=>c.angle));
+    for(const c of hits){
+      if(c.angle<=best+LOCK_EXPOSURE_BAND) c.exposure=c.plate?.normal?plateExposure(arena,eye,c.plate.point,c.plate.normal):1;
+      else c.exposure=0;
+    }
   }
   return pickPlate(hits,keep);
 }

@@ -24,19 +24,31 @@ export const toWorld=(arena:{width:number;height:number},x:number,y:number,z=0,o
 // How long the newest snapshot pair is blended over. The scene blends over the *measured* gap between
 // snapshots rather than the engine's nominal step, because a server that publishes at 10 Hz while the
 // frame says 20 Hz would otherwise leave every robot frozen for the last part of each cycle. `pace`
-// is wall clock, so it already includes the playback speed. The 15 % slack means the blend is still
-// running when the next packet lands, so the field never comes to a stop between snapshots.
+// is wall clock, so it already includes the playback speed.
+//
+// It is clamped around the engine's own step, and that clamp is what keeps a late packet from
+// showing up as a stutter: without it a 130 ms gap stretched the *whole field* into slow motion for
+// 150 ms and the next packet then restarted the blend from the older sample, which rewind is the
+// visible "一卡一卡" in the cockpit. Too long a window is now the extrapolation's job (see
+// `OVERDUE_MAX`), and too short a one is only a slight speed-up of a fraction of a step.
 export function sampleSpan(feed:RenderFeed){
   const f=feed.frame;
-  return f&&feed.pace?Math.max(16,feed.pace*1.15):Math.max(16,(f?.dt??.05)*1000/Math.max(.5,feed.speed));
+  const nominal=Math.max(16,(f?.dt??.05)*1000/Math.max(.5,feed.speed));
+  const pace=f&&feed.pace?feed.pace:nominal;
+  return Math.min(nominal*1.6,Math.max(nominal*.85,pace));
 }
 
 // The blend phase for the whole scene. It is allowed to run a little past 1.0 so that a late packet
 // leaves the bodies moving instead of parking them on the newest sample — that is the frame
-// compensation. It is safe only because `robotWorld` continues along the Hermite curve, which is
-// continuous in position *and* velocity; a linear extrapolation would have to guess the rate, and a
-// rate change (a pilot starting or stopping a turn) would snap the picture back.
-const OVERDUE_MAX=1.18;
+// compensation, and it is the only "inserted frame" the transport can honestly provide: the curve
+// continues with the velocity the simulation actually had. It is safe only because `robotWorld`
+// continues along the Hermite curve, which is continuous in position *and* velocity; a linear
+// extrapolation would have to guess the rate, and a rate change (a pilot starting or stopping a turn)
+// would snap the picture back.
+//
+// Because `sampleSpan` is now clamped to the engine's step, this cap is what covers a single missed
+// packet (up to about 60 % of a step) with continued motion instead of a pause.
+const OVERDUE_MAX=1.6;
 export function feedAlpha(feed:RenderFeed){
   const f=feed.frame;if(!f)return 1;
   if(feed.paused)return 1;
@@ -66,7 +78,7 @@ export function robotWorld(feed:RenderFeed,r:Robot,alpha:number,out:THREE.Vector
   // has run away (a stalled tab), which is capped so nothing can drift off the field.
   const gap=Math.hypot(nx-ox,nz-oz);
   const speed=Math.max(Math.hypot(old.vx||0,old.vy||0),Math.hypot(r.vx||0,r.vy||0));
-  if(alpha>1.6||gap>2||gap>speed*(sampleSpan(feed)/1000)*4+.25){return out.set(ox+(nx-ox)*alpha,oy+(ny-oy)*alpha,oz+(nz-oz)*alpha);}
+  if(alpha>OVERDUE_MAX+0.4||gap>2||gap>speed*(sampleSpan(feed)/1000)*4+.25){return out.set(ox+(nx-ox)*alpha,oy+(ny-oy)*alpha,oz+(nz-oz)*alpha);}
   const dt=sampleSpan(feed)/1000;
   return out.set(
     hermite(ox,nx,(old.vx||0)*dt,(r.vx||0)*dt,alpha),

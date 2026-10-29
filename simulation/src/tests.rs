@@ -413,7 +413,15 @@ fn inertia_and_brakes_replace_instant_velocity_commands() {
     }
     let fast = m.robots[i].vx;
     m.step(&json!({}));
-    assert!(m.robots[i].vx > 0.0 && m.robots[i].vx < fast);
+    // A balancing chassis ramps its brake force (the drive may not fall away faster than the
+    // balance loop can follow), so the first tick of braking barely changes the speed; the stop is
+    // still a deceleration, not an instant velocity command.
+    let held = m.robots[i].vx;
+    assert!(held > 0.0, "a brake is not a reverse command");
+    for _ in 0..3 {
+        m.step(&json!({}));
+    }
+    assert!(m.robots[i].vx < fast, "the ramp never reached the brakes");
     for _ in 0..25 {
         m.step(&json!({}));
     }

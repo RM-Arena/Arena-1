@@ -407,6 +407,13 @@ export function App(){
     void api('/api/control',{command:'extend_prematch',seconds}).catch(()=>{topUp.at=0;});
   },[replay,picking,prematch?.stage,prematch?.remaining,introReserve]);
   const countdownNumber=prematch?.stage==='countdown'?Math.ceil(prematch.remaining-1e-6):null;
+  // The same five seconds seen from inside the cockpit: the countdown stage only, never the
+  // walk-on, so a pilot who took a robot early still gets the full self-check picture.
+  const cockpitCountdown=prematch?.stage==='countdown'?Math.max(1,Math.ceil(prematch.remaining-1e-6)):null;
+  // The cockpit is mounted through the countdown so a pilot can strap in, but its own digits are
+  // only drawn once a robot is actually taken ? otherwise a spectator would see them on top of
+  // the broadcast countdown, two numbers for the same second.
+  const pilotCountdown=!!pilot&&!!frame?.robots.some(r=>r.id===pilot&&r.role!=='aerial')?cockpitCountdown:null;
   // Nothing of the in-match UI appears until the countdown is over: after the chassis is chosen the
   // field shows the lineup inspection, and the cockpit only mounts when play actually starts.
   const started=!prematch&&!replay;
@@ -711,11 +718,11 @@ export function App(){
       {/* The cockpit owns the pilot's HUD, so it goes away the moment the match is decided: leaving it
           mounted would keep the bottom-left status panel on top of the victory, data and MVP cards
           (and keep the 20 Hz command loop running against a finished match). */}
-      {started&&busy&&!replay&&!post&&frame&&frame.status!=='finished'&&<PlayerCockpit frame={frame} active={pilot} onEngage={engagePilot} onRelease={releasePilot} view={pilotView} open={pilotPanel} onOpen={setPilotPanel} paused={!!live?.paused} onError={setError} camera={camera} onCamera={setCamera} onPause={()=>void control('pause')} fullscreen={fullscreen} onFullscreen={toggleFullscreen} link={linkMode} onLink={toggleLink} linkPending={linkPending} onLinkPick={setLinkPending} linkImage={modelImage(linkPendingRobot)} portrait={modelImage(pilotRobot)}/>}
+      {(started||cockpitCountdown!==null)&&busy&&!replay&&!post&&frame&&frame.status!=='finished'&&<PlayerCockpit frame={frame} active={pilot} onEngage={engagePilot} onRelease={releasePilot} view={pilotView} open={pilotPanel} onOpen={setPilotPanel} paused={!!live?.paused} onError={setError} camera={camera} onCamera={setCamera} onPause={()=>void control('pause')} fullscreen={fullscreen} onFullscreen={toggleFullscreen} link={linkMode} onLink={toggleLink} linkPending={linkPending} onLinkPick={setLinkPending} linkImage={modelImage(linkPendingRobot)} portrait={modelImage(pilotRobot)} countdown={pilotCountdown}/>}
         <button className="fullscreen-toggle" title={fullscreen?'退出全屏 (F / Esc)':'全屏观战 (F)'} aria-label={fullscreen?'退出全屏':'全屏观战'} onClick={toggleFullscreen}>{fullscreen?<Minimize2 size={16}/>:<Maximize2 size={16}/>}<span>{fullscreen?'退出全屏':'全屏'}</span></button>
         {fullscreen&&!controlsOpen&&<button className="fullscreen-tab" onClick={()=>setControlsOpen(true)} aria-expanded={false} aria-label="显示播放控制" title="显示播放控制（暂停 / 进度 / 音量 / 退出全屏）"><i/></button>}
         {fullscreen&&controlsOpen&&<div className="fullscreen-controls" ref={controlsRef}><button onClick={()=>control('pause')} disabled={!busy&&!replay} aria-label={playing?'暂停':'继续'}>{playing?<Pause size={18}/>:<Play size={18}/>}</button><span>{clock(frame.time)} / {clock(frame.duration)}</span>{replay&&<input type="range" min={0} max={replay.frames.length-1} value={Math.floor(replayPosition)} onChange={e=>seek(Number(e.target.value))} aria-label="回放进度"/>}<select value={currentSpeed} onChange={e=>control('speed',Number(e.target.value))} aria-label="播放速度">{[.5,1,2,4,8].map(v=><option key={v} value={v}>{v}×</option>)}</select><AudioControls compact sound={sound} volume={bgmVolume} onToggle={toggleAudio} onVolume={setBgmVolume}/>{started&&busy&&!replay&&!pilot&&frame&&frame.status!=='finished'&&<button className={`pilot-entry compact ${pilotPanel?'active':''}`} onClick={()=>setPilotPanel(v=>!v)} aria-expanded={pilotPanel} aria-label="驾驶菜单" title="驾驶菜单（P）"><Gamepad2 size={17}/></button>}<button onClick={()=>setControlsOpen(false)} aria-label="收起控制条" title="收起控制条"><ChevronDown size={18}/></button><button onClick={toggleFullscreen} aria-label="退出全屏"><Minimize2 size={18}/></button></div>}{busy&&frame.status==='ready'&&!prematch&&<div className="initializing"><Activity size={16}/>正在准备隔离策略进程…</div>}
-        {prematch&&!picking&&<Prematch stage={prematch.stage} remaining={prematch.remaining} duration={prematch.duration} offset={introBaseNow} frame={frame} metadata={metadata} standings={standings} images={images} models={models} free={free} paused={replay?!replayPlaying:!!live?.paused} replay={!!replay} onCut={onIntroCut} onSkip={skipPrematch}/>}
+        {prematch&&!picking&&pilotCountdown===null&&<Prematch stage={prematch.stage} remaining={prematch.remaining} duration={prematch.duration} offset={introBaseNow} frame={frame} metadata={metadata} standings={standings} images={images} models={models} free={free} paused={replay?!replayPlaying:!!live?.paused} replay={!!replay} onCut={onIntroCut} onSkip={skipPrematch}/>}
         {pickStage==='side'&&<>
           {/* No banner and no cards: the two halves are named by floating labels anchored over them by
               the scene, and the spectator seat gets one of its own over the stands. The field stays

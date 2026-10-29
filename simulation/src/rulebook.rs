@@ -97,6 +97,14 @@ pub struct AssemblyState {
     /// difficulty is latched — the operator may not switch grades with a unit already in the socket.
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub core_units: u32,
+    /// Pre-stage of an attempt: the heavy pulls one unit out of its own magazine into the gripper
+    /// before the core starts moving, so the ore visibly leaves the robot's body first. Step 0 reaches
+    /// back to the bay (jaws open), 1 clamps on the unit, 2 pulls it out in front of the mast.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub unload_step: u32,
+    /// Seconds spent in the current `unload_step`.
+    #[serde(default, skip_serializing_if = "is_zero_f")]
+    pub unload_elapsed: f64,
     /// When the core salvages a failed attempt's units back into the team's stock.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recover_at: Option<f64>,
@@ -176,6 +184,8 @@ impl AssemblyState {
             second: None,
             step_times: [None; 5],
             core_units: 0,
+            unload_step: 0,
+            unload_elapsed: 0.0,
             recover_at: None,
             fail_reason: None,
             overload_at: 0.0,
@@ -1516,6 +1526,28 @@ impl Engine {
             if self.season == 2027 {
                 // 2027: the tool follows the selected core's step progress; a dual-arm heavy
                 // robot works the borrowed level-4 core with its second arm.
+                // Before any of that, an attempt opens by pulling the ore out of the robot's own
+                // magazine: the arm folds back to the bay with the jaws open, clamps on the unit and
+                // then brings it out in front of the mast — the mining sequence in reverse. The core
+                // does not start moving until that is done.
+                if goal.mode == "stow" && state.stage == "unloading" && self.raw_zone(i, "assembly", Some(&team)) {
+                    goal.mode = "assembly".into();
+                    let arm = &self.physics.as_ref().unwrap().design(i)["arm"];
+                    if state.unload_step < 2 {
+                        let mut stowed = physics::arm_stowed(arm);
+                        // Jaws open while the arm goes back to the bay, closed once it is clamped on
+                        // the unit — the same jaw channel a real grab uses.
+                        stowed[6] = if state.unload_step == 0 { 1.0 } else { 0.0 };
+                        goal.joints = Some(stowed);
+                    } else {
+                        let y = arm["base_m"].get(1).and_then(Value::as_f64).unwrap_or(0.0);
+                        goal.point = Some([0.45, y, 0.72]);
+                        goal.dir = Some([1.0, 0.0, 0.0]);
+                        goal.local = true;
+                        goal.roll = 0.0;
+                        goal.grip = 0.0;
+                    }
+                }
                 if goal.mode == "stow" && ["moving", "inserting"].contains(&state.stage.as_str()) && self.raw_zone(i, "assembly", Some(&team)) {
                     let choice = rpc.get("assembly_core").and_then(Value::as_u64).unwrap_or(0);
                     let core = if state.difficulty == 4 && r.arm_count < 2 { choice.min(1) as usize } else { 0 };

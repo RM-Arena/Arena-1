@@ -403,9 +403,21 @@ impl Robot {
             .as_ref()
             .is_some_and(|s| s.stage == "carrying")
     }
+    /// The jaws hold a unit that came out of one of the robot's own bays (the assembly unload
+    /// pre-stage), so the bay count still includes it and it is not a fourth unit.
+    pub fn gripper_borrowed(&self) -> bool {
+        self.unit_pickup
+            .as_ref()
+            .is_some_and(|s| s.stage == "carrying" && s.from_bay)
+    }
+    /// Bays whose unit is actually stowed, i.e. not the one currently clamped in the jaws.
+    pub fn bays_stowed(&self) -> u32 {
+        self.carried_units
+            .saturating_sub(u32::from(self.gripper_borrowed()))
+    }
     /// Units on board, stowed bays plus the one clamped in the gripper.
     pub fn units_on_board(&self) -> u32 {
-        self.carried_units + u32::from(self.gripper_unit())
+        self.bays_stowed() + u32::from(self.gripper_unit())
     }
     /// A heavy robot has two bays and a gripper; every other arm carrier only has the bays.
     pub fn unit_capacity(&self) -> u32 {

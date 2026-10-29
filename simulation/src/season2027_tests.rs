@@ -55,6 +55,100 @@ fn an_infantry_chassis_never_drives_faster_than_the_rulebook_cap() {
 }
 
 #[test]
+fn every_wheel_legged_chassis_holds_its_pitch_through_a_hard_start_and_stop() {
+    // 急停急走: full-stick launch straight into full-stick brake. The balance loop used to run out
+    // of torque long before the drive ran out of force, so the hull pitched 14-16 degrees; the
+    // attitude budget now caps the drive where the loop still has authority, and the legs push
+    // back outside the envelope. Measured over the whole manoeuvre, the hull stays inside the
+    // envelope the config asks for plus the loop's overshoot.
+    for model in [3, 304, 305, 2731] {
+        let mut m = Engine::new_with_lineups(
+            42, 420.0, "rmuc2027",
+            lineup(&[(1, 2711), (3, model), (4, 2732), (6, 2761), (7, 2771)]),
+        ).unwrap();
+        let i = robot(&m, "red-3");
+        // An empty stretch of the blue half: the manoeuvre is limited by the chassis, not by a wall.
+        place(&mut m, i, 22.0, 11.5);
+        m.robots[i].heading = 0.0;
+        m.robots[i].aim = 0.0;
+        m.robots[i].quaternion = [0.0, 0.0, 0.0, 1.0];
+        m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+        let hold = config().robot_designs[&model.to_string()]["pitch_hold_rad"].as_f64().unwrap();
+        let mut worst: f64 = 0.0;
+        for tick in 0..60 {
+            // 40 ticks flat out, then 40 ticks of full brake — the hardest input a pilot has.
+            // One second flat out, then one second of full brake — the hardest input a pilot has,
+            // and short enough that the chassis never reaches a wall.
+            let move_x = if tick < 20 { 1.0 } else { 0.0 };
+            let commands = json!({"red":{"3":{"move":[move_x,0.0],"heading":0.0,"brake":tick>=20}}});
+            m.step(&commands);
+            let r = &m.robots[i];
+            let q = r.quaternion;
+            // Body x-axis pitch: asin of its z component, the same measure the balance loop uses.
+            let pitch = (2.0 * (q[0] * q[2] - q[1] * q[3])).clamp(-1.0, 1.0).asin();
+            worst = worst.max(pitch.abs());
+
+        }
+        // The envelope plus the loop's overshoot. Without it the same manoeuvre peaked at 34.8
+        // degrees; with it every wheel-legged chassis stays under 7.8.
+        let limit = hold + 0.05;
+        assert!(worst <= limit, "{model}: peak pitch {:.3} rad ({:.1}°) over a limit of {:.3}", worst, worst.to_degrees(), limit);
+    }
+}
+
+#[test]
+fn the_serial_leg_infantry_jumps_45_centimetres() {
+    // The cockpit sends jump strength 0.5 (crouch, push, absorb), so that is the input the height
+    // has to be measured at. The serial-leg pair used to reach 24 cm on it — enough to trip over a
+    // kerb, not enough to reach the high point.
+    for model in [305, 2772] {
+        let slot = if model == 305 { 3 } else { 7 };
+        let mut m = Engine::new_with_lineups(
+            42, 420.0, "rmuc2027",
+            lineup(&[(1, 2711), (3, 305), (4, 2732), (6, 2761), (7, 2772)]),
+        ).unwrap();
+        let i = robot(&m, if slot == 3 { "red-3" } else { "red-7" });
+        place(&mut m, i, 22.0, 11.5);
+        m.robots[i].heading = 0.0;
+        m.robots[i].aim = 0.0;
+        m.robots[i].quaternion = [0.0, 0.0, 0.0, 1.0];
+        m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+        for _ in 0..60 {
+            m.step(&json!({}));
+        }
+        let base = m.robots[i].z;
+        let mut apex: f64 = 0.0;
+        for k in 0..45 {
+            let mut cmd = json!({"move":[0.0,0.0],"brake":true});
+            if k == 0 {
+                cmd["jump"] = json!(0.5);
+            } else {
+                cmd["leg_height"] = json!(0.245);
+            }
+            m.step(&json!({"red":{slot.to_string():cmd}}));
+            apex = apex.max(m.robots[i].z - base);
+        }
+        assert!(apex >= 0.45, "{model}: jump apex {:.3} m at strength 0.5", apex);
+    }
+}
+
+#[test]
+fn every_wheel_legged_infantry_answers_its_throttle_30_percent_slower() {
+    // The legged infantry are meant to be deliberate rather than twitchy: their drive response is
+    // scaled to 1/1.3, so both the ramp up and the stop take 30 % longer than a wheeled chassis.
+    let rules = config();
+    for model in [3, 304, 305, 2731] {
+        let d = &rules.robot_designs[&model.to_string()];
+        let scale = d["drive_response_scale"].as_f64().unwrap_or(1.0);
+        assert!((scale - 1.0 / 1.3).abs() < 5e-3, "{model}: response scale {scale}");
+        assert!(d["chassis_type"] == "wheel_legged", "{model} must be a legged chassis");
+    }
+    // A wheeled infantry keeps its own response; nothing else in the field is affected.
+    assert!(rules.robot_designs["4"].get("drive_response_scale").is_none());
+    assert!(rules.robot_designs["2711"].get("drive_response_scale").is_none());
+}
+
+#[test]
 fn default_lineup_fields_heavy_infantry_sentry_and_aerial_system() {
     let m = match_();
     assert_eq!(m.season, 2027);
@@ -432,6 +526,43 @@ fn the_revive_bar_runs_four_times_faster_at_supply_or_below_four_thousand_base_h
     m.step(&json!({}));
     let fast = m.robots[i].respawn_progress - before;
     assert!((fast - 0.2).abs() < 1e-9, "on the supply card the bar runs at 4/s: {fast}");
+}
+
+#[test]
+fn a_remote_heal_order_lands_on_any_tick_and_says_why_it_was_refused() {
+    // The cockpit sends the order once, on its own tick; the rules sample requests at 10 Hz. An
+    // unsampled tick used to drop the order outright, which is why the heal "sometimes did
+    // nothing" — and a refusal used to be silent, so a lost click looked identical.
+    for tick in [10_u64, 11] {
+        let mut m = match_();
+        let i = robot(&m, "red-3");
+        m.tick = tick;
+        m.robots[i].last_damage_time = -1000.0;
+        m.robots[i].last_shot_time = -1000.0;
+        m.robots[i].hp = 60.0;
+        m.teams.get_mut("red").unwrap().resources = 500.0;
+        m.step(&json!({"red":{"3":{"move":[0.0,0.0],"remote_heal":true}}}));
+        let ordered = m.events.iter().any(|e| e["type"] == "remote_heal_ordered");
+        assert!(ordered, "a heal ordered on tick {tick} was dropped; events {:?}", m.events);
+        assert!(m.robots[i].pending_heal.is_some(), "tick {tick}");
+        // Six seconds later the delivery lands and heals the hull.
+        let before = m.robots[i].hp;
+        m.robots[i].pending_heal = Some(m.time());
+        m.step(&json!({}));
+        assert!(m.robots[i].hp > before, "tick {tick}: the delivery healed nothing");
+    }
+    // In combat the order is refused with a reason instead of vanishing.
+    let mut m = match_();
+    let i = robot(&m, "red-3");
+    m.robots[i].hp = 60.0;
+    m.robots[i].last_damage_time = m.time();
+    m.teams.get_mut("red").unwrap().resources = 500.0;
+    m.step(&json!({"red":{"3":{"move":[0.0,0.0],"remote_heal":true}}}));
+    let refusal = m.events.iter().find(|e| e["type"] == "heal_refused").cloned();
+    assert!(refusal.is_some(), "a refused heal said nothing: {:?}", m.events);
+    assert!(refusal.unwrap()["reason"].as_str().unwrap().contains("6 秒"));
+    assert!(m.robots[i].pending_heal.is_none());
+    assert_eq!(m.teams["red"].resources, 500.0, "a refused order must not charge the team");
 }
 
 #[test]
@@ -929,6 +1060,169 @@ fn push_first_unit(m: &mut Engine, h: usize) {
 }
 
 #[test]
+fn an_assembly_attempt_first_takes_the_ore_out_of_the_robot_into_the_gripper() {
+    // "取矿反过来": the ore leaves the robot's magazine before the core starts moving, so the
+    // operator sees the arm clamp a unit and bring it out, instead of the core pulling one straight
+    // out of the chassis.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 2);
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    assert_eq!(m.assemblies["red"].stage, "unloading", "an attempt opens with the unload pre-stage");
+    assert_eq!(m.robots[h].units_on_board(), 2, "the ore is still in the magazine when the stage opens");
+    assert!(m.robots[h].unit_pickup.is_none(), "nothing is in the gripper yet");
+    assert_eq!(m.assemblies["red"].core_units, 0, "the core has not taken a unit");
+    // The cockpit reads the pre-stage from the published frame, so it can say "取矿" instead of
+    // showing an idle panel between the order and the core moving.
+    let snap = m.assembly_snapshots();
+    assert_eq!(snap["red"]["operation"], "unloading", "{}", snap["red"]);
+    assert_eq!(snap["red"]["unloading"], true);
+    assert_eq!(snap["red"]["cores"][0]["operation"], "inserting", "the core itself has not moved");
+    // Reach (1.0 s) then clamp (0.8 s): the jaws close on the unit and it leaves the magazine, while
+    // the core is still parked.
+    let mut clamped_at = None;
+    for tick in 0..40 {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+        if clamped_at.is_none() && m.robots[h].gripper_unit() {
+            clamped_at = Some(tick);
+        }
+        assert_eq!(m.assemblies["red"].core_units, 0, "the core never takes a unit during the unload");
+    }
+    let clamped_at = clamped_at.expect("the clamp has to put a unit in the gripper");
+    assert!(clamped_at as f64 * DT > 0.9, "the arm clamped after only {:.2} s", clamped_at as f64 * DT);
+    assert_eq!(m.robots[h].carried_units, 2, "the bay keeps counting the clamped unit instead of looking empty");
+    assert!(m.robots[h].gripper_borrowed(), "the jaws borrowed a bay unit for the approach");
+    assert_eq!(m.robots[h].units_on_board(), 2, "the robot still owns both units");
+    // Extract (1.2 s) finishes the pre-stage, then the core starts moving with the ore in the jaws.
+    let mut moving = None;
+    for tick in 0..60 {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+        if m.assemblies["red"].stage == "moving" {
+            moving = Some(tick);
+            break;
+        }
+    }
+    assert!(moving.is_some(), "the attempt has to leave the unload stage: {:?}", m.assemblies["red"].stage);
+    assert_eq!(m.assembly_snapshots()["red"]["operation"], "positioning", "the core takes over once the ore is out");
+    assert!(m.robots[h].gripper_unit(), "the ore rides in the gripper into the assembly");
+    assert_eq!(m.assemblies["red"].core_units, 0);
+    // Only when the arm pushes it in does the core take it, and it takes the gripper unit first.
+    push_first_unit(&mut m, h);
+    assert!(m.robots[h].unit_pickup.is_none(), "the pushed unit left the gripper");
+}
+
+#[test]
+fn a_gripper_already_holding_a_unit_skips_the_unload_stage() {
+    // The third unit a heavy may carry is clamped in the jaws at the resource hub; an attempt that
+    // arrives with it already there must not unload a second one first.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 2);
+    m.robots[h].unit_pickup = Some(super::pickup::PickupState {
+        stage: "carrying".into(),
+        elapsed: 0.0,
+        phase_elapsed: 0.0,
+        progress: 1.0,
+        point: [0.0, 0.0, 0.7],
+        direction: [1.0, 0.0, 0.0],
+        held: true,
+        arm: 0,
+        stall: 0.0,
+        from_bay: false,
+    });
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    assert_eq!(m.assemblies["red"].stage, "moving", "a unit already in the jaws goes straight to the core");
+    assert_eq!(m.robots[h].carried_units, 2, "the magazine is untouched");
+    assert_eq!(m.robots[h].units_on_board(), 3, "the jaws carry the third unit");
+}
+
+#[test]
+fn a_second_attempt_keeps_the_unit_count_so_a_strategy_does_not_drive_home() {
+    // Reported bug: after a finished grade the heavy ordered the next one, the jaws clamped its last
+    // bay unit, `carried_units` dropped to 0 and a strategy that only reads that field believed the
+    // robot was out of ore. It turned around to the dispenser in the middle of the attempt and then
+    // stood there for a long time, because the engine never starts a grab while the jaws hold a unit.
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 1);
+    let units = m.robots[h].units_on_board();
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    assert_eq!(m.assemblies["red"].stage, "unloading");
+    for _ in 0..(3.4 / DT) as usize {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+    }
+    assert_eq!(m.assemblies["red"].stage, "moving", "the pre-stage has to hand over to the core");
+    assert!(m.robots[h].gripper_unit(), "the ore rides in the jaws");
+    assert_eq!(m.robots[h].carried_units, 1, "the bay keeps counting its unit while it rides in the jaws");
+    assert_eq!(m.robots[h].units_on_board(), units, "a strategy must not see the robot run empty");
+    // The bay is settled only when the core actually takes the unit.
+    for _ in 0..600 {
+        m.step(&json!({"red":{"1":{"assembly_insert":true,"brake":true}}}));
+        if m.assemblies["red"].core_units > 0 || m.assemblies["red"].stage == "failed" { break; }
+    }
+    assert_eq!(m.assemblies["red"].core_units, 1);
+    assert_eq!(m.robots[h].carried_units, 0, "the bay empties when the core takes the unit");
+    assert_eq!(m.robots[h].units_on_board(), 0);
+    assert!(m.robots[h].unit_pickup.is_none());
+}
+
+#[test]
+fn a_borrowed_jaw_unit_goes_back_to_its_bay_so_the_robot_can_keep_mining() {
+    // A failed attempt can leave the borrowed unit in the jaws. Driving back to the dispenser and
+    // holding I then has to work: the unit returns to the bay it came from and the grab restarts,
+    // instead of a key that is silently ignored at the pickup point.
+    let mut m = Engine::new_with_lineups(42, 420.0, "rmuc2027", lineup(&[(1, 2711), (3, 2731), (4, 2732), (6, 2761), (7, 2771)])).unwrap();
+    let h = robot(&m, "red-1");
+    let station = m.arena.field_geometry["fixtures"].as_array().unwrap().iter()
+        .find(|f| f["kind"] == "resource" && f["team"] == "red").unwrap().clone();
+    let (point, dir) = (&station["pick_point"], &station["pick_dir"]);
+    let (dx, dy) = (dir[0].as_f64().unwrap(), dir[1].as_f64().unwrap());
+    place(&mut m, h, point[0].as_f64().unwrap() - dx * 0.60, point[1].as_f64().unwrap() - dy * 0.60);
+    let r = &mut m.robots[h];
+    r.heading = dy.atan2(dx);
+    r.aim = r.heading;
+    r.quaternion = [0.0, 0.0, (r.heading / 2.0).sin(), (r.heading / 2.0).cos()];
+    r.carried_units = 1;
+    r.unit_pickup = Some(super::pickup::PickupState {
+        stage: "carrying".into(),
+        elapsed: 0.0,
+        phase_elapsed: 0.0,
+        progress: 1.0,
+        point: [r.x, r.y, r.z + 0.7],
+        direction: [1.0, 0.0, 0.0],
+        held: true,
+        arm: 0,
+        stall: 0.0,
+        from_bay: true,
+    });
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    assert_eq!(m.robots[h].units_on_board(), 1);
+    m.step(&json!({"red":{"1":{"pick_unit":true,"brake":true,"heading":dy.atan2(dx)}}}));
+    assert!(m.events.iter().any(|e| e["type"] == "unit_pickup_restowed"),
+        "the borrowed unit has to go back into its bay: {:?}", m.events);
+    let pickup = m.robots[h].unit_pickup.as_ref().map(|p| (p.stage.clone(), p.from_bay));
+    assert_eq!(pickup, Some(("approaching".into(), false)), "the grab restarts from the dispenser");
+    assert_eq!(m.robots[h].units_on_board(), 1, "the robot owns the same single unit");
+}
+
+#[test]
+fn leaving_the_card_during_the_unload_ends_the_attempt() {
+    let mut m = match_();
+    let h = docked_heavy(&mut m, 2);
+    m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
+    assert_eq!(m.assemblies["red"].stage, "unloading");
+    // Off the card and past the absence window: the unload is part of the attempt, so it fails.
+    place(&mut m, h, 3.0, 7.5);
+    m.physics = Some(physics::PhysicsWorld::new(&m.arena, &m.robots, &config().robot_designs));
+    let mut failed = false;
+    for _ in 0..((config().rulebook_2027["assembly"]["card_absence_fail_s"].as_f64().unwrap_or(15.0) + 1.0) / DT) as usize {
+        m.step(&json!({"red":{"1":{"brake":true}}}));
+        if m.assemblies["red"].stage == "failed" {
+            failed = true;
+            break;
+        }
+    }
+    assert!(failed, "the attempt has to end when the heavy leaves during the unload: {}", m.assemblies["red"].stage);
+}
+
+#[test]
 fn an_inserted_unit_locks_the_2027_assembly_grade_and_pose() {
     // Rule 88: with a unit already in the core the operator may not change the grade, and the core
     // keeps the same pose for that grade until a unit is actually assembled.
@@ -1067,14 +1361,15 @@ fn a_robot_parking_in_the_cores_path_stalls_it_under_an_overload_alarm() {
     m.step(&json!({"red":{"1":{"assembly":1,"brake":true}}}));
     let start = m.assemblies["red"].current_pose;
     let mut alarm = false;
-    for _ in 0..40 {
+    // The first ten seconds cover the unload pre-stage and the core's own travel window.
+    for _ in 0..(10.0 / DT) as usize {
         m.step(&json!({"red":{"1":{"brake":true}},"red-3":{"brake":true}}));
         alarm |= m.events.iter().any(|e| e["type"] == "core_overload");
     }
     assert!(alarm, "the blocked core has to alarm");
     assert_eq!(m.assemblies["red"].current_pose, start, "a blocked core holds its pose");
     place(&mut m, walker, zone[0] + 4.0, zone[1] + 4.0);
-    for _ in 0..40 {
+    for _ in 0..(3.0 / DT) as usize {
         m.step(&json!({"red":{"1":{"brake":true}}}));
     }
     assert_ne!(m.assemblies["red"].current_pose, start, "the core resumes once the path clears");
@@ -1113,7 +1408,8 @@ fn a_finished_assembly_leaves_the_core_re_initialising_for_five_seconds() {
         if m.assemblies["red"].stage != "complete" { started = true; break; }
     }
     assert!(started, "cooldown={} snap={}", m.assemblies["red"].repeat_ready_at - m.time(), m.assembly_snapshots()["red"]);
-    assert_eq!(m.assemblies["red"].stage, "moving");
+    // The new attempt opens with the unload pre-stage before the core moves.
+    assert!(m.assemblies["red"].stage == "unloading", "{}", m.assemblies["red"].stage);
     assert!(m.assemblies["red"].attempt > finished.attempt);
     assert_eq!(m.assembly_snapshots()["red"]["repeat_cooldown_s"].as_f64().unwrap(), 0.0);
 }

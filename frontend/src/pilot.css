@@ -411,6 +411,13 @@ body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
 /* The sight itself is modelled in 3D and magnified by the lens pass; the cockpit only owns the
    readout, which sits under the tube so it never covers the aperture. */
 .pilot-scope{position:absolute;inset:0;z-index:9;pointer-events:none;display:grid;place-items:center}
+/* Rule 6.5 countdown seen from inside the cockpit: the same digits the broadcast shows, over the
+   lens, because the pilot is already strapped in and the field is their whole screen. */
+.pilot-countdown{position:absolute;inset:0;z-index:12;display:grid;place-content:center;gap:10px;pointer-events:none;text-align:center;background:radial-gradient(ellipse at center,rgba(0,0,0,.18),rgba(0,0,0,.55))}
+.pilot-countdown-number{font-size:clamp(84px,18vh,190px);font-weight:800;line-height:.9;color:#fff;text-shadow:0 0 24px #000c,0 0 60px #f2c35baa;animation:countdown-pop .45s ease-out}
+.pilot-countdown-caption{font-size:12px;letter-spacing:.24em;color:#e9f1f4cc;text-shadow:0 1px 6px #000}
+@keyframes countdown-pop{from{opacity:0;transform:scale(1.35)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.pilot-countdown-number{animation:none}}
 /* The crosshair of the lobbed-fire sight: UI, not a texture, so the hairline stays one pixel wide.
    Its box is 58 % of the viewport height, which is exactly the lens aperture in `sight.tsx`
    (radius 0.289 of the half height), so the arms stop on the tube's bore. */

@@ -498,11 +498,10 @@ impl Engine {
                 }
             }
             if self.robots[i].role == "aerial" {
-                if self.tick % 2 == 0 {
-                    self.rulebook_rpc_2027(i, &actions[i].rpc);
-                }
+                self.rules_rpc_2027(i, &actions[i].rpc);
                 continue;
             }
+            self.rules_rpc_2027(i, &actions[i].rpc);
             if self.tick % 2 == 0 {
                 self.settle_heat_power_2027(i);
             }
@@ -536,11 +535,66 @@ impl Engine {
                     self.event("ammo_delivered", json!({"robot":self.robots[i].id,"amount":amount,"reason":"sentry_supply"}));
                 }
             }
-            if self.tick % 2 == 0 {
-                self.rulebook_rpc_2027(i, &actions[i].rpc);
-            }
         }
         self.update_rune_motor_2027();
+    }
+    /// Spend this tick's rules request.
+    ///
+    /// The bulk RPC (`rulebook_rpc_2027`) sweeps pickups, assembly state and sentry postures, and
+    /// the rules sample those at 10 Hz. The *orders* it also carries — revive and remote heal —
+    /// arrive on the sender's own tick and may never be repeated, so they are spent every tick: a
+    /// one-shot order that happened to land on an unsampled tick used to be dropped outright,
+    /// which is why a remote heal "sometimes did nothing". Purchases stay on the sampled path
+    /// because a held order there must not be spent twice.
+    fn rules_rpc_2027(&mut self, i: usize, rpc: &Value) {
+        self.orders_rpc_2027(i, rpc);
+        if self.tick % 2 == 0 {
+            self.rulebook_rpc_2027(i, rpc);
+        }
+    }
+    /// The one-shot half of the rules request: each order is guarded by its own state, so running
+    /// it on every tick is idempotent and cannot charge a team twice.
+    fn orders_rpc_2027(&mut self, i: usize, rpc: &Value) {
+        let now = self.time();
+        let r = self.robots[i].clone();
+        if r.red_card {
+            return;
+        }
+        let team = r.team.clone();
+        if rpc.get("revive").and_then(Value::as_bool) == Some(true) && !r.alive {
+            let cost = (now / 60.0).ceil() * 80.0 + self.xp_level(i) as f64 * 20.0;
+            if self.teams[&team].resources >= cost {
+                self.teams.get_mut(&team).unwrap().resources -= cost;
+                self.respawn_2027(i, true);
+            } else {
+                self.event("revive_refused", json!({"robot":r.id,"reason":format!(
+                    "金币不足：立即复活需 {cost:.0}，现有 {:.0}", self.teams[&team].resources)}));
+            }
+        }
+        if rpc.get("remote_heal").and_then(Value::as_bool) == Some(true) {
+            // Say why a heal did not happen: the cockpit sends this once per click, so a silent
+            // refusal is indistinguishable from a lost key press.
+            let cost = 50.0 + (now / 60.0 * 20.0).ceil();
+            let refusal = if !r.alive {
+                Some("已阵亡：无法兑换血量".to_string())
+            } else if r.pending_heal.is_some() {
+                Some("血量已在运送途中（6 秒送达）".to_string())
+            } else if !self.disengaged_2027(i) {
+                Some("远程补给需脱离交战 6 秒".to_string())
+            } else if self.teams[&team].resources < cost {
+                Some(format!("金币不足：需 {:.0}，现有 {:.0}", cost, self.teams[&team].resources))
+            } else {
+                None
+            };
+            match refusal {
+                Some(reason) => self.event("heal_refused", json!({"robot":r.id,"reason":reason})),
+                None => {
+                    self.teams.get_mut(&team).unwrap().resources -= cost;
+                    self.robots[i].pending_heal = Some(now + 6.0);
+                    self.event("remote_heal_ordered", json!({"robot":r.id,"cost":cost,"due":now + 6.0}));
+                }
+            }
+        }
     }
     fn supply_heal_rate(&self, i: usize) -> f64 {
         let r = &self.robots[i];
@@ -754,13 +808,6 @@ impl Engine {
             if self.teams[&team].resources >= cost {
                 self.teams.get_mut(&team).unwrap().resources -= cost;
                 self.respawn_2027(i, true);
-            }
-        }
-        if rpc.get("remote_heal").and_then(Value::as_bool) == Some(true) && r.pending_heal.is_none() && self.disengaged_2027(i) {
-            let cost = 50.0 + (now / 60.0 * 20.0).ceil();
-            if self.teams[&team].resources >= cost {
-                self.teams.get_mut(&team).unwrap().resources -= cost;
-                self.robots[i].pending_heal = Some(now + 6.0);
             }
         }
         if let Some(order) = rpc.get("buy_ammo") {
@@ -1140,8 +1187,8 @@ impl Engine {
             actor.shield = if inv { (actor.invulnerable_until - now).max(0.05) } else { 0.0 };
         }
     }
-    fn assembly_active_for(&self, team: &str) -> bool {
-        ["moving", "inserting"].contains(&self.assemblies[team].stage.as_str())
+    pub(super) fn assembly_active_for(&self, team: &str) -> bool {
+        ["unloading", "moving", "inserting"].contains(&self.assemblies[team].stage.as_str())
     }
     pub(super) fn robot_invulnerable_2027(&self, i: usize) -> bool {
         let r = &self.robots[i];
@@ -1684,7 +1731,7 @@ impl Engine {
             let once_ok = d != 4 || !completed.contains(&4);
             let stock = r.units_on_board() >= if d == 4 { 2 } else { 1 };
             let other = &self.assemblies[opponent(&team)];
-            let other_active = ["moving", "inserting"].contains(&other.stage.as_str());
+            let other_active = ["unloading", "moving", "inserting"].contains(&other.stage.as_str());
             // Level 4 needs the other core: never while the other team is assembling, and a
             // level-4 attempt in progress bars the other team from starting at all.
             let priority_ok = !(other_active && (d == 4 || other.difficulty == 4));
@@ -1710,8 +1757,13 @@ impl Engine {
                 let second_target = (sample(-range, range) / 5.0).round() * 5.0;
                 let state = self.assemblies.get_mut(&team).unwrap();
                 state.difficulty = d;
-                state.stage = "moving".into();
-                state.ready_at = now + n(&self.sim, "core_move_delay_s");
+                // The ore comes out of the robot before the core moves: unless the gripper already
+                // holds one (a third unit carried in from the resource hub), the attempt opens with
+                // the unload pre-stage. Everything below the stage name is already reset here.
+                state.stage = if r.gripper_unit() || r.carried_units == 0 { "moving".into() } else { "unloading".into() };
+                state.unload_step = 0;
+                state.unload_elapsed = 0.0;
+                state.ready_at = if state.stage == "moving" { now + n(&self.sim, "core_move_delay_s") } else { now };
                 state.started = state.ready_at;
                 state.inserted = 0.0;
                 state.translated = 0.0;
@@ -1834,8 +1886,12 @@ impl Engine {
             if rpc.get("assembly_insert").and_then(Value::as_bool) == Some(true) {
                 if c.inserted <= 1e-9 {
                     // The unit leaves the robot's storage for the core's pillar. A unit clamped in
-                    // the gripper is already at the core, so it goes in before the stowed bays.
+                    // the gripper is already at the core, so it goes in before the stowed bays; when
+                    // the jaws only borrowed it from a bay, that bay is settled here.
                     if r.gripper_unit() {
+                        if r.gripper_borrowed() {
+                            self.robots[i].carried_units = self.robots[i].carried_units.saturating_sub(1);
+                        }
                         self.robots[i].unit_pickup = None;
                     } else {
                         self.robots[i].carried_units -= 1;
@@ -1972,6 +2028,20 @@ impl Engine {
                 "rotation":c.rotation,"target_rotation":c.target_rotation,"confirmed":c.confirmed,"alignment":alignment}));
         }
         let (operation, progress) = match s.stage.as_str() {
+            "unloading" => {
+                // "取矿反过来": the arm goes back to the magazine, clamps and brings the unit out.
+                let (a, b, c) = (
+                    n(&self.rules["assembly"], "unload_reach_s").max(0.05),
+                    n(&self.rules["assembly"], "unload_clamp_s").max(0.05),
+                    n(&self.rules["assembly"], "unload_extract_s").max(0.05),
+                );
+                let done = match s.unload_step {
+                    0 => 0.0,
+                    1 => a,
+                    _ => a + b,
+                };
+                ("unloading".to_string(), ((done + s.unload_elapsed) / (a + b + c)).clamp(0.0, 1.0))
+            }
             "moving" => ("positioning".to_string(), (1.0 - (s.ready_at - self.time()) / n(&self.sim, "core_move_delay_s").max(DT)).clamp(0.0, 1.0)),
             _ if active => first_open.clone().unwrap_or(("verifying".into(), 1.0)),
             "complete" => ("complete".into(), 1.0),
@@ -1996,6 +2066,10 @@ impl Engine {
         out["progress"] = json!(if s.stage == "complete" { 1.0 } else if active && total_steps > 0.0 { (done_steps / total_steps).clamp(0.0, 1.0) } else { 0.0 });
         out["blocked_reason"] = json!(blocked);
         out["core_units"] = json!(s.core_units);
+        // The unload pre-stage is published so the cockpit can show "拿取能量单元" instead of an
+        // idle panel between the order and the core moving.
+        out["unloading"] = json!(s.stage == "unloading");
+        out["unload_step"] = json!(s.unload_step);
         out["recover_in_s"] = json!(s.recover_at.map(|at| (at - self.time()).max(0.0)));
         out["difficulty_locked"] = json!(s.core_units > 0);
         out["repeat_cooldown_s"] = json!((s.repeat_ready_at - self.time()).max(0.0));
@@ -2130,10 +2204,12 @@ impl Engine {
             _ => n(&rules, "salvage_delay_s"),
         };
         let s = self.assemblies.get_mut(team).unwrap();
-        if !["moving", "inserting"].contains(&s.stage.as_str()) {
+        if !["unloading", "moving", "inserting"].contains(&s.stage.as_str()) {
             return;
         }
         s.stage = "failed".into();
+        s.unload_step = 0;
+        s.unload_elapsed = 0.0;
         s.second = None;
         s.fail_reason = Some(reason.into());
         s.recover_at = if s.core_units > 0 { Some(now + grace) } else { None };
@@ -2145,6 +2221,65 @@ impl Engine {
         for team in ["red", "blue"] {
             self.salvage_core_units(team);
             let mut s = self.assemblies[team].clone();
+            // The unload pre-stage runs on its own clock and holds the core still: the ore has to be
+            // in the gripper before the socket starts moving. Its unit transfer happens at the end of
+            // the clamp step, so it is the same `unit_pickup` carrier the rest of the game reads.
+            if s.stage == "unloading" {
+                let duration = match s.unload_step {
+                    0 => n(&self.rules["assembly"], "unload_reach_s").max(0.05),
+                    1 => n(&self.rules["assembly"], "unload_clamp_s").max(0.05),
+                    _ => n(&self.rules["assembly"], "unload_extract_s").max(0.05),
+                };
+                if s.unload_elapsed + DT + 1e-8 >= duration {
+                    if s.unload_step == 1 {
+                        // Clamp finished: the unit leaves its bay and rides in the jaws. The bay count
+                        // keeps including it (`from_bay`) so nothing else sees the robot suddenly
+                        // empty: a strategy that only reads `carried_units` would otherwise turn
+                        // around and drive back to the dispenser in the middle of the attempt. The
+                        // bay is subtracted when the core actually takes the unit.
+                        if let Some(i) = self.robots.iter().position(|r| r.team == team && r.role == "heavy") {
+                            let (x, y, z, heading) = {
+                                let r = &self.robots[i];
+                                (r.x, r.y, r.z, r.heading)
+                            };
+                            if self.robots[i].unit_pickup.is_none() {
+                                self.robots[i].unit_pickup = Some(pickup::PickupState {
+                                    stage: "carrying".into(),
+                                    elapsed: 0.0,
+                                    phase_elapsed: 0.0,
+                                    progress: 1.0,
+                                    point: [x, y, z + 0.7],
+                                    direction: [heading.cos(), heading.sin(), 0.0],
+                                    held: true,
+                                    arm: 0,
+                                    stall: 0.0,
+                                    from_bay: true,
+                                });
+                            }
+                        }
+                    }
+                    let state = self.assemblies.get_mut(team).unwrap();
+                    if s.unload_step < 2 {
+                        state.unload_step = s.unload_step + 1;
+                        state.unload_elapsed = 0.0;
+                    } else {
+                        // The ore is out in front of the mast: only now does the core start moving.
+                        state.stage = "moving".into();
+                        state.ready_at = now + n(&self.sim, "core_move_delay_s");
+                        state.started = state.ready_at;
+                        state.unload_step = 0;
+                        state.unload_elapsed = 0.0;
+                    }
+                } else {
+                    self.assemblies.get_mut(team).unwrap().unload_elapsed = s.unload_elapsed + DT;
+                }
+                // Leaving the card during the unload still ends the attempt, exactly as it does while
+                // the core is moving.
+                if now - s.buffer_until >= n(&self.rules["assembly"], "card_absence_fail_s") {
+                    self.fail_assembly_2027(team, "left_assembly_area");
+                }
+                continue;
+            }
             if s.stage == "moving" && now >= s.ready_at
                 && s.current_pose.iter().zip(s.pose).all(|(a,b)| (a-b).abs() <= 1e-6) {
                 let state = self.assemblies.get_mut(team).unwrap();

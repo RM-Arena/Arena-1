@@ -130,9 +130,10 @@ const lobPoint=(robot:Robot,frame:Frame,yaw:number,pitch:number)=>lobPointAt(rob
 
 
 // The heavy robot's third energy unit rides in the gripper once both storage bays are full, so the
-// cockpit counts it as carried: the model shows it clamped in the jaws.
+// cockpit counts it as carried: the model shows it clamped in the jaws. A unit the jaws only borrowed
+// out of a bay for an assembly is already inside `carried_units` and must not be counted twice.
 const unitsOnBoard=(robot:Robot|null|undefined)=>
-  !robot?0:(robot.carried_units??0)+(robot.unit_pickup?.stage==='carrying'?1:0);
+  !robot?0:(robot.carried_units??0)+(robot.unit_pickup?.stage==='carrying'&&!robot.unit_pickup?.from_bay?1:0);
 
 // The team's resource dispenser: the pickup point the arm has to reach, so the cockpit can tell a
 // pilot where to park and refuse a grab that the arm could never reach. The wrist only arrives
@@ -567,7 +568,7 @@ export function SeatBrief(){
   </div>;
 }
 
-export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,paused,onError,camera,onCamera,onPause,fullscreen=false,onFullscreen,link=false,onLink,linkPending=null,onLinkPick,linkImage,portrait}:{
+export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,paused,onError,camera,onCamera,onPause,fullscreen=false,onFullscreen,link=false,onLink,linkPending=null,onLinkPick,linkImage,portrait,countdown=null}:{
   frame:Frame;
   active:string|null;
   onEngage:(id:string)=>void;
@@ -593,6 +594,9 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   linkImage?:string;
   /** Studio render of the piloted chassis, the same art the broadcast top bar uses. */
   portrait?:string;
+  /** Rule 6.5 countdown while the cockpit is live: the digits are drawn over the lens, and the
+   * chassis takes no input until it reaches zero. */
+  countdown?:number|null;
 }){
   const [team,setTeam]=useState<TeamId>('red'),[locked,setLocked]=useState(false);
   const [notice,setNotice]=useState(''),[lockInfo,setLockInfo]=useState<{id:string;distance:number;side?:TeamId}|null>(null);
@@ -629,8 +633,16 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
   const lastCoreStage=useRef('');
   // The plate the aim assist currently holds, so an established lock is not traded away every tick.
   const lockId=useRef<string|null>(null);
-  // One-shot immediate respawn / remote heal requests, consumed by the next manual command.
-  const revive=useRef(false),heal=useRef(false);
+  // How many warm-up passes the assist has had this match (see the send loop).
+  const assistWarm=useRef(0);
+  // One-shot immediate respawn request, consumed by the next manual command, and the deadline of
+  // the remote-heal order: the engine refuses (and charges nothing) while the chassis is in combat,
+  // so the order is re-sent until it is taken or the window closes, instead of vanishing on a tick
+  // the rules did not sample.
+  const revive=useRef(false),healOrder=useRef(0);
+  // Live mirror of the rule 6.5 countdown for the send loop (see the input lock there).
+  const countdownRef=useRef<number|null>(countdown);
+  countdownRef.current=countdown;
   // Local (O) and remote (H) purchase dialogs. While one is open the pointer is released and the
   // pilot's keys are ignored, so the quantity can be picked with the mouse.
   const [store,setStore]=useState<{mode:'local'|'remote';tab:'ammo'|'heal';amount:number}|null>(null);
@@ -788,6 +800,18 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       setNotice(`购买未生效：${refusal.reason??'当前条件不满足'}`);
     }
   },[frame.events,piloted]);
+  // The same for a remote heal: the engine charges nothing when it refuses, so the order has to be
+  // re-sent while the window is open and the reason shown when it finally is not.
+  useEffect(()=>{
+    if(!piloted)return;
+    const refused=frame.events.find(event=>event.type==='heal_refused'&&event.robot===piloted.id) as (MatchEvent&{reason?:string})|undefined;
+    if(refused){
+      healOrder.current=0;
+      setNotice(`兑换血量未生效：${refused.reason??'当前条件不满足'}`);
+      return;
+    }
+    if(frame.events.some(event=>event.type==='remote_heal_ordered'&&event.robot===piloted.id))healOrder.current=0;
+  },[frame.events,piloted]);
   // A grab the arm cannot finish is cancelled by the engine; say how to line up instead of
   // leaving the pilot holding a key that does nothing.
   useEffect(()=>{
@@ -887,9 +911,18 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       // Lock against the gun/camera pose the pilot is actually looking through, not the raw mouse
       // target: while the turret slews the input can point at a plate that is still off screen.
       const lockView={yaw:robot.aim??robot.heading??current.yaw,pitch:Math.min(PITCH_MAX,Math.max(PITCH_MIN,robot.pitch??current.pitch))};
-      const assisted=keys.current.has('MouseRight')
+      let assisted=keys.current.has('MouseRight')
         ?lockTarget(robot,robotsRef.current,frameRef.current.arena,lockView,frameRef.current,lockId.current)
         :null;
+      // Warm the assist before the pilot reaches for it. The first right-click of a match used to
+      // pay for the whole geometry chain compiling (10.8 ms on the first call, 1 ms warm, and the
+      // browser is slower than the benchmark), which read as a hitch exactly once per match.
+      // A dozen calls spread over a dozen send ticks costs a millisecond each and lands while
+      // nobody is aiming yet.
+      if(!keys.current.has('MouseRight')&&assistWarm.current<12&&frameRef.current){
+        assistWarm.current++;
+        try{lockTarget(robot,robotsRef.current,frameRef.current.arena,lockView,frameRef.current,lockId.current);}catch{/* prewarm only */}
+      }
       const next=assisted?{id:assisted.id,distance:assisted.distance,side:assisted.side}:null;
       lockId.current=next?.id??null;
       setLockInfo(prev=>prev?.id===next?.id&&prev?.distance===next?.distance?prev:next);
@@ -949,14 +982,14 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         : (robot.max_heat||0)<=0||robot.heat+reserve<=robot.max_heat;
       // F: step-climbing mode, held so the legs take each stair of a flight in turn.
       const steer=stepClimbFor(frameRef.current,robot)>0&&keys.current.has('KeyF');
-      const action=command(aim,pitch,keys.current,spin,{fire:wantsFire&&heatFits,boost,limit:robot.power_limit||100,
+      let action=command(aim,pitch,keys.current,spin,{fire:wantsFire&&heatFits,boost,limit:robot.power_limit||100,
         legHeight,jump:leap,climb:steer});
       // A 2027 heavy works with its arm: the pilot picks the ore level and the tool follows the
       // engine's own step sequence, so a human never has to micro-manage five arm axes. Every flag
       // is only read by the branch the attempt is actually on.
       if(robot.role==='heavy'){
         const core=frameRef.current.assemblies?.[robot.team];
-        if(core&&['moving','inserting','buffered'].includes(core.stage)){
+        if(core&&['unloading','moving','inserting','buffered'].includes(core.stage)){
           action.assembly_insert=true;action.assembly_lift=true;action.assembly_flip=true;
           const first=core.cores?.[0];
           if(first&&Number.isFinite(first.target_rotation))action.assembly_rotate=first.target_rotation;
@@ -1017,8 +1050,14 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       // Hand the commanded angle to the camera; it is the single source both the eye and the gun use.
       if(!view.current)view.current={yaw:aim,pitch};
       else{view.current.yaw=aim;view.current.pitch=pitch;}
-      // Remote health delivery is also a one-shot order.
-      if(heal.current){action.remote_heal=true;heal.current=false;}
+      // Remote health delivery is an order, not a keypress: the engine charges nothing when it
+      // refuses, and its rules tick samples requests every other engine tick, so a single flag
+      // could land on a tick that never looked. Keep asking until the order is acknowledged (or
+      // refused, which clears the deadline and says why) or the 1.5 s window closes.
+      if(healOrder.current){
+        if(performance.now()>healOrder.current)healOrder.current=0;
+        else action.remote_heal=true;
+      }
       // Keep the ammunition order until the request lands: a refused or dropped POST must not
       // silently swallow the click.
       const order=buy.current;
@@ -1038,6 +1077,15 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
         else{lobShot.current=null;action.fire=false;}
       }
       inFlight.current=true;
+      // Rule 6.5: until the countdown ends the chassis takes no order at all. The cockpit is live
+      // so the pilot can look around and see the 5-4-3-2-1 on the lens, but a held key must not be
+      // waiting to fire the moment the clock starts — and on the server a command sent before the
+      // match starts would still be held when it does.
+      if(countdownRef.current){
+        action={move:[0,0],aim:wrap(sent.current??robot.aim??robot.heading??0),
+          pitch:Math.min(PITCH_MAX,Math.max(PITCH_MIN,view.current?.pitch??robot.pitch??0)),fire:false,brake:true};
+        assisted=null;
+      }
       const body:{team:TeamId;slot:number;action:PilotAction;assist?:string}={team:robot.team,slot:robot.slot,action};
       if(assisted)body.assist=assisted.id;
       const request=post(body);
@@ -1630,7 +1678,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
       placeAmmo(store.mode==='remote',store.amount);
     }else{
       if(disengage>0||gold<healCost)return;
-      heal.current=true;
+      healOrder.current=performance.now()+1500;
       setNotice(`远程兑换血量 · ${healCost} 金币 · 6 秒后送达（期间阵亡则失效且不退款）`);
     }
     closeStore();
@@ -1671,6 +1719,12 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     :` · ${lobRange.toFixed(0)} m`;
 
   return <>
+    {piloted&&countdown!==null&&countdown>0&&<div className="pilot-countdown" aria-live="assertive" aria-label={`比赛倒计时 ${countdown}`}>
+      {/* Rule 6.5 read from inside the cockpit: the same digits the broadcast shows, over the lens,
+          and no order reaches the chassis until they run out. */}
+      <div key={countdown} className="pilot-countdown-number">{countdown}</div>
+      <div className="pilot-countdown-caption">比赛即将开始 · 操作暂不可用</div>
+    </div>}
     {piloted&&<>
       {lob&&!dead&&<div className="pilot-scope" aria-label="吊射机械瞄具">
         {/* The tube is modelled in 3D and the lens pass in `sight.tsx` magnifies its bore; the cross
@@ -1795,7 +1849,7 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
     {assembly&&<>
       <div className="pilot-backdrop" onClick={closeAssembly}/>
       <div className="pilot-panel pilot-store pilot-assembly" role="dialog" aria-label="选择装配难度">
-        <div className="pilot-heading"><Layers size={14}/><span>兑矿 / 装配难度</span><em>{piloted?`重装 · ${piloted.team==='red'?'红':'蓝'}方 ${piloted.slot} 号 · 携带 ${unitsOnBoard(piloted)} 个能量单元${piloted.unit_pickup?.stage==='carrying'?'（含夹爪 1 个）':''}`:'未接管'}</em><button className="pilot-x" onClick={closeAssembly} aria-label="关闭装配"><span className="pilot-x-glyph" aria-hidden="true">✕</span></button></div>
+        <div className="pilot-heading"><Layers size={14}/><span>兑矿 / 装配难度</span><em>{piloted?`重装 · ${piloted.team==='red'?'红':'蓝'}方 ${piloted.slot} 号 · 携带 ${unitsOnBoard(piloted)} 个能量单元${piloted.unit_pickup?.stage==='carrying'&&!piloted.unit_pickup?.from_bay?'（含夹爪 1 个）':''}`:'未接管'}</em><button className="pilot-x" onClick={closeAssembly} aria-label="关闭装配"><span className="pilot-x-glyph" aria-hidden="true">✕</span></button></div>
         {!piloted||piloted.role!=='heavy'
           ?<p className="pilot-hints">只有重装机器人执行兑矿装配。</p>
           :<>
@@ -1806,11 +1860,11 @@ export function PlayerCockpit({frame,active,onEngage,onRelease,view,open,onOpen,
                 <b>{level} 级</b><small>{reason}</small><i>{first?'首次收益':'重复收益'}：{rewards[level]}</i>
               </button>)}
             </div>
-            {coreState&&['moving','inserting','buffered'].includes(coreState.stage)&&<p className="pilot-store-note">当前 {coreState.difficulty} 级装配进行中：{coreState.operation??'操作中'} · 机械臂会自动完成插入 / 抬升 / 翻转 / 旋转 / 确认。</p>}
+            {coreState&&['unloading','moving','inserting','buffered'].includes(coreState.stage)&&<p className="pilot-store-note">当前 {coreState.difficulty} 级装配进行中：{coreState.operation??'操作中'} · 机械臂会先从弹仓取出能量单元，再自动完成插入 / 抬升 / 翻转 / 旋转 / 确认。</p>}
             {coreState?.stage==='complete'&&reinit>0&&<p className="pilot-store-note">装配已完成：能量核心重新初始化中，还需 {reinit.toFixed(1)} 秒才能开始下一次装配。</p>}
             {coreFailed&&<p className="pilot-store-fail">{failText}</p>}
             {coreState?.difficulty_locked&&coreHeld>0&&<p className="pilot-store-note">核心内已有 {coreHeld} 个能量单元：装配难度已锁定（规则：核心内有单元时不得改难度）。</p>}
-            {!coreFailed&&['moving','inserting','buffered'].includes(coreState?.stage??'')&&coreHeld>0&&<div className="pilot-actions"><button onClick={orderExtract}>取回能量单元（装配立即失败）</button></div>}
+            {!coreFailed&&['unloading','moving','inserting','buffered'].includes(coreState?.stage??'')&&coreHeld>0&&<div className="pilot-actions"><button onClick={orderExtract}>取回能量单元（装配立即失败）</button></div>}
             {coreFailed&&coreHeld>0&&<div className="pilot-actions"><button onClick={confirmCancel}>取消装配 · 立刻回收能量单元</button></div>}
             {unitsOnBoard(piloted)<1&&<p className="pilot-store-warn">没有携带能量单元：先开到己方矿区，按住 I 让机械臂夹取。</p>}
             {!atAssembly&&<p className="pilot-store-warn">当前不在己方装配区：开到兑矿台（场心）再下达装配。</p>}

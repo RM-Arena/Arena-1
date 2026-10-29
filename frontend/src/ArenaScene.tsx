@@ -72,6 +72,10 @@ const ARM_BOOM_LOOK=3.2;
 // The chase camera the 跟随 mode and the heavy's mining/feeding view share: this far behind the
 // chassis heading, this high above the point of interest.
 const FOLLOW_BACK=4;
+// How fast the follower's bearing copies the turret. A gun that tracks a target sweeps tens of
+// degrees a second even while the hull stands still; the spectator view is meant to read where it
+// points, not to be dragged along with every slew, so the bearing is eased at this rate.
+const FOLLOW_YAW_RATE=2.2;
 // Drones are a fraction of a chassis: the chase eye sits closer and lower so the small body fills
 // the frame instead of reading as a dot under a broadcast-wide shot.
 const DRONE_FOLLOW_BACK=1.7,DRONE_FOLLOW_EYE=.9;
@@ -111,6 +115,13 @@ const SLOW_FRAME_S=1/45,FAST_FRAME_S=1/70,SLOW_FLOOR=.75;
 const ZONE_TINTS={red:new THREE.Color(TEAM_COLORS.red),blue:new THREE.Color(TEAM_COLORS.blue),neutral:new THREE.Color('#d4b57c')};
 const point=(r:{x:number;y:number;z?:number},h=0,width=28,height=15)=>new THREE.Vector3(r.x-width/2,(r.z||0)+h,r.y-height/2);
 // Shortest signed difference between two wrapped yaw angles.
+// Vertical filter rate for the cockpit eye. Standing still it is 33 s^-1 (about 30 ms), which is
+// what kills the suspension chatter; at speed it has to be far slower, because the road bumps are
+// 70 mm humps every 0.24 m — at 4.5 m/s that is 18 Hz of body bob, and a lens that follows it at
+// 60 fps sees barely three samples per cycle, which is what "not smooth at speed" was: not a
+// dropped frame, an aliased one. Slowing the filter with speed turns that buzz into one long
+// heave; the horizontal pose stays exact, so the sight line never drifts off the bore.
+const eyeBobRate=(r:{vx?:number;vy?:number})=>33/(1+Math.hypot(r.vx||0,r.vy||0)*.55);
 const yawDelta=(from:number,to:number)=>{const d=(to-from+Math.PI)%(Math.PI*2);return (d<0?d+Math.PI*2:d)-Math.PI;};
 // The barrel's world yaw and pitch. The engine reports the gimbal angles in the hull frame, so a
 // camera that used them directly would disagree with the barrel whenever the chassis sat on a
@@ -540,6 +551,8 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   // Audience follow: once the pointer takes the camera, `followOrbit` hands the pose to OrbitControls,
   // which keeps the audience's own offset while the target rides the chassis.
   const followOrbit=useRef(false),followId=useRef('');
+  // Bearing the follow lens takes: a low-passed copy of the turret yaw (see the `follow` branch).
+  const followYaw=useRef({ready:false,id:'',yaw:0});
   const pickAt=useRef({id:'',ready:false});
   // The picker eases into its first pose from whatever the broadcast left behind, and between the two
   // stages it glides instead of cutting, so side choice → chassis choice is one continuous move.
@@ -689,6 +702,9 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       blendQ.fromPos.copy(camera.position);blendQ.fromQuat.copy(camera.quaternion);blendQ.t=0;
       previousMode.current=mode;
       followOrbit.current=false;
+      // Entering the follow mode takes the turret's bearing as it is instead of easing across every
+      // aim change that happened while another camera was live.
+      followYaw.current.ready=false;
       if(mode==='orbit'){camera.position.set(...BROADCAST_EYE);controls.current?.target.set(...BROADCAST_TARGET);}}
     // Only the top view leans the world over; every other mode wants the normal world up, and the
     // orbit controls derive their own gimbal from it.
@@ -744,7 +760,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       const heavy=r.role==='heavy';
       const hd=(was.heading??r.heading??0)+yawDelta(was.heading??r.heading??0,r.heading??0)*alpha;
       const core=f.assemblies?.[r.team];
-      const feeding=heavy&&!!core&&['moving','inserting','buffered'].includes(core.stage)&&(r.last_raw_zones??[]).includes(`${r.team}_assembly`);
+      const feeding=heavy&&!!core&&['unloading','moving','inserting','buffered'].includes(core.stage)&&(r.last_raw_zones??[]).includes(`${r.team}_assembly`);
       // Mining and feeding a core cannot be read from inside the machine, so those steps are watched
       // in the same third-person chase view as the 跟随 camera. `carrying` is deliberately left out:
       // once the gripper holds its unit and the robot drives off the pad the cockpit takes over again,
@@ -782,7 +798,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         eyePoint.z+=Math.sin(hd)*ARM_EYE_FORWARD;
         eyePoint.y+=ARM_EYE_M;
         const yaw=barrelView(r,0).yaw;
-        const working=!!core&&['moving','inserting','buffered','verifying'].includes(core.stage);
+        const working=!!core&&['unloading','moving','inserting','buffered','verifying'].includes(core.stage);
         const workbench=working?(f.arena.assembly_frames as Record<string,{origin?:number[];z0_m?:number}>|undefined)?.[r.team]:undefined;
         const boom=armBooms.get(r.id);
         if(boom&&working){
@@ -800,7 +816,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         // lens; the vertical filter keeps the boom steady without moving the eye off the mast.
         const stable=eyeStable.current;
         if(stable.id!==r.id||!stable.ready||Math.abs(eyePoint.y-stable.y)>.75){stable.id=r.id;stable.y=eyePoint.y;stable.ready=true;}
-        else stable.y+=(eyePoint.y-stable.y)*dampFactor(33,dt);
+        else stable.y+=(eyePoint.y-stable.y)*dampFactor(eyeBobRate(r),dt);
         camera.position.copy(eyePoint);camera.position.y=stable.y;
         camera.up.set(0,1,0);camera.lookAt(arm.look);
         dead.current=false;
@@ -860,7 +876,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       // heave instead of a buzz; the horizontal pose is exact, so the sight line stays on the bore.
       const stable=eyeStable.current;
       if(stable.id!==r.id||!stable.ready||Math.abs(eyePoint.y-stable.y)>.75){stable.id=r.id;stable.y=eyePoint.y;stable.ready=true;}
-      else stable.y+=(eyePoint.y-stable.y)*dampFactor(33,dt);
+      else stable.y+=(eyePoint.y-stable.y)*dampFactor(eyeBobRate(r),dt);
       camera.position.copy(eyePoint);
       camera.position.y=stable.y+vib.y;
       eyeLook.set(eyePoint.x+Math.cos(view.sYaw)*Math.cos(view.sPitch),stable.y+Math.sin(view.sPitch),eyePoint.z+Math.sin(view.sYaw)*Math.cos(view.sPitch));
@@ -903,11 +919,20 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
             if(orbiting){controls.current?.target.copy(target);}
             else{
               // The follow lens rides the gimbal, not the hull. A robot spinning its chassis (小陀螺)
-              // keeps its `heading` turning for seconds at a time, and a camera keyed to it would
-              // orbit the machine for as long as the spin lasts; `aim` is the absolute turret yaw, so
-              // the view only turns when the gun is actually re-aimed.
-              const angle=r.aim??r.heading,desired=followWanted.copy(target);
-              desired.x-=Math.cos(angle)*FOLLOW_BACK;desired.y+=FOLLOW_EYE;desired.z-=Math.sin(angle)*FOLLOW_BACK;
+              // turns its `heading` for seconds at a time and a camera keyed to it orbits the machine
+              // for as long as the spin lasts; `aim` is the absolute turret yaw, so the view only
+              // turns when the gun is re-aimed. The turret itself still sweeps at up to a few tens of
+              // degrees a second while it tracks a target through a spin, so the bearing the camera
+              // takes is a low-passed copy of it: the spectator sees where the gun is pointing
+              // without the picture chasing every slew.
+              const angle=r.aim??r.heading;
+              if(!followYaw.current.ready||followYaw.current.id!==r.id){
+                followYaw.current={ready:true,id:r.id,yaw:angle};
+              }else{
+                followYaw.current.yaw+=yawDelta(followYaw.current.yaw,angle)*dampFactor(FOLLOW_YAW_RATE,dt);
+              }
+              const yaw=followYaw.current.yaw,desired=followWanted.copy(target);
+              desired.x-=Math.cos(yaw)*FOLLOW_BACK;desired.y+=FOLLOW_EYE;desired.z-=Math.sin(yaw)*FOLLOW_BACK;
               desired.x=THREE.MathUtils.clamp(desired.x,-f.arena.width/2+.6,f.arena.width/2-.6);
               desired.z=THREE.MathUtils.clamp(desired.z,-f.arena.height/2+.6,f.arena.height/2-.6);
               camera.position.lerp(desired,dampFactor(3,dt));camera.lookAt(target);
