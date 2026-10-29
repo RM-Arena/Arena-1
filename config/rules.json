@@ -5334,7 +5334,7 @@
       "suspension_sag_m": 0.035,
       "suspension_free_length_m": 0.107,
       "suspension_stiffness_npm": 2228.271,
-      "suspension_damping_nspm": 106.477,
+      "suspension_damping_nspm": 166.371,
       "inertia_kgm2": [
         0.83667,
         0.83667,
@@ -5648,7 +5648,7 @@
       "suspension_sag_m": 0.035,
       "suspension_free_length_m": 0.107,
       "suspension_stiffness_npm": 2389.436,
-      "suspension_damping_nspm": 114.179,
+      "suspension_damping_nspm": 178.404,
       "inertia_kgm2": [
         0.89719,
         0.89719,
@@ -6043,7 +6043,7 @@
       "suspension_sag_m": 0.035,
       "suspension_free_length_m": 0.107,
       "suspension_stiffness_npm": 2053.093,
-      "suspension_damping_nspm": 98.107,
+      "suspension_damping_nspm": 153.292,
       "inertia_kgm2": [
         0.7709,
         0.7709,
@@ -6598,7 +6598,7 @@
       "suspension_sag_m": 0.035,
       "suspension_free_length_m": 0.107,
       "suspension_stiffness_npm": 1706.239,
-      "suspension_damping_nspm": 81.532,
+      "suspension_damping_nspm": 127.394,
       "inertia_kgm2": [
         0.39411,
         0.43064,
@@ -6820,7 +6820,7 @@
       "suspension_sag_m": 0.035,
       "suspension_free_length_m": 0.107,
       "suspension_stiffness_npm": 1902.439,
-      "suspension_damping_nspm": 90.908,
+      "suspension_damping_nspm": 142.043,
       "inertia_kgm2": [
         0.68803,
         0.68803,

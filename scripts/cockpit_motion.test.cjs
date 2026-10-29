@@ -8,7 +8,7 @@ const context={exports:{},require:(id)=>{
   throw new Error(`unexpected import ${id}`);
 }};
 vm.runInNewContext(compiled.outputText,context);
-const {createShakeState,shakeOf,SHAKE_LIMITS}=context.exports;
+const {createShakeState,shakeOf,SHAKE_LIMITS,createEyeLift,eyeLiftStep,createEyeMount,eyeMountStep}=context.exports;
 
 // A minimal cockpit body: `shakeOf` reads exactly these fields off the engine frame.
 const body=(over={})=>({id:'red-1',slot:1,role:'infantry',alive:true,grounded:true,vx:0,vy:0,vz:0,
@@ -103,4 +103,63 @@ test('a 42 mm shot kicks the barrel harder than a 17 mm shot but stays under the
   assert.ok(small<large,`17 mm ${small} should be softer than 42 mm ${large}`);
   // The model gives the 42 mm slightly more than twice the impulse; the spring response keeps the ratio.
   assert.ok(large/small>1.7,`kick ratio ${large/small}`);
+});
+
+// ---- Eye height --------------------------------------------------------------------------------
+const lift=()=>createEyeLift();
+
+test('the eye-height spring turns the washboard road into one soft heave',()=>{
+  // The field's own road humps are 70 mm every 240 mm: at 2 m/s that is 8 Hz of body bob, and the hull
+  // really does ride it. 15 mm of it is measured on the engine, so the lens must cut that band hard.
+  const state=lift(),hz=120,dt=1/hz;
+  let low=Infinity,high=-Infinity;
+  for(let i=0;i<hz*2;i++){
+    const t=i*dt,y=eyeLiftStep(state,0.19+0.0075*Math.sin(2*Math.PI*8*t),dt);
+    if(t>1){low=Math.min(low,y);high=Math.max(high,y);}
+  }
+  // 15 mm peak-to-peak in, under 2.5 mm out: the remaining bob is the eye easing after the hull, not
+  // a copy of the road. Without the spring this is 15 mm, which is what the pilot called "????".
+  assert.ok(high-low<0.0025,`ripple left ${((high-low)*1000).toFixed(3)} mm of 15 mm peak-to-peak`);
+});
+
+test('the eye reaches a 0.2 m step in about a third of a second and never overshoots',()=>{
+  const state=lift(),dt=1/120;
+  eyeLiftStep(state,0,dt);
+  let reached=null,highest=0;
+  for(let i=1;i<=120;i++){
+    const y=eyeLiftStep(state,0.2,dt);
+    highest=Math.max(highest,y);
+    if(reached===null&&y>=0.19)reached=i*dt;
+  }
+  assert.ok(reached!==null&&reached<0.35,`90 % after ${reached}`);
+  assert.ok(highest<=0.201,`overshoot to ${highest.toFixed(4)} m`);
+});
+
+test('60, 120 and 240 Hz panels ride the same height',()=>{
+  const at=(hz)=>{
+    const state=lift(),dt=1/hz;let y=0;
+    for(let i=0;i<Math.round(0.25*hz);i++)y=eyeLiftStep(state,i<hz/10?0.1:0.16,dt);
+    return y;
+  };
+  const a=at(60),b=at(120),c=at(240);
+  assert.ok(Math.abs(a-b)<0.001,`60 vs 120: ${a} vs ${b}`);
+  assert.ok(Math.abs(b-c)<0.001,`120 vs 240: ${b} vs ${c}`);
+});
+
+test('a steady climb is tracked without lag, and the dead-band does not stall it',()=>{
+  // A 0.3 m/s climb is a ramp input: the spring alone would trail it by 2V/?, which on a 23? slope is
+  // the eye sinking into the deck. The slow vertical velocity is fed forward to cancel exactly that.
+  const mount=createEyeMount(),dt=1/120,slope=0.3;
+  eyeMountStep(mount,'red-1',0,0,dt);
+  let worst=0,tail=0;
+  for(let i=1;i<=240;i++){
+    const height=slope*(i*dt);
+    const y=eyeMountStep(mount,'red-1',height,slope,dt);
+    if(i>120)worst=Math.max(worst,Math.abs(height-y));
+    if(i>210)tail=Math.max(tail,Math.abs(height-y));
+  }
+  // A stalled dead-band would put the eye 30 mm behind and let it grow; the feed-forward keeps the
+  // settled error at a few millimetres, which on a 23 degree slope is an invisible constant.
+  assert.ok(tail<0.005,`settled ${(tail*1000).toFixed(1)} mm behind on a ${slope} m/s climb`);
+  assert.ok(worst<0.01,`trailed ${(worst*1000).toFixed(1)} mm on a ${slope} m/s climb`);
 });

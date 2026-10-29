@@ -39,7 +39,10 @@ def finish(d, designs):
         else:
             k = d['mass_kg']*9.81/(4*.035)
             d['suspension_stiffness_npm'] = round(k, 3)
-            d['suspension_damping_nspm'] = round((d['mass_kg']/4*k)**.5*.8, 3)
+            # The same damping ratio the wheel-legged chassis use. At 0.8 (ζ=0.40) the hull rang at its
+            # 2.7 Hz suspension frequency for a second after every bump and brake, and that ring is what
+            # a first-person pilot saw as the picture bobbing up and down.
+            d['suspension_damping_nspm'] = round((d['mass_kg']/4*k)**.5*1.25, 3)
     d['capabilities'] = {
         'deployment': False, 'transformation': d.get('transform_allowed', False),
         'jump': d['chassis_type'] == 'wheel_legged', 'self_righting': d.get('leg_type') == 'serial',

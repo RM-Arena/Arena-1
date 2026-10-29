@@ -16,7 +16,7 @@ import {Venue} from './venue';
 import type {ArenaAudio} from './media';
 import {FPV_EYE_LIFT,dampFactor,displayRate,feedAlpha,robotWorld} from './world';
 import {fpvResolutionScale} from './logistics';
-import {createShakeState,shakeOf,type ShakeState} from './cockpitMotion';
+import {createEyeMount,createShakeState,eyeMountStep,shakeOf,type EyeMount,type ShakeState} from './cockpitMotion';
 import {lobScope,pilotAim} from './scope';
 import {useSightRenderer,SightRig} from './sight';
 import {legRig,poseLegs,applyArmorNumber} from './robotRig';
@@ -115,13 +115,14 @@ const SLOW_FRAME_S=1/45,FAST_FRAME_S=1/70,SLOW_FLOOR=.75;
 const ZONE_TINTS={red:new THREE.Color(TEAM_COLORS.red),blue:new THREE.Color(TEAM_COLORS.blue),neutral:new THREE.Color('#d4b57c')};
 const point=(r:{x:number;y:number;z?:number},h=0,width=28,height=15)=>new THREE.Vector3(r.x-width/2,(r.z||0)+h,r.y-height/2);
 // Shortest signed difference between two wrapped yaw angles.
-// Vertical filter rate for the cockpit eye. Standing still it is 33 s^-1 (about 30 ms), which is
-// what kills the suspension chatter; at speed it has to be far slower, because the road bumps are
-// 70 mm humps every 0.24 m — at 4.5 m/s that is 18 Hz of body bob, and a lens that follows it at
-// 60 fps sees barely three samples per cycle, which is what "not smooth at speed" was: not a
-// dropped frame, an aliased one. Slowing the filter with speed turns that buzz into one long
-// heave; the horizontal pose stays exact, so the sight line never drifts off the bore.
-const eyeBobRate=(r:{vx?:number;vy?:number})=>33/(1+Math.hypot(r.vx||0,r.vy||0)*.55);
+// Cockpit eye height: the spring, its dead-band and the sub-stepping live in `eyeLiftStep`. A respawn
+// (a new machine, or a teleport-sized jump in the reported height) re-seeds the ride instead of gliding
+// across the field, so the lens never sweeps through the world on the way.
+const lastEyeRaw={y:0};
+const eyeLiftFor=(mount:EyeMount,id:string,target:number,vz:number,dt:number)=>{
+  lastEyeRaw.y=target;
+  return eyeMountStep(mount,id,target,vz,dt);
+};
 const yawDelta=(from:number,to:number)=>{const d=(to-from+Math.PI)%(Math.PI*2);return (d<0?d+Math.PI*2:d)-Math.PI;};
 // The barrel's world yaw and pitch. The engine reports the gimbal angles in the hull frame, so a
 // camera that used them directly would disagree with the barrel whenever the chassis sat on a
@@ -146,8 +147,7 @@ const barrelView=(r:Robot,slot=0)=>{
 const colors={red:new THREE.Color(LED_COLORS.red),blue:new THREE.Color(LED_COLORS.blue)},WHITE=new THREE.Color('#ffffff');
 const toHeight=(frame:Frame,x:number,y:number)=>terrainHeight(frame.arena,x,y);
 // The diagnostics record republished every frame (see the `arenaMotion` publisher in the director).
-const arenaMotion={alpha:1,age:0,pace:null as number|null,aimYaw:0,aimPitch:0,corrYaw:0,cmdYaw:0,mode:'',
-  steerRuns:0,steerStep:0,frameNo:0,frame:null as import('./types').Frame|null};
+const arenaMotion={alpha:1,age:0,pace:null as number|null,aimYaw:0,aimPitch:0,corrYaw:0,cmdYaw:0,mode:'',eyeY:0,eyeRawY:0,  steerRuns:0,steerStep:0,frameNo:0,frame:null as import('./types').Frame|null};
 
 // Structures are static scenery with a few named hinges, so they are merged by material as soon as
 // they are cloned: the field and the two bases are most of the draw calls in a broadcast frame.
@@ -573,10 +573,15 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   const eye=useRef({id:'',yaw:0,pitch:0,corrYaw:0,corrPitch:0,sYaw:0,sPitch:0});
   // Cockpit vibration state (see `shakeOf` in `cockpitMotion`).
   const shake=useRef<ShakeState>(createShakeState());
-  // The pilot's eye height, filtered against chassis chatter: the hull's vertical pose is reported at
-  // 20 Hz and a legged or suspended chassis buzzes between samples, so a lens bolted straight onto it
-  // inherited the buzz. The horizontal pose stays exact, so the eye cannot drift off the bore line.
-  const eyeStable=useRef({id:'',y:0,ready:false});
+  // The pilot's eye height. `eyeStable` keeps the id + the ride itself, so a respawn (a whole new
+  // pose) re-seeds the filter instead of gliding across the field; the spring, the dead-band and the
+  // sub-stepping live in `eyeLiftStep`.
+  const eyeStable=useRef<EyeMount>(createEyeMount());
+  // The engine's echo of the bore, low-passed before the pilot's lens is eased onto it: the echo
+  // carries the hull's attitude at 20 Hz, and easing the lens straight onto that put the chassis'
+  // pitching straight into the picture at a third of its amplitude. The mean is unchanged, so the
+  // lens still converges on where the gun really points.
+  const echoAngle=useRef({id:'',yaw:0,pitch:0});
   // Whether the camera this frame is the cockpit's own lens. Only that feed carries the 5.6.1 picture:
   // the broadcast, follow and picker cameras show the field to spectators, and the heavy's mining and
   // feeding steps are deliberately watched from a third-person chase view, so none of those may be
@@ -749,7 +754,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
     // continuous while a pilot's input is in flight.
     if(mode==='fpv'){const f=feed.current.frame,r=f?.robots.find(r=>r.id===selected);if(f&&r){
       // The rules keep the view pose while the chassis is destroyed; nothing turns until respawn.
-      if(!r.alive){dead.current=true;eyeStable.current.ready=false;settle();return;}
+      if(!r.alive){dead.current=true;eyeStable.current.id='';settle();return;}
       const own=pilot&&pilot===r.id;
       const was=feed.current.previous?.robots.find(o=>o.id===r.id)||r,alpha=feedAlpha(feed.current);
       robotWorld(feed.current,r,alpha,eyePoint);
@@ -798,6 +803,10 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         eyePoint.z+=Math.sin(hd)*ARM_EYE_FORWARD;
         eyePoint.y+=ARM_EYE_M;
         const yaw=barrelView(r,0).yaw;
+        // The arm lens is close to the deck, so it inherits the same suspension chatter as the gun
+        // lens: the eye rides the filtered height and the look target is taken from that same height,
+        // so the ripple cannot tilt the boom either.
+        const lift=eyeLiftFor(eyeStable.current,r.id,eyePoint.y,r.vz??0,dt);
         const working=!!core&&['unloading','moving','inserting','buffered','verifying'].includes(core.stage);
         const workbench=working?(f.arena.assembly_frames as Record<string,{origin?:number[];z0_m?:number}>|undefined)?.[r.team]:undefined;
         const boom=armBooms.get(r.id);
@@ -809,15 +818,10 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         }else if(workbench?.origin){
           const origin=workbench.origin,plinth=point({x:origin[0],y:origin[1]} as Robot,0,f.arena.width,f.arena.height);
           eyeLook.set(plinth.x,plinth.y+(workbench.z0_m??.4)+.05,plinth.z);
-        }else eyeLook.set(eyePoint.x+Math.cos(yaw)*5,eyePoint.y-.35,eyePoint.z+Math.sin(yaw)*5);
+        }else eyeLook.set(eyePoint.x+Math.cos(yaw)*5,lift-.35,eyePoint.z+Math.sin(yaw)*5);
         if(!arm.look)arm.look=eyeLook.clone();
         else arm.look.lerp(eyeLook,dampFactor(9,dt));
-        // The arm lens is close to the deck, so it inherits the same suspension chatter as the gun
-        // lens; the vertical filter keeps the boom steady without moving the eye off the mast.
-        const stable=eyeStable.current;
-        if(stable.id!==r.id||!stable.ready||Math.abs(eyePoint.y-stable.y)>.75){stable.id=r.id;stable.y=eyePoint.y;stable.ready=true;}
-        else stable.y+=(eyePoint.y-stable.y)*dampFactor(eyeBobRate(r),dt);
-        camera.position.copy(eyePoint);camera.position.y=stable.y;
+        camera.position.copy(eyePoint);camera.position.y=lift;
         camera.up.set(0,1,0);camera.lookAt(arm.look);
         dead.current=false;
         settle();
@@ -833,7 +837,14 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       // A respawn teleports the chassis, so the new pose is taken as-is — but the lens still *glides*
       // to it (`restart` re-arms the mode blend) instead of cutting, which is the difference between
       // "the camera was thrown" and "the picture jumped".
-      if(view.id!==r.id||dead.current){if(view.id===r.id)restart();view.id=r.id;view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;view.sYaw=targetYaw;view.sPitch=targetPitch;eyeStable.current.ready=false;dead.current=false;}
+      if(view.id!==r.id||dead.current){if(view.id===r.id)restart();view.id=r.id;view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;view.sYaw=targetYaw;view.sPitch=targetPitch;eyeStable.current.id='';echoAngle.current.id='';dead.current=false;}
+      // The echo the lens is aligned to is low-passed first: it carries the hull's attitude, and easing
+      // the picture straight onto a 20 Hz attitude signal put the chassis' pitching into the lens at a
+      // third of its amplitude. The correction only ever has to remove a *standing* offset, so a
+      // ~80 ms lag on it costs nothing while the fast part of the heave stays out of the view.
+      const echo=echoAngle.current;
+      if(echo.id!==r.id){echo.id=r.id;echo.yaw=targetYaw;echo.pitch=targetPitch;}
+      else{const ke=dampFactor(12,dt);echo.yaw+=yawDelta(echo.yaw,targetYaw)*ke;echo.pitch+=(targetPitch-echo.pitch)*ke;}
       if(own){
         // Piloting: the eye follows the angle the pilot is commanding right now, which the cockpit
         // integrates on every rendered frame. Reading the engine's echo here instead — and that echo
@@ -845,12 +856,12 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         // cockpit's own sight line instead: the reticle stays on the point the shell has to hit.
         if(scoped){view.yaw=lobScope.yaw;view.pitch=lobScope.pitch;view.corrYaw=view.corrPitch=0;}
         else if(pilotAim.live){
-          const dy=yawDelta(pilotAim.yaw,targetYaw),dp=targetPitch-pilotAim.pitch;
+          const dy=yawDelta(pilotAim.yaw,echo.yaw),dp=echo.pitch-pilotAim.pitch;
           // A respawn — or the rules taking the gun away — is a whole turn away: take the new angle,
           // and let the blend carry the lens across so the move is a glide rather than a cut.
-          if(Math.abs(dy)>2||Math.abs(dp)>.9){view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;restart();}
+          if(Math.abs(yawDelta(pilotAim.yaw,targetYaw))>2||Math.abs(targetPitch-pilotAim.pitch)>.9){view.yaw=targetYaw;view.pitch=targetPitch;view.corrYaw=view.corrPitch=0;echo.id='';restart();}
           else{
-            const k=dampFactor(8,dt);
+            const k=dampFactor(6,dt);
             view.corrYaw+=(dy-view.corrYaw)*k;view.corrPitch+=(dp-view.corrPitch)*k;
             view.yaw=pilotAim.yaw+view.corrYaw;view.pitch=pilotAim.pitch+view.corrPitch;
           }
@@ -872,14 +883,13 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       view.sYaw=Math.abs(dyDraw)<gate?view.sYaw+dyDraw*dampFactor(30,dt):view.yaw;
       view.sPitch=Math.abs(dpDraw)<gate?view.sPitch+dpDraw*dampFactor(30,dt):view.pitch;
       const vib=shakeOf(shake.current,r,Math.min(.05,dt));
-      // Suspension chatter is filtered out of the eye's height (about 30 ms), so a kerb is one soft
-      // heave instead of a buzz; the horizontal pose is exact, so the sight line stays on the bore.
-      const stable=eyeStable.current;
-      if(stable.id!==r.id||!stable.ready||Math.abs(eyePoint.y-stable.y)>.75){stable.id=r.id;stable.y=eyePoint.y;stable.ready=true;}
-      else stable.y+=(eyePoint.y-stable.y)*dampFactor(eyeBobRate(r),dt);
+      // The eye rides the spring-filtered height, so suspension chatter is one soft heave instead of a
+      // buzz. The sight line is built from the same filtered height, so the ripple cannot tilt the lens
+      // either; the horizontal pose stays exact so the lens never leaves the bore line.
+      const lift=eyeLiftFor(eyeStable.current,r.id,eyePoint.y,r.vz??0,dt);
       camera.position.copy(eyePoint);
-      camera.position.y=stable.y+vib.y;
-      eyeLook.set(eyePoint.x+Math.cos(view.sYaw)*Math.cos(view.sPitch),stable.y+Math.sin(view.sPitch),eyePoint.z+Math.sin(view.sYaw)*Math.cos(view.sPitch));
+      camera.position.y=lift+vib.y;
+      eyeLook.set(eyePoint.x+Math.cos(view.sYaw)*Math.cos(view.sPitch),lift+Math.sin(view.sPitch),eyePoint.z+Math.sin(view.sYaw)*Math.cos(view.sPitch));
       camera.up.set(0,1,0);camera.lookAt(eyeLook);
       // The vibration rides on the lens, after the sight line is set: the reticle stays on the point
       // the pilot aimed at while the picture around it shakes with the machine.
@@ -1061,6 +1071,9 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
     const m=arenaMotion;
     m.alpha=feedAlpha(feed.current);m.age=Math.round(performance.now()-feed.current.received);m.pace=feed.current.pace??null;
     m.aimYaw=eye.current.yaw;m.aimPitch=eye.current.pitch;m.corrYaw=eye.current.corrYaw;m.cmdYaw=pilotAim.yaw;m.mode=mode;
+    // The drawn eye height next to the height the engine reported: a cockpit that still feels like it
+    // is bobbing can be read off these two numbers (`eyeY` vs `eyeRawY`) instead of a screen recording.
+    m.eyeY=camera.position.y;m.eyeRawY=lastEyeRaw.y;
     m.steerRuns=pilotAim.runs;m.steerStep=pilotAim.step;m.frameNo=(m.frameNo??0)+1;
     m.frame=feed.current.frame;
     (window as unknown as {arenaMotion?:unknown}).arenaMotion=m;
