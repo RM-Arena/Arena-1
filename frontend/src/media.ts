@@ -2,7 +2,6 @@ import type {Frame,Metadata,MatchEvent} from './types';
 import {strategyDisplayName} from './strategyIdentity';
 import {MUSIC,type BgmCue} from './audioPlaylist';
 import {KILL_CUES,type KillCue,type KillAnnouncement,type KillHighlight} from './killAnnouncements';
-import {checkVideoExport,prepareVideoExport,saveMatchVideo,type VideoFormat} from './videoExport';
 export type {BgmCue} from './audioPlaylist';
 export const clock=(s:number)=>{s=Math.ceil(Math.max(0,s));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;};
 export function download(blob:Blob,name:string){const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
@@ -12,7 +11,7 @@ const THROTTLE:Record<string,number>={'shot':.02,'shot-hero':.06,impact:.035,hit
 const IMPORTANT=new Set(['destroy','explosion','finish','respawn','rune_activated','base_hit','outpost_hit','level_up']);
 const rand=(a:number,b:number)=>a+Math.random()*(b-a);
 
-type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number};
+type Music={node:AudioBufferSourceNode;gain:GainNode;offset:number;startedAt:number;cue:BgmCue;scope:string;rate:number;duration:number;loop:boolean};
 type MusicRequest={cue:BgmCue;scope:string;remaining:number;rate:number;at:number};
 type DroneVoice={gain:GainNode;panner:PannerNode;noise:AudioBufferSourceNode;oscillators:OscillatorNode[];nodes:AudioNode[]};
 type AnnouncementRequest={announcement:KillAnnouncement;started:(seconds:number)=>void;queuedAt:number};
@@ -24,9 +23,12 @@ export type InterfaceCue='hover'|'click'|'select'|'confirm'|'back'|'open'|'succe
 export class ArenaAudio {
   enabled=false;context:AudioContext|null=null;master!:GainNode;destination!:MediaStreamAudioDestinationNode;
   private bus!:GainNode;private wet!:GainNode;private noise!:AudioBuffer;private last=new Map<string,number>();private voices:number[]=[];private arena={width:28,height:15};
-  private music!:GainNode;private tracks=new Map<string,AudioBuffer>();private loading=new Map<string,Promise<void>>();private source:Music|null=null;private saturation!:Float32Array<ArrayBuffer>;private musicError:string|null=null;private musicStarts=0;
+  private music!:GainNode;private buffers=new Map<string,AudioBuffer>();private loading=new Map<BgmCue,Promise<void>>();private resolved=new Map<BgmCue,string>();private failures=new Map<BgmCue,string[]>();private source:Music|null=null;private saturation!:Float32Array<ArrayBuffer>;private musicError:string|null=null;private musicStarts=0;
   // Every stage owns its track; match sources always start at zero.
   private wanted:MusicRequest|null=null;private paused=false;
+  // Which cue already played its opening recording out, per match/screen, so the hand-off to the
+  // looping track happens exactly once and survives speed changes, pause and re-renders.
+  private handedOver:{cue:BgmCue;scope:string}|null=null;
   private bgmVolume=.6;private rotorVoices=new Map<string,DroneVoice>();
   private announcementBus!:GainNode;private announcementBuffers=new Map<KillCue,AudioBuffer>();
   private announcementLoads=new Map<KillCue,Promise<boolean>>();private announcementQueue:AnnouncementRequest[]=[];
@@ -80,8 +82,9 @@ export class ArenaAudio {
     this.enabled=true;this.master.gain.cancelScheduledValues(this.context.currentTime);this.master.gain.setTargetAtTime(.8,this.context.currentTime,.025);
     if(this.paused)await this.context.suspend();else await this.context.resume();
     const cue=this.wanted?.cue;if(cue)await this.loadTrack(cue);
-    // Cache the competition and countdown tracks before their first transition.
-    void this.loadTrack('match');void this.loadTrack('countdown');this.sync();
+    // Cache the competition and countdown tracks before their first transition (the match opening has
+    // to hand over to the looping sting the moment it ends, four minutes into the match).
+    void this.loadTrack('match');void this.loadTrack('match_alt');void this.loadTrack('countdown');this.sync();
     for(const cue of Object.keys(KILL_CUES) as KillCue[])void this.loadAnnouncement(cue);
     this.syncAnnouncements();
   }
@@ -104,7 +107,9 @@ export class ArenaAudio {
   }
   get musicPlaying(){return !!this.source;}
   get diagnostics(){return {state:this.context?.state??'none',cue:this.source?.cue??null,wanted:this.wanted?.cue??null,
-    track:this.source?MUSIC[this.source.cue].url:null,scope:this.source?.scope??null,startOffset:this.source?.offset??null,
+    track:this.source?MUSIC[this.source.cue].url:null,file:this.source?this.resolved.get(this.source.cue)??null:null,
+    failed:this.source?this.failures.get(this.source.cue)??[]:[],
+    scope:this.source?.scope??null,startOffset:this.source?.offset??null,
     position:this.source&&this.context?Math.round(this.position(this.source)*100)/100:null,starts:this.musicStarts,error:this.musicError,bgmVolume:this.bgmVolume,drones:this.rotorVoices.size,interfaceSounds:this.interfaceCount,interfaceCue:this.interfaceCue,
     announcer:{cue:this.announcementVoice?.request.announcement.cue??null,starts:this.announcementStarts,queued:this.announcementQueue.map(r=>r.announcement.cue),loaded:this.announcementBuffers.size,error:this.announcementError}};}
   announce(announcement:KillAnnouncement,started:(seconds:number)=>void){
@@ -151,31 +156,70 @@ export class ArenaAudio {
     node.onended=()=>{node.disconnect();gain.disconnect();if(this.announcementVoice!==voice)return;this.announcementVoice=null;this.updateEffectsMix();this.syncAnnouncements();};
     node.start(c.currentTime);request.started(Math.max(3.4,buffer.duration+.2));
   }
-  // Decoded tracks are cached per file: several cues may share one soundtrack.
-  private loadTrack(cue:BgmCue):Promise<void>{
-    const url=MUSIC[cue].url;if(this.tracks.has(url))return Promise.resolve();const pending=this.loading.get(url);if(pending)return pending;
+  // A decoded buffer is cached per file (several cues can share one soundtrack) but the *choice* of
+  // file is cached per cue: `results` and `pick` both fall back to `home.mp3`, and a shared key
+  // would let the first one's fallback answer for the second and hide its own uploaded track.
+  private loadTrack(cue:BgmCue):Promise<void>{    const chosen=this.resolved.get(cue);
+    if(chosen&&this.buffers.has(chosen))return Promise.resolve();
+    const pending=this.loading.get(cue);if(pending)return pending;
     if(!this.context)return Promise.resolve();
-    const load=fetch(url).then(r=>{if(!r.ok)throw new Error(`Music unavailable: ${cue}`);return r.arrayBuffer();})
-      .then(data=>this.context!.decodeAudioData(data)).then(track=>{this.tracks.set(url,track);this.musicError=null;this.sync();})
-      .catch(e=>{this.musicError=String(e.message||e);this.loading.delete(url);});
-    this.loading.set(url,load);return load;
+    const url=MUSIC[cue].url;
+    // A cue may name a file that is not shipped (`highlight.m4a`, `<cue>-theme.*`): try it, then fall
+    // back to what the repository does ship, and remember the winner for this cue.
+    const fetchTrack=(source:string)=>fetch(source).then(r=>{if(!r.ok)throw new Error(`Music unavailable: ${cue}`);return r.arrayBuffer();}).then(data=>this.context!.decodeAudioData(data));
+    const listed=(value:string|string[]|undefined)=>Array.isArray(value)?value:value?[value]:[];
+    // Walk the chain in order: an uploaded track, then the shipped one, then a format this browser
+    // can actually decode. `used` remembers which file won and `failures` why the others did not, so
+    // a track that silently falls back can be explained in the diagnostics panel.
+    let used=url;
+    this.failures.delete(cue);
+    const attempt=(sources:string[]):Promise<AudioBuffer>=>{
+      const [next,...rest]=sources;
+      if(!next)return Promise.reject(new Error(`Music unavailable: ${cue}`));
+      return fetchTrack(next).then(track=>{used=next;return track;}).catch(e=>{
+        const list=this.failures.get(cue)??[];list.push(`${next} → ${String((e as Error)?.message||e).slice(0,90)}`);this.failures.set(cue,list);
+        return attempt(rest);
+      });
+    };
+    const load=attempt([...listed(MUSIC[cue].override),url,...listed(MUSIC[cue].fallback)])
+      .then(track=>{this.buffers.set(used,track);this.resolved.set(cue,used);this.musicError=null;this.sync();})
+      .catch(e=>{this.musicError=String(e.message||e);this.loading.delete(cue);});
+    this.loading.set(cue,load);return load;
   }
-  private position(m:Music){const p=m.offset+(this.context!.currentTime-m.startedAt)*m.rate;return MUSIC[m.cue].loop?p%m.duration:Math.min(p,m.duration);}
+  private position(m:Music){const p=m.offset+(this.context!.currentTime-m.startedAt)*m.rate;return m.loop?p%m.duration:Math.min(p,m.duration);}
+  // The track a cue is currently scoring with. A cue with a hand-off target (`match` → the repository
+  // sting) plays its own recording **once**, and from its end the target takes over on loop; a machine
+  // that has no installed recording at all falls straight through to the target instead of going quiet.
+  private scoring(want:MusicRequest):BgmCue{
+    const then=MUSIC[want.cue].then;
+    if(!then)return want.cue;
+    const handedOver=this.handedOver?.cue===want.cue&&this.handedOver.scope===want.scope;
+    const missing=!this.resolved.has(want.cue)&&!this.loading.has(want.cue);
+    return handedOver||missing?then:want.cue;
+  }
   private sync(){
     const want=this.wanted;if(!this.enabled||!this.context||!want||this.paused)return;
-    const buffer=this.tracks.get(MUSIC[want.cue].url);if(!buffer)return;
-    const countdown=want.cue==='countdown',rate=countdown?Math.max(.5,Math.min(8,want.rate)):1;
+    const cue=this.scoring(want);
+    const chosen=this.resolved.get(cue);
+    const buffer=chosen?this.buffers.get(chosen):undefined;if(!buffer)return;
+    const countdown=cue==='countdown',rate=countdown?Math.max(.5,Math.min(8,want.rate)):1;
     const target=countdown?Math.max(0,Math.min(buffer.duration-.001,5-Math.max(0,want.remaining-(this.context.currentTime-want.at)*rate))):0;
     const s=this.source;
-    if(s&&s.cue===want.cue&&s.scope===want.scope){
+    if(s&&s.cue===cue&&s.scope===want.scope){
       if(!countdown||Math.abs(this.position(s)-target)<.35&&s.rate===rate)return;
     }
     this.fadeOut(.12);const c=this.context,node=c.createBufferSource(),gain=c.createGain();node.buffer=buffer;
-    node.loop=MUSIC[want.cue].loop;node.loopStart=0;node.loopEnd=buffer.duration;node.playbackRate.value=rate;
-    gain.gain.setValueAtTime(.0001,c.currentTime);gain.gain.exponentialRampToValueAtTime(MUSIC[want.cue].gain,c.currentTime+.12);
+    // A hand-off cue runs to its end once, so the loop that follows is the other recording.
+    node.loop=MUSIC[cue].loop&&!MUSIC[cue].then;node.loopStart=0;node.loopEnd=buffer.duration;node.playbackRate.value=rate;
+    gain.gain.setValueAtTime(.0001,c.currentTime);gain.gain.exponentialRampToValueAtTime(MUSIC[cue].gain,c.currentTime+.12);
     node.connect(gain).connect(this.music);node.start(c.currentTime,target);
-    const current:Music={node,gain,offset:target,startedAt:c.currentTime,cue:want.cue,scope:want.scope,rate,duration:buffer.duration};this.source=current;this.musicStarts++;
-    node.onended=()=>{node.disconnect();gain.disconnect();if(this.source===current)this.source=null;};
+    const current:Music={node,gain,offset:target,startedAt:c.currentTime,cue,scope:want.scope,rate,duration:buffer.duration,loop:node.loop};this.source=current;this.musicStarts++;
+    node.onended=()=>{node.disconnect();gain.disconnect();if(this.source!==current)return;
+      this.source=null;
+      if(!MUSIC[cue].then)return;
+      this.handedOver={cue,scope:want.scope};
+      this.sync();
+    };
   }
   private fadeOut(seconds:number){
     const s=this.source;if(!s||!this.context)return;this.source=null;const t=this.context.currentTime;
@@ -302,7 +346,7 @@ export class ArenaAudio {
     }else if(e.type==='rune_activated'){
       const o=this.voice(e,.55,.5,2),pad=this.filter(o,'lowpass',400,3200,.9,t);
       for(const f of [220,277.18,329.63,440])this.tone(pad,t,'sawtooth',f,f,1.7,.16,.12);this.bell(o,t+.25,[[1760,.2,.8],[2637,.12,.6]],1);
-    }else if(e.type==='finish'&&!this.tracks.has(MUSIC.victory.url)){
+    }else if(e.type==='finish'&&!this.resolved.has('victory')){
       const o=this.voice(e,.8,.45,3),brass=this.filter(o,'lowpass',900,2400,.3,t),win=!!e.winner;
       for(const f of win?[196,246.94,293.66]:[196,233.08,293.66])for(const [d,a] of [[1,.14],[1.004,.08]])this.tone(brass,t,'sawtooth',f*d,f*d,.3,a,.02);
       for(const f of win?[261.63,329.63,392,523.25]:[220,261.63,329.63,440])for(const [d,a] of [[1,.14],[1.005,.08]])this.tone(brass,t+.28,'sawtooth',f*d,f*d,1.9,a,.04);
@@ -351,26 +395,23 @@ export class ArenaAudio {
 
 // DOM ceremonies are not in the WebGL canvas, so the export redraws their essentials: countdown numerals and the result title.
 export type RecorderOverlay={kind:'countdown';n:number}|{kind:'title';title:string;sub:string;color:string}|{kind:'intro';title:string;sub:string;lines:string[];image?:string}|{kind:'results';headline:string;rows:{label:string;red:string;blue:string}[]}|{kind:'mvp';name:string;team:string;lines:string[];image?:string}|null;
+// The capture half of a recording: the broadcast canvas plus the mixed soundtrack, encoded as WebM.
+// Saving, converting and retrying belong to `RecordingSession` (recording.ts).
 export class BroadcastRecorder {
   canvas=document.createElement('canvas');ctx:CanvasRenderingContext2D;recorder:MediaRecorder|null=null;source:HTMLCanvasElement|null=null;stream:MediaStream|null=null;started=0;frames=0;chunks:Blob[]=[];overlay:RecorderOverlay=null;announcement:KillHighlight|null=null;
-  private capture:Promise<{blob:Blob;error:string|null}>|null=null;private format:VideoFormat='mp4';
-  private recovery:{blob:Blob;name:string;matchId?:string;duration?:number}|null=null;private overlayImages=new Map<string,HTMLImageElement>();
+  private capture:Promise<{blob:Blob;error:string|null}>|null=null;private overlayImages=new Map<string,HTMLImageElement>();
   constructor(public audio:ArenaAudio){this.canvas.width=1920;this.canvas.height=1080;this.ctx=this.canvas.getContext('2d')!;}
   get active(){return this.recorder?.state==='recording';}
-  get hasRecovery(){return this.recovery!==null;}
-  saveOriginal(){if(this.recovery){download(this.recovery.blob,this.recovery.name);this.recovery=null;}}
-  discardOriginal(){this.recovery=null;}
-  async start(format:VideoFormat='mp4'){
-    if(this.active)throw new Error('录像已经开始');
-    if(this.hasRecovery)throw new Error('请先保存或丢弃上一段原始录像');
+  async start(){
+    if(this.capture)throw new Error('录像已经开始');
     if(!this.source)throw new Error('请等待 3D 场景加载');
     if(!window.MediaRecorder)throw new Error('当前浏览器不支持录像，请使用 Chrome / Edge');
     const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
     if(!mime)throw new Error('当前浏览器不支持录像，请使用桌面应用或 Chrome / Edge');
-    await checkVideoExport(format);await this.audio.enable();
+    await this.audio.enable();
     // Seed a frame even if the renderer is still loading or the scene is paused.
     this.ctx.fillStyle='#10191f';this.ctx.fillRect(0,0,1920,1080);this.frames=0;
-    const stream=this.canvas.captureStream(30);this.stream=stream;this.chunks=[];this.format=format;
+    const stream=this.canvas.captureStream(30);this.stream=stream;this.chunks=[];
     try{
       for(const track of this.audio.destination.stream.getAudioTracks())stream.addTrack(track.clone());
       const recorder=this.recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
@@ -382,21 +423,17 @@ export class BroadcastRecorder {
       this.started=performance.now();recorder.start(1000);
     }catch(error){stream.getTracks().forEach(t=>t.stop());this.stream=null;this.recorder=null;this.capture=null;throw error;}
   }
-  async cancel(){const capture=this.capture;if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();if(capture)await capture;this.capture=null;this.recorder=null;}
-  get canRetrySave(){return !!this.recovery?.matchId;}
-  async retrySave(onProgress:(message:string)=>void=()=>{}){const r=this.recovery;if(!r?.matchId)return;await saveMatchVideo(r.blob,r.matchId,onProgress,r.duration);this.recovery=null;}
-  async stop(onProgress:(message:string)=>void=()=>{},matchId?:string){
-    const capture=this.capture;if(!capture)return;
+  // Ends the capture once the encoder has flushed its last chunk. `duration` is wall-clock time:
+  // the canvas emits fewer frames while paused or under load, and the MP4 keeps the real length.
+  // An encoder error still returns whatever was captured, so the original WebM can be kept.
+  async stop():Promise<{blob:Blob;duration:number;error:string|null}>{
+    const capture=this.capture;if(!capture)throw new Error('没有正在进行的录像');
     const duration=Math.max(.034,(performance.now()-this.started)/1000);
     if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();
     const {blob,error}=await capture;this.capture=null;this.recorder=null;
-    const name='rmuc-arena-'+new Date().toISOString().replaceAll(':','-');
-    try{
-      if(error)throw new Error(error);
-      if(matchId)await saveMatchVideo(blob,matchId,onProgress,duration);
-      else{const video=await prepareVideoExport(blob,this.format,onProgress,duration);download(video,`${name}.${this.format}`);}
-    }catch(cause){if(blob.size){this.recovery={blob,name:`${name}.webm`,matchId,duration};throw new Error(`${(cause as Error).message} 原始 WebM 已保留，请点击「保存原始 WebM」。`);}throw cause;}
+    return {blob,duration,error};
   }
+  async cancel(){const capture=this.capture;if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();if(capture)await capture;this.capture=null;this.recorder=null;}
   draw(frame:Frame,metadata:Metadata|null){if(!this.active||!this.source)return;this.frames++;const c=this.ctx;c.fillStyle='#10191f';c.fillRect(0,0,1920,1080);const scale=Math.min(1920/this.source.width,942/this.source.height),w=this.source.width*scale,h=this.source.height*scale;c.drawImage(this.source,(1920-w)/2,90+(942-h)/2,w,h);c.fillStyle='#0f181ee8';c.fillRect(0,0,1920,90);c.fillRect(0,1030,1920,50);c.textBaseline='middle';c.textAlign='left';c.fillStyle='#e6b66c';c.font='bold 25px sans-serif';c.fillText('RMUC / STRATEGY LEAGUE',28,44);c.fillStyle='#e78e7e';c.font='bold 26px sans-serif';c.fillText(`${strategyDisplayName(metadata?.teams.red)||'红方'}  ${Math.floor(frame.teams.red.score)}`,470,44);c.textAlign='right';c.fillStyle='#83c5e9';c.fillText(`${Math.floor(frame.teams.blue.score)}  ${strategyDisplayName(metadata?.teams.blue)||'蓝方'}`,1490,44);c.textAlign='center';c.fillStyle='#edf2f5';c.font='32px monospace';c.fillText(clock(frame.remaining),960,44);c.font='16px sans-serif';c.fillStyle='#9cabb6';c.fillText(`RUST ENGINE · SEED ${frame.seed} · ${frame.arena.name.toUpperCase()} · ${frame.status==='finished'?(frame.winner?.toUpperCase()||'DRAW')+' / MATCH COMPLETE':`${frame.robots.filter(r=>r.team==='red').length}v${frame.robots.filter(r=>r.team==='blue').length} / RMUC ${frame.season||(frame.arena.name==='rmuc2027'?'2027':'2026')}`}`,960,1056);
     c.font='15px sans-serif';c.textAlign='left';c.fillStyle='#ca9f96';c.fillText(`基地 ${Math.ceil(frame.bases.red.hp)} / ${frame.bases.red.max_hp}   前哨 ${Math.ceil(frame.outposts?.red.hp||0)} / ${frame.outposts?.red.max_hp||1500}`,470,74);c.textAlign='right';c.fillStyle='#8ebacf';c.fillText(`基地 ${Math.ceil(frame.bases.blue.hp)} / ${frame.bases.blue.max_hp}   前哨 ${Math.ceil(frame.outposts?.blue.hp||0)} / ${frame.outposts?.blue.max_hp||1500}`,1490,74);
     // RMUC 2027 ranks timeouts by cumulative control degree, so the export carries it under the clock like the live HUD.

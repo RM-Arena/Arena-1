@@ -142,5 +142,5 @@
 @keyframes li-vs{from{opacity:0;transform:translateX(-50%) scale(3)}}
 @keyframes li-stamp{from{opacity:0;transform:scale(2.2)}}
 @media (prefers-reduced-motion:reduce){.cer-lineup *,.cer-lineup *:before,.cer-lineup *:after{animation-duration:.01s!important;animation-delay:0s!important;animation-iteration-count:1!important}}
-.viewport.intro-active .viewport-camera,.viewport.intro-active .viewport-bottom{opacity:0;pointer-events:none}
+.viewport.intro-active .viewport-bottom{opacity:0;pointer-events:none}
 .li-agent:before{content:'';position:absolute;left:-60px;right:-60px;top:-40px;bottom:-50px;z-index:-1;background:radial-gradient(ellipse at 50% 45%,rgba(4,6,10,.82),rgba(4,6,10,.55) 50%,transparent 72%);animation:li-fade .5s .25s both}

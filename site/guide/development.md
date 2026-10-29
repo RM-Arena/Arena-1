@@ -23,6 +23,9 @@ python scripts/project.py run
 打开 `http://127.0.0.1:8765`。前端热更新可另开终端运行 `bun run dev`，Vite 将 API 和
 WebSocket 代理至 Python 服务。现有 `scripts/start.sh` 仍用于 macOS / Linux 一键准备和启动。
 
+端口 8765 若已被别的程序占用（Windows 上输入法、Hyper-V 端口保留都会占它，`project.py` 会直接给出提示），
+换一个端口即可：`python scripts/project.py run --port 8800`，访问 `http://127.0.0.1:8800`。
+
 ## 按赛季运行一局
 
 CLI 默认使用 2027 全队基线与守势示例，地图按策略赛季推断；也可以显式指定：

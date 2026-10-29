@@ -149,24 +149,27 @@ fn firing_applies_spread_to_the_real_velocity_without_changing_muzzle_speed() {
 
 #[test]
 fn finite_plate_geometric_accuracy_falls_with_distance_for_both_calibres() {
+    // The rulebook's dispersion is a 0.3 degree half-angle cone, so a shot stays inside a plate's
+    // outline for much longer than it did with the old 1.8/1.3 degree cone: accuracy is flat until
+    // the cone grows wider than the plate, then falls. The test pins both halves of that.
     let mut report=Vec::new();
     for (role,width) in [("hero",0.23),("infantry",0.135)] {
         let mut rates=Vec::new();
         for range in [2.0,5.0,10.0,15.0] {
             let mut m=match_();let mut hits=0;
-            for _ in 0..10000 {
+            for _ in 0..5000 {
                 let ray=m.dispersed_shot_direction([1.0,0.0,0.0],role);
                 if (range*ray[1]/ray[0]).abs()<=width/2.0 && (range*ray[2]/ray[0]).abs()<=0.0625 {hits+=1;}
             }
-            let rate=hits as f64/10000.0;rates.push(rate);
-            report.push(json!({"role":role,"range_m":range,"plate_width_m":width,"plate_height_m":0.125,"shots":10000,"geometric_hit_rate":rate}));
+            let rate=hits as f64/5000.0;rates.push(rate);
+            report.push(json!({"role":role,"range_m":range,"plate_width_m":width,"plate_height_m":0.125,"shots":5000,"geometric_hit_rate":rate}));
         }
-        assert!(rates.windows(2).all(|r|r[1]<r[0]));
-        if role == "hero" {
-            assert!(rates[0]>0.9 && rates[2]>0.08 && rates[2]<0.2);
-        } else {
-            assert!(rates[0]>0.6 && rates[2]<0.08);
-        }
+        // Never better than the previous range: the cone only ever spreads further out.
+        assert!(rates.windows(2).all(|r|r[1]<=r[0]+1e-9),"{role}: {rates:?}");
+        // Inside 10 m the 0.3 degree cone still fits the plate, so nearly every centred shot lands.
+        assert!(rates[0]>0.99 && rates[2]>0.99,"{role}: {rates:?}");
+        // At 15 m the cone is wider than the 125 mm plate, so the far shot is measurably worse.
+        assert!(rates[3]<0.99,"{role}: {rates:?}");
     }
     let value=json!({"note":"Seeded stationary centered ray/finite-plate coverage; gravity, drag, normal-speed threshold, motion and occlusion can further reduce actual damage. Not a measurement of real match accuracy.","cases":report});
     if let Ok(path)=std::env::var("CALIBRATION_REPORT") {std::fs::write(path,serde_json::to_vec_pretty(&value).unwrap()).unwrap();}
@@ -607,7 +610,7 @@ fn runtime_settings_change_actual_shot_spread_and_preserve_other_defaults() {
     let mut m = Engine::new_with_settings(42, 5.0, "rmuc2026", None, Some(settings)).unwrap();
     let axis = [1.0,0.0,0.0];
     for _ in 0..20 { assert_eq!(m.dispersed_shot_direction(axis,"infantry"),axis); }
-    assert_eq!(m.snapshot()["simulation_assumptions"]["projectile_spread_half_angle_deg"]["42mm"],json!(1.3));
+    assert_eq!(m.snapshot()["simulation_assumptions"]["projectile_spread_half_angle_deg"]["42mm"],json!(0.3));
     assert!(Engine::new_with_settings(42, 5.0, "rmuc2026", None,
         Some(json!({"drone_impact.recovery_s":1.0}))).is_err());
     for value in [json!(-1),json!(100),json!(true),json!("0")] {

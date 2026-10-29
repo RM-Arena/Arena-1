@@ -603,7 +603,7 @@ def decide(robot, obs):
 ## Appendix: Common Mistakes
 
 - Thinking in 2026 terms: expecting a slot 2 engineer, base HP as the first timeout criterion, or slot 6 firing with `support=True`. 2027 aerial robots only ram.
-- Sending `fire=True` with the heavy robot before its launcher is `fitted` (including an early-fitted but still locked `fitted_locked`): nothing fires. The first shot after fitting deals no damage.
+- Sending `fire=True` with the heavy robot before its launcher is `fitted`, or while a fitted launcher still waits for the team's usage right: nothing fires. The first shot after fitting deals no damage.
 - Sending `install_launcher=True` once: park still at the workbench and send it in **every action**.
 - Starting an assembly without a carried energy unit, or level 4 with only one.
 - Pounding a base while its outpost position is still fully controlled by its owner — the base is invulnerable then.

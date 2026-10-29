@@ -54,10 +54,16 @@ Original project material is covered by
 the project's non-commercial learning license.
 
 The supplied recordings `home.mp3`, `intro-free.m4a`, `summoning-glory.m4a`
-and announcer audio are external material, not relicensed as original
-Arena-1 work. The maintainer has confirmed redistribution permission for
-the three supplied music tracks. Any additional use of external recordings
-must comply with the permission of their respective rights holders.
+and `summoning-glory.mp3`, the cue themes `match-theme`, `pick-theme`,
+`results-theme`, `mvp-theme` and `highlight-theme` (each shipped as `.m4a`
+and `.mp3`), and announcer audio are external material, not relicensed as
+original Arena-1 work. The maintainer has confirmed redistribution permission
+for these supplied tracks. Any additional use of external recordings must
+comply with the permission of their respective rights holders.
+
+Per-machine overrides (`<cue>-custom.m4a` / `.mp3`) are ignored by git and are
+not distributed with the project; whoever installs one is responsible for its
+permissions.
 
 The simulated rules and dimensions are documented in
 `docs/RULES_IMPLEMENTATION_AUDIT.md`; the original competition rules PDF

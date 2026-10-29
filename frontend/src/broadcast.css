@@ -59,6 +59,10 @@
 .bc-card-id>span{font-size:15px;font-weight:700;line-height:24px;flex:1;white-space:nowrap;overflow:hidden}
 .bc-card-hp{position:absolute;left:0;right:0;top:72px;height:8px;background:#1a1d22;border:1px solid rgba(255,255,255,.25);overflow:hidden}
 .bc-card-hp>i{position:absolute;inset:0 auto 0 0;background:linear-gradient(180deg,#ff6b63,var(--r));transition:width .2s}.blue .bc-card-hp>i{background:linear-gradient(180deg,#6dbaff,var(--b))}
+/* A pilot's enemy card keeps its health bar but never publishes the value: a flat grey track. */
+.bc-card-hp.muted{background:#2a2f35;border-color:rgba(255,255,255,.16)}
+.bc-card-hp.muted>i{background:linear-gradient(180deg,#6d7783,#3f4750);opacity:.7}
+.bc-card-meta.muted{color:#7c8893;letter-spacing:2px}
 .bc-card-hp>s{position:absolute;top:0;bottom:0;width:2px;background:rgba(0,0,0,.55)}
 .bc-card-meta{position:absolute;left:0;right:0;top:82px;display:flex;justify-content:space-between;font-size:14px;color:#dfe5ea;font-family:var(--num);text-shadow:0 1px 2px #000;padding:0 2px}
 .bc-card-meta small{font-size:11px;color:#9fb0bc;font-family:"PingFang SC",system-ui}
@@ -94,8 +98,12 @@
 .mm-bot text{font:700 10px var(--num);fill:#fff}
 .bc-plate{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:440px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:linear-gradient(180deg,rgba(40,48,58,.92),rgba(10,13,18,.95));clip-path:polygon(9% 0,91% 0,100% 100%,0 100%);border-top:2px solid rgba(255,255,255,.25)}
 .bc-plate span{font-size:22px;font-weight:700;letter-spacing:2px}.bc-plate b{font-size:30px;font-style:italic;letter-spacing:5px}
-.compact .bc-cards,.compact .bc-outpost{display:none}.compact .bc-team-main{width:360px}.compact .bc-side.red{right:calc(50% + 152px)}.compact .bc-side.blue{left:calc(50% + 152px)}
-.compact .bc-tickers{top:200px}.compact .bc-killfeed{top:280px}.compact .bc-mini{width:260px;height:140px;right:18px;bottom:18px}.compact .bc-plate{display:none}.compact .bc-toast{bottom:40px}
+.compact .bc-outpost{display:none}.compact .bc-team-main{width:360px}.compact .bc-side.red{right:calc(50% + 152px)}.compact .bc-side.blue{left:calc(50% + 152px)}
+/* Narrow windows keep the robot cards: the HP row is match information a pilot must not lose.
+   100 px cards keep the five-card row inside the compact canvas on both sides of the clock, and
+   the tickers start below the row so a warning never covers a health bar. */
+.compact .bc-cards.red{right:calc(50% + 152px)}.compact .bc-cards.blue{left:calc(50% + 152px)}.compact .bc-card{width:100px}
+.compact .bc-tickers{top:244px}.compact .bc-killfeed{top:280px}.compact .bc-mini{width:260px;height:140px;right:18px;bottom:18px}.compact .bc-plate{display:none}.compact .bc-toast{bottom:40px}
 @keyframes bc-slide-l{from{transform:translateX(-40px);opacity:0}}@keyframes bc-slide-r{from{transform:translateX(40px);opacity:0}}
 @keyframes bc-banner{0%{opacity:0;letter-spacing:22px}12%{opacity:1;letter-spacing:2px}85%{opacity:1}100%{opacity:0}}
 @keyframes bc-toast{0%{opacity:0;transform:translate(-50%,30px)}8%{opacity:1;transform:translate(-50%,0)}90%{opacity:1}100%{opacity:0}}
@@ -206,15 +214,106 @@
 .mvp-line{display:flex;align-items:center;justify-content:space-between;padding:16px 34px;background:linear-gradient(90deg,rgba(255,255,255,.07),rgba(255,255,255,.02));clip-path:polygon(3% 0,100% 0,97% 100%,0 100%)}
 .mvp-line span{font-size:28px;color:#d8dfe5}.mvp-line b{font-size:56px;font-style:italic;font-weight:800}.mvp-line b small{font-size:30px;margin-left:4px}
 .mvp-panel p{font-size:18px;color:#9aa6b0;margin-top:6px}
-@keyframes mvp-word{from{opacity:0;transform:translateX(-120px)}}@keyframes mvp-streak{from{opacity:0;transform:rotate(-4deg) scaleX(.2)}}@keyframes mvp-robot{from{opacity:0;transform:translateY(60px) scale(.9)}}
+@keyframes mvp-word{from{opacity:0;transform:translateX(-120px)}}
+/* highlight reel */
+.bc-stage.cer-highlight{z-index:6;pointer-events:auto;background:#05070b;--c1:#ec3239;--c2:#5a0a10;animation:res-in .4s ease-out both}
+.bc-stage.cer-highlight.blue{--c1:#2296f3;--c2:#06264f}
+.hl-tint{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 60%,color-mix(in srgb,var(--c1) 40%,transparent),transparent 62%),linear-gradient(160deg,#05070b,#0a0d12)}
+.hl-shards i{position:absolute;left:50%;top:50%;width:2px;height:240px;transform-origin:50% 0;background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 70%,transparent),transparent);opacity:.35;animation:hl-shard 1.4s ease-out both;animation-delay:calc(var(--i)*20ms)}
+@keyframes hl-shard{from{opacity:0;transform:rotate(calc(var(--i)*25.7deg)) scaleY(.2)}to{opacity:.35;transform:rotate(calc(var(--i)*25.7deg)) scaleY(1)}}
+.hl-cut{position:absolute;inset:0;animation:hl-in .5s cubic-bezier(.2,.9,.22,1) both}
+.hl-flash{position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffff1f,transparent);animation:hl-flash .7s ease-out both}
+.hl-sweep{position:absolute;top:0;bottom:0;width:36%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c1) 26%,transparent),transparent);animation:hl-sweep 1.2s cubic-bezier(.3,0,.2,1) .15s both}
+.hl-head{position:absolute;left:70px;top:56px;display:flex;align-items:flex-end;gap:22px}
+.hl-badge{font:italic 800 26px "DIN Alternate","Bahnschrift",system-ui;letter-spacing:8px;padding:8px 18px;color:#0a0d12;background:linear-gradient(90deg,#f5f8fb,#c8d2dc);clip-path:polygon(6% 0,100% 0,94% 100%,0 100%)}
+.hl-head b{font:italic 900 84px/1 "DIN Alternate","Bahnschrift",system-ui;color:var(--c1);text-shadow:0 0 26px color-mix(in srgb,var(--c1) 70%,transparent)}
+.hl-head b small{font-size:30px;color:#8b98a3;text-shadow:none}
+.hl-clock{font:italic 800 34px "DIN Alternate",system-ui;color:#cfd9e2;letter-spacing:2px}
+.hl-title{position:absolute;left:76px;top:170px;max-width:900px}
+.hl-title>span{display:block;font:italic 900 92px/1.05 "PingFang SC",system-ui;letter-spacing:4px;color:#f4f8fb;text-shadow:0 6px 30px #000c}
+.hl-title>small{display:block;margin-top:14px;font-size:24px;line-height:1.5;color:#b6c2cc}
+.hl-star{position:absolute;left:70px;bottom:130px;display:flex;align-items:flex-end;gap:28px}
+.hl-star>img{width:520px;height:400px;object-fit:contain;filter:drop-shadow(0 26px 40px #000c);animation:mvp-robot 1s cubic-bezier(.2,1,.3,1) both}
+.hl-ghost{display:block;width:200px;height:2px;background:linear-gradient(90deg,var(--c1),transparent)}
+.hl-star-id{display:flex;flex-direction:column;gap:14px;padding-bottom:12px}
+.hl-star-id em{font:italic 900 74px/1 "DIN Alternate",system-ui;color:var(--c1);text-shadow:0 0 18px color-mix(in srgb,var(--c1) 60%,transparent)}
+.hl-star-id span{font-size:20px;color:#9fb0bd;letter-spacing:2px}
+.hl-star-id b{display:block;font:700 34px "PingFang SC",system-ui;color:#eef4f9}
+.hl-star-id small{font-size:18px;color:#8b98a3}
+.hl-metrics{display:flex;gap:26px;margin-top:10px}
+.hl-metrics span{font-size:18px;color:#9fb0bd}.hl-metrics b{margin-left:8px;font:italic 800 40px "DIN Alternate",system-ui;color:#f2f7fb}
+.hl-victims{position:absolute;right:80px;bottom:150px;display:flex;gap:18px}
+.hl-victims>span{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 18px;background:rgba(10,14,20,.78);border:1px solid rgba(255,255,255,.14);clip-path:polygon(8% 0,100% 0,92% 100%,0 100%)}
+.hl-victims img{width:96px;height:96px;object-fit:contain;filter:grayscale(.4)}
+.hl-victims b{font:italic 900 40px "DIN Alternate",system-ui;color:#f0f4f8}.hl-victims small{font-size:16px;color:#94a2ae}
+.hl-pips{position:absolute;left:70px;bottom:64px;display:flex;gap:10px}
+.hl-pips i{width:52px;height:6px;background:#2a3641}.hl-pips i.done{background:#5d6f7d}.hl-pips i.now{background:var(--c1);box-shadow:0 0 14px var(--c1)}
+.hl-progress{position:absolute;left:0;right:0;bottom:0;height:4px;background:#ffffff12}.hl-progress i{display:block;height:100%;background:linear-gradient(90deg,var(--c1),#f5f8fb)}
+@keyframes hl-in{from{opacity:0;transform:scale(1.04)}}@keyframes hl-flash{from{opacity:.9}to{opacity:0}}@keyframes hl-sweep{from{transform:translateX(-40%)}to{transform:translateX(320%)}}
+.hl-empty{position:absolute;left:90px;top:44%;display:flex;flex-direction:column;gap:18px;max-width:1100px}
+.hl-empty h2{margin:0;font:italic 900 62px/1.1 "PingFang SC",system-ui;color:#f2f7fb}
+.hl-empty p{margin:0;font-size:22px;line-height:1.6;color:#9fb0bd}
+/* ---- highlight HUD over the reel's real footage
+   The clip plays underneath on the field itself, so the overlay stays broadcast-thin: a corner badge
+   and a lower third, never a card that covers the engagement. */
+.hl-hud{position:absolute;inset:0;z-index:6;pointer-events:none;--c1:#ec3239;animation:hl-in .35s ease-out both}
+.hl-hud::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(115% 85% at 2% 0%,rgba(3,6,10,.5),transparent 48%)}
+.hl-hud.blue{--c1:#2296f3}
+.hl-hud-top{position:absolute;left:26px;top:18px;display:flex;align-items:center;gap:16px;padding:7px 22px 7px 0;
+  background:linear-gradient(100deg,rgba(5,9,14,.55),transparent 92%)}
+.hl-hud-top .hl-badge{font-size:12px;letter-spacing:5px;padding:5px 12px}
+.hl-hud-top b{font:italic 900 26px/1 "DIN Alternate","Bahnschrift",system-ui;letter-spacing:2px;color:#eaf3f9;text-shadow:0 2px 14px #000c}
+.hl-hud-top b small{font-size:13px;color:#7f8d99;text-shadow:none}
+.hl-hud-top .hl-clock{font:italic 700 13px/1 "DIN Alternate",system-ui;letter-spacing:3px;color:#9fb0bd;padding-left:15px;border-left:1px solid rgba(143,211,232,.3)}
+.hl-hud-card{position:absolute;left:26px;bottom:30px;display:flex;flex-direction:column;gap:7px;padding:13px 24px 14px;
+  min-width:min(44vw,460px);max-width:min(58vw,700px);border-left:3px solid var(--c1);backdrop-filter:blur(7px);
+  background:linear-gradient(100deg,rgba(6,10,16,.88),rgba(8,14,22,.5) 74%,transparent);animation:hl-hud-in .45s cubic-bezier(.2,.9,.22,1) both}
+.hl-hud-title>span{display:block;font:italic 900 28px/1.1 "PingFang SC",system-ui;letter-spacing:2px;color:#f4f8fb;text-shadow:0 4px 18px #000c}
+.hl-hud-title>small{display:block;margin-top:4px;font-size:13px;line-height:1.45;color:#b6c2cc}
+.hl-hud-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px;font-size:12px;letter-spacing:1px;color:#9fb0bd}
+.hl-hud-meta b{margin-left:6px;font:italic 800 18px "DIN Alternate",system-ui;color:#f2f7fb}
+.hl-hud-star{color:#cfe6ff}.hl-hud-down{color:#ff9a92}
+.hl-hud-pips{display:flex;gap:6px;margin-top:3px}
+.hl-hud-pips i{width:34px;height:3px;background:#2a3641}.hl-hud-pips i.done{background:#5d6f7d}
+.hl-hud-pips i.now{background:var(--c1);box-shadow:0 0 10px var(--c1)}
+.hl-hud-progress{height:2px;margin-top:4px;overflow:hidden;background:#ffffff14}
+.hl-hud-progress i{display:block;height:100%;width:100%;transform-origin:0 50%;background:linear-gradient(90deg,var(--c1),#f5f8fb);animation-name:hl-hud-bar;animation-timing-function:linear;animation-fill-mode:both}
+.hl-hud-skip{position:absolute;right:24px;bottom:30px;pointer-events:auto;padding:8px 16px;font:600 12px "PingFang SC",system-ui;letter-spacing:2px;
+  color:#cfe6ff;background:rgba(8,16,24,.66);border:1px solid rgba(143,211,232,.34);border-radius:3px;backdrop-filter:blur(7px)}
+.hl-hud-skip:hover{background:rgba(16,32,44,.86);border-color:rgba(143,211,232,.72)}
+.hl-hud-skip:disabled{opacity:.45;pointer-events:none}
+@keyframes hl-hud-in{from{opacity:0;transform:translateX(-26px)}}
+@keyframes hl-hud-bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* The reel is broadcast footage: the field's own caption strip has nothing to say over it. */
+.viewport.highlight-reel .viewport-bottom{display:none}
+/* The reel is cut server-side from the referee's own frame log; that request takes a moment, and a
+   field that just sits there with no explanation looks like a crash. */
+.hl-notice{position:absolute;inset:0;z-index:6;display:grid;place-content:center;justify-items:center;gap:16px;
+  background:radial-gradient(ellipse at 50% 55%,rgba(8,20,30,.82),rgba(4,7,11,.94));color:#cfe6ff;
+  font:600 15px/1.5 "PingFang SC",system-ui;letter-spacing:1px;animation:res-in .3s ease-out both}
+.hl-notice p{margin:0;max-width:44ch;text-align:center;color:#9fb0bd}
+@keyframes mvp-streak{from{opacity:0;transform:rotate(-4deg) scaleX(.2)}}@keyframes mvp-robot{from{opacity:0;transform:translateY(60px) scale(.9)}}
 /* ---- fullscreen controls (outside the scaled stage) */
 .fullscreen-toggle{position:absolute;top:10px;right:10px;z-index:8;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;color:#e8eef3;background:rgba(8,12,18,.72);border:1px solid rgba(255,255,255,.28);border-radius:4px;backdrop-filter:blur(4px)}
 .fullscreen-toggle:hover{background:rgba(20,28,38,.9);border-color:rgba(255,255,255,.5)}
 .viewport:fullscreen .fullscreen-toggle{top:14px;right:14px;font-size:13px;padding:8px 12px}
-.fullscreen-controls{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(8,12,18,.82);border:1px solid rgba(255,255,255,.22);border-radius:8px;color:#e8eef3;font:600 13px "DIN Alternate","Bahnschrift",system-ui;transition:opacity .3s}
-.fullscreen-controls.idle{opacity:0;pointer-events:none}
+.fullscreen-controls{position:absolute;left:12px;bottom:10px;z-index:8;display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(8,12,18,.82);border:1px solid rgba(255,255,255,.22);border-radius:8px;color:#e8eef3;font:600 13px "DIN Alternate","Bahnschrift",system-ui;animation:fullscreen-strip-in .16s ease-out both}
+@keyframes fullscreen-strip-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* The strip is folded by default: fullscreen is also where the ceremony's own buttons live along the
+   bottom, so a bar that reappeared on every mouse move sat on top of them. This small tab is the
+   handle — click it for the transport, and it folds again the moment the pointer leaves. It sits at
+   the left edge because every ceremony footer (「回到战场」/「跳过高光」) is centred. */
+.fullscreen-tab{position:absolute;left:12px;bottom:10px;z-index:8;display:grid;place-items:center;width:56px;height:10px;padding:0;border:1px solid rgba(255,255,255,.24);border-radius:99px;background:rgba(8,12,18,.5);backdrop-filter:blur(4px);cursor:pointer;transition:width .16s ease,height .16s ease,background-color .16s ease,border-color .16s ease}
+.fullscreen-tab i{display:block;width:26px;height:2px;border-radius:2px;background:#879faf;transition:background-color .16s ease,box-shadow .16s ease}
+.fullscreen-tab:hover,.fullscreen-tab:focus-visible{width:66px;height:13px;border-color:rgba(255,255,255,.52);background:rgba(16,24,34,.88);outline:none}
+.fullscreen-tab:hover i,.fullscreen-tab:focus-visible i{background:#e8c083;box-shadow:0 0 10px rgba(232,192,131,.65)}
 .fullscreen-controls button{padding:6px;border:0;background:transparent;color:inherit}.fullscreen-controls button:hover{background:rgba(255,255,255,.12)}
-.fullscreen-controls input[type=range]{width:min(40vw,520px);accent-color:#f2c35b}
+.fullscreen-controls input[type=range]{accent-color:#f2c35b}
+/* Only the strip's own replay timeline is the wide slider. The BGM volume ride sits inside
+   `.audio-controls`, which fixes its own 98 px track; a bare descendant rule reached it as well and
+   stretched the whole strip across the screen. */
+.fullscreen-controls>input[type=range]{width:min(40vw,520px)}
+.fullscreen-controls .audio-controls input[type=range]{width:98px}
 .fullscreen-controls select{padding:4px 6px;font-size:12px;background:#151e25;color:#e8eef3;border:1px solid #33424d;border-radius:4px}
 .viewport:fullscreen .viewport-bottom,.viewport.page-fullscreen .viewport-bottom{display:none}
 .viewport.page-fullscreen{position:fixed;inset:0;z-index:1000;width:100vw;height:100vh;height:100dvh;margin:0;border-radius:0;background:#05080c}
@@ -223,6 +322,13 @@
 .bc-card-agent{position:absolute;left:50%;top:-15px;transform:translateX(-50%);z-index:2;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#1b222c,#07090d);border:2px solid var(--r);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.7)}
 .bc-card.blue .bc-card-agent{border-color:var(--b)}
 .bc-card.dead .bc-card-agent{filter:grayscale(1) brightness(.6)}
+/* A chassis the player has taken over glows gold and says so: P1 replaces the strategy badge. */
+.bc-card-agent.pilot{width:32px;height:32px;font:700 12px/1 "DIN Alternate","Bahnschrift",ui-monospace,monospace;letter-spacing:.5px;color:#08151c;background:linear-gradient(180deg,#d9f3ff,#79c9ee);border-color:#d9f3ff;box-shadow:0 0 0 2px #000a,0 0 14px #7fd0ffcc;animation:bc-p1-pulse 2.4s ease-in-out infinite}
+/* The pilot badge reads as the side it belongs to: red chassis in red, blue chassis in blue. */
+.bc-card.red .bc-card-agent.pilot{color:#2b0603;background:linear-gradient(180deg,#ffdcd7,#ff7a68);border-color:#ffdcd7;box-shadow:0 0 0 2px #000a,0 0 14px #ff5b4dcc}
+.bc-card.blue .bc-card-agent.pilot{color:#04101f;background:linear-gradient(180deg,#daeaff,#6fb2ff);border-color:#daeaff;box-shadow:0 0 0 2px #000a,0 0 14px #4f9dffcc}
+.bc-card.dead .bc-card-agent.pilot{filter:none;opacity:.72;animation:none}
+@keyframes bc-p1-pulse{0%,100%{box-shadow:0 0 0 2px #000a,0 0 10px #7fd0ff88}50%{box-shadow:0 0 0 2px #000a,0 0 18px #7fd0ffe0}}
 /* RMUC 2027 control positions and control degree. */
 .bc-position{font-size:9px;letter-spacing:.5px;padding:1px 5px;border-radius:3px;background:#0008}.bc-position.red{color:#f2a597}.bc-position.blue{color:#9fd2ef}
 .bc-control{padding:2px 12px;margin-top:4px;border-radius:3px;background:rgba(8,11,16,.82);box-shadow:0 0 0 1px rgba(232,193,126,.25)}.bc-control span{color:#f5dfa8}.bc-control small{color:#e1c38a}

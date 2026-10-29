@@ -1,6 +1,6 @@
 import {Fragment,useEffect,useMemo,useRef,useState,type CSSProperties,type FormEvent,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
-import {ArrowLeft,ArrowRight,Check,ChevronDown,CircleAlert,CircleCheck,FileQuestion,FileText,Lock,Pencil,RotateCw,Search,Sparkles,Swords,TriangleAlert,Trophy,Upload,X} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Check,ChevronDown,CircleAlert,CircleCheck,FileQuestion,FileText,Github,Lock,Pencil,RotateCw,Search,Sparkles,Swords,TriangleAlert,Trophy,Upload,X} from 'lucide-react';
 import {MODE_LABELS,ROLE_NAMES,type ControlMode,type Showcase,type StrategyDetail,type StrategySummary,type StrategyTag,type Tactic} from './types';
 import {LLM_PROVIDERS,PROVIDERS,detectProvider,providerOf,type AgentProvider} from './agents';
 import {AgentBadge} from './agentLogos';
@@ -14,8 +14,9 @@ const SHORT:Partial<Record<AgentProvider,string>>={'bytedance-seed':'ByteDance'}
 const MODE_ORDER:ControlMode[]=['team','distributed','squad','robot','adaptive'];
 const TACTIC_ORDER:Tactic[]=['balanced','assault','siege','guard','economy'];
 const TAG_ORDER=Object.keys(TAGS) as StrategyTag[];
-type Sort='new'|'elo'|'name';
-const SORTS:[Sort,string][]=[['new','最新'],['elo','Elo'],['name','名称']];
+type Sort='elo'|'new'|'name';
+// The library opens on the ranking: the strongest strategies first, unranked ones after them.
+const SORTS:[Sort,string][]=[['elo','Elo'],['new','最新'],['name','名称']];
 // The 57 organizer presets (3 per robot model) are near-identical, so they live in a collapsed shelf below the user strategies.
 const isPreset=(s:StrategySummary)=>s.bundled&&s.mode==='adaptive'&&!!s.preset;
 const authorOf=(s:StrategySummary)=>providerOf(s.profile?.agent??s.agent);
@@ -24,14 +25,20 @@ const day=(ms:number)=>ms?new Date(ms).toLocaleDateString('zh-CN',{year:'numeric
 const bytes=(n:number)=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(2)} MB`;
 const light=(color:string)=>`color-mix(in srgb,${color} 76%,#fff)`;
 const byTitle=(a:StrategySummary,b:StrategySummary)=>strategyTitle(a).localeCompare(strategyTitle(b),'zh-CN');
-const SORTERS:Record<Sort,(a:StrategySummary,b:StrategySummary)=>number>={new:(a,b)=>stamp(b)-stamp(a)||Number(a.bundled)-Number(b.bundled)||byTitle(a,b),elo:(a,b)=>(b.standing?.rating??-1)-(a.standing?.rating??-1)||byTitle(a,b),name:byTitle};
+const SORTERS:Record<Sort,(a:StrategySummary,b:StrategySummary)=>number>={new:(a,b)=>stamp(b)-stamp(a)||Number(a.bundled)-Number(b.bundled)||byTitle(a,b),elo:(a,b)=>(b.standing?.rating??-1)-(a.standing?.rating??-1)||(b.standing?.games??0)-(a.standing?.games??0)||byTitle(a,b),name:byTitle};
+// Who uploaded the strategy: the library's own entries are RM-Arena's, an upload names its uploader.
+function Uploader({s,className=''}:{s:StrategySummary;className?:string}){
+  const login=s.profile?.github;
+  if(!login)return <span className={`sg-github none ${className}`} title="上传时没有填写 GitHub 用户名，可在「编辑分类」中补充"><Github size={12}/>未填写 GitHub</span>;
+  return <a className={`sg-github ${className}`} href={`https://github.com/${login}`} target="_blank" rel="noopener noreferrer" title={`上传者 GitHub：github.com/${login}`} aria-label={`上传者 GitHub 主页：${login}`} onClick={e=>e.stopPropagation()}><Github size={12}/>{login}</a>;
+}
 function modelLine(s:StrategySummary){const a=s.profile?.agent??s.agent,p=providerOf(a);return a?.model||(p==='human'?s.profile?.author||'人工编写':PROVIDERS[p].maker);}
 function haystack(s:StrategySummary){const p=authorOf(s);return [s.name,s.key,strategyTitle(s),s.showcase?.tagline,s.profile?.description,s.profile?.author,s.profile?.agent?.model,PROVIDERS[p].name,PROVIDERS[p].maker,PROVIDERS[p].examples,s.model_name,s.preset?.name,MODE_LABELS[s.mode],TACTICS[tacticOf(s)].name,...(s.profile?.tags||[]).map(t=>TAGS[t])].filter(Boolean).join(' ').toLowerCase();}
 function Chips({s}:{s:StrategySummary}){const t=TACTICS[tacticOf(s)];return <><span className="sg-chip mode">{MODE_LABELS[s.mode]}</span>{(s.mode==='adaptive'||s.mode==='robot')&&s.model_name&&<span className="sg-chip model">{s.robot?<b>{s.robot}</b>:null}{s.model_name}</span>}<span className="sg-chip tactic" style={{'--tc':t.color} as CSSProperties}><i/>{t.name}</span></>;}
 
 export function StrategyGallery({onUpload,onBattle,refreshKey}:{onUpload:()=>void;onBattle?:(s:StrategySummary)=>void;refreshKey:number}){
   const [list,setList]=useState<StrategySummary[]|null>(null),[error,setError]=useState(''),[reload,setReload]=useState(0),[loading,setLoading]=useState(false);
-  const [authors,setAuthors]=useState<Set<AgentProvider>>(()=>new Set()),[mode,setMode]=useState<ControlMode|'all'>('all'),[tactic,setTactic]=useState<Tactic|'all'>('all'),[query,setQuery]=useState(''),[sort,setSort]=useState<Sort>('new');
+  const [authors,setAuthors]=useState<Set<AgentProvider>>(()=>new Set()),[mode,setMode]=useState<ControlMode|'all'>('all'),[tactic,setTactic]=useState<Tactic|'all'>('all'),[query,setQuery]=useState(''),[sort,setSort]=useState<Sort>('elo');
   const [presetsOpen,setPresetsOpen]=useState<boolean|null>(null),[openKey,setOpenKey]=useState<string|null>(null);
   useEffect(()=>{let live=true;setLoading(true);setError('');
     fetch('/api/strategies').then(async r=>{if(!r.ok)throw new Error(`策略库读取失败（HTTP ${r.status}）`);return r.json() as Promise<StrategySummary[]>;})
@@ -92,14 +99,17 @@ function Segmented<T extends string>({label,value,options,onChange,className=''}
 
 function StrategyCard({s,index,onOpen}:{s:StrategySummary;index:number;onOpen:()=>void}){
   const p=authorOf(s),info=PROVIDERS[p],title=strategyTitle(s),tagline=s.showcase?.tagline||s.profile?.description||s.preset?.description||TACTICS[tacticOf(s)].brief;
-  return <button className={`sg-card ${s.showcase?'':'bare'}`} style={{'--pc':info.color,animationDelay:`${Math.min(index,14)*35}ms`} as CSSProperties} onClick={onOpen} aria-label={`${title}：${info.name} ${modelLine(s)}，${MODE_LABELS[s.mode]}。查看战术卡`}>
+  // The whole card opens the tactics card through a stretched button; the uploader link sits above it.
+  return <div className={`sg-card ${s.showcase?'':'bare'}`} style={{'--pc':info.color,animationDelay:`${Math.min(index,14)*35}ms`} as CSSProperties}>
+    <button className="sg-card-open" onClick={onOpen} aria-label={`${title}：${info.name} ${modelLine(s)}，${MODE_LABELS[s.mode]}。查看战术卡`}/>
     <span className="sg-card-top"><span className="sg-card-badge"><AgentBadge provider={p} size={44}/></span><span className="sg-card-agent"><small>{info.name}</small><b>{modelLine(s)}</b></span><StyleRadar thumb size={60} style={s.showcase?.style??fallbackStyle(s)} color={light(info.color)} auto={!s.showcase}/></span>
     <span className="sg-card-title"><span>{title}</span></span>
     <span className="sg-card-tagline">{tagline}</span>
     <span className="sg-chips"><Chips s={s}/></span>
     <span className="sg-card-foot">{s.standing?<span className="sg-card-elo"><Trophy size={12}/><b>{Math.round(s.standing.rating)}</b><small>{s.standing.wins}胜 {s.standing.losses}负{s.standing.draws?` ${s.standing.draws}平`:''}</small></span>:<span>尚未上榜</span>}
       {s.showcase?<code>{s.version.slice(0,8)}</code>:<span className="sg-card-bare"><FileQuestion size={12}/>暂无展示文件</span>}</span>
-  </button>;
+    <span className="sg-card-uploader"><small>上传者</small><Uploader s={s}/></span>
+  </div>;
 }
 
 function PresetShelf({items,open,onToggle,onOpen}:{items:StrategySummary[];open:boolean;onToggle:()=>void;onOpen:(key:string)=>void}){
@@ -173,7 +183,7 @@ function DetailView({s,onClose,onBattle,onSaved}:{s:StrategySummary;onClose:()=>
           <h2 id="sg-detail-title">{title}</h2>
           {tagline?<p className="sg-hero-tagline">{tagline}</p>:!show&&<Skeleton h={18} w="60%"/>}
           <div className="sg-chips"><Chips s={s}/>{(s.profile?.tags||[]).map(t=><span key={t} className="sg-chip tag">#{TAGS[t]}</span>)}</div>
-          <dl className="sg-hero-meta"><div><dt>作者</dt><dd>{s.profile?.author||(s.profile?.agent??s.agent)?.model||'未署名'}</dd></div><div><dt>版本</dt><dd><code title={s.version}>{s.version.slice(0,8)}</code></dd></div><div><dt>入库</dt><dd>{day(stamp(s))}</dd></div>{s.standing&&<div><dt>Elo</dt><dd className="elo">{Math.round(s.standing.rating)}</dd></div>}</dl>
+          <dl className="sg-hero-meta"><div><dt>作者</dt><dd>{s.profile?.author||(s.profile?.agent??s.agent)?.model||'未署名'}</dd></div><div><dt>版本</dt><dd><code title={s.version}>{s.version.slice(0,8)}</code></dd></div><div><dt>上传者</dt><dd><Uploader s={s}/></dd></div><div><dt>入库</dt><dd>{day(stamp(s))}</dd></div>{s.standing&&<div><dt>Elo</dt><dd className="elo">{Math.round(s.standing.rating)}</dd></div>}</dl>
         </div>
         <div className="sg-hero-actions">{onBattle&&<button className="primary" onClick={()=>onBattle(s)}><Swords size={15}/>用它对战</button>}<button className={editing?'on':''} aria-expanded={editing} onClick={()=>setEditing(v=>!v)}><Pencil size={14}/>编辑分类</button></div>
       </header>
@@ -225,13 +235,13 @@ function DetailView({s,onClose,onBattle,onSaved}:{s:StrategySummary;onClose:()=>
 function ProfileEditor({s,onClose,onSaved}:{s:StrategySummary;onClose:()=>void;onSaved:(s:StrategySummary)=>void}){
   const p=s.profile,first=useRef<HTMLInputElement>(null);
   const [provider,setProvider]=useState<AgentProvider>(authorOf(s)),[model,setModel]=useState((p?.agent??s.agent)?.model||''),[tactic,setTactic]=useState<Tactic>(tacticOf(s)),[tags,setTags]=useState<StrategyTag[]>(p?.tags||[]);
-  const [name,setName]=useState(p?.display_name||''),[author,setAuthor]=useState(p?.author||''),[description,setDescription]=useState(p?.description||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [name,setName]=useState(p?.display_name||''),[author,setAuthor]=useState(p?.author||''),[github,setGithub]=useState(p?.github||''),[description,setDescription]=useState(p?.description||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const choices=AUTHORS;
   useEffect(()=>{first.current?.focus({preventScroll:true});first.current?.scrollIntoView({block:'nearest',behavior:'smooth'});},[]);
   async function submit(e:FormEvent){
     e.preventDefault();setBusy(true);setError('');
     try{
-      const body={agent:{provider,...(model.trim()?{model:model.trim()}:{})},tactic,tags:TAG_ORDER.filter(t=>tags.includes(t)),display_name:name.trim(),author:author.trim(),description:description.trim()};
+      const body={agent:{provider,...(model.trim()?{model:model.trim()}:{})},tactic,tags:TAG_ORDER.filter(t=>tags.includes(t)),display_name:name.trim(),author:author.trim(),github:github.trim(),description:description.trim()};
       const r=await fetch(`/api/strategies/${encodeURIComponent(s.key)}/profile`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const value=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(typeof value?.detail==='string'?value.detail:`保存分类失败（HTTP ${r.status}）`);
@@ -245,6 +255,7 @@ function ProfileEditor({s,onClose,onSaved}:{s:StrategySummary;onClose:()=>void;o
       <label><span>模型名称</span><input ref={first} value={model} maxLength={64} placeholder="如 Claude Opus 5.5、GPT-5、Kimi K2" onChange={e=>{const v=e.target.value,d=detectProvider(v);setModel(v);if(d&&provider==='unknown')setProvider(d);}}/></label>
       <label><span>展示名称</span><input value={name} maxLength={40} placeholder={strategyTitle(s)} onChange={e=>setName(e.target.value)}/></label>
       <label><span>作者署名</span><input value={author} maxLength={40} placeholder="可留空" onChange={e=>setAuthor(e.target.value)}/></label>
+      <label><span>上传者 GitHub</span><input value={github} maxLength={80} placeholder="用户名或主页链接" spellCheck={false} onChange={e=>setGithub(e.target.value)}/></label>
     </div>
     <fieldset className="sg-edit-tactic"><legend>战术定位</legend><div>{TACTIC_ORDER.map(t=><label key={t} className={tactic===t?'on':''} style={{'--tc':TACTICS[t].color} as CSSProperties}><input type="radio" name="sg-tactic" value={t} checked={tactic===t} onChange={()=>setTactic(t)}/><b>{TACTICS[t].name}</b><small>{TACTICS[t].brief}</small></label>)}</div></fieldset>
     <fieldset className="sg-edit-tags"><legend>标签 · 可多选</legend><div>{TAG_ORDER.map(t=>{const on=tags.includes(t);return <label key={t} className={on?'on':''}><input type="checkbox" checked={on} onChange={()=>setTags(old=>on?old.filter(x=>x!==t):[...old,t])}/>{on&&<Check size={12}/>}{TAGS[t]}</label>;})}</div></fieldset>

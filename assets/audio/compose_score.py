@@ -1,11 +1,12 @@
-"""Compose the menu theme, the post-match statistics theme and the MVP theme.
+"""Compose the menu theme (home and lobby).
 
-Hybrid orchestral cues synthesized from scratch at asset-build time, without samples: detuned band-limited
-oscillator ensembles for strings, brass and a formant-filtered choir, an additive piano, FM bells and mallets,
-modelled drums and a synthetic hall. Every cue is a seamless loop: notes, filters and reverb tails that run past
+A hybrid orchestral cue synthesized from scratch at asset-build time, without samples: detuned band-limited
+oscillator ensembles for strings, brass and a formant-filtered choir, an additive piano, FM bells,
+modelled drums and a synthetic hall. The cue is a seamless loop: notes, filters and reverb tails that run past
 the end wrap onto the start. Loudness matches the other broadcast cues (-18 LUFS, -1.5 dBTP) before AAC export.
 
-Requires NumPy and SciPy, plus afconvert (macOS) or ffmpeg, only at asset-build time; the app loads the AAC files.
+Requires NumPy and SciPy, plus afconvert (macOS) or ffmpeg, only at asset-build time; the app loads the AAC files, or
+their MP3 twins (ffmpeg on PATH or the project's imageio-ffmpeg) where a browser has no AAC decoder.
 """
 from pathlib import Path
 import argparse
@@ -87,10 +88,6 @@ def choir(note,length,seed,attack=.55,release=1.1,**_):
     y=sum(g*filt(src,'band',(c-w/2,c+w/2),1) for c,w,g in VOWEL_AH)*3+filt(src,'low',min(4*f,900),1)*.25
     return y*envelope(n,attack,length,release)[:,None]
 
-def warm_pad(note,length,seed,attack=.8,release=1.5,**_):
-    rng=np.random.default_rng(seed);n=int((length+release)*SR);f=hz(note)
-    return filt(ensemble(f,n,rng,7,26,4,.2),'low',min(900+f,2400))*envelope(n,attack,length,release)[:,None]
-
 def piano(note,length,seed,vel=.7,**_):
     """Additive piano: stretched partials, hammer-position comb, two-stage decay, beating unisons, damper."""
     rng=np.random.default_rng(seed);f0=hz(note);ring=min(length,5.)+.4;n=int(ring*SR);t=np.arange(n)/SR
@@ -109,11 +106,6 @@ def bell(note,length,seed,index=1.6,decay=1.4,**_):
     f=hz(note);n=int((length+decay*2.5)*SR);t=np.arange(n)/SR
     y=np.sin(TAU*f*t+index*np.exp(-t/.18)*np.sin(TAU*3.5*f*t))*np.exp(-t/decay)+.3*np.sin(TAU*2*f*t)*np.exp(-t/(decay*.35))
     return y*np.minimum(1,t/.0015)*np.clip((n/SR-t)/.02,0,1)
-
-def mallet(note,length,seed,**_):
-    f=hz(note);n=int((length+1.5)*SR);t=np.arange(n)/SR
-    y=np.sin(TAU*f*t)*np.exp(-t/(.9*(440/f)**.3))+.35*np.sin(TAU*4*f*t)*np.exp(-t/.06)+.12*np.sin(TAU*10*f*t)*np.exp(-t/.015)
-    return y*np.minimum(1,t/.001)*np.where(t>length+.6,np.exp(-(t-length-.6)/.2),1)*np.clip((n/SR-t)/.02,0,1)
 
 def synth_pluck(note,length,seed,cut=2000.,**_):
     rng=np.random.default_rng(seed);n=int((length+.25)*SR);t=np.arange(n)/SR;f=hz(note)
@@ -405,134 +397,16 @@ def arena_theme():
     for end,length,g in ((4,s.bar,.3),(12,s.bar,.4),(28,2*s.bar,.5)):s.hit('perc',s.t(end)-length,swell,g,length=round(length,4))
     return s,s.mix(ARENA_MIX,VERBS)
 
-# Results theme: E-flat major, 90 BPM, 32 bars of an 8-bar progression. Piano ostinato and pad, then a light beat
-# and mallet melody, strings take the melody, and the last bars thin back to the opening texture.
-RESULTS_CHORDS=[(39,(67,70,74,75)),(38,(65,70,74,77)),(36,(63,67,70,74)),(44,(63,67,72,75)),
-                (43,(67,70,75,79)),(44,(68,70,72,75)),(41,(63,68,72,75)),(46,(63,65,70,75))]
-RESULTS_RESOLVE=(62,65,70,74)
-RESULTS_MELODY=[[(0,1,70),(1,1,67),(2,.5,70),(2.5,1.5,72)],[(0,2,74),(2,2,70)],[(0,1,75),(1,.5,74),(1.5,1.5,72),(3,1,67)],
-                [(0,3,72),(3,1,70)],[(0,1,70),(1,1,67),(2,.5,70),(2.5,1.5,75)],[(0,1,75),(1,1,77),(2,1,75),(3,1,72)],
-                [(0,1,68),(1,1,72),(2,2,75)],[(0,2,75),(2,2,74)]]
-RESULTS_MIX=dict(piano=dict(gain=.7,send=dict(hall=.28)),pad=dict(gain=.32,hp=90,send=dict(hall=.3),duck=.15),
-                 strings=dict(gain=.4,hp=70,send=dict(hall=.35)),mallet=dict(gain=.6,hp=150,send=dict(hall=.35)),
-                 bell=dict(gain=.16,hp=400,send=dict(hall=.5)),choir=dict(gain=.22,hp=160,send=dict(hall=.55)),
-                 bass=dict(gain=.48,lp=2000,duck=.25),drums=dict(gain=.58,hp=35,send=dict(room=.2,hall=.06)))
-
-def results_theme():
-    s=Score(90,32,1506);B=s.beat
-    for i in range(32):
-        low,voicing=RESULTS_CHORDS[i%8];at=s.t(i);section=i//8;last=i%8==7
-        halves=((0,2,voicing),(2,2,RESULTS_RESOLVE)) if last else ((0,4,voicing),)
-        for b,l,notes in halves:
-            for p in notes:s.play('pad',at+b*B,warm_pad,p,l*B,gain=.5)
-            if section==2:
-                for p in notes[:3]:s.play('strings',at+b*B,strings,p-12,l*B,bright=.6,attack=.6,gain=.4)
-            if section==3 and i<30:
-                for p in notes[1:]:s.play('choir',at+b*B,choir,p,l*B,gain=.4)
-        for k,idx in enumerate((0,1,2,1,3,1,2,1)):
-            notes=RESULTS_RESOLVE if last and k>=4 else voicing;p=notes[idx]
-            s.play('piano',at+k*B/2,piano,p,B*1.2,vel=.38+(.08 if k%4==0 else 0),gain=.75,pan=(p-66)/30,jitter=.006)
-        s.play('piano',at,piano,low+12,B*3.8,vel=.5,pan=-.35);s.play('piano',at+2*B,piano,low+19,B*1.8,vel=.38,gain=.7,pan=-.25)
-        if section==2:
-            for k in range(8):s.play('bass',at+k*B/2,synth_bass,low+(12 if k in (3,7) else 0),B*.4,tone=.7,gain=.5)
-        else:s.play('bass',at,synth_bass,low,s.bar*.96,tone=.6,gain=.55)
-        melody=RESULTS_MELODY[i%8]
-        if section in (1,3):
-            for b,l,p in melody:
-                s.play('mallet',at+b*B,mallet,p,l*B,gain=.8,pan=.15,jitter=.004);s.play('bell',at+b*B,bell,p+12,l*B,index=.8,gain=.5,pan=.3)
-        if section==2:
-            for b,l,p in melody:s.play('strings',at+b*B,strings,p,l*B,bright=.9,attack=.12,release=.5,gain=.6)
-        drums=section>=1 and i<30
-        if drums:
-            for b in ((0,2.5) if section!=2 else (0,1.5,2.5)):s.kick(at+b*B,.6)
-            for b in (1,3):s.hit('drums',at+b*B,snare,.28,tone=.5)
-            for k in range(16):s.hit('drums',at+k*B/4,shaker,.11 if k%2 else .06,pan=-.35)
-            if section==2:s.hit('drums',at+3.5*B,hat,.12,open_=True,pan=.25)
-        if section==0 and i>=4 or i>=30:
-            for k in range(8):s.hit('drums',at+k*B/2,hat,.09 if k%2 else .05,pan=.25)
-        elif drums:
-            for k in range(8):s.hit('drums',at+k*B/2,hat,.16 if k%2 else .09,pan=.25)
-    return s,s.mix(RESULTS_MIX,dict(hall=(2.2,.02,.5,7),room=(.8,.006,.4,8)))
-
-# MVP theme: B-flat major, 96 BPM, 20 bars. An impact chord, an ostinato over a pedal, the fanfare (with the Lydian
-# C major), a climax on the tonic, and a two-bar build that lands back on the opening impact.
-MVP_BARS=[('Bb',34,(58,62,65,70)),('Bb',34,(58,62,65)),('C/Bb',34,(60,64,67)),('Gm/Bb',34,(62,67,70)),('Eb/Bb',34,(63,67,70)),
-          ('Bb',34,(58,62,65,70)),('F/A',33,(60,65,69)),('Gm',31,(62,67,70)),('Eb',39,(63,67,70)),('Bb/D',38,(62,65,70)),
-          ('Eb',39,(63,67,70)),('C',36,(60,64,67)),('F',41,(60,65,69)),('Eb',39,(63,67,70)),('F',41,(60,65,69)),
-          ('Gm',43,(62,67,70)),('Eb',39,(63,67,70)),('Bb',34,(58,62,65,70)),('Eb',39,(63,67,70)),('Fsus',41,(60,65,70))]
-MVP_ROOTS={'Bb':46,'C':36,'Gm':43,'Eb':39,'F':41,'Fsus':41}
-# Bars whose harmony changes halfway: (beat, beats, chord, bass, voicing).
-MVP_SPLIT={16:((0,2,'Eb',39,(63,67,70)),(2,2,'F',41,(60,65,69))),19:((0,2,'Fsus',41,(60,65,70)),(2,2,'F',41,(60,65,69)))}
-MVP_MELODY={5:[(0,1,65),(1,.5,70),(1.5,.5,72),(2,2,74)],6:[(0,1.5,72),(1.5,.5,70),(2,2,72)],7:[(0,1,74),(1,.5,70),(1.5,.5,74),(2,2,79)],
-            8:[(0,2,77),(2,1,75),(3,1,74)],9:[(0,1,65),(1,.5,70),(1.5,.5,72),(2,2,74)],10:[(0,1.5,79),(1.5,.5,77),(2,2,75)],
-            11:[(0,1.5,76),(1.5,.5,74),(2,2,79)],12:[(0,2,81),(2,2,77)],13:[(0,1,75),(1,1,79),(2,1.5,82),(3.5,.5,79)],
-            14:[(0,2,81),(2,1,77),(3,1,72)],15:[(0,1.5,74),(1.5,.5,77),(2,2,79)],16:[(0,2,79),(2,2,81)],17:[(0,4,82)]}
-MVP_MIX=dict(strings=dict(gain=.3,hp=50,send=dict(hall=.35)),spiccato=dict(gain=1.,hp=80,send=dict(hall=.25)),
-             brass=dict(gain=.7,hp=60,send=dict(hall=.34)),choir=dict(gain=.34,hp=140,send=dict(hall=.55)),
-             bell=dict(gain=.2,hp=400,send=dict(hall=.5)),bass=dict(gain=.42,lp=1500,duck=.15),
-             drums=dict(gain=.5,hp=30,send=dict(room=.2,hall=.08)),perc=dict(gain=.6,hp=25,send=dict(hall=.3)),
-             fx=dict(gain=.3,hp=150,send=dict(hall=.3)))
-
-def mvp_theme():
-    s=Score(96,20,606);B=s.beat
-    for i,(name,low,notes) in enumerate(MVP_BARS):
-        at=s.t(i);full=5<=i<=17
-        if i==0:
-            for p in notes+(74,):s.play('brass',at,brass,p,B*1.5,bright=1.2,gain=.55)
-            for p in (46,34):s.play('brass',at,brass,p,B*1.5,bright=.8,gain=.45)
-            for p in notes:s.play('strings',at,strings,p,B*3,bright=1.,attack=.03,gain=.7);s.play('choir',at,choir,p,B*3.5,attack=.08,gain=.6)
-            s.play('strings',at+3*B,strings,46,B,bright=.6,attack=.4,gain=.5)
-            s.hit('perc',at,crash,.7);s.hit('perc',at,boom,.6);s.hit('perc',at,taiko,.7);s.play('perc',at,timpani,46,gain=.6);s.kick(at,.8,0)
-            continue
-        if i<5:
-            for p in ((62,65),(64,67),(62,67),(63,67))[i-1]:s.play('brass',at,brass,p,s.bar*.97,bright=.6,gain=.42)
-            for k in range(8):
-                p=46 if k%2==0 else notes[(0,1,2,1)[k//2]]
-                s.play('spiccato',at+k*B/2,spiccato,p,B*.4,accent=1. if k%2==0 else .7,gain=.6,jitter=.003)
-            for k,p in enumerate(notes+(notes[1],)):s.play('bell',at+k*B,bell,p+24,B,gain=.5,pan=-.3+.2*k)
-            s.play('perc',at,timpani,46,gain=.38)
-        parts=MVP_SPLIT.get(i,((0,4,name.split('/')[0],low,notes),))
-        for b,l,chord,bass,voicing in parts:
-            s.play('strings',at+b*B,strings,bass+12,l*B,bright=.6,attack=.25,gain=.55);s.play('bass',at+b*B,synth_bass,bass,l*B*.96,tone=.5,gain=.5)
-            if full or i>=18:
-                for p in voicing:
-                    s.play('strings',at+b*B,strings,p,l*B,bright=1. if full else .9,attack=.2 if full else .4,gain=.6 if full else .55)
-                    s.play('choir',at+b*B,choir,p,l*B,attack=.55 if full else .8,gain=.5 if full else .4)
-                # The ostinato follows the chord root, not the bass of an inversion.
-                for k in range(int(l*2)):
-                    s.play('spiccato',at+(b+k/2)*B,spiccato,MVP_ROOTS[chord]+12+(0,12,7,12)[k%4],B*.4,
-                           accent=(1. if k%2==0 else .65) if full else .8,gain=.5 if full else .45,jitter=.003)
-        if full:
-            for b,l,p in MVP_MELODY.get(i,()):
-                s.play('brass',at+b*B,brass,p,l*B*.96,bright=1.3,gain=.9,jitter=.004)
-                s.play('brass',at+b*B,brass,p-12,l*B*.96,bright=.8,gain=.6,jitter=.004)
-            s.hit('perc',at,taiko,.55,pan=-.15);s.hit('perc',at+2*B,taiko,.45,pan=.15);s.hit('perc',at+3.5*B,taiko,.3)
-            s.kick(at,.6,0);s.kick(at+2*B,.5,0)
-            for b in (1,3):s.hit('drums',at+b*B,snare,.4,tone=1.2)
-            for k in (1,3,5,7):s.hit('drums',at+(k/4+2)*B,snare,.07,tone=1.2)
-            root=MVP_ROOTS[parts[0][2]];s.play('perc',at,timpani,root if root>=40 else root+12,gain=.38)
-            if i==11:
-                for k,p in enumerate((72,76,79,84)):s.play('bell',at+k*B,bell,p,B,gain=.6,pan=.3)
-        for bar,g in ((5,.55),(9,.4),(13,.5),(17,.65)):
-            if i==bar:s.hit('perc',at,crash,g)
-        if i==17:s.hit('perc',at,boom,.5)
-        if i==18:
-            for k in range(16):s.hit('drums',at+k*B/4,snare,.12+.22*k/16,tone=1.2)
-        if i==19:
-            for k in range(30):s.hit('drums',at+k*B/8,snare,.3+.5*k/30,tone=1.2)
-            for k in range(30):s.play('perc',at+k*B/8,timpani,41,length=.6,gain=.1+.3*k/30)
-            for k,p in enumerate((53,55,57,58,60,62,64,65,67,69,70,72,74,76,77,79)):s.play('spiccato',at+k*B/4,spiccato,p,B*.22,accent=.6+.4*k/15,gain=.55)
-            for p in (65,69):s.play('brass',at+2*B,brass,p,B*1.9,bright=.9,gain=.4)
-            for p in (65,70):s.play('brass',at,brass,p,B*1.9,bright=.7,gain=.35)
-    s.play('fx',s.t(18),riser,2*s.bar,gain=.45);s.hit('perc',s.t(18),swell,.5,length=round(2*s.bar,4))
-    return s,s.mix(MVP_MIX,VERBS)
-
 THEMES={'arena-theme':(arena_theme,dict(style='hybrid-orchestral',key='D minor',bpm=110,bars=40),
-                       (('low',80,2.),('peak',650,-2.5,.9),('high',6000,3.))),
-        'results-summary':(results_theme,dict(style='piano-ostinato',key='E-flat major',bpm=90,bars=32),
-                           (('peak',480,-4.5,.9),('high',4000,5.))),
-        'mvp-fanfare':(mvp_theme,dict(style='fanfare',key='B-flat major',bpm=96,bars=20),
-                       (('low',80,3.),('peak',900,-3.,.8),('high',6000,3.)))}
+                       (('low',80,2.),('peak',650,-2.5,.9),('high',6000,3.)))}
+
+def ffmpeg():
+    found=shutil.which('ffmpeg')
+    if found:return found
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:return None
 
 def export(name,pcm,out,preview=None):
     rng=np.random.default_rng(1);dither=(rng.random(pcm.shape)-rng.random(pcm.shape))/32768
@@ -541,9 +415,12 @@ def export(name,pcm,out,preview=None):
         wav=Path(directory)/'source.wav'
         with wave.open(str(wav),'wb') as f:f.setparams((2,2,SR,len(pcm),'NONE','not compressed'));f.writeframes(data.tobytes())
         if preview:shutil.copy(wav,Path(preview)/(name+'.wav'))
-        target=out/(name+'.m4a')
-        if shutil.which('ffmpeg'):subprocess.run(['ffmpeg','-v','error','-y','-i',str(wav),'-c:a','aac','-b:a','192k','-movflags','+faststart','-metadata','title=Arena-1 '+name,str(target)],check=True)
-        else:subprocess.run(['afconvert','-f','m4af','-d','aac','-b','192000','-q','127','-s','2',str(wav),str(target)],check=True)
+        # afconvert's priming metadata decodes sample-exact in Chrome, so the Web Audio loop has no gap.
+        target,encoder=out/(name+'.m4a'),ffmpeg()
+        if shutil.which('afconvert'):subprocess.run(['afconvert','-f','m4af','-d','aac','-b','192000','-q','127','-s','2',str(wav),str(target)],check=True)
+        else:subprocess.run([encoder or 'ffmpeg','-v','error','-y','-i',str(wav),'-c:a','aac','-b:a','192k','-movflags','+faststart','-metadata','title=Arena-1 '+name,str(target)],check=True)
+        if encoder:subprocess.run([encoder,'-v','error','-y','-i',str(wav),'-c:a','libmp3lame','-b:a','192k','-metadata','title=Arena-1 '+name,str(out/(name+'.mp3'))],check=True)
+        else:print('No ffmpeg: skipped the MP3 twin of',name,flush=True)
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=ROOT/'frontend/public/assets/audio')

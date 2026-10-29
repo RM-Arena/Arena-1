@@ -31,3 +31,7 @@ coverage/
 
 # Documentation media copied from the versioned README gallery
 site/public/media/
+# User-provided music overrides (*-custom.m4a / *.mp3 slots are per-machine, never shipped)
+frontend/public/assets/audio/*-custom.*
+# Local QA server data (match database, referee token)
+.tmp-qa/

@@ -106,17 +106,41 @@ function Faceoff({frame,metadata,images,progress}:{frame:Frame;metadata:Metadata
   </div>;
 }
 
+// Stat-bar ceilings for a robot shot: the whole lineup and the public catalog, so a bar compares this
+// chassis with the rest of the field instead of being scaled to itself.
+export function robotShotRanges(frame:Frame,models?:Record<string,RobotHardware>){
+  const list=Object.values(models||{}) as RobotHardware[];
+  const max=(f:(m:RobotHardware)=>number,floor:number)=>Math.max(floor,...list.map(f),...frame.robots.map(r=>f(hardware(frame,r,models)||({} as RobotHardware))||0));
+  return {hp:Math.max(1,...frame.robots.map(r=>r.max_hp||0),...list.map(m=>m.initial_stats?.hp||0)),power:max(m=>m.initial_stats?.power_w||0,1),heat:max(m=>m.initial_stats?.max_heat||0,1),damage:max(m=>m.initial_stats?.damage||0,1),speed:max(m=>m.speed_reference_mps||0,1),mass:max(m=>m.mass_kg||0,1)};
+}
+
+// Chassis choice reuses the lineup intro's robot shot verbatim — the flash, the sweep, the reticle,
+// the animated stat bars, the chassis chips, the agent card and the lineup pips — so hovering a
+// chassis in the picker reads exactly like its cut in the pre-match sequence.
+export function RobotPickShot({frame,metadata,r,models,index=0,count=1}:{frame:Frame;metadata:Metadata|null;r:Robot;models?:Record<string,RobotHardware>;index?:number;count?:number}){
+  const ranges=useMemo(()=>robotShotRanges(frame,models),[frame,models]);
+  return <Stage className="cer-lineup pick-shot">
+    <div className="li-bar top"/><div className="li-bar bottom"/>
+    <div key={r.id} className="li-cut" style={{'--len':'9s'} as CSSProperties}>
+      <RobotShot frame={frame} metadata={metadata} r={r} index={index} count={count} length={9} ranges={ranges} models={models}/>
+    </div>
+  </Stage>;
+}
+
 // Rule 6.4 self-check as a broadcast lineup intro: the camera visits every robot while overlays introduce it.
-export function LineupIntro({frame,metadata,standings,images,models:catalog,duration,remaining,free,paused,replay=false,onCut,onSkip,locked=false}:{locked?:boolean;frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;duration:number;remaining:number;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
-  const cuts=useMemo(()=>introSchedule(frame.robots,duration),[frame.robots.map(r=>r.id).join(),duration]);// eslint-disable-line react-hooks/exhaustive-deps
-  const elapsed=Math.max(0,duration-remaining),at=introAt(cuts,elapsed),models=catalog&&Object.keys(catalog).length?catalog:frame.robot_models;
+export function LineupIntro({frame,metadata,standings,images,models:catalog,duration,remaining,offset=0,free,paused,replay=false,onCut,onSkip}:{frame:Frame;metadata:Metadata|null;standings:Standing[];images:Record<string,string>;models?:Record<string,RobotHardware>;duration:number;remaining:number;offset?:number;free:boolean;paused:boolean;replay?:boolean;onCut:(cut:IntroCut)=>void;onSkip:()=>void}){
+  const cuts=useMemo(()=>introSchedule(frame.robots,Math.max(1,duration-offset)),[frame.robots.map(r=>r.id).join(),duration,offset]);// eslint-disable-line react-hooks/exhaustive-deps
+  // `offset` is the self-check time already spent before the sequence was allowed to start (the
+  // pilot picks a chassis first). It shifts this timeline so the cards and the 3D cuts stay in step,
+  // and the schedule is scaled to `duration - offset` — the time left for it — so every card and
+  // every robot shot still plays before the countdown takes the screen.
+  const elapsed=Math.max(0,duration-remaining-offset),at=introAt(cuts,elapsed),models=catalog&&Object.keys(catalog).length?catalog:frame.robot_models;
   const ranges=useMemo(()=>{const list=Object.values(models||{}) as RobotHardware[];const max=(f:(m:RobotHardware)=>number,floor:number)=>Math.max(floor,...list.map(f),...frame.robots.map(r=>f(hardware(frame,r,models)||({} as RobotHardware))||0));
     return {hp:Math.max(1,...frame.robots.map(r=>r.max_hp||0),...list.map(m=>m.initial_stats?.hp||0)),power:max(m=>m.initial_stats?.power_w||0,1),heat:max(m=>m.initial_stats?.max_heat||0,1),damage:max(m=>m.initial_stats?.damage||0,1),speed:max(m=>m.speed_reference_mps||0,1),mass:max(m=>m.mass_kg||0,1)};},[models,frame]);
   const last=useRef('');
   useEffect(()=>{if(at&&at.cut.key!==last.current){last.current=at.cut.key;if(!paused)onCut(at.cut);}},[at?.cut.key,paused,onCut]);// eslint-disable-line react-hooks/exhaustive-deps
   if(!at)return null;
-  const s=at.cut.segment,robot=s.kind==='robot'?frame.robots.find(r=>r.id===s.id):undefined;
-  return <Stage className={`cer-lineup ${paused?'paused':''} ${s.kind}`}>
+  const s=at.cut.segment,robot=s.kind==='robot'?frame.robots.find(r=>r.id===s.id):undefined;  return <Stage className={`cer-lineup ${paused?'paused':''} ${s.kind}`}>
     {(s.kind==='robot'||s.kind==='team')&&<><div className="li-bar top"/><div className="li-bar bottom"/></>}
     <div key={at.cut.key} className="li-cut" style={{'--len':`${at.length}s`} as CSSProperties}>
       {s.kind==='open'&&<Opening frame={frame} metadata={metadata} standings={standings} free={free}/>}
@@ -126,6 +150,6 @@ export function LineupIntro({frame,metadata,standings,images,models:catalog,dura
     </div>
     <div className="li-bug"><i/>{replay?'REPLAY':'LIVE'} · 赛前自检<b>{Math.ceil(remaining)}s</b></div>
     <div className="li-progress">{cuts.map(c=><i key={c.key} className={`${c.segment.kind} ${'team' in c.segment?c.segment.team:''} ${c.end<=elapsed?'done':c.key===at.cut.key?'now':''}`} style={{flexGrow:c.end-c.start}}/>)}</div>
-    <button className="cer-skip" disabled={locked} onClick={onSkip}>跳过</button>
+    <button className="cer-skip" onClick={onSkip}>跳过</button>
   </Stage>;
 }

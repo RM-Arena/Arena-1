@@ -1,6 +1,7 @@
 """Cross-platform source setup and run commands (Python 3.10+)."""
 import argparse
 import os
+import socket
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,6 +14,25 @@ def run(*args):
     if not executable:
         raise SystemExit(f"Missing {args[0]}; see https://rm-arena.github.io/Arena-1/guide/development")
     subprocess.run([executable, *args[1:]], cwd=ROOT, check=True)
+
+
+def port_taken(port):
+    """Whether 127.0.0.1:port cannot be bound right now.
+
+    Windows answers a reserved or exclusively-bound port with WinError 10013 ("access denied") rather
+    than 10048, which is what an input method holding the port (百度输入法 listens on 8765) or a
+    Hyper-V/WinNAT port exclusion looks like from Python.
+    """
+    with socket.socket() as probe:
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return True
+    return False
+
+
+def free_port(start):
+    return next((port for port in range(start + 1, start + 41) if not port_taken(port)), start + 1)
 
 
 def main():
@@ -30,6 +50,13 @@ def main():
         if args.docker:
             run("docker", "build", "-t", "rmuc-arena-policy:0.5", "-f", "sandbox/Dockerfile", ".")
     elif args.command == "run":
+        # A failed bind otherwise surfaces as a uvicorn stack trace from inside `uv run`, which says
+        # nothing about the usual cause on Windows: another program already owns the port.
+        if port_taken(args.port):
+            raise SystemExit(
+                f"端口 {args.port} 无法绑定：可能已被其他程序占用（Windows 上常见于输入法、Hyper-V 端口保留，"
+                f"或本机已有一个服务在运行）。\n换一个端口：python scripts/project.py run --port {free_port(args.port)}"
+            )
         run("uv", "run", "--locked", "python", "-X", "utf8", "-m", "rmuc_arena", "serve", "--port", str(args.port),
             *([] if args.docker else ["--trusted-local"]))
     elif args.command == "desktop":

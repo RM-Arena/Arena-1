@@ -29,16 +29,21 @@ impl Engine {
             && !r.weak
             && !r.red_card
             && r.unit_pickup.as_ref().map(|s|s.arm==arm).unwrap_or(true)
-            && r.carried_units < 2
+            && r.units_on_board() < r.unit_capacity()
             && self.teams[&r.team].energy_units_left.map(|left| left > 0).unwrap_or(true)
             && self.raw_zone(i, "resource", Some(&r.team));
         if !eligible {
-            if self.robots[i].unit_pickup.take().is_some() {
+            // A unit already clamped in the gripper is cargo, not a grab in progress: releasing the
+            // key (or backing away) must not throw the third unit away.
+            let carrying = r.gripper_unit();
+            if !carrying && self.robots[i].unit_pickup.take().is_some() {
                 self.event("unit_pickup_cancelled", json!({"robot":self.robots[i].id}));
             }
             return;
         }
         if r.unit_pickup.is_some() {
+            // A unit already clamped in the gripper rides there until it is inserted or the robot
+            // dies; asking again must not restart the sequence.
             return;
         }
         // A card lineup may contain multiple engineers. The physical dispenser
@@ -84,9 +89,15 @@ impl Engine {
             if r.unit_pickup.is_none() {
                 continue;
             }
-            if !r.alive || r.weak || r.red_card || !self.raw_zone(i, "resource", Some(&r.team)) {
+            // A unit in the gripper is carried across the field to the assembly plinth, so leaving
+            // the resource zone must not cancel it; losing the chassis still does.
+            let carrying = r.gripper_unit();
+            if !r.alive || r.weak || r.red_card || (!carrying && !self.raw_zone(i, "resource", Some(&r.team))) {
                 self.robots[i].unit_pickup = None;
                 self.event("unit_pickup_cancelled", json!({"robot":self.robots[i].id}));
+                continue;
+            }
+            if carrying {
                 continue;
             }
             let selected=r.unit_pickup.as_ref().unwrap().arm;
@@ -130,6 +141,13 @@ impl Engine {
             if state.phase_elapsed + 1e-8 < duration {
                 continue;
             }
+            // Both storage bays fill first; the third unit the heavy robot is allowed to take stays
+            // clamped in the gripper, ready to be pushed into a core or carried to another one.
+            let next = if next == "stowing" && r.carried_units >= 2 {
+                "carrying"
+            } else {
+                next
+            };
             if next == "complete" {
                 r.carried_units += 1;
                 r.unit_pickup = None;
@@ -138,6 +156,17 @@ impl Engine {
                     *left = left.saturating_sub(1);
                 }
                 self.event("unit_pickup", json!({"robot":self.robots[i].id,"amount":1}));
+            } else if next == "carrying" {
+                let team = r.team.clone();
+                let state = r.unit_pickup.as_mut().unwrap();
+                state.stage = "carrying".into();
+                state.held = true;
+                state.phase_elapsed = 0.0;
+                state.progress = 1.0;
+                if let Some(left) = self.teams.get_mut(&team).unwrap().energy_units_left.as_mut() {
+                    *left = left.saturating_sub(1);
+                }
+                self.event("unit_pickup", json!({"robot":self.robots[i].id,"amount":1,"gripper":true}));
             } else {
                 state.stage = next.into();
                 state.phase_elapsed = 0.0;

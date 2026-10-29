@@ -101,12 +101,14 @@ class RobotPresetTests(unittest.TestCase):
 
     def test_every_preset_runs_with_duplicate_models_and_arbitrary_slots(self):
         # A separate short real battle for each tactic covers all 19 models in
-        # workers, including two copies of model 305 with separate state.
+        # workers, including two copies of model 305 with separate state. The decision window is
+        # widened because a dozen workers share a small CI runner: this test covers preset
+        # coverage, while the deadline contract itself is pinned by test_runner.
         for tactic in TACTICS:
             with self.subTest(tactic=tactic):
                 red=[ROOT/'examples'/preset_key(model,tactic) for model in season_rules.legal_models('2026')]+[ROOT/'examples'/preset_key(305,tactic)]
                 blue=[ROOT/'examples'/preset_key(3,'balanced'),ROOT/'examples'/preset_key(2,'guard')]
-                with Battle(None,None,duration=1,sandbox='trusted-local',decks={'red':red,'blue':blue}) as battle:
+                with Battle(None,None,duration=1,sandbox='trusted-local',timeout=.6,decks={'red':red,'blue':blue}) as battle:
                     result=battle.run()
                     self.assertEqual(result['policy_errors'],0,battle.diagnostics)
                     self.assertEqual(len(battle.match.snapshot()['robots']),len(red)+len(blue))
@@ -116,13 +118,14 @@ class RobotPresetTests(unittest.TestCase):
                     self.assertTrue(all(r['support_active'] for r in aerials),aerials)
 
     def test_every_2027_preset_runs_in_a_free_battle(self):
-        # Each 2027 model's presets in one short deck battle; one aerial system per team.
+        # Each 2027 model's presets in one short deck battle; one aerial system per team. Same
+        # widened window as the 2026 sweep: the workers outnumber a CI runner's cores.
         for tactic in TACTICS:
             with self.subTest(tactic=tactic):
                 models=[m for m in season_rules.legal_models('2027') if m not in (2762,2763)]
                 red=[ROOT/'examples'/preset_key(model,tactic,'2027') for model in models]
                 blue=[ROOT/'examples'/preset_key(2771,'balanced','2027'),ROOT/'examples'/preset_key(2763,'guard','2027')]
-                with Battle(None,None,duration=2,map_name='rmuc2027',sandbox='trusted-local',decks={'red':red,'blue':blue}) as battle:
+                with Battle(None,None,duration=2,map_name='rmuc2027',sandbox='trusted-local',timeout=.6,decks={'red':red,'blue':blue}) as battle:
                     result=battle.run()
                     self.assertEqual(result['policy_errors'],0,battle.diagnostics)
                     self.assertEqual(battle.metadata['season'],'2027')

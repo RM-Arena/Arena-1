@@ -21,7 +21,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.background import BackgroundTask
 
 from .paths import data_path
-from .engine import DT, Match, arena_map, SLOT_IDS, RULES_PROFILE
+from .engine import DT, Match, arena_map, SLOT_IDS, RULES_PROFILE, STATIC_FRAME_KEYS, _config as rules_config
 from .runner import Battle
 from .store import Store
 from .strategy_names import canonical_key
@@ -36,7 +36,7 @@ from .robot_presets import preset_metadata
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, load_profile, load_showcase, validate_profile
 from .custom_models import CustomModels
 from .strategy_library import StrategyLibrary
-from .video_export import MAX_VIDEO_BYTES, VideoExporter, VideoExportError
+from .video_export import JOB_PATTERN, MAX_VIDEO_BYTES, VideoExporter, VideoExportError
 from .submissions import write_json, manifest_season
 from . import seasons as season_rules
 
@@ -44,13 +44,19 @@ from . import seasons as season_rules
 DEFAULT_PAIRS = {"2026": ("claude_opus55_xhigh_team", "claude_opus55_xhigh_hold"), "2027": ("claude_opus55_xhigh_2027_team", "claude_opus55_xhigh_2027_hold")}
 
 # Pre-match broadcast (rule 6.4 self-check): opening, a title card per team, one camera shot per robot and a face-off.
-# frontend/src/intro.ts lays out the same segments, scaled to the duration the server announces.
-INTRO = {"open": 5.0, "team": 2.4, "faceoff": 4.5, "shot": 2.4, "shots": 28.8, "min_shot": 1.0}
+# frontend/src/intro.ts lays out the same segments, scaled to the duration the server announces. Every segment
+# must stay on screen for at least INTRO_MIN_CUT seconds, so the self-check clock grows instead of compressing.
+INTRO = {"open": 5.0, "team": 2.4, "faceoff": 4.5, "shot": 2.4, "shots": 28.8, "min_shot": 2.0, "min_cut": 2.0}
 
 
 def intro_seconds(robots):
     shot = min(INTRO["shot"], max(INTRO["min_shot"], INTRO["shots"] / max(1, robots)))
     return round(INTRO["open"] + 2 * INTRO["team"] + robots * shot + INTRO["faceoff"], 2)
+
+
+def intro_minimum_seconds(robots):
+    """Shortest walk-on that still shows both cards, every chassis and the face-off for `min_cut`."""
+    return round((robots + 4) * INTRO["min_cut"], 2)
 
 
 class StartRequest(BaseModel):
@@ -101,8 +107,30 @@ class DeckPresetRequest(BaseModel):
 
 class ControlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    command: Literal["pause", "stop", "speed", "skip_prematch"]
+    command: Literal["pause", "stop", "speed", "skip_prematch", "extend_prematch"]
     speed: float = 1
+    # `extend_prematch`: seconds of extra self-check time, so the lineup intro is never compressed.
+    seconds: float = Field(default=0.0, ge=0, le=30)
+
+
+class PlayerRequest(BaseModel):
+    """A human pilot's command for one robot; `action=None` returns it to its strategy."""
+    model_config = ConfigDict(extra="forbid")
+    team: Literal["red", "blue"]
+    slot: int = Field(ge=1, le=64)
+    action: dict | None = None
+    # Robot id the pilot is locking onto; the server aims the gimbal along the engine's ballistics.
+    assist: str | None = Field(default=None, max_length=32)
+
+
+class HighlightRequest(BaseModel):
+    """The moments of one finished match whose frames the post-match reel replays."""
+    model_config = ConfigDict(extra="forbid")
+    match_id: str = Field(min_length=1, max_length=64)
+    at: list[float] = Field(min_length=1, max_length=12)
+    # Run-up before the moment, so the shot is seen arriving, and the length of each window.
+    before: float = Field(default=1.5, ge=0, le=10)
+    seconds: float = Field(default=5.0, gt=0, le=30)
 
 
 class SubmissionRequest(BaseModel):
@@ -126,6 +154,7 @@ class ProfileRequest(BaseModel):
     display_name: str | None = None
     author: str | None = None
     description: str | None = None
+    github: str | None = None
 
 
 class CustomModelRequest(BaseModel):
@@ -198,6 +227,13 @@ class ArenaService:
         self.speed, self.paused, self.stopping, self.revision = 1, False, False, 0
         with Match(duration=420, map_name=season_rules.map_of(season_rules.DEFAULT_SEASON)) as match:
             self.frame = match.snapshot()
+        # An untouched arena per map (robots on their start pads), for the field between matches.
+        self.previews = {season_rules.map_of(season_rules.DEFAULT_SEASON): self.frame}
+        # Snapshots travel to the browser up to 20 times a second, and the static half of a frame
+        # (arena geometry, hardware tables, rule text) never changes during a match. It is published
+        # once per match instead of being re-sent with every tick.
+        self.public_frame = {key: value for key, value in self.frame.items() if key not in STATIC_FRAME_KEYS}
+        self.static_frame = {key: self.frame[key] for key in STATIC_FRAME_KEYS if key in self.frame}
         self.metadata, self.match_id = None, None
         self.busy = False
         self.test_mode = test_mode
@@ -207,6 +243,16 @@ class ArenaService:
         # None: the self-check lasts as long as the lineup intro (intro_seconds).
         self.prematch_stages = () if test_mode else (("self_check", None), ("countdown", 5.0))
         self.prematch, self.skip_prematch = None, False
+        # Seconds the client asked to add to the running self-check: the walk-on must never be squeezed
+        # below `min_cut` per segment, so its clock is stretched instead of its cards being cut short.
+        self.prematch_extra = 0.0
+
+    def _publish(self, frame):
+        """Keep the full frame for HTTP clients and the slim one for the snapshot stream."""
+        self.frame = frame
+        self.public_frame = {key: value for key, value in frame.items() if key not in STATIC_FRAME_KEYS}
+        self.static_frame = {key: frame[key] for key in STATIC_FRAME_KEYS if key in frame}
+        return frame
 
     def catalog(self, modes=("team", "squad", "distributed"), season=None):
         """Saved strategies by key; `season` keeps only strategies written for that season."""
@@ -250,7 +296,18 @@ class ArenaService:
                 continue
         return choices
 
-    def state(self, since=-1):
+    def pilot(self):
+        """The robot a human is driving right now, or None once their commands go stale."""
+        battle = self.battle
+        if battle is None or not self.busy:
+            return None
+        with battle.manual_lock:
+            if not battle.manual:
+                return None
+            team, slot = next(reversed(battle.manual))
+        return {"team": team, "slot": int(slot)}
+
+    def state(self, since=-1, slim=False):
         with self.lock:
             strategy_version = self.strategy_library.status()["version"]
             if strategy_version != self.strategy_version:
@@ -260,11 +317,27 @@ class ArenaService:
             if self.battle:
                 events = self.battle.frames.events_since(since)
             # Published frames and their events are never mutated, so they are shared rather
-            # than copied on every websocket poll.
-            return {"frame": self.frame, "revision": self.revision, "paused": self.paused,
+            # than copied on every websocket poll. `slim` leaves the static half of the frame out:
+            # the snapshot stream delivers it once per match.
+            return {"frame": self.public_frame if slim else self.frame, "revision": self.revision, "paused": self.paused,
                     "speed": self.speed, "error": self.error, "metadata": self.metadata, "sandbox": self.sandbox,
-                    "match_id": self.match_id, "events": events,
+                    "match_id": self.match_id, "events": events, "player": self.pilot(),
                     "busy": self.busy, "prematch": copy.copy(self.prematch), "strategy_version": strategy_version}
+
+    def preview(self, map_name):
+        """The empty arena of `map_name`: shown once a finished match has been left behind."""
+        with self.lock:
+            frame = self.previews.get(map_name)
+        if frame is None:
+            with Match(duration=420, map_name=map_name) as match:
+                frame = match.snapshot()
+            with self.lock:
+                self.previews[map_name] = frame
+        return frame
+
+    def static_state(self):
+        with self.lock:
+            return {"match_id": self.match_id, "frame": self.static_frame}
 
     def resolve_season(self, args):
         """The request with its map and default strategies filled in: an explicit map wins,
@@ -329,7 +402,7 @@ class ArenaService:
             fielded = lineups or mirrored_lineups(season_rules.default_lineup(season),season)
             skins = {team: self.custom_models.resolve(team, getattr(args, team + "_skins"), {d["model"] for d in fielded[team]}) for team in ("red", "blue")}
             with Match(args.seed, args.duration, args.map, lineups=lineups, battle_settings=args.battle_settings) as match:
-                self.frame = match.snapshot()
+                self._publish(match.snapshot())
             self.error, self.paused, self.stopping, self.battle = None, False, False, None
             self.match_id = uuid.uuid4().hex[:16]
             self.metadata = {"engine":"rust","rules":season_rules.rules_profile(season),"season":season,"roster":list(season_rules.slots(season)),"test_match":args.duration!=420,"seed":args.seed,"duration":args.duration,"map":args.map,
@@ -361,23 +434,29 @@ class ArenaService:
                 self._prematch()
                 while battle.match.status != "finished":
                     with self.lock:
-                        if self.stopping:
+                        # A newer match may have replaced this one; a stale thread must not keep
+                        # stepping or read the new match's pause/stop flags as its own.
+                        if self.stopping or self.match_id != match_id:
                             break
                         paused,speed = self.paused,self.speed
                     if paused:
                         time.sleep(.03)
                         continue
                     started = time.monotonic()
-                    # Publish frames atomically; readers cannot capture half a replay.
+                    # Step outside the lock: a policy decision may take up to 200 ms and must not
+                    # delay a pilot's control request. Publishing the frame stays atomic.
+                    frame = battle.step()
                     with self.lock:
-                        self.frame = battle.step()
+                        if self.match_id == match_id:
+                            self._publish(frame)
                         self.revision += 1
                     time.sleep(max(0,DT/speed-(time.monotonic()-started)))
                 if self.stopping and battle.match.status != "finished":
                     battle.match.finish(None,"stopped")
                     with self.lock:
-                        self.frame = battle.match.snapshot()
-                        battle.frames[-1] = self.frame
+                        if self.match_id == match_id:
+                            self._publish(battle.match.snapshot())
+                            battle.frames[-1] = self.frame
                         self.revision += 1
                 replay_path = self.store.directory / "replays" / f"{match_id}.json"
                 battle.save(replay_path)
@@ -389,33 +468,80 @@ class ArenaService:
             self.store.finish(match_id,{},error=str(exc))
         finally:
             with self.lock:
-                self.busy = False
-                self.prematch = None
+                # Only the thread that still owns the arena may publish into it; a stale match
+                # finishing late must not clobber the busy flag of the match that replaced it.
+                if self.match_id == match_id:
+                    self.busy = False
+                    self.prematch = None
                 self.revision += 1
 
     def _prematch(self):
-        """Hold the initial frame through self-check and countdown; honours pause, speed, stop and skip."""
+        """Hold the initial frame through self-check and countdown; honours pause, speed, stop and skip.
+
+        Only the self-check walk-on can be skipped: the 5-4-3-2-1 countdown always runs in full, because
+        the match clock and the starting BGM are both cued off it.
+        """
         with self.lock:
             self.skip_prematch = False
+            self.prematch_extra = 0.0
         for stage, seconds in self.prematch_stages:
             if seconds is None:
                 with self.lock:
                     seconds = intro_seconds(len(self.frame["robots"]))
-            left, last = seconds, time.monotonic()
+            with self.lock:
+                # A skip asked for during the walk-on must not bleed into the countdown.
+                if stage != "self_check":
+                    self.skip_prematch = False
+                    self.prematch_extra = 0.0
+            announced, left, last = seconds, seconds, time.monotonic()
             while left > 0:
                 with self.lock:
-                    if self.stopping or self.skip_prematch:
+                    if self.stopping or (stage == "self_check" and self.skip_prematch):
                         break
                     now = time.monotonic()
                     if not self.paused:
                         left -= (now - last) * self.speed
                     last = now
-                    self.prematch = {"stage": stage, "remaining": round(max(0.0, left), 3), "duration": seconds}
+                    # An extension grows the clock and the announced length by the same amount, so the
+                    # client's "time already spent" stays put and only the window for the intro grows.
+                    if stage == "self_check" and self.prematch_extra:
+                        left += self.prematch_extra
+                        announced += self.prematch_extra
+                        self.prematch_extra = 0.0
+                    self.prematch = {"stage": stage, "remaining": round(max(0.0, left), 3), "duration": round(announced, 3)}
                     self.revision += 1
                 time.sleep(.1)
         with self.lock:
             self.prematch = None
+            self.prematch_extra = 0.0
             self.revision += 1
+
+    def highlight_clips(self, data):
+        """Only the frames a post-match reel plays, taken from the live frame log.
+
+        Handing a browser the whole replay to cut a handful of five-second clips out of it does not
+        work: a full seven-minute match is hundreds of megabytes of JSON, and merging its static half
+        into every frame froze the tab for seconds. The referee already keeps the frames spooled, so
+        the requested windows are sliced here and returned as a replay the scene can play as-is.
+        """
+        args = HighlightRequest.model_validate(data)
+        with self.lock:
+            battle, match_id = self.battle, self.match_id
+            if not battle or match_id != args.match_id:
+                raise ValueError("这场比赛已不在内存中，无法回放高光片段")
+            dt = battle.metadata.get("dt") or .05
+            total = len(battle.frames)
+            if total < 2:
+                raise ValueError("这场比赛没有留下可用的逐帧数据")
+            windows, frames = [], []
+            for at in args.at:
+                start = max(0, min(total - 1, int(round((at - args.before) / dt))))
+                count = max(1, min(total - start, int(round(args.seconds / dt))))
+                windows.append({"start": len(frames), "count": count, "time": at,
+                                "from": round(start * dt, 3)})
+                frames.extend(json.loads(raw) for raw in battle.frames.encoded_range(start, count))
+            return {"format": "rmuc-replay-v4", "metadata": battle.metadata,
+                    "static": battle.frames.static, "windows": windows, "frames": frames}
 
     def control(self, data):
         args = ControlRequest.model_validate(data)
@@ -429,8 +555,36 @@ class ArenaService:
                     raise ValueError("Unsupported playback speed")
                 self.speed = args.speed
             elif args.command == "skip_prematch":
+                # Only the walk-on is skippable. The 5-4-3-2-1 countdown always runs in full, so a
+                # request that lands after it starts is refused instead of quietly ignored.
+                if self.prematch and self.prematch["stage"] != "self_check":
+                    raise ValueError("倒计时不可跳过")
                 self.skip_prematch = True
+            elif args.command == "extend_prematch":
+                # A player picking a chassis eats the walk-on's screen time. Rather than cutting a card
+                # short, the self-check clock is stretched — the countdown simply starts later.
+                if not self.prematch or self.prematch["stage"] != "self_check":
+                    raise ValueError("赛前自检已结束")
+                self.prematch_extra = min(120.0, self.prematch_extra + args.seconds)
             self.revision += 1
+
+    def player_control(self, data):
+        """Take over one robot of either team while its strategy keeps running for the rest."""
+        args = PlayerRequest.model_validate(data)
+        with self.lock:
+            battle = self.battle
+            if not battle or not self.busy:
+                # The engine still builds the match on a background thread; say so instead of
+                # pretending the match is over.
+                raise ValueError("对局正在准备中，请稍候再接管")
+            if battle.match.status == "finished":
+                raise ValueError("比赛已结束，请重新开始对局")
+            battle.set_manual(args.team, args.slot, args.action, args.assist)
+            # A pilot needs the real-time tick rate, not a sped-up replay of their own inputs.
+            if args.action is not None and self.speed != 1:
+                self.speed = 1
+            self.revision += 1
+            return self.pilot()
 
     def strategies(self):
         """Every playable strategy with its classification, presentation summary and Elo, for the gallery."""
@@ -502,22 +656,45 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
     @app.get("/api/health")
     def health():
         default=season_rules.DEFAULT_SEASON
+        # Ammunition prices per season, so the cockpit can price an order before sending it.
+        economy={}
+        # Heat each round adds, so the cockpit can stop firing before the barrel crosses its limit.
+        heat={}
+        for season in season_rules.seasons():
+            profile="rulebook_2027" if season=="2027" else "rulebook"
+            ammo=rules_config.get(profile,{}).get("economy",{}).get("ammo",{})
+            economy[season]={kind:{"local":{"batch":rule.get("local_batch",0),"cost":rule.get("local_cost",0),"cap":rule.get("team_purchase_cap",0)},
+                                    "remote":{"batch":rule.get("remote_batch",0),"cost":rule.get("remote_cost",0),"cap":rule.get("team_purchase_cap",0)}}
+                             for kind,rule in ammo.items()}
+            projectiles=rules_config.get(profile,{}).get("projectiles",{})
+            heat[season]={kind:rule.get("heat_per_shot",0) for kind,rule in projectiles.items() if isinstance(rule,dict)}
         return {"version":__version__,"rules":season_rules.rules_profile(default),"season":default,"roster":list(season_rules.slots(default)),
                 "team_size":len(season_rules.slots(default)),"seasons":season_rules.summary(),"duration":420,"engine":service.frame["engine"],
-                "simulation_hz":20,"policy_hz":10,"transport":"websocket","sandbox":sandbox}
+                "simulation_hz":20,"policy_hz":10,"transport":"websocket","sandbox":sandbox,
+                # Level spans, so a first-person HUD can draw the experience bar from the rules.
+                "experience":{"thresholds":rules_config["rulebook"]["experience"]["thresholds"]},
+                "economy":economy,"heat":heat}
 
     @app.get("/api/video-export")
     def video_export_capabilities():
         return video_exporter.capabilities()
 
     @app.post("/api/video-export")
-    async def video_export(request: Request, duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+    async def video_export(request: Request, duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False),
+                           job: str | None = Query(default=None, pattern=JOB_PATTERN)):
         try:
-            path, temporary = await video_exporter.export(request.stream(), duration=duration)
+            path, temporary = await video_exporter.export(request.stream(), duration=duration, job=job)
         except VideoExportError as exc:
             raise HTTPException(exc.status_code, str(exc)) from exc
         return FileResponse(path, media_type="video/mp4", filename="rmuc-arena.mp4",
                             background=BackgroundTask(temporary.cleanup))
+
+    @app.get("/api/video-export/jobs/{job}")
+    def video_export_job(job: str):
+        state = video_exporter.job(job)
+        if state is None:
+            raise HTTPException(404, "Unknown export")
+        return state
 
     @app.get("/api/battle-settings")
     def battle_settings(season: Literal["2026", "2027"] = "2027"):
@@ -539,7 +716,8 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
 
     @app.post("/api/matches/{match_id}/video")
     async def save_match_video(match_id: str, request: Request,
-                               duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False)):
+                               duration: float | None = Query(default=None, gt=0, le=3600, allow_inf_nan=False),
+                               job: str | None = Query(default=None, pattern=JOB_PATTERN)):
         with service.store.lock:
             record = service.store.match(match_id)
             if not record:
@@ -549,7 +727,7 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             service.store.video_status(match_id, "processing")
         temporary = None
         try:
-            path, temporary = await video_exporter.export(request.stream(), duration=duration)
+            path, temporary = await video_exporter.export(request.stream(), duration=duration, job=job)
             with service.store.lock:
                 if not service.store.match(match_id):
                     raise HTTPException(404, "Match was deleted")
@@ -742,6 +920,10 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             raise HTTPException(404, "Model not found")
         return {"deleted": model_id}
 
+    @app.get("/api/arena-preview")
+    def arena_preview(map: Literal["rmuc2027", "rmuc2026"] = "rmuc2027"):
+        return {"frame": service.preview(map)}
+
     @app.get("/api/maps")
     def maps():
         return {name:arena_map(name) for name in (season_rules.map_of(s) for s in season_rules.seasons())}
@@ -765,6 +947,13 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         except ValueError as exc:
             raise HTTPException(400,str(exc)) from exc
 
+    @app.post("/api/player")
+    def player(data:PlayerRequest):
+        try:
+            return {"ok":True,"player":service.player_control(data.model_dump())}
+        except ValueError as exc:
+            raise HTTPException(409,str(exc)) from exc
+
     @app.post("/api/referee")
     def referee(data:RefereeRequest,authorization:str|None=Header(default=None)):
         supplied = (authorization or "").removeprefix("Bearer ")
@@ -787,15 +976,24 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
             await websocket.close(code=1008)
             return
         await websocket.accept()
-        revision,since,match_id=-1,-1,None
+        # `match_id` is None before the first match starts, so the initial sentinel must be
+        # something else or the idle arena never receives its static frame.
+        revision,since,match_id=-1,-1,object()
         last_send=time.monotonic()
         try:
             while True:
-                current=await asyncio.to_thread(service.state,since)
+                current=await asyncio.to_thread(service.state,since,True)
                 if current["match_id"]!=match_id:
                     match_id=current["match_id"]
                     since=-1
-                    current=await asyncio.to_thread(service.state,since)
+                    current=await asyncio.to_thread(service.state,since,True)
+                    # The static half of the frame — arena geometry, hardware tables, rule text —
+                    # never changes during a match, so a new connection receives it once and the
+                    # snapshot stream stays about a third of its former size.
+                    static=await asyncio.to_thread(service.static_state)
+                    if static["frame"]:
+                        await websocket.send_json({"type":"static","state":static})
+                        current=await asyncio.to_thread(service.state,since,True)
                 if current["revision"]!=revision:
                     await websocket.send_json({"type":"snapshot","state":current})
                     revision=current["revision"]
@@ -849,6 +1047,14 @@ def create_app(sandbox="docker",submission_root=None,data_root=None,test_mode=Fa
         if not path or not path.is_file():
             raise HTTPException(404,"Replay not found")
         return FileResponse(path,media_type="application/json",filename=f"rmuc-{match_id}.json")
+
+    @app.post("/api/highlights")
+    def highlight_clips(data:HighlightRequest):
+        """The highlight windows of a finished match that the post-match reel replays."""
+        try:
+            return service.highlight_clips(data.model_dump())
+        except ValueError as exc:
+            raise HTTPException(409,str(exc)) from exc
 
     @app.get("/api/replay")
     def current_replay():

@@ -1,9 +1,12 @@
-import {useEffect,useMemo,useRef,type JSX} from 'react';
+import {useEffect,useMemo,useRef,type JSX,type MutableRefObject} from 'react';
 import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
 
 // Arena surroundings seen behind the field on the broadcast: dark tiered stands, crowd, LED ribbon boards and end screens.
 const W=28,H=15,GAP=5,TIERS=7,DEPTH=1.25,RISE=.55;
+// The seating is also the spectator answer of the pre-match picker, so the tiers and the crowd glow in
+// instrument cyan while the pointer is on the stands.
+const SEAT_GLOW=new THREE.Color('#8fd3e8');
 const rng=(seed:number)=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
 
 // One seamless cycle of the scrolling ribbon; RIBBON_M is its length in metres on the boards.
@@ -34,8 +37,18 @@ function Ribbon({length,height,repeat,texture,...props}:{length:number;height:nu
   return <mesh geometry={geometry} {...props}><meshBasicMaterial map={texture} toneMapped={false} fog={false} side={THREE.DoubleSide}/></mesh>;
 }
 
-export function Venue({season='2027'}:{season?:string}){
+export function Venue({season='2027',seatHot}:{season?:string;seatHot?:MutableRefObject<boolean>}){
   const crowd=useRef<THREE.InstancedMesh>(null),ribbon=useMemo(()=>ribbonTexture(season),[season]),screens=useMemo(()=>({red:screenTexture('red'),blue:screenTexture('blue')}),[]);
+  // Every surface of the bowl that should answer the pointer: the seven tiers of each side plus the
+  // fascia above them and the crowd. They are kept in one list so a single eased value drives them.
+  const bowl=useRef<{mat:THREE.MeshStandardMaterial;base:number}[]>([]),glow=useRef(0);
+  const bowlMat=(mat:THREE.MeshStandardMaterial|null|undefined,base=0)=>{
+    if(!mat)return;
+    const list=bowl.current;
+    if(!list.some(e=>e.mat===mat))list.push({mat,base});
+    mat.emissive.copy(SEAT_GLOW);
+    mat.emissiveIntensity=0;
+  };
   const sides=useMemo(()=>[
     {pos:[0,0,H/2+GAP] as const,rot:0,len:W+2*GAP+4},{pos:[0,0,-H/2-GAP] as const,rot:Math.PI,len:W+2*GAP+4},
     {pos:[W/2+GAP,0,0] as const,rot:Math.PI/2,len:H+2*GAP},{pos:[-W/2-GAP,0,0] as const,rot:-Math.PI/2,len:H+2*GAP}],[]);
@@ -47,16 +60,24 @@ export function Venue({season='2027'}:{season?:string}){
     return list;},[sides]);
   useEffect(()=>{const m=crowd.current;if(!m)return;seats.forEach((s,i)=>{m.setMatrixAt(i,s.m);m.setColorAt(i,s.c);});m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;},[seats]);
   useEffect(()=>()=>{ribbon.dispose();screens.red.dispose();screens.blue.dispose();},[ribbon,screens]);
-  useFrame((_,dt)=>{ribbon.offset.x=(ribbon.offset.x+dt*.025)%1;});
+  useFrame((_,dt)=>{
+    ribbon.offset.x=(ribbon.offset.x+dt*.025)%1;
+    // The bowl lights up while the pre-match pointer is on the audience seats, and fades back out on
+    // its own so the stands read as seating again the moment a side or a chassis is chosen.
+    const want=seatHot?.current?1:0;
+    glow.current+=(want-glow.current)*Math.min(1,dt*(want?7:4));
+    const g=glow.current;
+    for(const {mat,base} of bowl.current)mat.emissiveIntensity=base*g;
+  });
   return <group>
     {sides.map((s,i)=><group key={i} position={s.pos} rotation={[0,s.rot,0]}>
-      {Array.from({length:TIERS},(_,t)=><mesh key={t} position={[0,-.85+RISE*(t+1)/2,DEPTH*(t+.5)]} receiveShadow><boxGeometry args={[s.len,RISE*(t+1),DEPTH]}/><meshStandardMaterial color="#0d1016" roughness={.95}/></mesh>)}
+      {Array.from({length:TIERS},(_,t)=><mesh key={t} position={[0,-.85+RISE*(t+1)/2,DEPTH*(t+.5)]} receiveShadow><boxGeometry args={[s.len,RISE*(t+1),DEPTH]}/><meshStandardMaterial ref={m=>bowlMat(m,.5+t*.06)} color="#0d1016" roughness={.95}/></mesh>)}
       <Ribbon position={[0,.15,-.02]} rotation={[0,Math.PI,0]} length={s.len} height={.5} repeat={s.len/RIBBON_M} texture={ribbon}/>
-      <mesh position={[0,-.85+RISE*TIERS+2.2,DEPTH*TIERS+.4]} rotation={[0,Math.PI,0]}><planeGeometry args={[s.len,4.4]}/><meshStandardMaterial color="#090b10" roughness={1} side={THREE.DoubleSide}/></mesh>
+      <mesh position={[0,-.85+RISE*TIERS+2.2,DEPTH*TIERS+.4]} rotation={[0,Math.PI,0]}><planeGeometry args={[s.len,4.4]}/><meshStandardMaterial ref={m=>bowlMat(m,.2)} color="#090b10" roughness={1} side={THREE.DoubleSide}/></mesh>
       <Ribbon position={[0,-.85+RISE*TIERS+3.4,DEPTH*TIERS+.3]} rotation={[0,Math.PI,0]} length={s.len} height={.7} repeat={s.len/(RIBBON_M*1.4)} texture={ribbon}/>
     </group>)}
     {(['red','blue'] as const).map(team=>{const x=(team==='red'?-1:1)*(W/2+GAP+DEPTH*TIERS+.2);return <mesh key={team} position={[x,7.6,0]} rotation={[0,team==='red'?Math.PI/2:-Math.PI/2,0]}><planeGeometry args={[9,4.5]}/><meshBasicMaterial map={screens[team]} toneMapped={false}/></mesh>;})}
-    <instancedMesh ref={crowd} args={[undefined,undefined,seats.length]} frustumCulled={false}><boxGeometry args={[1,1,1]}/><meshStandardMaterial roughness={.95}/></instancedMesh>
+    <instancedMesh ref={crowd} args={[undefined,undefined,seats.length]} frustumCulled={false}><boxGeometry args={[1,1,1]}/><meshStandardMaterial ref={m=>bowlMat(m,.9)} roughness={.95}/></instancedMesh>
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.86,0]}><planeGeometry args={[240,240]}/><meshStandardMaterial color="#06080c" roughness={1}/></mesh>
   </group>;
 }

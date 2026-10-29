@@ -644,12 +644,20 @@ impl Engine {
                 } else {
                     f64::INFINITY
                 };
-                if allowed
-                    && amount > 0
-                    && amount % batch == 0
-                    && purchased + amount <= cap
-                    && self.teams[&team].resources >= cost
-                {
+                let refusal = if !allowed {
+                    Some(if remote { "远程补给需脱离交战 6 秒".to_string() } else { "需在本方基地或补给区内".to_string() })
+                } else if amount == 0 || batch == 0 || (remote && amount % batch != 0) {
+                    Some(if remote { format!("远程弹药数量必须为 {} 的整数倍", batch) } else { "弹药数量必须大于 0".to_string() })
+                } else if purchased + amount > cap {
+                    Some(format!("本队 {} 弹购买量已达上限（{}/{}）", kind, purchased, cap))
+                } else if self.teams[&team].resources < cost {
+                    Some(format!("金币不足：需 {:.0}，现有 {:.0}", cost, self.teams[&team].resources))
+                } else {
+                    None
+                };
+                if let Some(reason) = refusal {
+                    self.event("ammo_refused", json!({"robot":r.id,"reason":reason}));
+                } else {
                     let t = self.teams.get_mut(&team).unwrap();
                     t.resources -= cost;
                     if r.role == "hero" {
@@ -667,6 +675,8 @@ impl Engine {
                         json!({"robot":r.id,"amount":amount,"cost":cost,"remote":remote}),
                     );
                 }
+            } else {
+                self.event("ammo_refused", json!({"robot":r.id,"reason":"该型号不能购买弹药"}));
             }
         }
         if let Some(deploy) = rpc.get("deploy").and_then(Value::as_bool) {
@@ -1217,7 +1227,7 @@ impl Engine {
         }
         self.event(
             "hit",
-            json!({"robot":self.robots[index].id,"team":p.team,"x":x,"y":y,"z":z,"damage":amount}),
+            json!({"robot":self.robots[index].id,"source":p.source,"team":p.team,"x":x,"y":y,"z":z,"damage":amount}),
         );
         if self.robots[index].hp <= 0.0 {
             let r = &mut self.robots[index];
@@ -1333,7 +1343,7 @@ impl Engine {
         if p.deployed {
             self.gain_xp(source, 100.0);
         }
-        self.event(if outpost{"outpost_hit"}else{"base_hit"},json!({"team":p.team,"target_team":team,"x":x,"y":y,"z":z,"damage":actual,"weakspot":weak}));
+        self.event(if outpost{"outpost_hit"}else{"base_hit"},json!({"team":p.team,"robot":p.source,"target_team":team,"x":x,"y":y,"z":z,"damage":actual,"weakspot":weak}));
     }
     fn arm_design(&self) -> Value {
         self.robots
@@ -1509,14 +1519,31 @@ impl Engine {
             if let Some(pickup) = &r.unit_pickup {
                 let selected=if pickup.arm==1 {&mut secondary} else {&mut *goal};
                 if selected.mode == "stow" {
-                    selected.mode = "pick".into();
-                    if pickup.stage == "stowing" {
-                        selected.joints = Some(physics::arm_stowed(&self.physics.as_ref().unwrap().design(i)[if pickup.arm==0 {"arm"}else{"arm2"}]));
+                    if pickup.stage == "carrying" {
+                        // The third unit rides in the gripper: hold it out in front of the mast so
+                        // it stays visible and out of the way until a core takes it. An assembly,
+                        // rescue or manual command claimed above keeps priority.
+                        let key = if pickup.arm == 1 { "arm2" } else { "arm" };
+                        let y = self.physics.as_ref().unwrap().design(i)[key]["base_m"]
+                            .get(1)
+                            .and_then(Value::as_f64)
+                            .unwrap_or(0.0);
+                        selected.mode = "manual".into();
+                        selected.point = Some([0.45, y, 0.72]);
+                        selected.dir = Some([1.0, 0.0, 0.0]);
+                        selected.local = true;
+                        selected.roll = 0.0;
+                        selected.grip = 0.0;
                     } else {
-                        selected.point = Some([pickup.point[0], pickup.point[1], pickup.point[2]
-                            + if pickup.stage == "lifting" {0.18} else {0.0}]);
-                        selected.dir = Some(pickup.direction);
-                        selected.grip = if pickup.stage == "approaching" {1.0} else {0.0};
+                        selected.mode = "pick".into();
+                        if pickup.stage == "stowing" {
+                            selected.joints = Some(physics::arm_stowed(&self.physics.as_ref().unwrap().design(i)[if pickup.arm==0 {"arm"}else{"arm2"}]));
+                        } else {
+                            selected.point = Some([pickup.point[0], pickup.point[1], pickup.point[2]
+                                + if pickup.stage == "lifting" {0.18} else {0.0}]);
+                            selected.dir = Some(pickup.direction);
+                            selected.grip = if pickup.stage == "approaching" {1.0} else {0.0};
+                        }
                     }
                 }
             }

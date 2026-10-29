@@ -9,8 +9,11 @@
   <a href="https://rm-arena.github.io/Arena-1/demo">观看演示</a> ·
   <a href="#微信交流群">微信交流群</a>
 </p>
+<p align="center"><a href="https://www.bilibili.com/video/BV1rJJD6cEfG/"><strong>来预览你的RoboMaster2027全明星表演赛</strong></a>（Bilibili 视频）</p>
 
 > **Beta 版本说明：目前所有已发布版本（包括早期未在版本号中标注 Beta 的版本）仍处于 Beta 阶段。规则实现、仿真、界面和数据格式仍可能调整。当前版本：`v0.8.0-beta.1`。更新记录见 [CHANGELOG](CHANGELOG.md)。
+
+桌面版启动后自动检查 App 更新，运行期间每 6 小时再检查一次；发现新版本时提示下载对应系统与架构的安装包。也可从「帮助 → 检查更新」立即检查。下载后退出应用并安装；旧版本需先手动安装一次支持此功能的版本。
 
 Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选的规则与场地：
 
@@ -24,13 +27,19 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 也可在策略库点击「检查更新」。断网时使用缓存与内置策略，用户上传的策略独立保留。
 旧安装包需要先升级一次；此后单纯更新策略无需重新下载安装包。
 
-**完整对局 MP4 自动保存。** 开赛前勾选「保存完整对局 MP4」，自动录下赛前阵容介绍、对局、赛后数据面板和 MVP，
-以 H.264/AAC、1080p / 30 FPS 保存到该场比赛。在「比赛与回放」可直接播放或下载；保存完成前请保持观战页面打开。
-仍可手动录制 MP4 / WebM，实时比赛和数据回放均可录制；自动保存失败时保留原始 WebM，并可重试保存。
+**完整对局 MP4 自动保存。** 开赛前勾选「自动录制整场 MP4」，自动录下赛前阵容介绍、对局、赛后数据面板、对局高光和 MVP，
+以 H.264/AAC、1080p / 30 FPS 保存到该场比赛，在「比赛与回放」可直接播放或下载。MVP 结算后录像在后台转码，右下角面板显示上传与转码进度，期间可以继续操作。
+也可以随时「录制片段」，实时比赛和数据回放均可录制，停止后自动转成 MP4 下载；保存失败时保留原始 WebM，可重试或下载。
 
 **战场设置与策略比较。** 在「战场设置」按赛季调整散布、视场、装配和无人机撞击等参数，一键恢复当前版本默认值；
 更改用于下一场比赛并随回放保存，非默认参数的比赛不计 Elo。对战页的「浏览全部策略 / 并排比较与配对」支持搜索与三份策略对照，
 无需先选阵容；应用组合时自动载入已注册阵容，双方仍须同赛季、同阵容。
+
+**第一视角驾驶。** 实时比赛中按 **P** 打开驾驶面板，点「LINK START」后在场上点选一台地面机器人即可接管：鼠标控制云台，WASD 控制底盘，左键开火、右键自动瞄准，另有登阶、小陀螺、超级电容、买弹补给与取矿装配。其余机器人仍由策略控制，比赛记录、回放与 Elo 不受影响。数字键 1–5 切换自由、俯视、跟随、第一视角与环绕镜头。
+
+**赛后数据、对局高光与 MVP。** 比赛结束后依次进入数据面板、对局高光和 MVP，每一步都可跳过。高光直接从本场回放中剪出最多 6 段，优先结构伤害、输出峰值、多杀、击毁前哨站与装配等决定胜负的时刻。
+
+**配乐。** 赛前、局内开场、赛后数据、MVP 与高光各有主题曲随项目发布（AAC 与 MP3 两种格式），可以在本机放一个 `<提示位>-custom.m4a` 替换；首页与大厅使用原创合成的配乐。详见[训练、对战与回放](https://rm-arena.github.io/Arena-1/guide/features#highlights)。
 
 [![RMUC 2027 实际对战：开局双方空中机器人冲撞前哨站](docs/media/rmuc2027-battle.gif)](docs/media/rmuc2027-battle.mp4)
 
@@ -86,6 +95,10 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
   <tr>
     <td><img src="docs/media/rmuc2027-drones.jpg" alt="空中机器人撞击前哨站" /><p align="center">空中机器人冲撞前哨站中层装甲</p></td>
     <td><img src="docs/media/rmuc2027-heavy.jpg" alt="重型机器人装配科技核心" /><p align="center">重型机器人在装配台装配科技核心</p></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/rmuc2027-pilot.jpg" alt="第一视角驾驶" /><p align="center">第一视角驾驶：按 P 接管一台地面机器人</p></td>
+    <td><img src="docs/media/rmuc2027-highlight.jpg" alt="对局高光" /><p align="center">对局高光：从本场回放自动剪出关键片段</p></td>
   </tr>
   <tr>
     <td><img src="docs/media/rmuc2027-lineup.jpg" alt="出战机库的合规检查" /><p align="center">出战机库：不符合 2027 规范的型号不能选</p></td>
@@ -248,6 +261,8 @@ python scripts/project.py desktop   # 或者以桌面窗口运行
 ```
 
 `run` 默认以“可信本地策略”模式执行 Python 策略，只运行你信任的代码。要用 Docker 隔离，先执行 `python scripts/project.py setup --docker` 构建沙箱镜像，再用 `python scripts/project.py run --docker` 启动。
+
+端口 8765 被别的程序占着启动会直接退出（Windows 上输入法、Hyper-V 端口保留都可能占它），换一个端口即可：`python scripts/project.py run --port 8800`，然后打开 `http://127.0.0.1:8800`。
 
 **2. 开发循环**
 

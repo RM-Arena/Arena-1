@@ -49,6 +49,93 @@ fn red_xp(m: &Engine) -> (f64, f64) {
     )
 }
 
+/// A 42 mm round aimed at a world point has to leave the muzzle on the solved flat arc and come down
+/// where the crosshair sat: the drop is what the cockpit asks for, not a high lob.
+#[test]
+fn lobbed_42mm_follows_the_solved_flat_arc() {
+    let mut m = match_();
+    let i = robot(&m, "red-1");
+    assert_eq!(m.robots[i].role, "heavy");
+    // This test is about the ballistics; the rules' 42 mm unlock is assumed done.
+    m.teams.get_mut("red").unwrap().completed_difficulties = vec![1, 2, 3];
+    {
+        let r = &mut m.robots[i];
+        r.launcher = "installed".into();
+        r.alive = true;
+        r.ammo = 20;
+        r.cooldown = 0.0;
+        r.heat = 0.0;
+        r.x = 14.0;
+        r.y = 7.5;
+        r.z = height_at(&m.arena, 14.0, 7.5) + 0.02;
+        r.heading = 0.0;
+        r.aim = 0.0;
+        r.pitch = 0.0;
+        r.vx = 0.0;
+        r.vy = 0.0;
+        r.vz = 0.0;
+    }
+    // The cockpit solves this for a point twelve metres out: 0.21 rad is the flat-arc elevation.
+    let pitch = 0.21;
+    let idle = json!({"red":{"1":{"fire":false,"aim":0.0,"pitch":pitch,"move":[0.0,0.0]}}});
+    for _ in 0..120 {
+        m.advance(&idle);
+    }
+    let (_, barrel) = physics::muzzle(&m.robots[i]);
+    let elevation = barrel[2].atan2(barrel[0].hypot(barrel[1])).to_degrees();
+    println!(
+        "settled local {:.2} deg, barrel {:.2} deg, z {:.2}, v ({:.2},{:.2},{:.2})",
+        m.robots[i].pitch.to_degrees(),
+        elevation,
+        m.robots[i].z,
+        m.robots[i].vx,
+        m.robots[i].vy,
+        m.robots[i].vz
+    );
+    let commands = json!({"red":{"1":{"fire":true,"aim":0.0,"pitch":pitch,"move":[0.0,0.0]}}});
+    let mut shot = None;
+    for _ in 0..200 {
+        m.advance(&commands);
+        if let Some(p) = m.projectiles.iter().find(|p| p.source == "red-1") {
+            shot = Some((p.x, p.y, p.z, p.vx, p.vy, p.vz));
+            break;
+        }
+    }
+    let (x0, y0, z0, vx0, vy0, vz0) = shot.expect("the heavy launcher fired");
+    println!(
+        "muzzle v ({:.2},{:.2},{:.2}) from ({:.2},{:.2},{:.2})",
+        vx0, vy0, vz0, x0, y0, z0
+    );
+    let mut last = (x0, y0, z0);
+    let mut apex = z0;
+    for _ in 0..400 {
+        m.advance(&commands);
+        if let Some(p) = m.projectiles.iter().find(|p| p.source == "red-1") {
+            last = (p.x, p.y, p.z);
+            apex = apex.max(p.z);
+        } else {
+            break;
+        }
+    }
+    println!(
+        "apex {:.2} m, landing ({:.2},{:.2},{:.2}), range {:.2} m",
+        apex,
+        last.0,
+        last.1,
+        last.2,
+        (last.0 - 14.0).hypot(last.1 - 7.5)
+    );
+    assert!(
+        (elevation - 12.03).abs() < 1.0,
+        "the barrel has to sit on the solved flat arc, not somewhere else: {elevation}"
+    );
+    assert!(apex > z0 && apex < 3.0, "a flat arc only rises a little: {apex}");
+    assert!(
+        ((last.0 - 14.0).hypot(last.1 - 7.5) - 12.0).abs() < 1.5,
+        "the shell has to come down on the point it was solved for"
+    );
+}
+
 #[test]
 fn sentry_damage_and_kill_share_xp_with_living_infantry() {
     let mut m = match_();

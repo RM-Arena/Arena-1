@@ -356,6 +356,9 @@ pub struct Robot {
     /// Wheel-legged leg lengths (left, right), hip axle to wheel axle, metres.
     #[serde(default, skip_serializing_if = "zeros")]
     pub legs: [f64; 2],
+    /// Tallest step the legs can mount, metres (0: the chassis cannot step-climb).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub step_climb_m: f64,
     /// Serial-leg hip angle about the body's lateral axis (0 = legs straight down, + swings
     /// the wheels rearward), unwrapped: flipping back from the roof turns it a full revolution.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -363,9 +366,8 @@ pub struct Robot {
     /// A serial-leg robot is swinging its legs round to flip itself back upright.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub self_righting: bool,
-    /// 2027 heavy robot's modular 42 mm launcher: locked, unlocked, installing, fitted_locked
-    /// (fitted before the usage right, unpowered), fitted (on the robot, waiting for its first
-    /// detected shot) or installed.
+    /// 2027 heavy robot's modular 42 mm launcher: locked, unlocked, installing, fitted
+    /// (on the robot, waiting for its first detected shot) or installed.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub launcher: String,
     #[serde(default, skip_serializing_if = "is_zero")]
@@ -395,6 +397,24 @@ pub struct Robot {
 impl Robot {
     pub fn design_slot(&self) -> u32 {
         self.model_slot.unwrap_or(self.slot)
+    }
+    /// The third energy unit a heavy robot carries in its gripper once both storage bays are full.
+    pub fn gripper_unit(&self) -> bool {
+        self.unit_pickup
+            .as_ref()
+            .is_some_and(|s| s.stage == "carrying")
+    }
+    /// Units on board, stowed bays plus the one clamped in the gripper.
+    pub fn units_on_board(&self) -> u32 {
+        self.carried_units + u32::from(self.gripper_unit())
+    }
+    /// A heavy robot has two bays and a gripper; every other arm carrier only has the bays.
+    pub fn unit_capacity(&self) -> u32 {
+        if self.role == "heavy" {
+            3
+        } else {
+            2
+        }
     }
 }
 
@@ -504,12 +524,18 @@ struct Action {
     transform: Option<bool>,
     /// Commanded chassis yaw rate (rad/s), e.g. a spinning top; overrides heading.
     yaw_rate: Option<f64>,
+    /// Burst yaw authority (0..1): the yaw motors may use torque above the chassis rating, the
+    /// supercapacitor firmware's spin-up mode. A pilot spins faster with it; strategies ignore it.
+    yaw_boost: f64,
     /// Powered robots with no move command coast instead of braking.
     coast: bool,
     /// Wheel-legged leg length (m), jump strength (0..1) and body lean (rad, + = nose down).
     leg_height: Option<f64>,
     jump: f64,
     lean: f64,
+    /// Step-climbing mode (0..1): with a climbable step in front, the legs lift the hull onto it
+    /// and then retract, so a step-climbing chassis mounts kerbs and stairs without a full jump.
+    climb: f64,
     rpc: Value,
 }
 
@@ -1101,6 +1127,11 @@ impl Engine {
                         [d["leg_nominal_m"].as_f64().unwrap(); 2]
                     } else {
                         [0.0; 2]
+                    },
+                    step_climb_m: if d["chassis_type"] == "wheel_legged" {
+                        d["step_climb_m"].as_f64().unwrap_or(0.0)
+                    } else {
+                        0.0
                     },
                     hip_angle: (d["leg_type"] == "serial").then_some(0.0),
                     self_righting: false,
@@ -1754,20 +1785,32 @@ impl Engine {
                 .filter(|v| v.is_finite())
         };
         a.yaw_rate = number("yaw_rate").map(|v| v.clamp(-12.0, 12.0));
+        a.yaw_boost = number("yaw_boost").unwrap_or(0.0).clamp(0.0, 1.0);
         a.coast = raw.get("brake").and_then(Value::as_bool) == Some(false);
         a.leg_height = number("leg_height");
         a.jump = number("jump").unwrap_or(0.0).clamp(0.0, 1.0);
         a.lean = number("lean").unwrap_or(0.0).clamp(-0.35, 0.35);
+        a.climb = number("climb").unwrap_or(0.0).clamp(0.0, 1.0);
         if raw.get("jump").and_then(Value::as_bool) == Some(true) {
             a.jump = 1.0;
         }
+        if raw.get("climb").and_then(Value::as_bool) == Some(true) {
+            a.climb = 1.0;
+        }
         let legged = self.robots[i].legs != [0.0; 2];
-        if !legged && (a.leg_height.is_some() || a.jump > 0.0 || a.lean != 0.0) {
+        if !legged && (a.leg_height.is_some() || a.jump > 0.0 || a.lean != 0.0 || a.climb > 0.0) {
             self.event(
                 "invalid_action",
-                json!({"robot":id,"reason":"leg_height, jump and lean need the wheel-legged chassis"}),
+                json!({"robot":id,"reason":"leg_height, jump, lean and climb need the wheel-legged chassis"}),
             );
-            (a.leg_height, a.jump, a.lean) = (None, 0.0, 0.0);
+            (a.leg_height, a.jump, a.lean, a.climb) = (None, 0.0, 0.0, 0.0);
+        }
+        if a.climb > 0.0 && self.robots[i].step_climb_m <= 0.0 {
+            self.event(
+                "invalid_action",
+                json!({"robot":id,"reason":"this model cannot step-climb"}),
+            );
+            a.climb = 0.0;
         }
         a.power = raw
             .get("power")
@@ -2056,6 +2099,8 @@ mod realism_tests;
 mod model_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod spin_tests;
 
 #[cfg(test)]
 mod vision_tests;

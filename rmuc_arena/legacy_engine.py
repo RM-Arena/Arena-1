@@ -184,7 +184,7 @@ class Match:
             amount *= 0.4 if target.shield > 0 else 1
             actual = min(target.hp, amount)
             target.hp = max(0, target.hp - amount)
-            self.event("hit", x=target.x, y=target.y, robot=target.id, team=source.team, damage=round(actual, 2))
+            self.event("hit", x=target.x, y=target.y, robot=target.id, source=source.id, team=source.team, damage=round(actual, 2))
             if target.hp <= 0 and target.alive:
                 target.alive = False
                 source.kills += 1
@@ -195,7 +195,7 @@ class Match:
         else:
             actual = min(target["hp"], amount)
             target["hp"] = max(0, target["hp"] - amount)
-            self.event("base_hit", x=target["x"], y=target["y"], team=source.team, damage=round(actual, 2))
+            self.event("base_hit", x=target["x"], y=target["y"], team=source.team, robot=source.id, damage=round(actual, 2))
         source.damage += actual
         self.teams[source.team]["score"] += actual * 0.05
 

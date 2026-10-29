@@ -1,0 +1,383 @@
+/* The only cockpit entry left on the field itself: a small chip on the top right, next to the
+   fullscreen toggle. Every other control lives inside the panel it opens. */
+.pilot-open{position:absolute;top:10px;right:112px;z-index:11;display:inline-flex;align-items:center;gap:7px;padding:6px 10px 6px 9px;border:1px solid #7f9bb055;border-radius:9px;background:linear-gradient(180deg,#0d1a24e8,#070f16e8);backdrop-filter:blur(10px);color:#bfe4f6;font-size:11px;letter-spacing:.6px;box-shadow:0 10px 26px #0009,inset 0 0 0 1px #ffffff0a;transition:transform .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease}
+.pilot-open:hover{transform:translateY(-1px);border-color:var(--hud-accent,#8fd3e8);color:var(--hud-ink-2,#e6f7ff);box-shadow:0 14px 30px #000a,inset 0 0 0 1px var(--hud-ink-2,#e6f7ff)}
+.pilot-open kbd{font:9px/1 ui-monospace,monospace;color:#cfe0ec;border:1px solid #ffffff2e;border-radius:4px;padding:2px 5px;background:#ffffff12}
+/* The fullscreen toggle grows with the viewport, so the chip steps left to stay clear of it. */
+.viewport:fullscreen .pilot-open,.viewport.page-fullscreen .pilot-open{right:130px}
+
+.pilot-backdrop{position:absolute;inset:0;z-index:20;background:#04080c66;backdrop-filter:blur(2px)}
+/* The field is a game viewport, not a document: no text selection, no touch scrolling and no
+   native drag may swallow a held mouse button while the pilot aims. */
+.viewport{user-select:none;-webkit-user-select:none;touch-action:none}
+/* Glass panels: a 1 px gradient hairline instead of a solid frame, a mostly clear fill and a soft
+   inner highlight, so a dialog reads as a pane of glass floating over the field. */
+.pilot-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;width:392px;max-width:calc(100% - 24px);display:flex;flex-direction:column;gap:8px;padding:13px 14px;border:1px solid transparent;border-radius:12px;background:linear-gradient(180deg,#0b1723a6,#050b12c2) padding-box,linear-gradient(155deg,var(--hud-ink,#cfe6ff),#ffffff09 40%,var(--hud-accent-2,#7fd0ff)) border-box;backdrop-filter:blur(22px) saturate(125%);box-shadow:0 22px 60px #00000073,inset 0 1px 0 #ffffff16;color:#c6d6e1;font-size:11px}
+.pilot-heading{display:flex;align-items:center;gap:6px;color:var(--hud-accent,#8fd3e8);font-size:11px;letter-spacing:.6px}
+.pilot-heading>span{white-space:nowrap}
+/* The panel's own icons carry the field's palette: cold instrument cyan for the frame, amber for the
+   arming controls, red for anything that hands the chassis back. */
+.pilot-heading>svg{color:var(--hud-accent,#8fd3e8);filter:drop-shadow(0 0 6px var(--hud-accent,#8fd3e8))}
+.pilot-heading em{margin-left:auto;font-style:normal;font-size:10px;color:#9fb4c3;white-space:nowrap}
+.pilot-x{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-left:6px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:6px;background:#ffffff09;color:#b3c6d3;padding:0;font-size:13px;line-height:1;transition:border-color .15s ease,color .15s ease,background-color .15s ease}
+.pilot-x:hover{border-color:#ff9d8a80;color:#ffd6cd;background:#ff8f7a1a}
+.pilot-x-glyph{font-size:13px;line-height:1;font-weight:400}
+.pilot-setup{display:flex;flex-direction:column;gap:6px}
+.pilot-team-switch{display:flex;gap:4px}
+.pilot-team-switch button{flex:1;padding:5px 4px;font-size:10px;border-radius:5px;border:1px solid #405463;background:#13202a;color:#a9bfcd}
+.pilot-team-switch button.active{color:var(--team);border-color:var(--team);background:#16242e;box-shadow:0 0 12px #ffffff0d}
+.pilot-setup select{width:100%;padding:6px 7px;font-size:11px;border-radius:5px;border:1px solid #405463;background:#0d1720;color:#d5e3ec}
+.pilot-engage,.pilot-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 8px;font-size:11px;border-radius:5px;border:1px solid #3f7d93;background:#10232c;color:var(--hud-ink,#cfe6ff)}
+.pilot-engage:disabled{opacity:.45}
+.pilot-readouts{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 8px;padding:7px 8px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:7px;background:#0b141ba6;backdrop-filter:blur(6px)}
+.pilot-readouts span{display:flex;align-items:baseline;gap:4px;font-size:12px;font-variant-numeric:tabular-nums;color:#e6f0f6}
+.pilot-readouts b{font-weight:400;font-size:9px;letter-spacing:.5px;color:#7f96a5}
+.pilot-readouts small{font-size:9px;color:#7f96a5}
+.pilot-readouts span.hot{color:#ff9d8b}
+.pilot-actions{display:flex;gap:5px}
+.pilot-actions button{flex:1;font-size:10px;border-color:#405463;background:#13202a;color:#a9bfcd;padding:6px 6px}
+.pilot-actions button svg{flex:none}
+.pilot-actions .pilot-act-resume{border-color:#3f6a7d;background:#0f2029;color:#a8dcef}
+.pilot-actions .pilot-act-resume svg{color:var(--hud-accent,#8fd3e8)}
+.pilot-actions .pilot-act-resume:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-ink-2,#e6f7ff);background:#122a35}
+.pilot-actions .pilot-act-pause{border-color:#6a563a;background:#1d1810;color:#b7dcea}
+.pilot-actions .pilot-act-pause svg{color:#a9d8ff}
+.pilot-actions .pilot-act-pause:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-ink-2,#e6f7ff);background:#26200f}
+.pilot-actions .pilot-act-exit{border-color:#6b3b3b;background:#221313;color:#e8a79c}
+.pilot-actions .pilot-act-exit svg{color:#ff8f7a}
+.pilot-actions .pilot-act-exit:hover{border-color:#ff9d8aaa;color:#ffd6cd;background:#2c1717}
+/* Fullscreen lives in the cockpit too: while piloting the top-right toggle is out of reach. */
+.pilot-actions .pilot-act-fullscreen{border-color:#3f5c6a;background:#0f1e26;color:#b7d3e0}
+.pilot-actions .pilot-act-fullscreen svg{color:#9fd3e8}
+.pilot-actions .pilot-act-fullscreen:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-ink-2,#e6f7ff);background:#122a35}
+.pilot-setup-act{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:7px 8px;border:1px solid #405463;border-radius:5px;background:#13202a;color:#a9bfcd;font-size:11px}
+.pilot-setup-act svg{color:#9fd3e8}
+.pilot-setup-act:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-tint,#cfeaff);background:#122a35}
+/* The camera menu and the transport live in the cockpit panel while piloting. The five modes are one
+   row of icon tiles so nothing wraps onto a second line at the panel width. */
+.pilot-panel-camera{display:block}
+.pilot-panel-camera .camera-buttons{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%;box-sizing:border-box}
+.pilot-panel-camera .camera-compact button{flex-direction:column;justify-content:center;gap:2px;padding:5px 2px;font-size:10px;color:#8fa2b1;border-color:var(--hud-ink,#cfe6ff);background:#0b141b7a}
+.pilot-panel-camera .camera-compact button svg{color:#7fa8c0;transition:color .16s ease,filter .16s ease}
+.pilot-panel-camera .camera-compact button:hover{border-color:var(--hud-ink,#cfe6ff);color:#d6e6f2}
+.pilot-panel-camera .camera-compact button:hover svg{color:#bfe4f6}
+/* Each mode keeps its own instrument colour, so the tile is recognisable before it is read. */
+.pilot-panel-camera .camera-compact button[data-cam="orbit"] svg{color:#93a9b8}
+.pilot-panel-camera .camera-compact button[data-cam="top"] svg{color:var(--hud-accent-2,#7fd0ff)}
+.pilot-panel-camera .camera-compact button[data-cam="follow"] svg{color:#8fe0b0}
+.pilot-panel-camera .camera-compact button[data-cam="fpv"] svg{color:#a9d8ff}
+.pilot-panel-camera .camera-compact button[data-cam="cinematic"] svg{color:#b6a6ff}
+.pilot-panel-camera .camera-compact button.active{color:var(--hud-ink-2,#e6f7ff);border-color:var(--hud-accent,#8fd3e8);background:#0f2833a8}
+.pilot-panel-camera .camera-compact button.active svg{color:var(--hud-tint,#bdeaff);filter:drop-shadow(0 0 7px var(--hud-accent-2,#7fd0ff))}
+.pilot-panel-camera .camera-compact kbd{margin:0;font-size:9px;color:#7f94a4}
+.pilot-pause{padding:6px 10px;border:1px solid #405463;border-radius:5px;background:#13202a;color:#a9bfcd;font-size:10px;white-space:nowrap;flex:1}
+.pilot-pause:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-tint,#cfeaff)}
+.pilot-hints-title{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:10px;letter-spacing:1.4px;color:var(--hud-accent,#8fd3e8)}
+.pilot-hints-title::before{content:"";width:14px;height:1px;background:var(--hud-accent,#8fd3e8)}
+.pilot-hints-title::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--hud-accent,#8fd3e8),transparent)}
+.pilot-hints{margin:0;font-size:10px;line-height:1.6;color:#8599a8}
+.pilot-hints b{color:#bacddb;font-weight:600}
+
+/* First-person HUD: vitals bottom-left, the four-quadrant ring in the middle of the view with the
+   ammunition to its right. The ring is four times the old radius (384 px across) with a hairline
+   stroke, so it frames the crosshair instead of hiding it. */
+.pilot-reticle,.pilot-readout,.pilot-status{--ring:384px}
+.pilot-reticle{position:absolute;left:50%;top:50%;z-index:8;transform:translate(-50%,-50%);width:var(--ring);height:var(--ring);max-width:min(var(--ring),86vw);max-height:min(var(--ring),86vh);aspect-ratio:1;opacity:.4;pointer-events:none;font-variant-numeric:tabular-nums;filter:drop-shadow(0 0 6px #000)}
+.pilot-reticle svg{width:100%;height:100%;overflow:visible}
+.pilot-reticle.overheated circle:nth-child(2){stroke:#ff6a5a}
+/* The crosshair is its own fixed-size mark: the ring scales with the window, the aim point must
+   not. Kept at the same 40 % transparency as the arcs. */
+.pilot-cross{position:absolute;left:50%;top:50%;z-index:9;width:32px;height:32px;transform:translate(-50%,-50%);opacity:.4;pointer-events:none;filter:drop-shadow(0 0 4px #000)}
+/* Readout: sits just outside the ring on the right, dark chip so the number survives a bright
+   floor, still lighter than the ring. */
+.pilot-readout{position:absolute;left:calc(50% + var(--ring)/2 + 18px);top:50%;z-index:9;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-start;gap:3px;pointer-events:none;opacity:.4;font-variant-numeric:tabular-nums}
+.pilot-readout .pilot-ammo{display:flex;align-items:baseline;gap:3px;font-size:34px;font-weight:600;line-height:1;color:var(--hud-ink-2,#f2fbff);text-shadow:0 1px 6px #000c,0 0 2px #000}
+.pilot-readout .pilot-ammo i{font-style:normal;font-size:10px;letter-spacing:1px;color:#9fb4c3}
+.pilot-readout small{padding:1px 7px;border-radius:99px;background:#050a10b8;font-size:9px;color:#b9cbd8;white-space:nowrap}
+.pilot-readout.overheated .pilot-ammo,.pilot-readout.overheated small{color:#ff9d8b}
+/* Vitals card: one line per resource with the value right-aligned over its own bar. */
+.pilot-vitals{position:absolute;left:14px;bottom:46px;z-index:9;display:flex;flex-direction:column;gap:6px;width:212px;padding:9px 11px 10px;border:1px solid #b1c6d533;border-radius:8px;background:#050a10a8;backdrop-filter:blur(5px);pointer-events:none;font-variant-numeric:tabular-nums}
+.pilot-vitals .vitals-head{display:flex;align-items:baseline;gap:6px;font-size:10px;color:#9fb4c3}
+.pilot-vitals .vitals-head b{font-size:11px;color:var(--hud-accent,#8fd3e8);letter-spacing:.5px}
+.pilot-vitals .vitals-head em{margin-left:auto;font-style:normal;font-size:9px;color:var(--hud-accent,#8fd3e8)}
+.pilot-vitals .vital{position:relative;display:flex;align-items:baseline;gap:4px;padding-bottom:5px;font-size:11px;color:#dbe7ee}
+.pilot-vitals .vital>span{width:30px;font-size:9px;letter-spacing:.6px;color:#7f96a5}
+.pilot-vitals .vital>b{font-size:14px;font-weight:500}
+.pilot-vitals .vital>small{font-size:8px;color:#7f96a5}
+.pilot-vitals .vital>i{position:absolute;left:0;right:0;bottom:0;height:2px;border-radius:2px;background:#ffffff1f;transform-origin:left center}
+.pilot-vitals .vital>i.hp{background:#7fe0a8}
+.pilot-vitals .vital>i.xp{background:var(--hud-accent,#8fd3e8)}
+.pilot-vitals .vital>i.buffer{background:var(--hud-accent-2,#7fd0ff)}
+.pilot-vitals .vital>i.supercap{background:var(--hud-accent,#8fd3e8)}
+.pilot-lock{display:flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid #ff7a6647;border-radius:99px;background:#1a0b0ba6;color:#ffd9d0;font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none}
+.pilot-lock .bracket{width:8px;height:8px;border:1.5px solid #ff7a66;border-radius:1px}
+.pilot-lock em{font-style:normal;color:#ffb0a0}
+/* Pointer-lock state: a pilot must be able to tell whether the mouse is captured. */
+.pilot-grab{position:absolute;left:50%;top:12px;z-index:12;transform:translateX(-50%);padding:4px 10px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#050a10b8;backdrop-filter:blur(10px);color:#dbe7ee;font-size:10px;white-space:nowrap;pointer-events:none}
+.pilot-notice{position:absolute;left:50%;bottom:82px;z-index:12;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#050a10b8;backdrop-filter:blur(10px);color:#dbe7ee;font-size:10px;white-space:nowrap;pointer-events:none}
+.pilot-notice i{width:5px;height:5px;border-radius:50%;background:var(--hud-accent,#8fd3e8)}
+/* Target lock, spin, supercap, jump and heat status stack under the ring, so a tall ring never
+   pushes one of them off screen on its own. */
+.pilot-status{position:absolute;left:50%;top:calc(50% + var(--ring)/2 + 10px);z-index:9;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+/* 小陀螺 indicator: the hull is spinning under a gimbal that keeps the aim. */
+.pilot-spin{display:flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--hud-accent,#8fd3e8);border-radius:99px;background:#04121aa8;color:#bfe8f5;font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
+.pilot-spin i{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--hud-accent,#8fd3e8);border-top-color:transparent;animation:pilot-spin .5s linear infinite}
+@keyframes pilot-spin{to{transform:rotate(360deg)}}
+/* Supercapacitor dump and barrel heat lock sit right under the crosshair, like the reference HUD. */
+.pilot-boost{display:flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--hud-accent,#8fd3e8);border-radius:99px;background:#04121ad9;color:#d6f2fb;font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
+.pilot-boost i{width:7px;height:7px;border-radius:50%;background:var(--hud-accent,#8fd3e8);box-shadow:0 0 8px var(--hud-accent,#8fd3e8)}
+/* Wheel-legged jump: the same three phases the engine plays out under the hull. */
+.pilot-jump{display:flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--hud-accent-2,#7fd0ff);border-radius:99px;background:#081822c7;color:#bfe4f6;font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
+.pilot-jump i{width:7px;height:7px;border-radius:2px;background:var(--hud-accent-2,#7fd0ff)}
+.pilot-heatlock{padding:3px 10px;border:1px solid #ff7a667a;border-radius:99px;background:#1a0b0bd9;color:#ffc9bf;font-size:10px;pointer-events:none;white-space:nowrap}
+/* Damage feedback: a short red vignette over the first-person view. */
+.pilot-hit{position:absolute;inset:0;z-index:8;pointer-events:none;border-radius:2px;background:radial-gradient(ellipse at center,#0000 42%,#ff2d1f8c 100%);animation:pilot-hit .45s ease-out forwards}
+@keyframes pilot-hit{from{opacity:.95}to{opacity:0}}
+/* A pilot keeps the normal broadcast top bar. The only difference is that an enemy robot's health
+   bar, ammunition and level are not rendered at all (see `RobotCard`), so nothing is greyed out and
+   the rest of the plate looks exactly like the spectator view. */
+/* A pilot gets no enemy readouts: the roster cards, minimap and inspector are broadcast UI. */
+.arena-layout.pilot-locked .telemetry-panel,.arena-layout.pilot-locked .robot-inspector{display:none}
+.arena-layout.pilot-locked{grid-template-columns:272px minmax(600px,1fr)}
+@media(max-width:1280px){.arena-layout.pilot-locked{grid-template-columns:220px minmax(380px,1fr)}}
+@media(max-width:1000px){.arena-layout.pilot-locked{grid-template-columns:200px minmax(350px,1fr)}}
+/* A hidden cursor makes delta aiming feel captured even where pointer lock is blocked, and
+   dropping canvas pointer events skips the per-move scene raycast R3F would otherwise run. */
+.viewport.pilot-aiming canvas{cursor:none;pointer-events:none}
+/* Embedded browsers refuse pointer lock outright; hiding the cursor across the page keeps the
+   view feeling captured because it follows movement deltas wherever the pointer goes. */
+body.pilot-cursor-hidden,body.pilot-cursor-hidden *{cursor:none !important}
+/* Death holds the pose and greys the field; the HUD keeps its colours, like the referee view. */
+.viewport.pilot-dead canvas{filter:grayscale(1) brightness(.72) contrast(1.06)}
+.viewport.pilot-dead .pilot-reticle,.viewport.pilot-dead .pilot-vitals{opacity:.45}
+.pilot-respawn{position:absolute;left:50%;top:50%;z-index:19;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:7px;width:300px;max-width:calc(100% - 40px);padding:16px 18px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:12px;background:#060b11c4;backdrop-filter:blur(14px) saturate(120%);box-shadow:0 18px 50px #0000006b,inset 0 1px 0 #ffffff12;color:#d7e3ec;text-align:center;pointer-events:none}
+.pilot-respawn strong{font-size:13px;letter-spacing:2px;color:#ff8a75}
+.pilot-respawn .respawn-bar{width:100%;height:6px;border-radius:99px;background:#1b2833;overflow:hidden}
+.pilot-respawn .respawn-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#4d8fb5,var(--hud-accent,#8fd3e8));transition:width .2s linear}
+.pilot-respawn span{font-size:12px;font-variant-numeric:tabular-nums;color:#e8eff5}
+.pilot-respawn small{font-size:9px;color:#7f96a5}
+/* Immediate respawn: the card is informational, but this one control must take the mouse. */
+.pilot-respawn{pointer-events:auto}
+.pilot-respawn .pilot-revive{margin-top:2px;padding:7px 14px;border:1px solid #3f7d93;border-radius:6px;background:#10232c;color:var(--hud-ink,#cfe6ff);font-size:12px}
+.pilot-respawn .pilot-revive:disabled{border-color:#405463;background:#13202a;color:#6d7f8c}
+/* Purchase dialogs: quantity row with the total in the middle, like the referee terminal. */
+.pilot-store{width:424px;max-height:calc(100% - 24px);overflow:auto}
+.pilot-store-info{display:flex;justify-content:space-between;align-items:baseline;gap:8px;row-gap:2px;flex-wrap:wrap;font-size:11px;color:#c6d6e1}
+.pilot-store-info b{color:var(--hud-ink,#cfe6ff);font-size:13px}
+.pilot-store-info span{font-size:10px;color:#8ea3b2}
+.pilot-qty{display:flex;align-items:center;gap:3px;padding:4px 0;flex-wrap:nowrap}
+.pilot-qty button{flex:1 1 0;min-width:0;padding:7px 0;border:1px solid #405463;border-radius:5px;background:#13202a;color:#c6d6e1;font-size:11px;line-height:1.15;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.pilot-qty button:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-tint,#cfeaff)}
+.pilot-qty output{flex:0 0 78px;text-align:center;font-size:18px;font-weight:600;color:var(--hud-ink-2,#f2fbff);font-variant-numeric:tabular-nums}
+.pilot-store-note{margin:0;font-size:10px;line-height:1.5;color:#9fb4c3}
+.pilot-store-warn{margin:0;font-size:10px;line-height:1.5;color:#ffb454}
+/* Heavy-robot assembly order: one row per ore level, locked rows stay readable but greyed. */
+.pilot-assembly{width:472px;max-height:calc(100% - 24px);overflow:auto}
+.pilot-assembly-levels{display:grid;gap:6px}
+.pilot-assembly-levels button{display:grid;gap:2px;padding:8px 10px;border:1px solid #354757;border-left:2px solid #4a5f70;border-radius:7px;background:#0d1720;color:#c6d6e1;text-align:left}
+.pilot-assembly-levels button b{font-size:13px;color:var(--hud-ink,#cfe6ff)}
+.pilot-assembly-levels button small{font-size:10px;color:#8ea3b2}
+.pilot-assembly-levels button i{font-style:normal;font-size:10px;line-height:1.5;color:#7d909f}
+.pilot-assembly-levels button.ready{border-left-color:#7fe08a;background:#0f1d19}
+.pilot-assembly-levels button.ready:hover{border-color:#7fe08a88;color:#ffffff}
+.pilot-assembly-levels button:disabled{opacity:.55;cursor:not-allowed}
+/* Pre-match 3D picker: one line of instruction over the live field. No dialog and no backdrop, so
+   the field, the hover ring and the chassis models carry the whole interaction. */
+/* Pre-match side prompt: a two-row briefing card rather than a one-line pill, so the red and blue
+   fronts can carry their own call signs while the hovered half lights up. */
+.pilot-pick{position:absolute;left:50%;top:12px;z-index:14;transform:translateX(-50%);display:flex;align-items:center;flex-wrap:wrap;gap:7px 10px;padding:8px 12px;border:1px solid #b1c6d54d;border-radius:12px;background:linear-gradient(180deg,#08131de8,#050a10e8);backdrop-filter:blur(10px);box-shadow:0 12px 34px #0008,inset 0 0 0 1px #ffffff08;color:#dbe7ee;font-size:11px;pointer-events:auto;max-width:calc(100% - 24px)}
+.pilot-pick-head{display:flex;align-items:baseline;gap:7px;white-space:nowrap}
+.pilot-pick-head>span{font-size:8px;letter-spacing:1.6px;color:var(--hud-accent,#8fd3e8)}
+.pilot-pick-head>b{letter-spacing:2px;color:var(--hud-ink,#cfe6ff);font-size:12px}
+.pilot-pick-head>small{font-size:8px;letter-spacing:1.4px;color:#7f96a5}
+/* Side brief: rides above its own half, so the field stays clear while the two sides are compared. */
+.half-brief{position:absolute;top:14px;z-index:14;width:206px;display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid transparent;border-radius:10px;background:linear-gradient(180deg,#08131fae,#04080ec2) padding-box,linear-gradient(155deg,color-mix(in srgb,var(--team) 62%,transparent),#ffffff0a 45%,var(--hud-accent-2,#7fd0ff)) border-box;backdrop-filter:blur(16px) saturate(120%);box-shadow:0 14px 34px #0000008a,inset 0 1px 0 #ffffff16,inset 0 -14px 26px -18px var(--team);color:#dbe7ee;font-size:11px;pointer-events:none;opacity:.5;transform:translate(-50%,-4px) scale(.97);transition:opacity .22s ease,transform .22s cubic-bezier(.2,.9,.22,1),box-shadow .22s ease}
+.half-brief.red{left:25%;--team:#ff4d45}
+.half-brief.blue{left:75%;--team:#3f8dff}
+/* The audience brief sits between the two sides: neutral, instrument cyan, and never a team colour. */
+.half-brief.seat{left:50%;top:16px;width:172px;--team:var(--hud-accent,#8fd3e8)}
+.half-brief.active{z-index:15}
+.half-brief.active{opacity:1;transform:translate(-50%,0) scale(1);box-shadow:0 18px 46px #00000094,inset 0 1px 0 #ffffff22,inset 0 -16px 30px -18px var(--team),0 0 26px -6px var(--team)}
+.half-brief .hb-side{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:1.6px;color:#8fa5b3}
+.half-brief .hb-side i{width:6px;height:6px;border-radius:50%;background:var(--team);box-shadow:0 0 10px var(--team)}
+.half-brief>b{font-size:13px;letter-spacing:.4px;color:var(--hud-ink-2,#f2fbff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.half-brief .hb-rows{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 9px;padding-top:3px;border-top:1px solid #ffffff14}
+.half-brief .hb-rows span{display:flex;align-items:baseline;justify-content:space-between;gap:5px;font-size:9px;letter-spacing:.4px;color:#8298a7}
+.half-brief .hb-rows em{font-style:normal;font-size:11px;font-variant-numeric:tabular-nums;color:#e8f1f7;letter-spacing:0}
+.half-brief .hb-rows em small{font-size:8px;color:#8298a7;margin-left:1px}
+.half-brief>small{font-size:9px;letter-spacing:.4px;color:var(--hud-accent,#8fd3e8)}
+/* Spectator seat: bottom centre, out of the two halves. */
+.half-seat{position:absolute;left:50%;bottom:58px;z-index:14;transform:translateX(-50%);display:flex;align-items:center;gap:9px;padding:6px 8px 6px 13px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#050a10b8;backdrop-filter:blur(12px);box-shadow:0 10px 30px #00000073;color:#9fb4c3;font-size:10px;white-space:nowrap;pointer-events:auto}
+.half-seat-hint{letter-spacing:.3px}
+.half-seat button{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:99px;background:#0d1a24b8;color:#dbe7ee;font-size:10px;letter-spacing:.6px;transition:border-color .16s ease,color .16s ease,background-color .16s ease}
+.half-seat button:hover{border-color:var(--hud-accent,#8fd3e8);color:#eaf6ff;background:#12222fb8}
+/* Pointing at the audience seats in the field lights the same answer here. */
+.half-seat.active{border-color:var(--hud-accent,#8fd3e8);background:#0b1e2ac2;color:#eaf6ff;box-shadow:0 12px 34px #00000080,0 0 22px -8px var(--hud-accent,#8fd3e8)}
+.half-seat.active button{border-color:var(--hud-tint,#bdeaff);background:#12303fb8;color:var(--hud-ink-2,#f2fbff)}
+@media(max-width:760px){.half-brief{width:184px;top:10px}.half-brief>b{font-size:12px}.half-seat{bottom:50px;font-size:9px}}
+.pilot-pick>button,.pilot-pick-actions button{padding:4px 9px;border:1px solid #405463;border-radius:99px;background:#13202a;color:#a9bfcd;font-size:10px;white-space:nowrap;transition:border-color .16s ease,color .16s ease}
+.pilot-pick>button:hover,.pilot-pick-actions button:hover{border-color:var(--hud-accent,#8fd3e8);color:var(--hud-tint,#cfeaff)}
+.pilot-pick>button{margin-left:auto}
+.pilot-pick-actions{margin-left:auto;display:flex;gap:6px}
+.pilot-pick-hint{flex-basis:100%;margin:0;font-size:9px;letter-spacing:.3px;color:#8fa5b3;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pilot-pick-hint::before{content:'';flex:none;width:4px;height:4px;border-radius:50%;background:var(--hud-ink,#cfe6ff);box-shadow:0 0 8px var(--hud-ink,#cfe6ff)}
+@media(max-width:760px){.pilot-pick{gap:5px 7px;padding:7px 9px}.pilot-pick-head>small{display:none}.pilot-pick-hint{font-size:8px}}
+/* Chassis choice reuses the lineup intro's robot shot, which owns the top of the frame: the picker
+   strip docks to the bottom there instead of covering the number and the title of the shot. */
+.pilot-pick.pick-robot{top:auto;bottom:10px}
+.pilot-pick.pick-robot .pilot-pick-hint{flex-basis:auto}
+/* Fullscreen puts the transport strip along the bottom of the viewport, so the pick HUDs step over it
+   (its top edge sits ~68 px up) instead of being read through it. */
+.viewport:fullscreen .half-seat,.viewport.page-fullscreen .half-seat,
+.viewport:fullscreen .pilot-pick.pick-robot,.viewport.page-fullscreen .pilot-pick.pick-robot{bottom:92px}
+/* On a phone the strip wraps to two rows and there is no room for both: the picker wins. */
+@media(max-width:680px){.viewport.pilot-picking .fullscreen-controls{display:none}}
+/* Side choice is made on the halves of the field itself and it is drawn in three.js: the half under
+   the pointer lights up, a scan band sweeps it and pylons rise on its corners. */
+/* Hovered chassis card: the same numbers as its lineup shot, read while the pointer is on it. */
+.pilot-pick-card{position:absolute;left:14px;bottom:52px;z-index:13;width:338px;display:flex;flex-direction:column;gap:8px;padding:11px 13px;border:1px solid transparent;border-radius:12px;background:linear-gradient(180deg,#0a1520d4,#050a10e0) padding-box,linear-gradient(155deg,var(--hud-ink,#cfe6ff),#ffffff08 42%,color-mix(in srgb,var(--team,var(--hud-accent-2,#7fd0ff)) 38%,transparent)) border-box;backdrop-filter:blur(22px) saturate(125%);box-shadow:0 18px 46px #00000080,inset 0 1px 0 #ffffff14,inset 3px 0 16px -9px var(--team);color:#e6eef5;pointer-events:none}
+.pilot-pick-card.red{--team:#ff4d45}
+.pilot-pick-card.blue{--team:#3f8dff}
+.ppc-head{display:flex;align-items:flex-start;gap:10px}
+.ppc-head b{font:600 26px/1 ui-monospace,monospace;color:var(--team)}
+.ppc-head span{font-size:10px;letter-spacing:2px;color:#9fb4c3}
+.ppc-head h3{margin:1px 0 2px;font-size:14px;letter-spacing:.5px}
+.ppc-head small{display:block;font-size:10px;line-height:1.35;color:#8ea3b2}
+.ppc-stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.ppc-stats span{display:flex;justify-content:space-between;gap:8px;padding-bottom:2px;border-bottom:1px solid #ffffff12;font-size:10px;color:#8ea3b2}
+.ppc-stats b{font-size:11px;font-weight:600;color:#e9f1f7}
+.ppc-chips{display:flex;flex-wrap:wrap;gap:4px}
+.ppc-chips span{padding:2px 7px;border:1px solid #ffffff1f;border-radius:99px;background:#ffffff0d;font-size:9px;letter-spacing:.5px;color:#c2d3df}
+.ppc-hint{font-size:9px;letter-spacing:1px;color:#7f95a6}
+/* The join prompt is a page-level question asked before the match starts. */
+.join-ask-backdrop{position:fixed;inset:0;z-index:61;background:#04080ca8}
+.join-ask{position:fixed;left:50%;top:50%;z-index:62;width:378px;transform:translate(-50%,-50%)}
+.join-ask .pilot-heading b{font-size:13px;letter-spacing:2px;color:var(--hud-ink,#cfe6ff)}
+.join-ask .join-ask-yes{border-color:#3f7d93;background:linear-gradient(180deg,#17323f,#0c1a22);color:var(--hud-tint,#cfeaff)}
+/* The picker is a standalone screen: broadcast chrome steps aside so only the field, the halves and
+   the chassis remain. */
+.viewport.pilot-picking{cursor:crosshair}
+.viewport.pilot-picking .viewport-bottom{display:none}
+/* While the field is the picker, the pre-match intro overlay must not swallow the clicks: the
+   chassis itself is the button. Its own skip control stays clickable. */
+.viewport.pilot-pick-active .bc-stage{pointer-events:none}
+.viewport.pilot-pick-active .bc-stage .cer-skip{pointer-events:auto}
+/* Until the match starts the field and the pre-match show own the screen: the broadcast chrome stays
+   out of the way and only appears once the whistle goes. */
+.viewport.prematch .viewport-bottom,
+.viewport.prematch .fullscreen-toggle{display:none}
+/* While piloting, the field belongs to the pilot: the bottom bar and the fullscreen transport only
+   exist inside the P panel, exactly like the rest of the cockpit UI. */
+.viewport.pilot-active:not(.pilot-panel-open) .viewport-bottom,
+.viewport.pilot-active:not(.pilot-panel-open) .fullscreen-controls{display:none}
+.viewport.pilot-panel-open .pilot-vitals{z-index:22}
+.viewport:fullscreen .pilot-vitals,.viewport.page-fullscreen .pilot-vitals{bottom:86px;left:22px}
+@media(max-width:680px){.pilot-open{right:112px}.pilot-vitals{left:10px;bottom:44px;width:176px}.pilot-panel{width:calc(100% - 24px);padding:11px}.pilot-store{width:calc(100% - 24px)}.pilot-qty{gap:2px}.pilot-qty button{font-size:10px;padding:6px 0}.pilot-qty output{flex-basis:54px;font-size:15px}}
+/* A short window gets a smaller ring so the ring and its readout still fit the view. */
+@media(max-width:1180px),(max-height:720px){.pilot-reticle,.pilot-readout,.pilot-status{--ring:300px}.pilot-readout .pilot-ammo{font-size:26px}}
+@media(max-width:760px),(max-height:560px){.pilot-reticle,.pilot-readout,.pilot-status{--ring:220px}.pilot-readout{left:calc(50% + var(--ring)/2 + 10px)}.pilot-readout .pilot-ammo{font-size:20px}}
+
+/* Lobbed-fire sight (R on a heavy with its 42 mm on): the lens is narrowed to a 3x field, the world
+   outside the tube is darkened, and the reticle marks the point the shell will land on. */
+/* The sight itself is modelled in 3D and magnified by the lens pass; the cockpit only owns the
+   readout, which sits under the tube so it never covers the aperture. */
+.pilot-scope{position:absolute;inset:0;z-index:9;pointer-events:none;display:grid;place-items:center}
+/* The crosshair of the lobbed-fire sight: UI, not a texture, so the hairline stays one pixel wide.
+   Its box is 58 % of the viewport height, which is exactly the lens aperture in `sight.tsx`
+   (radius 0.289 of the half height), so the arms stop on the tube's bore. */
+.pilot-lob-cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:58%;aspect-ratio:1;pointer-events:none}
+.pilot-lob-cross svg{width:100%;height:100%;display:block;overflow:visible}
+.pilot-lob-cross .lob-shadow line{stroke:#000000a6;stroke-width:3;stroke-linecap:butt}
+.pilot-lob-cross .lob-line line{stroke:#eef6ff;stroke-width:1;stroke-linecap:butt;opacity:.92}
+.pilot-lob-cross .lob-dot{fill:#eef6ff;opacity:.92}
+.pilot-scope-label{position:absolute;bottom:5vh;left:50%;transform:translateX(-50%);padding:3px 10px;border:1px solid #6ea8c9;border-radius:5px;background:#0a1622cc;color:var(--hud-ink,#cfe6ff);font-size:11px;letter-spacing:.6px;white-space:nowrap}
+.pilot-lob{display:flex;align-items:center;gap:6px;color:var(--hud-ink,#cfe6ff)}
+.pilot-lob i{width:6px;height:6px;border-radius:50%;background:var(--hud-accent-2,#7fd0ff);box-shadow:0 0 8px var(--hud-accent-2,#7fd0ff)}
+
+/* ---- Link Start ----------------------------------------------------------------------------
+   The cockpit stops being a centred dialog and becomes a rail on the right edge while the field
+   under it turns into the picker: the panel slides out of the way, the field stays clickable and
+   the pilot scans chassis in the overhead view. */
+.viewport.link-scan{cursor:crosshair}
+.pilot-panel.pilot-link{left:auto;right:14px;top:50%;width:clamp(184px,min(22vw,30vh),300px);transform:translateY(-50%);animation:pilot-link-dock .44s cubic-bezier(.2,.9,.22,1) both}
+/* The rail borrows the side it is listing: red chassis tint the whole rail red, blue ones blue, so a
+   pilot can tell at a glance which team they are browsing before they read a single row. */
+.pilot-panel.pilot-link.team-red{--hud-accent:#ff7f6d;--hud-tint:#ffd2cb;--hud-accent-2:#ffa596;--hud-ink:#e8b3aa}
+.pilot-panel.pilot-link.team-blue{--hud-accent:#6fbcff;--hud-tint:#d1e8ff;--hud-accent-2:#9ccaff;--hud-ink:#a9c3d6}
+@keyframes pilot-link-dock{from{right:14px;opacity:0;transform:translate(70px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
+.pilot-link-start{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;overflow:hidden;padding:16px 12px 14px;border:1px solid var(--hud-accent,#8fd3e8);border-radius:11px;background:linear-gradient(180deg,#123039,#0a1a20 65%,#060f14);color:var(--hud-ink-2,#e6f7ff);cursor:pointer;box-shadow:0 10px 30px #0009,inset 0 0 0 1px var(--hud-ink-2,#e6f7ff),inset 0 -14px 26px var(--hud-accent,#8fd3e8);animation:pilot-link-breathe 3.2s ease-in-out infinite}
+.pilot-link-start:hover{border-color:var(--hud-tint,#bdeaff);color:var(--hud-ink-2,#f2fbff);box-shadow:0 14px 34px #000b,inset 0 0 0 1px var(--hud-ink-2,#e6f7ff),0 0 26px var(--hud-accent,#8fd3e8)}
+.pilot-link-start b{font:700 17px/1.2 "DIN Alternate","Bahnschrift",ui-monospace,monospace;letter-spacing:4px;text-shadow:0 0 14px var(--hud-tint,#bdeaff)}
+.pilot-link-start small{font-size:10px;letter-spacing:1.4px;color:#8fb6c6}
+.pilot-link-start svg{color:var(--hud-tint,#bdeaff);filter:drop-shadow(0 0 8px var(--hud-accent-2,#7fd0ff))}
+.pilot-link-start b{background:linear-gradient(180deg,var(--hud-ink-2,#f2fbff),var(--hud-accent,#8fd3e8));-webkit-background-clip:text;background-clip:text;color:transparent}
+/* A slow sheen crossing the plate: the only animation on the panel, so it reads as a live link. */
+.pilot-link-start .pls-glow{position:absolute;inset:0;background:linear-gradient(105deg,transparent 32%,var(--hud-ink-2,#e6f7ff) 46%,var(--hud-ink-2,#e6f7ff) 50%,var(--hud-ink-2,#e6f7ff) 54%,transparent 68%);transform:translateX(-120%);animation:pilot-link-sheen 3.4s cubic-bezier(.4,0,.2,1) infinite;pointer-events:none}
+@keyframes pilot-link-sheen{0%{transform:translateX(-120%)}55%,100%{transform:translateX(120%)}}
+@keyframes pilot-link-breathe{0%,100%{box-shadow:0 10px 30px #0009,inset 0 0 0 1px var(--hud-ink-2,#e6f7ff),inset 0 -14px 26px var(--hud-accent,#8fd3e8)}50%{box-shadow:0 10px 30px #0009,inset 0 0 0 1px var(--hud-ink-2,#e6f7ff),inset 0 -14px 30px var(--hud-accent,#8fd3e8)}}
+.pilot-roster-wrap{display:flex;flex-direction:column;gap:7px}
+.pilot-roster{display:flex;flex-direction:column;gap:4px}
+.pilot-roster-row{display:grid;grid-template-columns:26px 1fr 56px 32px;align-items:center;gap:6px;padding:6px 7px;border:1px solid var(--hud-ink,#cfe6ff);border-radius:6px;background:#0b1520a8;color:#c6d6e1;font-size:11px;text-align:left;transition:border-color .14s ease,background-color .14s ease,transform .14s ease}
+.pilot-roster-row:hover{border-color:var(--hud-accent,#8fd3e8);background:#16222cb8;transform:translateX(-2px)}
+.pilot-roster-row b{font:700 13px/1 ui-monospace,monospace;color:var(--hud-accent,#8fd3e8)}
+.pilot-roster-row i{position:relative;display:block;height:4px;border-radius:2px;background:#1d2a35;overflow:hidden}
+.pilot-roster-row i s{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#7fe0a8,#4fc98a)}
+.pilot-roster-row em{font-style:normal;font-size:10px;text-align:right;color:#9fb4c3;font-variant-numeric:tabular-nums}
+.pilot-roster-row.dead{opacity:.5}
+.pilot-roster-row.dead i s{background:#5c6b78}
+.pilot-link-tip{margin:0;font-size:10px;line-height:1.6;color:#8599a8}
+.link-back,.link-go{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:6px;font-size:11px;letter-spacing:.6px}
+.link-back{border:1px solid #405463;background:#13202a;color:#a9bfcd}
+.link-back:hover{border-color:#8fa6b6;color:#e3eef6}
+.link-go{border:1px solid var(--hud-accent,#8fd3e8);background:linear-gradient(180deg,#17323f,#0c1a22);color:var(--hud-ink-2,#e6f7ff);font-weight:600}
+.link-go:hover{border-color:var(--hud-tint,#bdeaff);color:var(--hud-ink-2,#f2fbff)}
+/* A narrow rail (small window or short field) tightens its own rhythm instead of scaling the text
+   with a transform: the rows stay legible while the rail stops eating a third of the field. */
+@media(max-width:1180px),(max-height:760px){
+  .pilot-panel.pilot-link{gap:6px;padding:10px 11px}
+  .pilot-panel.pilot-link .pilot-heading{gap:4px;font-size:10px;letter-spacing:.2px}
+  .pilot-panel.pilot-link .pilot-heading em{font-size:9px}
+  .pilot-link-start{padding:12px 10px 11px}
+  .pilot-link-start b{font-size:15px;letter-spacing:3px}
+  .pilot-roster-row{grid-template-columns:22px 1fr 42px 28px;gap:5px;padding:5px 6px;font-size:10px}
+  .pilot-roster-row b{font-size:12px}
+  .pilot-link-tip{font-size:9px;line-height:1.5}
+}
+@media(max-width:900px),(max-height:600px){
+  .pilot-panel.pilot-link{gap:5px;padding:8px 9px}
+  .pilot-panel.pilot-link .pilot-heading em{display:none}
+  .pilot-roster-row{grid-template-columns:20px 1fr 34px 24px;gap:4px;padding:4px 5px}
+  .pilot-link-tip{display:none}
+}
+/* The card that follows the pointer over the battlefield. */
+.pilot-link-hover{position:fixed;left:0;top:0;z-index:23;pointer-events:none;will-change:transform;animation:pilot-link-fade .16s ease-out both}
+@keyframes pilot-link-fade{from{opacity:0}to{opacity:1}}
+.pilot-link-hover .pilot-pick-card{position:relative;left:auto;bottom:auto;width:338px;box-shadow:0 18px 44px #0000008f,inset 0 1px 0 #ffffff16,inset 3px 0 16px -9px var(--team)}
+.ppc-art{width:54px;height:54px;object-fit:contain;margin-left:auto;filter:drop-shadow(0 4px 10px #000a)}
+/* The confirmation plate. */
+.link-confirm{position:absolute;inset:0;z-index:26;display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,#0817269e,#02060aa8 72%);backdrop-filter:blur(9px) saturate(115%);animation:pilot-link-fade .18s ease-out both}
+.link-confirm-ring{position:absolute;width:min(560px,86%);aspect-ratio:1;border:1px solid var(--hud-accent,#8fd3e8);border-radius:50%;animation:link-ring 3.6s linear infinite;pointer-events:none}
+.link-confirm-ring::after{content:"";position:absolute;inset:14%;border:1px dashed var(--hud-accent-2,#7fd0ff);border-radius:50%}
+@keyframes link-ring{0%{transform:rotate(0) scale(.96);opacity:.5}50%{transform:rotate(180deg) scale(1.02);opacity:.9}100%{transform:rotate(360deg) scale(.96);opacity:.5}}
+.link-confirm-panel{position:relative;z-index:2;width:380px;max-width:calc(100% - 28px);display:flex;flex-direction:column;gap:9px;padding:16px 17px 15px;border:1px solid transparent;border-radius:13px;background:linear-gradient(180deg,#08131fae,#04080ec2) padding-box,linear-gradient(160deg,color-mix(in srgb,var(--team,var(--hud-accent,#8fd3e8)) 55%,transparent),#ffffff0a 42%,var(--hud-accent-2,#7fd0ff)) border-box;backdrop-filter:blur(24px) saturate(125%);box-shadow:0 26px 72px #000000a6,inset 0 1px 0 #ffffff1a;color:#c6d6e1;animation:link-plate .32s cubic-bezier(.2,.9,.22,1) both}
+.link-confirm-panel.red{--team:#ff6a5a}
+.link-confirm-panel.blue{--team:#5fa8ff}
+@keyframes link-plate{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+.link-confirm-eyebrow{display:inline-flex;align-items:center;gap:6px;font:600 10px/1 ui-monospace,monospace;letter-spacing:3px;color:var(--hud-accent,#8fd3e8)}
+.link-confirm-panel h2{margin:0;font-size:19px;letter-spacing:1.5px;color:#f4f8fb}
+.link-confirm-lead{margin:0;font-size:11px;line-height:1.6;color:#8fa4b3}
+.link-confirm-panel .pilot-pick-card{position:relative;left:auto;bottom:auto;width:100%;box-sizing:border-box}
+.link-confirm-actions{display:flex;gap:7px}
+.link-confirm-actions button{flex:1}
+
+/* ---- team-tinted cockpit
+   Driving is the one place where "which side am I on" has to read at a glance, so the whole cockpit
+   accent follows the chassis the pilot took over: red instruments for the red team, blue for the
+   blue. Everything outside a driving session (lineup briefs, chassis picker, broadcast cards) has no
+   team class and keeps falling back to the neutral instrument cyan. */
+.viewport.pilot-team-red{--hud-accent:#ff5b4d;--hud-accent-2:#ff8f7c;--hud-ink:#ffd7d1;--hud-ink-2:#ffeae7;--hud-tint:#ffb2a6;--hud-cross:#fff0ed}
+.viewport.pilot-team-blue{--hud-accent:#4f9dff;--hud-accent-2:#8bc0ff;--hud-ink:#d5e8ff;--hud-ink-2:#eaf3ff;--hud-tint:#a8cbff;--hud-cross:#ecf4ff}
+/* A very light wash in the same direction, so the edges of the frame carry the side as well without
+   touching what the camera sees. */
+.viewport.pilot-team-red::after,.viewport.pilot-team-blue::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 50%,transparent 62%,color-mix(in srgb,var(--hud-accent) 16%,transparent) 100%)}

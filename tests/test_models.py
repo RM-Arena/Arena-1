@@ -148,7 +148,8 @@ class ModelTests(unittest.TestCase):
         with TestClient(app) as client:
             response=client.post(base+'/tests',json={'duration':1,'opponent':'baseline','swap_sides':True},headers=headers)
             self.assertEqual(response.status_code,200,response.text);job_id=response.json()['job_id']
-            deadline=time.monotonic()+15
+            # Two one-second games; shared CI runners have needed more than 15 s for the pair.
+            deadline=time.monotonic()+60
             while time.monotonic()<deadline:
                 job=client.get(base+'/tests/'+job_id,headers=headers).json()
                 if job['status'] not in ('queued','running'):break

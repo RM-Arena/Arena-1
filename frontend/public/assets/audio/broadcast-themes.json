@@ -165,44 +165,5 @@
       "perc": -18.5,
       "fx": -41.7
     }
-  },
-  "results-summary": {
-    "style": "piano-ostinato",
-    "key": "E-flat major",
-    "bpm": 90,
-    "bars": 32,
-    "seconds": 85.333,
-    "lufs": -18.0,
-    "true_peak_dbtp": -4.61,
-    "bus_rms_db": {
-      "piano": -13.7,
-      "pad": -16.6,
-      "strings": -22.0,
-      "mallet": -15.5,
-      "bell": -29.2,
-      "choir": -27.8,
-      "bass": -17.9,
-      "drums": -23.5
-    }
-  },
-  "mvp-fanfare": {
-    "style": "fanfare",
-    "key": "B-flat major",
-    "bpm": 96,
-    "bars": 20,
-    "seconds": 50.0,
-    "lufs": -18.0,
-    "true_peak_dbtp": -1.99,
-    "bus_rms_db": {
-      "strings": -16.3,
-      "spiccato": -18.9,
-      "brass": -13.2,
-      "choir": -18.1,
-      "bell": -27.6,
-      "bass": -19.8,
-      "drums": -24.2,
-      "perc": -16.4,
-      "fx": -41.1
-    }
   }
 }

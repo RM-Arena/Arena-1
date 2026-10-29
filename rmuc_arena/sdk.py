@@ -159,7 +159,7 @@ def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgra
     Additional operations: profile, power, altitude, buy_ammo, remote_heal,
     revive, deploy, support, pick_unit, assembly, assembly_insert,
     assembly_translate, assembly_rotate, assembly_rotate2, assembly_confirm, rune_start, rescue,
-    yaw_rate, brake, leg_height, jump, lean, arm, messages (all control modes).
+    yaw_rate, brake, leg_height, jump, climb, lean, arm, messages (all control modes).
     rescue=<own slot> makes the engineer grip and right that tipped robot;
     arm={"tip":[x,y,z],"dir":[dx,dy,dz],"frame":"world"|"robot"} or
     {"joints":[7 values]} or {"stow":True} drives the engineer arm directly.
@@ -168,7 +168,7 @@ def action(move=(0.0, 0.0), aim=None, fire=False, skill=False, pitch=0.04, upgra
     if skill or upgrade is not None:
         raise ValueError("Unsupported action; use the documented game operations")
     allowed = {"profile", "power", "altitude", "buy_ammo", "remote_heal", "revive", "deploy", "support", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm", "rune_start", "heading", "crouch", "rescue", "yaw_rate", "brake", "leg_height", "jump", "lean", "arm", "arm2", "pickup_arm", "transform", "messages",
-               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture", "posture_enhanced", "drones"}
+               "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "posture", "posture_enhanced", "drones", "climb"}
     if not set(operations) <= allowed:
         raise ValueError("Unknown action operation")
     # A move from `navigate` that backs a chassis off the road bumps keeps its heading.
@@ -304,6 +304,25 @@ def aim_pitch(robot,target,speed=None):
     return _ballistic_solution(robot,target,speed)[0]
 
 
+_LOB_CACHE={}
+def lob_aim(robot,point,speed=None):
+    """Yaw and elevation that drop the shell onto a world point on the *flat* arc.
+
+    "吊射" is precise flat-arc gunnery, not a mortar: the launcher keeps its normal forward
+    elevation and the only thing that makes the crosshair the impact point is the ballistic solve —
+    the shell leaves slightly up, falls back onto the point under the reticle, and never climbs into
+    a near-vertical lob. The 42 mm shell is slow enough that the drop is real at ten metres, so the
+    solve carries the same drag and inherited velocity the engine integrates. `None` when the point
+    is beyond the flat arc — the low branch cannot reach it.
+    """
+    dx,dy=point[0]-robot['x'],point[1]-robot['y'];distance_=max(.01,math.hypot(dx,dy))
+    yaw=math.atan2(dy,dx)
+    # `aim_z` makes the solver take the point literally instead of lifting it to an armour centre.
+    target={"x":point[0],"y":point[1],"aim_z":point[2]}
+    pitch,reachable=_ballistic_solution(robot,target,speed or muzzle_speed(robot))
+    return (yaw,pitch) if reachable else None
+
+
 def ballistic_reachable(robot,target):
     return _ballistic_solution(robot,target)[1]
 
@@ -312,8 +331,7 @@ def can_fire(robot):
     if 0.0<robot.get('transform_progress',0.0)<1.0:return False
     if robot["role"]=="engineer" or robot.get("drones") is not None and robot["role"]=="aerial":
         return False
-    # The 2027 heavy robot fires only with its modular launcher on board and powered;
-    # a module fitted before the usage right (fitted_locked) stays unpowered.
+    # The 2027 heavy robot fires only with its modular launcher on board.
     if robot["role"]=="heavy" and robot.get("launcher") not in ("fitted","installed"):
         return False
     if not robot["alive"] or robot.get("weak") or robot.get("overheated") or robot.get("heat_permanent_lock") or robot.get("overspeed_locked") or robot.get("overspeed_permanent_lock") or robot.get("launcher_fault") or robot.get("red_card"):
@@ -537,11 +555,62 @@ def _prepare_chapter4(arena,team,folded=True):
     for t in arena['terrain']:
         for x in range(math.floor(t['x']),math.ceil(t['x']+t['w'])+1):
             for y in range(math.floor(t['y']),math.ceil(t['y']+t['h'])+1):tiles.setdefault((x,y),[]).append(t)
+    # Terrain height is asked for again and again along the same and the mirrored sample
+    # lines (a strict check also walks both footprint edges), so one decoded cell feeds
+    # every caller. 2 cm buckets are far below the 13 cm slope threshold.
+    heights={}
     def height(x,y):
+        key=(round(x*50),round(y*50))
+        cached=heights.get(key)
+        if cached is not None:return cached
         h=0
         for t in tiles.get((math.floor(x),math.floor(y)),[]):
             if t['x']-1e-8<=x<=t['x']+t['w']+1e-8 and t['y']-1e-8<=y<=t['y']+t['h']+1e-8 and point_in_polygon(x,y,t['polygon']):h=max(h,_terrain_surface(t,x,y))
-        return h+min(y,15-y)*math.tan(math.radians(1.5))
+        h+=min(y,15-y)*math.tan(math.radians(1.5))
+        if len(heights)>=32768:heights.clear()
+        heights[key]=h
+        return h
+    # A lattice of box indices: a segment only ever meets the boxes in the cells its own bounding
+    # box covers, which turns the per-test scan from every wall on the field into a handful. Boxes
+    # are registered in every cell they touch, so the filter is exact. A 1.5 m cell keeps only a
+    # couple of walls per visited cell; coarser cells forced every test to walk hundreds of
+    # irrelevant boxes and were the single hottest cost of a decision.
+    CELL=1.5
+    lattice={}
+    for k,(cx,cy,hw,hh,c,s) in enumerate(boxes):
+        ex,ey=abs(hw*c)+abs(hh*s),abs(hw*s)+abs(hh*c)
+        for gx in range(math.floor((cx-ex)/CELL),math.floor((cx+ex)/CELL)+1):
+            for gy in range(math.floor((cy-ey)/CELL),math.floor((cy+ey)/CELL)+1):
+                lattice.setdefault((gx,gy),[]).append(k)
+    def near_boxes(x0,y0,x1,y1):
+        """Boxes in the cells the segment actually crosses (a supercover walk, so a box that
+        touches the line at a cell corner is still returned). Bounding-box cell gathering
+        cost ten times more cells on the long diagonal routes."""
+        found=set()
+        gx,gy=math.floor(x0/CELL),math.floor(y0/CELL)
+        ex,ey=math.floor(x1/CELL),math.floor(y1/CELL)
+        dx,dy=x1-x0,y1-y0
+        sx=1 if dx>0 else -1;sy=1 if dy>0 else -1
+        if dx:
+            tx=(((gx+1)*CELL if dx>0 else gx*CELL)-x0)/dx;dtx=CELL/abs(dx)
+        else:
+            tx=math.inf;dtx=math.inf
+        if dy:
+            ty=(((gy+1)*CELL if dy>0 else gy*CELL)-y0)/dy;dty=CELL/abs(dy)
+        else:
+            ty=math.inf;dty=math.inf
+        for _ in range(4096):
+            found.update(lattice.get((gx,gy),()))
+            if gx==ex and gy==ey:break
+            if tx<ty:
+                gx+=sx;tx+=dtx
+            elif ty<tx:
+                gy+=sy;ty+=dty
+            else:
+                # Through a corner: the line touches all three cells around it.
+                found.update(lattice.get((gx+sx,gy),()));found.update(lattice.get((gx,gy+sy),()))
+                gx+=sx;gy+=sy;tx+=dtx;ty+=dty
+        return found
     def inside(point,keep=False):
         """Inflated boxes containing a point; a robot pushed into one must still be able to leave.
 
@@ -549,7 +618,8 @@ def _prepare_chapter4(arena,team,folded=True):
         when the point is within it), so `clear` lets the robot leave or pass that obstacle
         without closing in on it."""
         found={}
-        for k,(cx,cy,hw,hh,c,s) in enumerate(boxes):
+        for k in lattice.get((math.floor(point[0]/CELL),math.floor(point[1]/CELL)),()):
+            cx,cy,hw,hh,c,s=boxes[k]
             ax,ay=(point[0]-cx)*c+(point[1]-cy)*s,-(point[0]-cx)*s+(point[1]-cy)*c
             if abs(ax)<hw and abs(ay)<hh:
                 gap=max(abs(ax)-hw,abs(ay)-hh)+margin
@@ -557,7 +627,8 @@ def _prepare_chapter4(arena,team,folded=True):
         return found if keep else set(found)
     def clear(a,b,ignore=(),strict=True):
         dx,dy=b[0]-a[0],b[1]-a[1]
-        for k,(cx,cy,hw,hh,c,s) in enumerate(boxes):
+        for k in near_boxes(a[0],a[1],b[0],b[1]):
+            cx,cy,hw,hh,c,s=boxes[k]
             if k in ignore:
                 kept=ignore[k] if isinstance(ignore,dict) else None
                 if kept is None:continue
@@ -741,10 +812,7 @@ def workbench_point(robot, arena):
 
 
 def launcher_ready(robot):
-    """The heavy robot's launcher is unlocked (by level-3 assembly or the time rule) but not yet fitted.
-
-    Fitting may also start while still locked; the module then waits as fitted_locked.
-    """
+    """The heavy robot's launcher is unlocked (by level-3 assembly or the time rule) but not yet fitted."""
     return robot.get('launcher') in ('unlocked','installing')
 
 
