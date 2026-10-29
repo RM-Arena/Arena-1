@@ -1,4 +1,5 @@
 """Strategy publication names, confirmed attribution and pre-0.7 compatibility."""
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import re
@@ -12,7 +13,7 @@ from rmuc_arena.submissions import ROOT
 
 class StrategyNamingTests(unittest.TestCase):
     def test_both_seasons_credit_every_renamed_strategy(self):
-        for path in (ROOT/'examples').glob('claude_opus55_xhigh*'):
+        for path in (STRATEGIES).glob('claude_opus55_xhigh*'):
             if (path/'manifest.json').exists():
                 with self.subTest(path=path.name):
                     self.assertEqual(load_profile(path)['agent'], CLAUDE_AGENT)
@@ -32,10 +33,10 @@ class StrategyNamingTests(unittest.TestCase):
 
     def test_owned_strategy_paths_and_payloads_have_no_obsolete_category(self):
         pattern=re.compile(LEGACY_CATEGORY+'|\u5b98\u65b9',re.I)
-        for path in (ROOT/'examples').rglob('*'):
+        for path in (STRATEGIES).rglob('*'):
             if path.is_file() and path.suffix in ('.py','.json'):
-                with self.subTest(path=str(path.relative_to(ROOT))):
-                    self.assertIsNone(pattern.search(str(path.relative_to(ROOT))))
+                with self.subTest(path=str(path)):
+                    self.assertIsNone(pattern.search(str(path)))
                     self.assertIsNone(pattern.search(path.read_text()))
 
     def test_saved_deck_presets_and_start_requests_accept_pre_07_keys(self):

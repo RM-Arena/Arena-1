@@ -1,4 +1,5 @@
 """Check that native-hardware validation really uses both registered lineups."""
+from tests.strategy_fixtures import STRATEGIES
 import json
 import os
 from pathlib import Path
@@ -32,7 +33,9 @@ class TrackedBattle(Original):
 runner.Battle=TrackedBattle
 from scripts.evaluate_sol_max_2027 import play
 root=Path(sys.argv[1])
-play((str(root/'examples/gpt61_sol_max_2027'),str(root/'examples/dsv41_1017_pair'),1,'red',420,None,False))
+from tests.strategy_fixtures import STRATEGIES
+from rmuc_arena.paths import ROOT
+play((str(ROOT / 'examples/gpt61_sol_max_2027'),str(STRATEGIES/'dsv41_1017_pair'),1,'red',420,None,False))
 '''
             env=dict(os.environ,RMUC_EVAL_STOP_FILE=str(stop))
             process=subprocess.Popen([sys.executable,'-c',script,str(ROOT),str(ready)],cwd=ROOT,env=env,
@@ -53,8 +56,8 @@ play((str(root/'examples/gpt61_sol_max_2027'),str(root/'examples/dsv41_1017_pair
                     stop.write_text('stop\n');process.kill();process.communicate()
 
     def test_native_hardware_is_not_rebound_to_the_candidate(self):
-        candidate=ROOT/'examples/gpt61_sol_max_2027'
-        opponent=ROOT/'examples/dsv41_1017_pair'
+        candidate=ROOT / 'examples/gpt61_sol_max_2027'
+        opponent=STRATEGIES / 'dsv41_1017_pair'
         own=json.loads((candidate/'manifest.json').read_text())
         other=json.loads((opponent/'manifest.json').read_text())
         self.assertNotEqual(own['team_lineup'],other['team_lineup'])

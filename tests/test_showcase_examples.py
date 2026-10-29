@@ -1,4 +1,5 @@
 """Display sidecars of the shipped examples: showcase.json and profile.json."""
+from tests.strategy_fixtures import STRATEGIES
 import importlib.util
 import json
 from pathlib import Path
@@ -10,7 +11,7 @@ from rmuc_arena.robot_presets import TACTICS, preset_key
 from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, example_agent, parse_showcase, validate_profile
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLES = ROOT / "examples"
+EXAMPLES = STRATEGIES
 
 
 def build_script():

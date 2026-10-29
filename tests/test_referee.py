@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import tempfile
@@ -37,7 +38,7 @@ class RefereeTests(unittest.TestCase):
     def test_queued_cards_execute_once_and_replay_verifies(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/"replay.json"
-            with Battle(ROOT/"examples/claude_opus55_xhigh_team",ROOT/"examples/claude_opus55_xhigh_hold",duration=2,sandbox="trusted-local") as battle:
+            with Battle(STRATEGIES / "claude_opus55_xhigh_team",STRATEGIES / "claude_opus55_xhigh_hold",duration=2,sandbox="trusted-local") as battle:
                 battle.step()
                 battle.queue_referee({"kind":"yellow","robot":"red-4"})
                 battle.run()
@@ -50,7 +51,7 @@ class RefereeTests(unittest.TestCase):
     def test_forfeit_early_finish_is_recorded_and_verifiable(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/"replay.json"
-            with Battle(ROOT/"examples/claude_opus55_xhigh_team",ROOT/"examples/claude_opus55_xhigh_hold",duration=420,sandbox="trusted-local") as battle:
+            with Battle(STRATEGIES / "claude_opus55_xhigh_team",STRATEGIES / "claude_opus55_xhigh_hold",duration=420,sandbox="trusted-local") as battle:
                 battle.step()
                 battle.queue_referee({"kind":"forfeit","team":"blue"})
                 battle.step()

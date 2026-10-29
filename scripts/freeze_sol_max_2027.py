@@ -39,6 +39,7 @@ def main():
     parser.add_argument('--pool-plan',type=Path,help='Keep an existing opponent league fixed for a new candidate')
     parser.add_argument('--fresh-qualification',action='store_true',help='Rerun every baseline qualification after a host change')
     parser.add_argument('--expanded-regressions',action='store_true',help='Cover both known tactical seeds on both sides')
+    from rmuc_arena.catalog import resolve_strategy
     a=parser.parse_args();out=a.output.resolve()
     if out.exists():raise ValueError('Acceptance snapshots are immutable: '+str(out))
     out.mkdir(parents=True)
@@ -93,7 +94,7 @@ def main():
     candidate=out/'candidate';shutil.copytree(a.candidate,candidate)
     opponents=out/'opponents';opponents.mkdir()
     for name in ('deepseek_flash_2027_anchor','dsv41_1017_pair','step5_2027_echo'):
-        shutil.copytree(ROOT/'examples'/name,opponents/name)
+        shutil.copytree(resolve_strategy(name),opponents/name)
     baseline=opponents/'published';shutil.copytree(ROOT/'build/sol-max-v2/published',baseline)
     league=opponents/'league'
     subprocess.run([sys.executable,str(ROOT/'scripts/build_sol_max_opponents_2027.py'),

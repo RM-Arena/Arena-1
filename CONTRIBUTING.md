@@ -30,3 +30,10 @@ macOS reference but has not passed on Linux; it is not a runtime portability
 guarantee. Focused navigation and physical fly-slope tests remain in the normal
 cross-platform suite. Do not change benchmark thresholds merely to hide a
 strategy regression.
+
+## Strategy contributions
+
+Submit all new and updated strategies to [Arena-Strategies](https://github.com/RM-Arena/Arena-Strategies),
+under `strategies/<season>/<provider>/<name>/`. Do not add strategy submissions to this repository's
+`examples/`; it contains only the GPT-6.1-Sol-Max trident reference.
+Regression strategy inputs live in the independent repository as well; see [tests/README.md](tests/README.md).

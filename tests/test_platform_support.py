@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import json
 import os
 from pathlib import Path
@@ -38,11 +39,11 @@ class PlatformSupportTests(unittest.TestCase):
             self.assertNotIn(b"\r\n", output.read_bytes())
             self.assertEqual(json.loads(output.read_bytes()), {"名称": "策略"})
             for path, data in build_examples_2027.outputs().items():
-                with self.subTest(path=str(path.relative_to(ROOT))):
+                with self.subTest(path=str(path)):
                     self.assertEqual(data, path.read_bytes())
             build_robot_presets.materialize(root / "preset", build_examples_2027.POLICY.read_text(encoding="utf-8"), 2711, False, "2027")
             for name in ("strategy.py", "manifest.json"):
-                self.assertEqual((root / "preset" / name).read_bytes(), (ROOT / "examples/claude_opus55_xhigh_2027_adaptive_2711" / name).read_bytes())
+                self.assertEqual((root / "preset" / name).read_bytes(), (STRATEGIES / "claude_opus55_xhigh_2027_adaptive_2711" / name).read_bytes())
 
     def test_restarting_desktop_updates_practice_url_without_resetting_clock_or_code(self):
         with tempfile.TemporaryDirectory() as temporary:

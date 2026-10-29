@@ -1,4 +1,5 @@
 """Behavior and integrity checks for the Sol Max serial-leg submission."""
+from tests.strategy_fixtures import STRATEGIES
 import importlib.util
 import json
 import math
@@ -34,7 +35,7 @@ class SolMax2027Tests(unittest.TestCase):
         return json.loads(json.dumps(self.observations[side]))
 
     def test_reproducible_submission_and_explicit_author(self):
-        folder = ROOT / 'examples' / self.builder.NAME
+        folder = ROOT / "examples" / self.builder.NAME
         manifest, _ = load_submission(folder)
         self.assertEqual(manifest['team_lineup'], self.builder.LINEUP)
         self.assertEqual(load_profile(folder)['agent'], self.builder.AGENT)

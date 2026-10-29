@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from rmuc_arena.strategy_sources import authoring_examples
 
 from rmuc_arena import seasons
 from rmuc_arena.models import robot_models
@@ -126,7 +127,7 @@ def outputs(include_experimental=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', type=Path, default=ROOT / 'examples')
+    parser.add_argument('--output', type=Path, default=authoring_examples())
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--include-experimental', action='store_true', help='Include the evaluated defense experiment, excluded from the default publication set')
     args = parser.parse_args()

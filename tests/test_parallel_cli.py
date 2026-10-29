@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import json
 import os
 from pathlib import Path
@@ -118,11 +119,11 @@ class ParallelCliTests(unittest.TestCase):
 
     def test_spec_defaults_follow_season_and_decks_swap_controllers(self):
         standard=make_spec({'season':'2026','duration':1,'seed':1},index={
-            'claude_opus55_xhigh_team':{'path':ROOT/'examples/claude_opus55_xhigh_team'},
-            'claude_opus55_xhigh_hold':{'path':ROOT/'examples/claude_opus55_xhigh_hold'}})
+            'claude_opus55_xhigh_team':{'path':STRATEGIES / 'claude_opus55_xhigh_team'},
+            'claude_opus55_xhigh_hold':{'path':STRATEGIES / 'claude_opus55_xhigh_hold'}})
         self.assertEqual(standard['options']['map_name'],'rmuc2026')
-        deck=make_spec({'mode':'deck','seed':1,'red_deck':[str(ROOT/'examples/claude_opus55_xhigh_2027_adaptive_2731')],
-                        'blue_deck':[str(ROOT/'examples/claude_opus55_xhigh_2027_adaptive_2771')],
+        deck=make_spec({'mode':'deck','seed':1,'red_deck':[str(STRATEGIES / 'claude_opus55_xhigh_2027_adaptive_2731')],
+                        'blue_deck':[str(STRATEGIES / 'claude_opus55_xhigh_2027_adaptive_2771')],
                         'red_control':'team','red_team_strategy':str(self.red)},index={})
         swapped=swap_spec(deck)
         self.assertEqual(swapped['options']['decks']['red'],deck['options']['decks']['blue'])

@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import os
 import json
 import time
@@ -256,7 +257,7 @@ class LocalRunnerTests(unittest.TestCase):
     def test_recorded_replay_verifies(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "replay.json"
-            with Battle(ROOT / "examples" / "claude_opus55_xhigh_team", ROOT / "examples" / "claude_opus55_xhigh_hold", duration=2, sandbox="trusted-local") as b:
+            with Battle(STRATEGIES / "claude_opus55_xhigh_team", STRATEGIES / "claude_opus55_xhigh_hold", duration=2, sandbox="trusted-local") as b:
                 b.run()
                 b.save(path)
                 digest = b.match.digest()
@@ -266,7 +267,7 @@ class LocalRunnerTests(unittest.TestCase):
         for ticks in (0, 2):
             with self.subTest(ticks=ticks), tempfile.TemporaryDirectory() as temp:
                 path = Path(temp) / "replay.json"
-                with Battle(ROOT / "examples" / "claude_opus55_xhigh_team", ROOT / "examples" / "claude_opus55_xhigh_hold", duration=2, sandbox="trusted-local") as b:
+                with Battle(STRATEGIES / "claude_opus55_xhigh_team", STRATEGIES / "claude_opus55_xhigh_hold", duration=2, sandbox="trusted-local") as b:
                     for _ in range(ticks):
                         b.step()
                     b.match.finish(None, "stopped")
@@ -335,7 +336,7 @@ def act(obs,state):
 ''')
                 entries[str(i)] = p
             save_submission(root / "squad", "squad", entries)
-            with Battle(root / "squad", ROOT / "examples" / "claude_opus55_xhigh_hold", duration=1) as b:
+            with Battle(root / "squad", STRATEGIES / "claude_opus55_xhigh_hold", duration=1) as b:
                 result = b.run()
                 self.assertEqual(len(b.policies), 7)
                 self.assertEqual(result["policy_errors"], 0)

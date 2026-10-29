@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+env:
+  RMUC_TEST_STRATEGIES: .arena_data/strategy-tests/fixtures/arena1-4303d7c/examples
 permissions:
   contents: read
 concurrency:
@@ -28,6 +30,11 @@ jobs:
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: RM-Arena/Arena-Strategies
+          ref: a2ee3ca3971e368a3ee8d598a0d90aa108539d66
+          path: .arena_data/strategy-tests
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -60,6 +67,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: RM-Arena/Arena-Strategies
+          ref: a2ee3ca3971e368a3ee8d598a0d90aa108539d66
+          path: .arena_data/strategy-tests
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.13.1'

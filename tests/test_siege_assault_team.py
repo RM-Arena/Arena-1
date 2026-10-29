@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import contextlib
 import importlib.util
 import io
@@ -19,7 +20,7 @@ LINEUP = {"1": 1, "2": 2, "3": 305, "4": 305, "6": 6, "7": 301}
 class SiegeAssaultTeamTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        spec = importlib.util.spec_from_file_location("siege_test", ROOT / "examples/siege_assault_team/strategy.py")
+        spec = importlib.util.spec_from_file_location("siege_test", STRATEGIES / "siege_assault_team/strategy.py")
         cls.strategy = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, {"sdk": sdk}):
             spec.loader.exec_module(cls.strategy)
@@ -29,10 +30,10 @@ class SiegeAssaultTeamTests(unittest.TestCase):
             return match.observation(team)
 
     def test_manifest_and_initial_commands_fit_the_runtime(self):
-        manifest, _ = load_submission(ROOT / "examples/siege_assault_team")
+        manifest, _ = load_submission(STRATEGIES / "siege_assault_team")
         self.assertEqual(manifest["mode"], "team")
         self.assertEqual(manifest["team_lineup"], LINEUP)
-        self.assertLessEqual((ROOT / "examples/siege_assault_team/strategy.py").stat().st_size, SOURCE_LIMIT)
+        self.assertLessEqual((STRATEGIES / "siege_assault_team/strategy.py").stat().st_size, SOURCE_LIMIT)
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             actions, state = self.strategy.act(self.observation(), None)

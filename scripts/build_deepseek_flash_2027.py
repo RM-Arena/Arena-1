@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from rmuc_arena.strategy_sources import authoring_examples
 
 from rmuc_arena.showcase import validate_profile, validate_showcase
 from rmuc_arena.submissions import save_submission
@@ -107,7 +108,7 @@ def output():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', type=Path, default=ROOT / 'examples')
+    parser.add_argument('--output', type=Path, default=authoring_examples())
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     changed = []

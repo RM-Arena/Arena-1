@@ -20,6 +20,9 @@ SDK = Path(__file__).with_name("sdk.py")
 SLOT_IDS = (1, 2, 3, 4, 6, 7)
 RULES_PROFILE = "rmuc-2026-v1.0.0-arena-v3"
 RULES_PROFILE_2027 = "rmuc-2027-v1.0.0-arena-v1"
+STARTER_STRATEGY = ('from sdk import action\n\n\ndef act(observation, state):\n'
+    '    """Implement your strategy here; publish it to Arena-Strategies."""\n'
+    '    return {slot: action() for slot in observation["controlled_ids"]}, state\n')
 
 
 def manifest_season(manifest):
@@ -206,10 +209,8 @@ def scaffold(path, mode="team", robot=None, registry=None, minutes=90, training_
     if mode!='team' and team_lineup is not None:raise ValueError('A shared team lineup is only for team mode')
     path.mkdir(parents=True)
     editable = editable_files(mode, season)
-    prefix = "claude_opus55_xhigh" if season == season_rules.LEGACY_SEASON else f"claude_opus55_xhigh_{season}"
     for name in editable:
-        template = ROOT / "examples" / f"{prefix}_distributed" / name if mode == "distributed" else ROOT / "examples" / f"{prefix}_adaptive" / "strategy.py" if mode == "adaptive" else ROOT / "examples" / f"{prefix}_team" / "strategy.py"
-        shutil.copyfile(template, path / name)
+        (path / name).write_text(STARTER_STRATEGY, encoding='utf-8')
     metadata = {"api_version":3,"rules_profile":season_rules.rules_profile(season),"mode":mode,"robot":robot,
         "editable":editable,"output_directories":["practice"],"training":training_metadata(minutes,training_url)}
     if mode=='team':metadata['team_lineup']=lineup

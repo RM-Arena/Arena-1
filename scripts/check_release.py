@@ -17,6 +17,11 @@ DEPRECATED = re.compile(("off" + "icial|\u5b98\u65b9").encode(), re.IGNORECASE)
 def main():
     files = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
     errors = []
+    examples = ROOT / "examples"
+    submissions = {p.parent.name for p in examples.rglob("manifest.json")}
+    unexpected = {p.name for p in examples.iterdir()} - {"gpt61_sol_max_2027", "rl_rollout.py", "README.md", "__pycache__", ".DS_Store"}
+    if submissions != {"gpt61_sol_max_2027"} or unexpected:
+        errors.append("examples must contain only gpt61_sol_max_2027; submit strategies to RM-Arena/Arena-Strategies")
     for filename in filter(None, files):
         path = Path(filename)
         if PRIVATE.intersection(path.parts):

@@ -99,7 +99,8 @@ def main():
     for o in args.opponents:
         path = Path(o)
         if not path.is_dir():
-            path = ROOT / 'examples' / o
+            from rmuc_arena.catalog import resolve_strategy
+            path = resolve_strategy(o)
         opponents.append(path)
 
     records = []

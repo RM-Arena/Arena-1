@@ -1,4 +1,5 @@
 """Host-controlled development windows and private, unranked practice matches."""
+from .strategy_sources import bundled_examples
 from concurrent.futures import ThreadPoolExecutor
 import datetime
 import json
@@ -10,7 +11,7 @@ import time
 
 from .runner import Battle
 from .paths import data_path
-from .submissions import (ROOT, SLOT_IDS, check_training_window, load_submission, manifest_season,
+from .submissions import (ROOT, SLOT_IDS, STARTER_STRATEGY, check_training_window, load_submission, manifest_season,
     locked_registry, save_submission, validate_workspace, workspace_entries, workspace_showcase, write_json)
 from .showcase import PROFILE_FILE, SHOWCASE_FILE, validate_profile
 from . import seasons as season_rules
@@ -18,7 +19,7 @@ from . import seasons as season_rules
 
 def rulebook_example(season, name):
     """Public baseline example directory of a season (2026 keeps the original names)."""
-    return ROOT / "examples" / (f"claude_opus55_xhigh_{name}" if season == season_rules.LEGACY_SEASON else f"claude_opus55_xhigh_{season}_{name}")
+    return bundled_examples() / (f"claude_opus55_xhigh_{name}" if season == season_rules.LEGACY_SEASON else f"claude_opus55_xhigh_{season}_{name}")
 
 
 class TrainingService:
@@ -39,7 +40,13 @@ class TrainingService:
             for manifest in self.strategy_library.paths():
                 if manifest.parent.name == bundled.name:
                     return manifest.parent
-        return bundled
+        if (bundled / "manifest.json").is_file():
+            return bundled
+        from .catalog import resolve_strategy
+        try:
+            return resolve_strategy(bundled.name)
+        except ValueError as exc:
+            raise ValueError("请先从 Arena-Strategies 同步该赛季的练习策略：strategies sync") from exc
 
     def authenticate(self, session_id, authorization):
         records = json.loads(self.registry.read_text(encoding="utf-8")) if self.registry.exists() else {}
@@ -96,7 +103,13 @@ class TrainingService:
             return candidate
         # A single author never receives other entrants' code. Practice teammates are public examples.
         season = manifest_season(manifest)
-        _, baseline = load_submission(self.example(season, "squad"))
+        try:
+            _, baseline = load_submission(self.example(season, "squad"))
+        except ValueError:
+            # Offline practice needs teammates even when the strategy feed is not cached.
+            idle = directory.parent / "idle-teammate.py"
+            idle.write_text(STARTER_STRATEGY, encoding="utf-8")
+            baseline = {str(slot): idle for slot in season_rules.slots(season)}
         files = {str(slot): baseline[str(slot)] for slot in season_rules.slots(season)}
         files[str(manifest["robot"])] = entries[str(manifest["robot"])]
         save_submission(directory, "squad", files, season=season)

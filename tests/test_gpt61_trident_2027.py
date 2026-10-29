@@ -1,4 +1,5 @@
 """Behavioral checks for the triple serial-leg assault submission."""
+from tests.strategy_fixtures import STRATEGIES
 import importlib.util
 import json
 from pathlib import Path
@@ -37,7 +38,7 @@ class Trident2027Tests(unittest.TestCase):
         self.assertEqual([self.builder.LINEUP[s] for s in ('3','4','7')], [305,305,2772])
         for slot in ('3','4','7'):
             self.assertEqual(models[str(self.builder.LINEUP[slot])]['leg_type'], 'serial')
-        folder=ROOT / 'examples' / self.builder.NAME
+        folder=STRATEGIES / self.builder.NAME
         manifest,_=load_submission(folder)
         self.assertEqual(manifest['team_lineup'], self.builder.LINEUP)
         self.assertEqual(load_profile(folder)['agent']['model'], 'gpt-6.1-sol-xhigh')

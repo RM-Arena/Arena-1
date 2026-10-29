@@ -1,4 +1,5 @@
 """RMUC 2027 alongside 2026: legal models, map selection, workspaces and real battles."""
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import tempfile
@@ -116,7 +117,7 @@ class SeasonApiTests(unittest.TestCase):
         self.assertNotIn("claude_opus55_xhigh_team", catalog)
         self.assertEqual(catalog["claude_opus55_xhigh_2027_team"]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5 xhigh"})
         for key, entry in catalog.items():
-            self.assertEqual(entry["agent"], load_profile(ROOT / "examples" / key)["agent"])
+            self.assertEqual(entry["agent"], load_profile(STRATEGIES / key)["agent"])
             self.assertNotRegex(entry["display_name"], r"(?i)rulebook|赛事")
 
     def test_a_match_without_a_map_follows_its_strategies_and_defaults_to_2027(self):
@@ -126,9 +127,9 @@ class SeasonApiTests(unittest.TestCase):
         self.assertEqual((record["status"], record["metadata"]["season"], record["metadata"]["map"]), ("finished", "2027", "rmuc2027"))
         self.assertEqual(record["result"]["policy_errors"], 0)
         for team in ("red", "blue"):
-            self.assertEqual(record["metadata"]["teams"][team]["agent"], {"provider": "anthropic", "model": "Claude Opus 5.5 xhigh"})
+            self.assertEqual(record["metadata"]["teams"][team]["agent"], {"provider": "openai", "model": "GPT-6.1-Sol-Max"})
             for agent in record["metadata"]["agents"][team].values():
-                self.assertEqual((agent["provider"], agent["model"]), ("anthropic", "Claude Opus 5.5 xhigh"))
+                self.assertEqual((agent["provider"], agent["model"]), ("openai", "GPT-6.1-Sol-Max"))
                 self.assertNotRegex(agent["strategy"], r"(?i)rulebook|赛事")
         legacy = self.client.post("/api/start", json={"red": "claude_opus55_xhigh_team", "blue": "claude_opus55_xhigh_hold", "duration": 2})
         self.assertEqual(legacy.status_code, 200, legacy.text)
@@ -240,7 +241,7 @@ class Season2027ExampleTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         for path, data in module.outputs().items():
-            with self.subTest(path=str(path.relative_to(ROOT))):
+            with self.subTest(path=str(path)):
                 self.assertEqual(path.read_bytes(), data)
 
 
@@ -248,12 +249,12 @@ class Season2027BattleTests(unittest.TestCase):
     def test_rulebook_2027_strategies_play_without_errors(self):
         for red, blue in (("claude_opus55_xhigh_2027_team", "claude_opus55_xhigh_2027_hold"), ("claude_opus55_xhigh_2027_squad", "claude_opus55_xhigh_2027_distributed")):
             with self.subTest(red=red, blue=blue):
-                with Battle(ROOT / "examples" / red, ROOT / "examples" / blue, 7, 12, None, "trusted-local") as battle:
+                with Battle(STRATEGIES / red, STRATEGIES / blue, 7, 12, None, "trusted-local") as battle:
                     result = battle.run()
                     self.assertEqual(result["policy_errors"], 0, battle.diagnostics)
                     self.assertEqual(battle.metadata["season"], "2027")
                     self.assertEqual(battle.match.snapshot()["arena"]["name"], "rmuc2027")
-        manifest, _ = load_submission(ROOT / "examples/claude_opus55_xhigh_2027_team")
+        manifest, _ = load_submission(STRATEGIES / "claude_opus55_xhigh_2027_team")
         self.assertEqual(manifest["team_lineup"], season_rules.default_lineup("2027"))
 
     def test_heavy_robot_mines_two_units_and_completes_a_core_level(self):
@@ -263,7 +264,7 @@ class Season2027BattleTests(unittest.TestCase):
         "retries" by releasing `pick_unit` can never finish one; this measures the outcome
         instead of the individual stages.
         """
-        with Battle(ROOT / "examples/claude_opus55_xhigh_2027_team", ROOT / "examples/claude_opus55_xhigh_2027_hold", 2027, 130, None, "trusted-local") as battle:
+        with Battle(STRATEGIES / "claude_opus55_xhigh_2027_team", STRATEGIES / "claude_opus55_xhigh_2027_hold", 2027, 130, None, "trusted-local") as battle:
             battle.run()
             red = battle.match.snapshot()["teams"]["red"]
             self.assertLessEqual(red["energy_units_left"], 4, "the heavy robot never took two units")

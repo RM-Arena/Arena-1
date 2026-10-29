@@ -14,6 +14,11 @@ jobs:
     runs-on: ${{ inputs.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: RM-Arena/Arena-Strategies
+          ref: a2ee3ca3971e368a3ee8d598a0d90aa108539d66
+          path: .arena_data/strategy-tests
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.13.1'

@@ -17,6 +17,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from rmuc_arena.strategy_sources import authoring_examples
 from rmuc_arena.models import model_ids, robot_models
 from rmuc_arena import seasons as season_rules
 from rmuc_arena.robot_presets import PROFILES, PROFILES_2027, TACTICS, preset_key
@@ -316,23 +317,31 @@ def materialize(destination, source_text, model, check, season):
 
 def build(check=False):
     template = (ROOT / 'scripts/robot_preset_template.py').read_text()
-    baseline = (ROOT / 'examples/claude_opus55_xhigh_adaptive/strategy.py').read_text()
+    import os
+    authoring_examples().mkdir(parents=True, exist_ok=True)
+    baseline_path = authoring_examples() / 'claude_opus55_xhigh_adaptive/strategy.py'
+    if not baseline_path.is_file():
+        checkout = Path(os.environ.get('ARENA_STRATEGIES_SOURCE', ROOT / '.arena_data/strategy-tests'))
+        baseline_path = checkout / 'development/templates/claude_opus55_xhigh_adaptive/strategy.py'
+    if not baseline_path.is_file():
+        raise SystemExit('Set ARENA_STRATEGIES_SOURCE to an Arena-Strategies checkout for the 2026 template')
+    baseline = baseline_path.read_text()
     for model in legal_models('2026'):
-        balanced = ROOT / 'examples' / preset_key(model, 'balanced')
+        balanced = authoring_examples() / preset_key(model, 'balanced')
         if (balanced / 'manifest.json').is_file():
             load_submission(balanced)
         else:
             # Models added after the original presets (2027 infantry legal in 2026) get the baseline.
             materialize(balanced, baseline, model, check, '2026')
         for tactic in ('assault', 'guard'):
-            materialize(ROOT / 'examples' / preset_key(model, tactic),
+            materialize(authoring_examples() / preset_key(model, tactic),
                         template.replace('TACTIC = "assault"', f'TACTIC = "{tactic}"'), model, check, '2026')
         for tactic in TACTICS:
-            write_sidecars(ROOT / 'examples' / preset_key(model, tactic), model, tactic, check)
+            write_sidecars(authoring_examples() / preset_key(model, tactic), model, tactic, check)
     policy = (ROOT / 'scripts/robot_policy_2027.py').read_text()
     for model in legal_models('2027'):
         for tactic in TACTICS:
-            destination = ROOT / 'examples' / preset_key(model, tactic, '2027')
+            destination = authoring_examples() / preset_key(model, tactic, '2027')
             materialize(destination, policy.replace('TACTIC = "balanced"', f'TACTIC = "{tactic}"'), model, check, '2027')
             write_sidecars(destination, model, tactic, check, '2027')
 

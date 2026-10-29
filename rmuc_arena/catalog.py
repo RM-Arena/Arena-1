@@ -1,4 +1,5 @@
 """Read-only CLI catalogs and immutable strategy snapshots for parallel jobs."""
+from .strategy_sources import bundled_examples, bundled_manifests
 import hashlib
 import json
 from pathlib import Path
@@ -13,7 +14,7 @@ from .submissions import load_submission, manifest_season
 
 def strategy_index():
     choices = {}
-    locations = [('bundled', sorted((ROOT/'examples').glob('*/manifest.json')))]
+    locations = [('bundled', bundled_manifests())]
     from .strategy_library import StrategyLibrary
     library = StrategyLibrary(data_path('.arena_data/strategy-library'), enabled=False)
     locations += [('remote', library.paths()), ('local', sorted(data_path('submissions').glob('*/manifest.json')))]
@@ -47,7 +48,7 @@ def resolve_strategy(value, index=None):
     if separator and source in ('bundled', 'remote', 'local'):
         key = canonical_key(name)
         if source == 'bundled':
-            path = ROOT/'examples'/key
+            path = (ROOT/'examples' if key=='gpt61_sol_max_2027' else bundled_examples())/key
         elif source == 'local':
             path = data_path('submissions')/key
         else:

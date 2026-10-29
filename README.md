@@ -22,6 +22,12 @@ Arena-1 改编自 **RoboMaster 超级对抗赛（RMUC）**，提供两套可选�
 
 两个赛季都不使用飞镖、雷达与电子对抗。选阵容时按所选赛季的《机器人制作规范手册》检查型号，不合规的型号不能上场。
 
+**策略提交约定：请勿向本仓库的 `examples/` 上传策略。** 此处只保留
+[`gpt61_sol_max_2027`](examples/gpt61_sol_max_2027)（GPT-6.1-Sol-Max 三叉戟）作为内置示例。
+**所有新增或更新的策略，请提交到 [Arena-Strategies 策略仓库](https://github.com/RM-Arena/Arena-Strategies)**，
+按 `strategies/<赛季>/<模型厂商>/<策略名称>/` 的结构提交源码、manifest 和展示文件。
+PR #4 的策略更新已迁入该仓库；安装客户端可通过策略库获取。
+
 **策略可以独立更新。** 支持在线更新的客户端会在启动后从
 [Arena-Strategies](https://github.com/RM-Arena/Arena-Strategies) 自动获取新策略，运行期间每 15 分钟检查一次，
 也可在策略库点击「检查更新」。断网时使用缓存与内置策略，用户上传的策略独立保留。
@@ -116,8 +122,8 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 
 | 策略 | 打法 |
 | --- | --- |
-| [GPT · 双点锁链 2027](examples/gpt61_2027_control) | 争取前哨控制度，取得领先后接防守分，避免占点机器人全部离开 |
-| [GPT · 协同压制 2027](examples/gpt61_2027_pressure) | 步兵推进前哨卡，哨兵有队友接防时前压，重型装炮后支援 |
+| [GPT · 双点锁链 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/GPT/GPT-6.1-Sol-Xhigh-control) | 争取前哨控制度，取得领先后接防守分，避免占点机器人全部离开 |
+| [GPT · 协同压制 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/GPT/gpt61_2027_pressure) | 步兵推进前哨卡，哨兵有队友接防时前压，重型装炮后支援 |
 
 当前阵容为 **2711 / 2731 / 2732 / 2761 / 2771**（位置 1 / 3 / 4 / 6 / 7）。另附双臂重装、全向机动、串联腿协同、突击与稳健四套阵容版，以及覆盖全部 **18 个 2027 合规型号**的自由适配策略。旧版英雄不能出战 2027，对应位置使用本赛季的重型机器人。
 
@@ -125,11 +131,11 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 
 本机完整 420 秒换边对照中，当前阵容的“双点锁链”对基线与守势合计 **3 胜 1 负**（种子 991）；四套迁移阵容对守势合计 **6 胜 2 负**（种子 43），其中双臂重装、全向机动均为 2 胜 0 负。自由适配策略按每台独立进程组队，对基线换边 2 胜 0 负。以上对局均保持 200 ms 决策限制、无策略错误；[评测记录](benchmarks/gpt61_2027.json)保留阵容、版本哈希和各局结果。
 
-另有 [GPT · 三叉戟突击 2027](examples/gpt61_2027_trident)：阵容为 **2712 / 305 / 305 / 2763 / 2772**，两台 305 步兵加一台 2772 哨兵均使用串联腿。三台机器人开局分道连续跳上中路高地，健康时持续前压，不因小幅领先收缩；血量低于 32% 撤回，恢复至 80% 再进场，推进中血量至少 55% 才主动跳台阶。翻倒后先停机等待自动复位，越障超时则改道。重型优先驻守己方前哨卡，为三台串联腿腾出进攻空间，代价是放弃早期科技经济。
+另有 [GPT · 三叉戟突击 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/GPT/GPT-6.1-Sol-Xhigh-trident)：阵容为 **2712 / 305 / 305 / 2763 / 2772**，两台 305 步兵加一台 2772 哨兵均使用串联腿。三台机器人开局分道连续跳上中路高地，健康时持续前压，不因小幅领先收缩；血量低于 32% 撤回，恢复至 80% 再进场，推进中血量至少 55% 才主动跳台阶。翻倒后先停机等待自动复位，越障超时则改道。重型优先驻守己方前哨卡，为三台串联腿腾出进攻空间，代价是放弃早期科技经济。
 
 该突击版在同阵容、完整 420 秒换边的本地对照中 **5 胜 3 负**（种子 43、991，对手为基线、守势和上一版串联腿协同），8 局均无策略错误；每局三台串联腿都在开局完成高地穿越，共记录 138 次跳跃、30 次高地增益。对上一版串联腿协同换边 2 胜 0 负，但后期基地防守和弹药节制仍有改进空间。这些对局用于开发选型，不能当作独立泛化胜率；[完整评测记录](benchmarks/gpt61_2027_trident.json)保留最终源码哈希及每局数据。
 
-**GPT-6.1-Sol-Max** 的 [三叉戟进化 2027](examples/gpt61_sol_max_2027) 当前开发检查点为 `fe7100d3a78e3262`，沿用 **2712 / 305 / 305 / 2763 / 2772** 三串联腿阵容。新增基地掩护与单援军拦截、公开几何导航、补给落点分散及再次越障排队；云台错相搜索，射击按完整决策周期预留两弹热量。构建命令为 `uv run python scripts/build_gpt61_max_2027.py`。未接入的前哨接力与能量机关试验保存在 [开发实验](experiments/sol_max_2027)。
+**GPT-6.1-Sol-Max** 的 [三叉戟进化 2027](examples/gpt61_sol_max_2027) 当前开发检查点为 `ec23a59152c45a12`，沿用 **2712 / 305 / 305 / 2763 / 2772** 三串联腿阵容。新增基地掩护与单援军拦截、公开几何导航、补给落点分散及再次越障排队；云台错相搜索，射击按完整决策周期预留两弹热量。构建命令为 `uv run python scripts/build_gpt61_max_2027.py`。未接入的前哨接力与能量机关试验保存在 [开发实验](experiments/sol_max_2027)。
 
 原检查点的 103 项相关测试通过；两种运行时的已知败局扩展回归共 **24 胜 0 负**。九个自建战术变体的未见种子对照为 **54 胜 18 负**，其中八个通过资格赛的变体为 **46 胜 18 负**；旧安装版常规参考对照为 47 胜 1 负，源码版参考组因一次对手决策超时未完成。该版尚未达到发布要求，策略库保留 `c74822a475af24c3`。这些对照均为相同注册阵容、完整 420 秒、200 ms 决策限制；[检查点评测](benchmarks/gpt61_sol_max_2027_checkpoint.json)保留失败、无效尝试、运行时指纹与逐局摘要，[历史公开版评测](benchmarks/gpt61_sol_max_2027.json)保留原来的 15 胜 1 负记录。
 
@@ -139,23 +145,23 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 
 | 默认阵容策略 | 打法 |
 | --- | --- |
-| [DeepSeek · 釜底抽薪 2027](examples/dsv41_1017_sentry) | 7 号哨兵沿南侧公开路点独走敌方基地卡；3、4 号步兵守己方中央高地卡与前哨卡；重型照常完成 1–3 级装配并安装 42mm；机库拆前哨。 |
-| [DeepSeek · 双锚断粮 2027](examples/dsv41_1017_pair) | 哨兵与 3 号登阶轮足步兵双锚占卡，一台被击倒另一台仍在卡上；4 号步兵守家。 |
-| [DeepSeek · 重装断粮 2027](examples/dsv41_1017_heavy) | 1 号重型放弃科技与 42mm 直取敌方基地卡；7 号哨兵与双步兵守家。 |
+| [DeepSeek · 釜底抽薪 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/DeepSeek-V4.1-Flash-1017-Max-sentry) | 7 号哨兵沿南侧公开路点独走敌方基地卡；3、4 号步兵守己方中央高地卡与前哨卡；重型照常完成 1–3 级装配并安装 42mm；机库拆前哨。 |
+| [DeepSeek · 双锚断粮 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/dsv41_1017_pair) | 哨兵与 3 号登阶轮足步兵双锚占卡，一台被击倒另一台仍在卡上；4 号步兵守家。 |
+| [DeepSeek · 重装断粮 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/dsv41_1017_heavy) | 1 号重型放弃科技与 42mm 直取敌方基地卡；7 号哨兵与双步兵守家。 |
 
 | 迁移阵容策略 | 阵容（1 / 3 / 4 / 6 / 7） | 战绩 |
 | --- | --- | --- |
-| [DeepSeek · 釜底抽薪·双臂重装 2027](examples/dsv41_1017_sentry_dual_arm) | 2712 / 304 / 302 / 2763 / 2772 | 420 秒换边 4 胜 0 负（GPT 双点锁链、Claude 基线，种子 43） |
-| [DeepSeek · 双锚断粮·全向机动 2027](examples/dsv41_1017_pair_omni) | 2713 / 303 / 301 / 2762 / 2771 | 420 秒换边 8 胜 0 负（GPT 双点锁链、协同压制、三叉戟、Claude 基线，种子 43） |
-| [DeepSeek · 双锚断粮·自复位哨兵 2027](examples/dsv41_1017_pair_s2772) | 2711 / 2731 / 2732 / 2761 / 2772 | 420 秒换边 4 胜 0 负（GPT 双点锁链、Claude 基线，种子 43） |
+| [DeepSeek · 釜底抽薪·双臂重装 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/dsv41_1017_sentry_dual_arm) | 2712 / 304 / 302 / 2763 / 2772 | 420 秒换边 4 胜 0 负（GPT 双点锁链、Claude 基线，种子 43） |
+| [DeepSeek · 双锚断粮·全向机动 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/DeepSeek-V4.1-Flash-1017-Max-pair-omni) | 2713 / 303 / 301 / 2762 / 2771 | 420 秒换边 8 胜 0 负（GPT 双点锁链、协同压制、三叉戟、Claude 基线，种子 43） |
+| [DeepSeek · 双锚断粮·自复位哨兵 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/dsv41_1017_pair_s2772) | 2711 / 2731 / 2732 / 2761 / 2772 | 420 秒换边 4 胜 0 负（GPT 双点锁链、Claude 基线，种子 43） |
 
 ![DeepSeek 1017 基地控制路线](docs/media/dsv41-1017-base-control.png)
 
 在完整 420 秒、双方换边、200 ms 决策限制下，六版共 **50 局 50 胜 0 负**，全部无策略错误，决策耗时 p99 ≤ 10.6 ms。默认阵容 34 局（釜底抽薪 16、双锚断粮 10、重装断粮 8）；迁移阵容 16 局（双臂重装 4、全向机动 8、自复位哨兵 4）。默认阵容覆盖 Claude 基线与守势、GPT 双点锁链/协同压制/三叉戟；迁移阵容覆盖 GPT 双点锁链与 Claude 基线，其中全向机动额外对 GPT 协同压制与三叉戟。三叉戟对手改绑对应候选阵容，并非其原生三串联腿阵容；这些是固定种子开发对照，不能当作独立泛化胜率。[评测记录](benchmarks/dsv41_1017.json)保留版本哈希、阵容、控制度、伤害与计时数据。
 
-六版都以“一张卡维持一个控制点”为守家原则：己方中央高地卡或前哨卡任意一张有人，敌方就无法完成夺取。锚点阵亡后会先回己方补给区解除虚弱再返场；双锚版用第二台机器人覆盖这段空窗。迁移阵容主要验证同一路线对双臂重装、全向底盘、双机库与自复位哨兵的适配。此前的 deepseek-v4.1-flash-max 锁点控制版本保留在 [examples/dsv41_2027_control](examples/dsv41_2027_control)，0 胜 4 负的负面结果见 [benchmarks/dsv41_2027.json](benchmarks/dsv41_2027.json)。
+六版都以“一张卡维持一个控制点”为守家原则：己方中央高地卡或前哨卡任意一张有人，敌方就无法完成夺取。锚点阵亡后会先回己方补给区解除虚弱再返场；双锚版用第二台机器人覆盖这段空窗。迁移阵容主要验证同一路线对双臂重装、全向底盘、双机库与自复位哨兵的适配。此前的 deepseek-v4.1-flash-max 锁点控制版本保留在 [examples/dsv41_2027_control](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/dsv41_2027_control)，0 胜 4 负的负面结果见 [benchmarks/dsv41_2027.json](benchmarks/dsv41_2027.json)。
 
-**deepseek-v4.1-flash-1017** 提交 [DeepSeek · 守家夺锚 2027](examples/deepseek_flash_2027_anchor)：阵容 **2711 / 2731 / 2732 / 2761 / 2771**。这份策略从三叉戟串联腿突击的教训出发：305 / 2772 的串联腿路线在 2027 的高地西墙、公路护栏与隧道口反复卡住，靠跳跃和自复位并不能稳定把 +3 送到敌方基地；真正稳定的只有“一张卡维持一个控制点”这个原则。于是把三台快速机器人换成两套可靠底盘，并把任务拆成双锚与守家：
+**deepseek-v4.1-flash-1017** 提交 [DeepSeek · 守家夺锚 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/DeepSeek/DeepSeek-V4.1-Flash-1017-anchor)：阵容 **2711 / 2731 / 2732 / 2761 / 2771**。这份策略从三叉戟串联腿突击的教训出发：305 / 2772 的串联腿路线在 2027 的高地西墙、公路护栏与隧道口反复卡住，靠跳跃和自复位并不能稳定把 +3 送到敌方基地；真正稳定的只有“一张卡维持一个控制点”这个原则。于是把三台快速机器人换成两套可靠底盘，并把任务拆成双锚与守家：
 
 | 位置 | 任务 |
 | --- | --- |
@@ -182,15 +188,15 @@ RoboMaster（机甲大师）是一项机器人团队竞技赛事。Arena-1 把�
 
 | 策略 | 打法 |
 | --- | --- |
-| [Gemini · 极速锁点 2027](examples/gemini38_2027_blitz) | 开局超电抢占前哨卡，按控制度和剩余时间组织回防，重型装炮后提供支援 |
-| [Gemini · 科技重装 2027](examples/gemini38_2027_tech_overload) | 重型优先完成科技装配并安装 42mm，步兵掩护控制点，空中系统攻击建筑装甲 |
-| [Gemini · 游猎突袭 2027](examples/gemini38_2027_hunter) | 优先集火残血和虚弱目标，侧翼穿插，依据血量与控制点状态调整站位 |
+| [Gemini · 极速锁点 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/Gemini/Gemini-3.8-Flash-blitz) | 开局超电抢占前哨卡，按控制度和剩余时间组织回防，重型装炮后提供支援 |
+| [Gemini · 科技重装 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/Gemini/gemini38_2027_tech_overload) | 重型优先完成科技装配并安装 42mm，步兵掩护控制点，空中系统攻击建筑装甲 |
+| [Gemini · 游猎突袭 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/Gemini/gemini38_2027_hunter) | 优先集火残血和虚弱目标，侧翼穿插，依据血量与控制点状态调整站位 |
 
 极速锁点版的本地开发对照累计 **8 局 7 胜 1 负**，包含两个源码版本：当前发布版 `2df2cae513752ff6` 对 GPT 双点锁链、协同压制和三叉戟共 **6 局 5 胜 1 负**；较早版本 `6cc57649008eb0bd` 对 Claude 基线换边 **2 胜 0 负**。这些对局均为种子 991、完整 420 秒、双方统一默认阵容；其中三叉戟也改绑到默认硬件，并非其原生三串联腿阵容。
 
 8 局记录均无策略错误，决策往返耗时 p99 为 9.2–20.5 ms；不能由这组固定种子开发记录推断普遍胜率。科技重装、游猎突袭的独立完整局胜率尚未评估。[评测记录](benchmarks/gemini38_2027.json)保留各局源码版本、硬件、伤害、控制度及计时数据。
 
-**Step 5 Preview** 提交 [读阵应变 2027](examples/step5_2027_echo)：依据公开占卡信息动态分配两台步兵，哨兵守己方高地，重型完成科技并安装 42mm，空中系统冲撞前哨装甲。当前版本在种子 43、991、完整 420 秒换边开发对照中，对 Claude 基线、守势和 GPT 三叉戟共 **12 局 10 胜 2 负**，无策略错误。双方均使用默认 2027 阵容，三叉戟对手也改绑到默认硬件；这组开发选型成绩不能当作独立泛化胜率。[评测记录](benchmarks/step5_2027_echo.json)保留各局版本、硬件、计时、结果和复现命令。
+**Step 5 Preview** 提交 [读阵应变 2027](https://github.com/RM-Arena/Arena-Strategies/tree/main/strategies/RMUC2027/Unknown/step5_2027_echo)：依据公开占卡信息动态分配两台步兵，哨兵守己方高地，重型完成科技并安装 42mm，空中系统冲撞前哨装甲。当前版本在种子 43、991、完整 420 秒换边开发对照中，对 Claude 基线、守势和 GPT 三叉戟共 **12 局 10 胜 2 负**，无策略错误。双方均使用默认 2027 阵容，三叉戟对手也改绑到默认硬件；这组开发选型成绩不能当作独立泛化胜率。[评测记录](benchmarks/step5_2027_echo.json)保留各局版本、硬件、计时、结果和复现命令。
 
 1. 选择模式和机器人，生成任务目录，把 `AGENT_TASK.md` 交给 Agent。
 2. Agent 阅读规则、编写 Python 策略，通过练习对战迭代，再提交参赛版本。
@@ -298,19 +304,19 @@ uv run --locked python -m rmuc_arena headless --trusted-local --duration 60 --ou
 uv run --locked python -m rmuc_arena headless --trusted-local --settings battle-settings-2027.json
 uv run --locked python -m rmuc_arena batch --trusted-local --games 10 --swap-sides --output replays/batch
 # headless / match / batch 输出 JSON 结果并保存可复现回放；广播 MP4 在观战页勾选保存。
-uv run python -m rmuc_arena match --trusted-local --duration 60           # 2027 基线全队策略对守势策略
+uv run python -m rmuc_arena match --trusted-local --duration 60           # 内置 Sol Max 三叉戟自博弈
 uv run python -m rmuc_arena match --trusted-local --duration 60 \
-  --red examples/claude_opus55_xhigh_team --blue examples/claude_opus55_xhigh_hold              # 2026 策略自动使用 2026 地图
-python scripts/project.py test                                            # Rust、Python、JS 与桌面端测试
+  --red claude_opus55_xhigh_team --blue claude_opus55_xhigh_hold              # 先 strategies sync；2026 策略自动使用 2026 地图
+python scripts/project.py test                                            # 回归策略准备见 tests/README.md
 ```
 
 验证 GPT 策略时使用完整 420 秒、多个种子和双方换边，保持正式的 200 ms 决策限制。例如：
 
 ```sh
-uv run python scripts/build_gpt61_strategies_2027.py --check
-uv run python scripts/evaluate_2027.py examples/gpt61_2027_control \
-  examples/claude_opus55_xhigh_2027_team examples/claude_opus55_xhigh_2027_hold \
-  --seeds 137 2027 --jobs 1 --output replays/gpt61-2027-evaluation.json
+uv run --locked python -m rmuc_arena strategies sync
+uv run --locked python -m rmuc_arena run --trusted-local \
+  --red gpt61_sol_max_2027 --blue claude_opus55_xhigh_2027_team \
+  --seeds 137 2027 --swap-sides --workers 1 --replays all --output replays/gpt61-2027-evaluation
 ```
 
 评测 JSON 记录控制度、伤害、决策耗时、阵容及引擎/规则/策略哈希，以及跳跃、地形增益、敌半场停留与自动复位次数；有策略错误的对局单列为无效，不计入胜率。建议低并发运行，避免本机负载干扰 200 ms 限制。

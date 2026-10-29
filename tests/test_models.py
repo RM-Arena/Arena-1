@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import tempfile
@@ -141,7 +142,7 @@ class ModelTests(unittest.TestCase):
         wrong={**CUSTOM,'1':201}
         with self.assertRaises(ValueError):scaffold(self.root/'bad-workspace',registry=self.registry,team_lineup=wrong)
         self.assertFalse((self.root/'bad-workspace').exists())
-        with self.assertRaises(ValueError):save_submission(self.root/'bad-submission','team',{'team':ROOT/'examples/claude_opus55_xhigh_team/strategy.py'},team_lineup=wrong)
+        with self.assertRaises(ValueError):save_submission(self.root/'bad-submission','team',{'team':STRATEGIES / 'claude_opus55_xhigh_team/strategy.py'},team_lineup=wrong)
         self.assertFalse((self.root/'bad-submission').exists())
 
     def test_custom_team_practice_keeps_models_when_swapping_sides_against_baseline(self):
