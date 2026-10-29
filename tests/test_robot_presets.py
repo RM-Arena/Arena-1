@@ -1,4 +1,5 @@
 """Preset coverage, role-specific decisions and real variable-lineup execution."""
+from tests.strategy_fixtures import STRATEGIES
 import copy
 import importlib.util
 from pathlib import Path
@@ -20,7 +21,7 @@ from tests.showcase_fixture import SHOWCASE_TEXT, write_showcase
 
 
 def policy(model, tactic, season='2026'):
-    path=ROOT/'examples'/preset_key(model,tactic,season)/'strategy.py'
+    path=STRATEGIES/preset_key(model,tactic,season)/'strategy.py'
     spec=importlib.util.spec_from_file_location(f'preset_{model}_{tactic}',path)
     module=importlib.util.module_from_spec(spec)
     with patch.dict(sys.modules,{'sdk':sdk}):
@@ -36,13 +37,13 @@ class RobotPresetTests(unittest.TestCase):
                 hashes=[]
                 for tactic in TACTICS:
                     with self.subTest(season=season,model=model,tactic=tactic):
-                        manifest,files=load_submission(ROOT/'examples'/preset_key(model,tactic,season))
+                        manifest,files=load_submission(STRATEGIES/preset_key(model,tactic,season))
                         self.assertEqual((manifest['mode'],manifest['robot'],manifest['rules_profile']),('adaptive',model,season_rules.rules_profile(season)))
                         hashes.append(manifest['hashes']['strategy.py'])
                 self.assertEqual(len(set(hashes)),3)
         # Models illegal in a season have no presets there.
-        self.assertFalse((ROOT/'examples'/preset_key(1,'balanced','2027')).exists())
-        self.assertFalse((ROOT/'examples'/preset_key(2711,'balanced','2026')).exists())
+        self.assertFalse((STRATEGIES/preset_key(1,'balanced','2027')).exists())
+        self.assertFalse((STRATEGIES/preset_key(2711,'balanced','2026')).exists())
 
     def test_catalog_has_descriptive_presets_and_keeps_custom_policy_separate(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -106,8 +107,8 @@ class RobotPresetTests(unittest.TestCase):
         # coverage, while the deadline contract itself is pinned by test_runner.
         for tactic in TACTICS:
             with self.subTest(tactic=tactic):
-                red=[ROOT/'examples'/preset_key(model,tactic) for model in season_rules.legal_models('2026')]+[ROOT/'examples'/preset_key(305,tactic)]
-                blue=[ROOT/'examples'/preset_key(3,'balanced'),ROOT/'examples'/preset_key(2,'guard')]
+                red=[STRATEGIES/preset_key(model,tactic) for model in season_rules.legal_models('2026')]+[STRATEGIES/preset_key(305,tactic)]
+                blue=[STRATEGIES/preset_key(3,'balanced'),STRATEGIES/preset_key(2,'guard')]
                 with Battle(None,None,duration=1,sandbox='trusted-local',timeout=.6,decks={'red':red,'blue':blue}) as battle:
                     result=battle.run()
                     self.assertEqual(result['policy_errors'],0,battle.diagnostics)
@@ -123,8 +124,8 @@ class RobotPresetTests(unittest.TestCase):
         for tactic in TACTICS:
             with self.subTest(tactic=tactic):
                 models=[m for m in season_rules.legal_models('2027') if m not in (2762,2763)]
-                red=[ROOT/'examples'/preset_key(model,tactic,'2027') for model in models]
-                blue=[ROOT/'examples'/preset_key(2771,'balanced','2027'),ROOT/'examples'/preset_key(2763,'guard','2027')]
+                red=[STRATEGIES/preset_key(model,tactic,'2027') for model in models]
+                blue=[STRATEGIES/preset_key(2771,'balanced','2027'),STRATEGIES/preset_key(2763,'guard','2027')]
                 with Battle(None,None,duration=2,map_name='rmuc2027',sandbox='trusted-local',timeout=.6,decks={'red':red,'blue':blue}) as battle:
                     result=battle.run()
                     self.assertEqual(result['policy_errors'],0,battle.diagnostics)

@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import tempfile
@@ -37,7 +38,7 @@ class BattleSettingsTests(unittest.TestCase):
         settings = {'projectile_spread_half_angle_deg.17mm': 0,
                     'assembly_difficulties.0.confirm_hold_s': 1.5}
         with tempfile.TemporaryDirectory() as directory:
-            with Battle(ROOT/'examples/claude_opus55_xhigh_2027_team', ROOT/'examples/claude_opus55_xhigh_2027_hold',
+            with Battle(STRATEGIES / 'claude_opus55_xhigh_2027_team', STRATEGIES / 'claude_opus55_xhigh_2027_hold',
                         duration=1, sandbox='trusted-local', battle_settings=settings) as battle:
                 sim = battle.match.observation('red')['simulation_assumptions']
                 self.assertEqual(sim['projectile_spread_half_angle_deg']['17mm'], 0)

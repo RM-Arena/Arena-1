@@ -73,7 +73,7 @@ export function App(){
   const [skins,setSkins]=useState<Record<TeamId,Record<string,string>>>(()=>{try{const v=JSON.parse(localStorage.getItem('rmuc-skins-v1')||'null');if(v&&['red','blue'].every(t=>v[t]&&typeof v[t]==='object'))return v;}catch{}return {red:{},blue:{}};});
   useEffect(()=>{try{localStorage.setItem('rmuc-skins-v1',JSON.stringify(skins));}catch{}},[skins]);
   const [bgmVolume,setBgmVolume]=useState(()=>{try{const v=Number(localStorage.getItem('rmuc-bgm-volume-v1')??'0.6');return Number.isFinite(v)?Math.max(0,Math.min(1,v)):.6;}catch{return .6;}});
-  const [red,setRed]=useState('claude_opus55_xhigh_2027_team'),[blue,setBlue]=useState('claude_opus55_xhigh_2027_hold'),[seed,setSeed]=useState(42),[duration,setDuration]=useState(420),[map,setMap]=useState<'rmuc2027'|'rmuc2026'>(()=>{try{return localStorage.getItem('rmuc-map-v1')==='rmuc2026'?'rmuc2026':'rmuc2027';}catch{return 'rmuc2027';}});
+  const [red,setRed]=useState('gpt61_sol_max_2027'),[blue,setBlue]=useState('gpt61_sol_max_2027'),[seed,setSeed]=useState(42),[duration,setDuration]=useState(420),[map,setMap]=useState<'rmuc2027'|'rmuc2026'>(()=>{try{return localStorage.getItem('rmuc-map-v1')==='rmuc2026'?'rmuc2026':'rmuc2027';}catch{return 'rmuc2027';}});
   // RMUC 2027 is the default field; the selected map decides the season's roster, rules and legal models.
   useEffect(()=>{try{localStorage.setItem('rmuc-map-v1',map);}catch{}},[map]);
   const season=seasonOfMap(map),slots=SEASON_SLOTS[season],teamLineup=lineups[season];
@@ -89,7 +89,7 @@ export function App(){
     return [...matched,...rest];
   },[seasonCatalog,teamLineup]);
   const seasonCards=useMemo(()=>Object.fromEntries(Object.entries(robotCards).filter(([,entry])=>(entry.season||'2026')===season&&(!entry.robot||legalIn(models[String(entry.robot)],season)||!Object.keys(models).length))),[robotCards,models,season]);
-  const seasonDefault=season==='2027'?['claude_opus55_xhigh_2027_team','claude_opus55_xhigh_2027_hold']:['claude_opus55_xhigh_team','claude_opus55_xhigh_hold'];
+  const seasonDefault=season==='2027'?['gpt61_sol_max_2027','gpt61_sol_max_2027']:['claude_opus55_xhigh_team','claude_opus55_xhigh_hold'];
   const [camera,setCamera]=useState<CameraMode>('orbit'),[selected,setSelected]=useState('red-1'),[sound,setSound]=useState(true),[showSubmit,setShowSubmit]=useState(false),[post,setPostState]=useState<Post>(null);
   // The robot a human is driving first person; the strategy keeps flying the rest of the team.
   const [pilot,setPilot]=useState<string|null>(null),pilotView=useRef<PilotView|null>(null),pilotRef=useRef(false);pilotRef.current=!!pilot;

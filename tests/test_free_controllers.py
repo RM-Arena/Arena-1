@@ -1,4 +1,5 @@
 """Whole-team/independent free battle and durable saved lineups."""
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import tempfile
@@ -21,7 +22,7 @@ class FreeControllerTests(unittest.TestCase):
     return {s:{'aim':.25} for s in own},(state or 0)+1
 ''')
         self.team=self.root/'submissions/free-team';save_submission(self.team,'team',{'team':source})
-        self.decks={'red':[ROOT/'examples/claude_opus55_xhigh_adaptive_3']*3,'blue':[ROOT/'examples/claude_opus55_xhigh_adaptive_7']*2}
+        self.decks={'red':[STRATEGIES / 'claude_opus55_xhigh_adaptive_3']*3,'blue':[STRATEGIES / 'claude_opus55_xhigh_adaptive_7']*2}
         self.registry=self.root/'registry.json'
 
     def app(self):

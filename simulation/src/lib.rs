@@ -9,6 +9,7 @@ mod physics;
 mod pickup;
 mod structures;
 mod vision;
+mod training_scenario;
 
 pub const DT: f64 = 0.05;
 pub const SLOT_IDS: [u32; 6] = [1, 2, 3, 4, 6, 7];

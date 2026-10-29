@@ -226,6 +226,7 @@ impl Engine {
             h.update(include_bytes!("pickup.rs"));
             h.update(include_bytes!("season2027.rs"));
             h.update(include_bytes!("vision.rs"));
+            h.update(include_bytes!("training_scenario.rs"));
             h.update(include_bytes!("../Cargo.lock"));
             format!("{:x}", h.finalize())
         })

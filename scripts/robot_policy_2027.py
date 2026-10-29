@@ -434,7 +434,9 @@ def heavy(robot, ctx):
             del attempts[key]
     tipped = [t for t in tipped_teammates(obs) if t['role'] != 'aerial' and t['slot'] != robot['slot']
               and distance(robot, (t['x'], t['y'])) < 7 and ctx.time - attempts.get(t['id'], ctx.time) < 15]
-    if tipped and launcher != 'installing':
+    # Deliver a loaded energy unit before starting a rescue: switching to the tipped
+    # teammate on the plinth repeatedly pulled the heavy away from its docking approach.
+    if tipped and launcher != 'installing' and robot['carried_units'] == 0:
         target = min(tipped, key=lambda t: distance(robot, (t['x'], t['y'])))
         attempts.setdefault(target['id'], ctx.time)
         far = distance(robot, (target['x'], target['y'])) > .8

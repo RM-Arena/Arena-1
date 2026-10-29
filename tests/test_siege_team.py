@@ -1,3 +1,4 @@
+from tests.strategy_fixtures import STRATEGIES
 import contextlib
 import importlib.util
 import io
@@ -20,7 +21,7 @@ LINEUP = {"1": 1, "2": 2, "3": 305, "4": 305, "6": 6, "7": 301}
 class SiegeTeamTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        spec = importlib.util.spec_from_file_location("siege_test", ROOT / "examples/siege_team/strategy.py")
+        spec = importlib.util.spec_from_file_location("siege_test", STRATEGIES / "siege_team/strategy.py")
         cls.strategy = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, {"sdk": sdk}):
             spec.loader.exec_module(cls.strategy)
@@ -30,10 +31,10 @@ class SiegeTeamTests(unittest.TestCase):
             return match.observation(team)
 
     def test_manifest_and_initial_commands_fit_the_runtime(self):
-        manifest, _ = load_submission(ROOT / "examples/siege_team")
+        manifest, _ = load_submission(STRATEGIES / "siege_team")
         self.assertEqual(manifest["mode"], "team")
         self.assertEqual(manifest["team_lineup"], LINEUP)
-        self.assertLessEqual((ROOT / "examples/siege_team/strategy.py").stat().st_size, SOURCE_LIMIT)
+        self.assertLessEqual((STRATEGIES / "siege_team/strategy.py").stat().st_size, SOURCE_LIMIT)
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             actions, state = self.strategy.act(self.observation(), None)
@@ -531,7 +532,9 @@ class SiegeTeamTests(unittest.TestCase):
         S = self.strategy
         S.MEM.clear()
         S.RUNE_MOTOR.__init__()
-        with Match(2, 40, "rmuc2026", lineups=mirrored_lineups(LINEUP)) as match:
+        # This checks the planned route and physical climb. The strategy's wall-clock
+        # search/decision budgets otherwise skip plans on slow or contended CI runners.
+        with patch.object(S.time, 'perf_counter', return_value=0), Match(2, 40, "rmuc2026", lineups=mirrored_lineups(LINEUP)) as match:
             state, buffs = None, set()
             while match.time < 30:
                 if match.tick % 2 == 0:

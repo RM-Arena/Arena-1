@@ -1,4 +1,5 @@
 """Variable lineup deployment, duplicate policies, authoring and Web contracts."""
+from tests.strategy_fixtures import STRATEGIES
 import json
 import os
 from pathlib import Path
@@ -118,7 +119,7 @@ def act(obs, state):
 
     def test_deck_and_engine_input_validation(self):
         card = self.card()
-        for decks in ({"red":[],"blue":[card]}, {"red":[ROOT/"examples/claude_opus55_xhigh_team"],"blue":[card]}, {"red":[card]}):
+        for decks in ({"red":[],"blue":[card]}, {"red":[STRATEGIES / "claude_opus55_xhigh_team"],"blue":[card]}, {"red":[card]}):
             with self.subTest(decks=decks), self.assertRaises(ValueError):
                 prepare_decks(decks,42)
         for red in ([{"slot":1,"model":5}], [{"slot":1,"model":3}]*2, []):

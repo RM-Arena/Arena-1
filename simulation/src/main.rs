@@ -64,7 +64,7 @@ fn main() {
                 );
             }
             if op == "init" {
-                engine = Some(Engine::new_with_settings(
+                let mut next = Engine::new_with_settings(
                     request["seed"].as_i64().ok_or("seed must be i64")?,
                     request["duration"].as_f64().ok_or("duration required")?,
                     request["map"].as_str().ok_or("map required")?,
@@ -75,7 +75,11 @@ fn main() {
                         .transpose()
                         .map_err(|e| e.to_string())?,
                     request.get("battle_settings").cloned(),
-                )?);
+                )?;
+                if let Some(scenario) = request.get("training_scenario").filter(|v| !v.is_null()) {
+                    next.apply_training_scenario(scenario)?;
+                }
+                engine = Some(next);
                 // Through `Value`, like the observation itself, so keys come out sorted.
                 arena_json = serde_json::to_vec(&json!(engine.as_ref().unwrap().arena))
                     .map_err(|e| e.to_string())?;

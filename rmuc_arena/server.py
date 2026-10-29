@@ -1,4 +1,5 @@
 """FastAPI control plane with WebSocket broadcasts and durable match records."""
+from .strategy_sources import bundled_examples, bundled_manifests
 import asyncio
 from contextlib import asynccontextmanager
 import copy
@@ -41,7 +42,7 @@ from .submissions import write_json, manifest_season
 from . import seasons as season_rules
 
 # The bundled baseline pair each season starts with when a request names no strategies.
-DEFAULT_PAIRS = {"2026": ("claude_opus55_xhigh_team", "claude_opus55_xhigh_hold"), "2027": ("claude_opus55_xhigh_2027_team", "claude_opus55_xhigh_2027_hold")}
+DEFAULT_PAIRS = {"2026": ("claude_opus55_xhigh_team", "claude_opus55_xhigh_hold"), "2027": ("gpt61_sol_max_2027", "gpt61_sol_max_2027")}
 
 # Pre-match broadcast (rule 6.4 self-check): opening, a title card per team, one camera shot per robot and a face-off.
 # frontend/src/intro.ts lays out the same segments, scaled to the duration the server announces. Every segment
@@ -261,7 +262,7 @@ class ArenaService:
     def catalog(self, modes=("team", "squad", "distributed"), season=None):
         """Saved strategies by key; `season` keeps only strategies written for that season."""
         profiles = {season_rules.rules_profile(season)} if season else set(season_rules.profiles())
-        bundled = {p.parent.name: p for p in (ROOT / "examples").glob("*/manifest.json")}
+        bundled = {p.parent.name: p for p in bundled_manifests()}
         remote = {canonical_key(p.parent.name): p for p in self.strategy_library.paths()}
         paths = [(p, "remote" if key in remote else "bundled") for key, p in (bundled | remote).items()]
         if self.submission_root.exists():

@@ -20,7 +20,8 @@ import uuid
 from .engine import Match, POLICY_INTERVAL, DT, SLOT_IDS, RULES_PROFILE, STATIC_FRAME_KEYS
 from .referee import validate_referee
 from .submissions import load_submission
-from .communication import MAX_MESSAGE_BYTES, TeamCommunication, limit_messages, message_byte_limit, validate_messages
+from .communication import MAX_MESSAGE_BYTES, TeamCommunication, limit_messages, message_byte_limit
+from .action_protocol import ACTION_FIELDS, validate_action, validate_actions
 from .decks import prepare_decks
 from .showcase import load_profile
 from .worker import MEMORY_LIMIT
@@ -49,33 +50,6 @@ ASSIST_PITCH = 0.56
 # reads as a floating crosshair instead of a stable aim point.
 ASSIST_PITCH_RANGE_M = 10.0
 ASSIST_FAR_PITCH_SCALE = 0.8
-# Every field a strategy or a pilot may send for one robot.
-ACTION_FIELDS = frozenset({
-    "move", "aim", "pitch", "fire", "power", "profile", "buy_ammo", "remote_heal", "revive", "deploy", "support",
-    "altitude", "pick_unit", "assembly", "assembly_insert", "assembly_translate", "assembly_rotate", "assembly_confirm",
-    "rune_start", "heading", "crouch", "rescue", "yaw_rate", "yaw_boost", "brake", "leg_height", "jump", "climb", "lean", "arm", "arm2",
-    "pickup_arm", "transform",
-    # 2027: heavy launcher and assembly steps, sentry posture, aerial system.
-    "install_launcher", "assembly_core", "assembly_lift", "assembly_flip", "assembly_rotate2", "assembly_extract",
-    "assembly_cancel", "posture",
-    "posture_enhanced", "drones",
-    # A pilot's lobbed shot: the world point under the crosshair, solved into a high arc server-side.
-    "aim_point",
-})
-
-
-def validate_action(action, has_messages=False):
-    """Reject unknown fields and payloads larger than the 1 KiB action budget."""
-    if not isinstance(action, dict):
-        raise ValueError("Invalid action object")
-    allowed = ACTION_FIELDS | {"messages"} if has_messages else ACTION_FIELDS
-    if not set(action) <= allowed:
-        raise ValueError("Action contains unsupported fields")
-    if len(json.dumps(action, allow_nan=False).encode()) > 1024:
-        raise ValueError("Each robot action must be <=1 KiB")
-    return action
-
-
 def sight_blocked(arena, start, end):
     """True when a wall, a deck or a ramp stands on the line between two 3-D points.
 
@@ -298,6 +272,28 @@ class FrameLog(Sequence):
                 yield self.file.read(size)
 
 
+class LatestFrameLog:
+    """A single current frame, with no replay spool or per-tick action history."""
+    def __init__(self, initial):
+        self.current = initial
+        self.static = {key: initial[key] for key in STATIC_FRAME_KEYS if key in initial}
+
+    def append(self, frame, raw=None):
+        self.current = frame
+
+    def __getitem__(self, index):
+        if index not in (0, -1):
+            raise IndexError(index)
+        return self.current
+
+    def __setitem__(self, index, frame):
+        self[index]
+        self.current = frame
+
+    def __len__(self):
+        return 1
+
+
 class EncodedObservation:
     """An engine observation line forwarded to a policy without decoding it.
 
@@ -453,17 +449,12 @@ class Policy:
         if response.get("error"):
             raise ValueError(response["error"])
         actions = response.get("actions")
-        if not isinstance(actions, dict):
-            raise ValueError("Invalid action object")
-        if not set(actions) <= controlled:
-            raise ValueError("Attempt to control an unowned robot")
+        actions = validate_actions(actions, controlled, has_messages, getattr(self, 'dynamic_messages', False))
         for slot, action in list(actions.items()):
-            validate_action(action, has_messages)
             if "messages" in action:
                 # 512 bytes is the protocol ceiling and stays a hard error. The 2027 logistics
                 # bandwidth can be lower, and a message that no longer fits is dropped rather than
                 # disabling the policy: the team chose to spend the base HP that carried that data.
-                validate_messages(action["messages"], slot, self.dynamic_messages)
                 kept = limit_messages(action["messages"], message_limit)
                 if len(kept) != len(action["messages"]):
                     self.logs.append(f"bandwidth: dropped {len(action['messages']) - len(kept)} message(s) over {message_limit} bytes")
@@ -511,7 +502,7 @@ class Policy:
 
 
 class Battle:
-    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, team_lineups=None, practice_lineup=False, free_team_strategies=None, battle_settings=None):
+    def __init__(self, red, blue, seed=42, duration=420, map_name=None, sandbox="docker", timeout=0.2, deadline=None, stop_event=None, decks=None, team_lineup=None, team_lineups=None, practice_lineup=False, free_team_strategies=None, battle_settings=None, record=True):
         # The field follows the strategies' rules season unless the caller names it.
         if map_name is None:
             from .submissions import manifest_season
@@ -557,7 +548,9 @@ class Battle:
                          "map": map_name, "sandbox": sandbox, "match_mode":"deck" if self.deck_mode else "standard", "teams": {}}
         if battle_settings:
             self.metadata.update({"battle_settings": battle_settings, "test_match": True})
-        self.frames, self.actions, self.diagnostics = FrameLog(self.match.snapshot()), [], []
+        self.record = record
+        self.frames = (FrameLog if record else LatestFrameLog)(self.match.snapshot())
+        self.actions, self.diagnostics = [], []
         self.metadata["rules_hash"] = self.frames[0]["rules_hash"]
         self.metadata["engine_hash"] = self.frames[0]["engine_hash"]
         self.held_commands = {"red": {}, "blue": {}}
@@ -856,7 +849,8 @@ class Battle:
         # Communication is recorded alongside actions, but never sent to physics
         # or repeated during the held-action tick. Replay verification uses the
         # recorded robot commands; strategies are not re-executed.
-        self.actions.append({**commands, "communication": communications} if communications else commands)
+        if self.record:
+            self.actions.append({**commands, "communication": communications} if communications else commands)
         frame = self.match.step(commands)
         frame["events"].extend(failures)
         # Reuse the engine's encoding unless policy errors were added to the events.
@@ -873,29 +867,16 @@ class Battle:
                 "teams": self.match.snapshot()["teams"], "digest": getattr(self, "_digest_cache", None) or self.match.digest(), "policy_errors": len(self.diagnostics)}
 
     def replay(self):
+        if not self.record:
+            raise ValueError("Replay recording was disabled for this match")
         return {"format": "rmuc-replay-v4", "metadata": self.metadata, "static":self.frames.static,"frames": [json.loads(raw) for raw in self.frames.encoded()],
                 "actions": self.actions, "diagnostics": self.diagnostics, "result": self.result()}
 
     def save(self, path):
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        encode = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
-        with path.open("wb") as stream:
-            stream.write(b'{"format":"rmuc-replay-v4","metadata":')
-            stream.write(encode(self.metadata))
-            stream.write(b',"static":');stream.write(encode(self.frames.static))
-            stream.write(b',"frames":[')
-            for index, raw in enumerate(self.frames.encoded()):
-                if index:
-                    stream.write(b",")
-                stream.write(raw)
-            stream.write(b'],"actions":')
-            stream.write(encode(self.actions))
-            stream.write(b',"diagnostics":')
-            stream.write(encode(self.diagnostics))
-            stream.write(b',"result":')
-            stream.write(encode(self.result()))
-            stream.write(b"}")
+        if not self.record:
+            raise ValueError("Replay recording was disabled for this match")
+        from .replays import write_replay
+        write_replay(path, self.metadata, self.frames, self.actions, self.diagnostics, self.result())
 
     def close(self):
         if self.closed:

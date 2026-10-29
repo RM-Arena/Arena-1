@@ -28,14 +28,17 @@ WebSocket 代理至 Python 服务。现有 `scripts/start.sh` 仍用于 macOS / 
 
 ## 按赛季运行一局
 
-CLI 默认使用 2027 全队基线与守势示例，地图按策略赛季推断；也可以显式指定：
+CLI 默认使用内置的 Sol Max 三叉戟进行 2027 自博弈，地图按策略赛季推断；也可以显式指定：
 
 ```sh
 uv run python -m rmuc_arena match --trusted-local --map rmuc2027 --duration 30
-uv run python -m rmuc_arena match --trusted-local --map rmuc2026 --duration 30 --red examples/claude_opus55_xhigh_team --blue examples/claude_opus55_xhigh_hold
+uv run --locked python -m rmuc_arena strategies sync
+uv run python -m rmuc_arena match --trusted-local --map rmuc2026 --duration 30 --red claude_opus55_xhigh_team --blue claude_opus55_xhigh_hold
 ```
 
 30 秒只用于检查启动与基本行为，完整判胜使用 420 秒。2026 和 2027 的策略、阵容与地图不能混用。命令里的 `claude_opus55_xhigh_*` 标明策略由 Claude Opus 5.5 xhigh 编写；界面提供便于比较的基线、守势与型号名称。
+
+并行批量比赛和持久训练环境见 [CLI、并行与强化学习](./cli)。
 
 ## 更新规则、示例与文档插图
 

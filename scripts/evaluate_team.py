@@ -1,7 +1,7 @@
 """Evaluate team strategies on both sides and save reproducible match summaries.
 
-Example: .venv/bin/python scripts/evaluate_team.py examples/siege_team \
-    examples/claude_opus55_xhigh_team examples/claude_opus55_xhigh_hold --seeds 1 7 23 \
+Example: .venv/bin/python scripts/evaluate_team.py path/to/siege_team \
+    path/to/team path/to/hold --seeds 1 7 23 \
     --output replays/siege-evaluation.json
 
 Strategy files are snapshotted into temporary, validated submissions. The
@@ -54,9 +54,9 @@ def play(job):
         for team, _, policy in battle.policies:
             original = policy.decide
 
-            def measured(obs, original=original, team=team):
+            def measured(obs, *args, original=original, team=team, **kwargs):
                 begin = time.perf_counter()
-                result = original(obs)
+                result = original(obs, *args, **kwargs)
                 timing[team].append((time.perf_counter() - begin) * 1000)
                 return result
 

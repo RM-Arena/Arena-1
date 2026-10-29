@@ -1,4 +1,5 @@
 """Robot-addressed communication works in whole-team and free-battle control."""
+from tests.strategy_fixtures import STRATEGIES
 import json
 from pathlib import Path
 import tempfile
@@ -48,20 +49,20 @@ def act(obs,state):
 
     def test_free_whole_team_supports_recipient_instances_above_seven(self):
         policy=self.team('large',13)
-        decks={'red':[ROOT/'examples/claude_opus55_xhigh_adaptive_3']*13,'blue':[ROOT/'examples/claude_opus55_xhigh_adaptive_7']}
+        decks={'red':[STRATEGIES / 'claude_opus55_xhigh_adaptive_3']*13,'blue':[STRATEGIES / 'claude_opus55_xhigh_adaptive_7']}
         with Battle(None,None,duration=1,sandbox='trusted-local',decks=decks,free_team_strategies={'red':policy}) as battle:
             self.assertEqual(len(battle.policies),2);self.assertEqual(battle.run()['policy_errors'],0,battle.diagnostics)
             self.assertEqual(battle.actions[0]['communication'][0]['to'],['red-13'])
 
     def test_whole_team_validation_rejects_cross_team_spoofing_and_oversized_messages(self):
-        with Battle(ROOT/'examples/claude_opus55_xhigh_team',ROOT/'examples/claude_opus55_xhigh_hold',duration=1,sandbox='trusted-local') as battle:obs=battle.observation('red',None)
+        with Battle(STRATEGIES / 'claude_opus55_xhigh_team',STRATEGIES / 'claude_opus55_xhigh_hold',duration=1,sandbox='trusted-local') as battle:obs=battle.observation('red',None)
         for index,action in enumerate([{'1':{'messages':[{'to':'blue-2','data':{}}]}}, {'1':{'messages':[{'to':'1','data':{}}]}}, {'1':{'messages':[{'to':'2','data':{},'from':'red-7'}]}}, {'1':{'messages':[{'to':'2','data':'x'*513}]}}, {'1':{'messages':[{'to':'2','data':{}}]*5}}, {'9':{'messages':[]}}]):
             with self.subTest(index=index):
                 source=self.root/f'invalid-{index}.py';source.write_text(f'def act(obs,state):\n return {action!r},state\n')
                 policy=Policy(source,1,'trusted-local');self.addCleanup(policy.close);self.assertIsNotNone(policy.decide(obs)[1])
 
     def test_battle_bandwidth_follows_the_live_base_hp(self):
-        with Battle(ROOT/'examples/claude_opus55_xhigh_2027_team',ROOT/'examples/claude_opus55_xhigh_2027_hold',duration=1,sandbox='trusted-local') as battle:
+        with Battle(STRATEGIES / 'claude_opus55_xhigh_2027_team',STRATEGIES / 'claude_opus55_xhigh_2027_hold',duration=1,sandbox='trusted-local') as battle:
             self.assertEqual(battle.season,'2027')
             self.assertEqual(battle.message_byte_limit('red'),512)
             battle.match._frame['bases']['red']['hp']=6000.0
@@ -69,7 +70,7 @@ def act(obs,state):
             self.assertEqual(battle.message_byte_limit('blue'),512)
 
     def test_reports_do_not_create_visual_contacts_or_modify_public_telemetry(self):
-        with Battle(ROOT/'examples/claude_opus55_xhigh_team',ROOT/'examples/claude_opus55_xhigh_hold',duration=1,sandbox='trusted-local') as battle:
+        with Battle(STRATEGIES / 'claude_opus55_xhigh_team',STRATEGIES / 'claude_opus55_xhigh_hold',duration=1,sandbox='trusted-local') as battle:
             before=battle.observation('red',[1])
             report={'enemy':'blue-4','position':[20.0,7.5],'seen_tick':0}
             battle.communication.route([('red','3',[{'to':'1','data':report}])],0,2)

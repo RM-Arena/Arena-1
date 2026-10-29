@@ -21,12 +21,13 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from rmuc_arena.strategy_sources import authoring_examples
 from rmuc_arena import seasons as season_rules
 from rmuc_arena.showcase import PROFILE_FILE, SHOWCASE_FILE, SHOWCASE_FORMAT, example_agent, parse_showcase, validate_profile
 from rmuc_arena.submissions import save_submission
 
 SEASON = "2027"
-EXAMPLES = ROOT / "examples"
+EXAMPLES = authoring_examples()
 POLICY = ROOT / "scripts/robot_policy_2027.py"
 SLOTS = season_rules.slots(SEASON)
 
@@ -165,7 +166,7 @@ def main():
             parse_showcase(data)
         if path.is_file() and path.read_bytes() == data:
             continue
-        stale.append(path.relative_to(ROOT))
+        stale.append(path)
         if not args.check:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)

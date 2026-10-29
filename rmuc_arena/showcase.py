@@ -3,6 +3,7 @@
 Both files sit next to a submission's manifest. They are display metadata only, so they are not part of the
 content-addressed version: the code alone decides a strategy's identity and Elo.
 """
+from .strategy_sources import bundled_examples
 import json
 import math
 import re
@@ -17,7 +18,7 @@ FIELD = (28.0, 15.0)
 from .paths import ROOT
 from .strategy_names import CLAUDE_AGENT, CLAUDE_PREFIX, LEGACY_CATEGORY, canonical_key
 
-EXAMPLES = ROOT / "examples"
+EXAMPLES = bundled_examples()
 
 PROVIDERS = ("openai", "anthropic", "google", "meta", "spacexai", "moonshot", "zai", "xiaomi", "deepseek", "qwen", "tencent-hy", "bytedance-seed")
 # Bundling a strategy is independent of who developed it.
@@ -242,7 +243,7 @@ def load_showcase(path):
 
 
 def is_bundled(path):
-    return Path(path).resolve().parent == EXAMPLES
+    return Path(path).resolve().parent in (bundled_examples(), (ROOT / 'examples').resolve())
 
 
 def load_profile(path, bundled=None):
