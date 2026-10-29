@@ -14,7 +14,7 @@ import {HalfBrief,SeatBrief,type HalfBriefData} from './pilot';
 import {cloneForTeam,LED_COLORS,SHELL} from './teamMaterials';
 import {Venue} from './venue';
 import type {ArenaAudio} from './media';
-import {FPV_EYE_LIFT,dampFactor,displayRate,feedAlpha,robotWorld} from './world';
+import {FPV_EYE_LIFT,dampFactor,displayRate,feedAlpha,liveAlpha,robotWorld} from './world';
 import {fpvResolutionScale} from './logistics';
 import {createEyeMount,createShakeState,eyeMountStep,shakeOf,type EyeMount,type ShakeState} from './cockpitMotion';
 import {lobScope,pilotAim} from './scope';
@@ -147,7 +147,7 @@ const barrelView=(r:Robot,slot=0)=>{
 const colors={red:new THREE.Color(LED_COLORS.red),blue:new THREE.Color(LED_COLORS.blue)},WHITE=new THREE.Color('#ffffff');
 const toHeight=(frame:Frame,x:number,y:number)=>terrainHeight(frame.arena,x,y);
 // The diagnostics record republished every frame (see the `arenaMotion` publisher in the director).
-const arenaMotion={alpha:1,age:0,pace:null as number|null,aimYaw:0,aimPitch:0,corrYaw:0,cmdYaw:0,mode:'',eyeY:0,eyeRawY:0,  steerRuns:0,steerStep:0,frameNo:0,frame:null as import('./types').Frame|null};
+const arenaMotion={alpha:1,alphaRaw:1,age:0,pace:null as number|null,aimYaw:0,aimPitch:0,corrYaw:0,cmdYaw:0,mode:'',eyeY:0,eyeRawY:0,  steerRuns:0,steerStep:0,frameNo:0,frame:null as import('./types').Frame|null};
 
 // Structures are static scenery with a few named hinges, so they are merged by material as soon as
 // they are cloned: the field and the two bases are most of the draw calls in a broadcast frame.
@@ -191,7 +191,7 @@ function RobotModel({id,role,team,url,feed,selected,onSelect,hidden,hover,pick,o
   useFrame(({clock},dt)=>{const f=feed.current.frame;if(!f||!group.current)return;const r=f.robots.find(r=>r.id===id);if(!r)return;
     const physicalAlive=r.role==='aerial'||r.alive;
     const old=feed.current.previous?.robots.find(r=>r.id===id)||r;
-    const alpha=feedAlpha(feed.current);
+    const alpha=liveAlpha(feed.current);
     // Same velocity-continuous sampler the first-person eye uses, so the hull under a pilot's lens
     // cannot drift away from the camera by the difference between a straight line and the real path.
     robotWorld(feed.current,r,alpha,posePos);group.current.position.copy(posePos);
@@ -297,7 +297,7 @@ function DroneModel({robot,droneId,index,team,url,feed,selected,onSelect}:{robot
   const rotors=useMemo(()=>{const nodes:THREE.Object3D[]=[];asset.traverse(o=>{if(o.name.startsWith('Rotor_')&&!(o instanceof THREE.Mesh))nodes.push(o);});return nodes;},[asset]);
   const materials=useMemo(()=>{const list:THREE.Material[]=[];asset.traverse(o=>{if(o instanceof THREE.Mesh)list.push(...(Array.isArray(o.material)?o.material:[o.material]));});return list;},[asset]);
   useFrame(({clock},dt)=>{const f=feed.current.frame;if(!f||!group.current)return;const r=f.robots.find(r=>r.id===robot),d=r?.drones?.[index];if(!d){group.current.visible=false;return;}
-    const old:Drone=feed.current.previous?.robots.find(o=>o.id===robot)?.drones?.[index]||d,alpha=feedAlpha(feed.current);
+    const old:Drone=feed.current.previous?.robots.find(o=>o.id===robot)?.drones?.[index]||d,alpha=liveAlpha(feed.current);
     group.current.visible=true;group.current.position.copy(point(d,0,f.arena.width,f.arena.height)).lerp(point(old,0,f.arena.width,f.arena.height),1-alpha);
     const a=d.quaternion,b=old.quaternion||a;now.set(-a[0],-a[2],-a[1],a[3]);was.set(-b[0],-b[2],-b[1],b[3]);group.current.quaternion.copy(was.slerp(now,alpha));
     for(const node of rotors)node.rotation.y+=dt*(d.state==='flying'?120:0);
@@ -345,7 +345,7 @@ function OutpostModel({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderF
   const tinted=useMemo(()=>{const glow:THREE.MeshStandardMaterial[]=[],primary:THREE.MeshStandardMaterial[]=[];asset.traverse(o=>{if(!(o instanceof THREE.Mesh))return;for(const m of Array.isArray(o.material)?o.material:[o.material]){if(!(m instanceof THREE.MeshStandardMaterial))continue;if(m.name.startsWith('TeamGlow'))glow.push(m);else if(m.name.startsWith('TeamPrimary'))primary.push(m);}});return {glow,primary};},[asset]);
   useFrame(()=>{const f=feed.current.frame,b=f?.outposts?.[team];if(!b||!group.current)return;group.current.position.copy(point(b,0,f!.arena.width,f!.arena.height));// The rotor turns between frames like the interpolated drones that strike it.
     const was=feed.current.previous?.outposts?.[team]?.rotation??b.rotation??0,turn=(b.rotation||0)-was;
-    if(rotor)rotor.rotation.y=-(was+Math.atan2(Math.sin(turn),Math.cos(turn))*feedAlpha(feed.current));const held=b.owner??team;
+    if(rotor)rotor.rotation.y=-(was+Math.atan2(Math.sin(turn),Math.cos(turn))*liveAlpha(feed.current));const held=b.owner??team;
     for(const m of tinted.glow){m.emissiveIntensity=b.hp>0?(m.userData.glow??=m.emissiveIntensity)*(1+pulse('outpost-'+team,.25)*2.5):0;m.color.set(b.hp>0?LED_COLORS[held]:'#1a1c20');m.emissive.set(LED_COLORS[held]);}
     for(const m of tinted.primary)m.color.set(SHELL[held]);});
   return <group ref={group}><primitive object={asset}/></group>;
@@ -376,7 +376,7 @@ function RuneFace({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>
     group.current.rotation.set(0,Math.atan2(-sign*Math.sin(yaw),sign*Math.cos(yaw)),0);group.current.updateMatrixWorld();
     const targets=(state.targets||[]) as {x:number;y:number;z:number;arm:number}[];
     inverse.copy(group.current.matrixWorld).invert();
-    const blend=feedAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
+    const blend=liveAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
     const angles=targets.map(t=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t,px=old.x+(t.x-old.x)*blend,py=old.y+(t.y-old.y)*blend,pz=old.z+(t.z-old.z)*blend;
       // Inline of `point(x, y, z, 0)`: this runs for five arms on each of the two faces every frame.
       local.set(px-f.arena.width/2,pz,py-f.arena.height/2).applyMatrix4(inverse);return Math.atan2(local.z,local.y);});
@@ -412,7 +412,7 @@ function TechCore({team,feed,url}:{team:TeamId;feed:MutableRefObject<RenderFeed>
   useFrame(({clock})=>{const f=feed.current.frame,frame=f?.arena.assembly_frames?.[team],state=f?.assemblies?.[team];if(!f||!frame||!group.current||!nodes.carriage||!nodes.lift||!nodes.yaw||!nodes.pitch||!nodes.roll)return;
     const [ox,oy]=frame.origin,[ax,ay]=frame.x_axis,floor=Math.min(oy,f.arena.height-oy)*Math.tan(1.5*Math.PI/180);
     group.current.position.set(ox-f.arena.width/2,floor+(frame.z0_m||.5),oy-f.arena.height/2);group.current.rotation.set(0,Math.atan2(-ay,ax),0);
-    const previous=feed.current.previous?.assemblies?.[team],blend=feedAlpha(feed.current);
+    const previous=feed.current.previous?.assemblies?.[team],blend=liveAlpha(feed.current);
     const old=previous?.attempt===state.attempt?previous:state;
     const lerp=(key:string)=>(old[key]||0)+((state[key]||0)-(old[key]||0))*blend;
     const current=(state?.current_pose||state?.pose||frame.initial_pose) as number[],prior=(old.current_pose||current) as number[];
@@ -435,7 +435,7 @@ function LegacyRuneModel({team,feed}:{team:TeamId;feed:MutableRefObject<RenderFe
   useFrame(()=>{const f=feed.current.frame,state=f?.runes?.[team],targets=state?.targets;if(!f||!targets?.length)return;
     const center=beamCenter.set(targets.reduce((s:number,t:any)=>s+t.x,0)/5-f.arena.width/2,targets.reduce((s:number,t:any)=>s+t.z,0)/5,targets.reduce((s:number,t:any)=>s+t.y,0)/5-f.arena.height/2);
     const yaw=f.arena.rune?.axis_yaw||0;
-    const blend=feedAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
+    const blend=liveAlpha(feed.current),previous=feed.current.previous?.runes?.[team]?.targets||[];
     targets.forEach((t:any,i:number)=>{const old=previous.find((o:{arm:number})=>o.arm===t.arm)||t;const x=old.x+(t.x-old.x)*blend,y=old.y+(t.y-old.y)*blend,z=old.z+(t.z-old.z)*blend,target=beamTarget.set(x-f.arena.width/2,z,y-f.arena.height/2),head=heads.current[i],card=cards.current[i];
       if(head){head.position.copy(target);head.rotation.y=Math.PI/2-yaw;}
       const light=runeArmLight(state,t.arm??i,f.time),tint=light==='hit'?RUNE_HIT:light==='impact'?RUNE_IMPACT:colors[team];
@@ -756,7 +756,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
       // The rules keep the view pose while the chassis is destroyed; nothing turns until respawn.
       if(!r.alive){dead.current=true;eyeStable.current.id='';settle();return;}
       const own=pilot&&pilot===r.id;
-      const was=feed.current.previous?.robots.find(o=>o.id===r.id)||r,alpha=feedAlpha(feed.current);
+      const was=feed.current.previous?.robots.find(o=>o.id===r.id)||r,alpha=liveAlpha(feed.current);
       robotWorld(feed.current,r,alpha,eyePoint);
       // 27 % above the muzzle line: the eye clears the gun without leaving its line of sight. A heavy
       // with no launcher has no gun to ride, so the arm view below places its own low eye instead.
@@ -911,7 +911,7 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
         if(drone){
           const owner=onField?.robot??hangar!;
           const previous=feed.current.previous?.robots.find(r=>r.id===owner.id)?.drones?.find(d=>d.id===drone.id)||drone;
-          const alpha=feedAlpha(feed.current);
+          const alpha=liveAlpha(feed.current);
           const focus=followFocus.set(drone.x-f.arena.width/2,drone.z||0,drone.y-f.arena.height/2).lerp(followFrom.set(previous.x-f.arena.width/2,previous.z||0,previous.y-f.arena.height/2),1-alpha);
           target.lerp(focus,dampFactor(8,dt));
           if(orbiting){controls.current?.target.copy(target);}
@@ -1069,7 +1069,10 @@ function Director({mode,selected,feed,audio,onCanvas,onRender,shot,pilot,hud,pic
   // robots and fixtures the HUD does.
   useFrame(()=>{
     const m=arenaMotion;
-    m.alpha=feedAlpha(feed.current);m.age=Math.round(performance.now()-feed.current.received);m.pace=feed.current.pace??null;
+    // `alpha` is the playhead the picture is drawn at; `alphaRaw` is the phase the packets alone would
+    // give. Their difference on a live page is exactly how much arrival jitter the playhead absorbed.
+    m.alpha=liveAlpha(feed.current);m.alphaRaw=feedAlpha(feed.current);
+    m.age=Math.round(performance.now()-feed.current.received);m.pace=feed.current.pace??null;
     m.aimYaw=eye.current.yaw;m.aimPitch=eye.current.pitch;m.corrYaw=eye.current.corrYaw;m.cmdYaw=pilotAim.yaw;m.mode=mode;
     // The drawn eye height next to the height the engine reported: a cockpit that still feels like it
     // is bobbing can be read off these two numbers (`eyeY` vs `eyeRawY`) instead of a screen recording.

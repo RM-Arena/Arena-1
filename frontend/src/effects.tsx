@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type {Frame,MatchEvent,Projectile,RenderFeed,TeamId} from './types';
 import {baseProtected,outpostHolder} from './types';
 import {terrainHeight} from './terrain';
-import {feedAlpha,robotWorld,toWorld} from './world';
+import {liveAlpha,robotWorld,toWorld} from './world';
 
 // Last trigger time per key (robot id, `base-red`, `outpost-blue`, `shot:red-3`) so models can flash armour lights and recoil.
 export const pulses=new Map<string,number>();
@@ -345,7 +345,7 @@ export function Effects({feed}:{feed:MutableRefObject<RenderFeed>}){
   },[]);
   useEffect(()=>()=>{for(const item of [assets.glow,assets.smoke,assets.spark,assets.chunk,assets.metal,assets.ball,assets.plastic,assets.plate,assets.ring,fx.glow.geometry,fx.smoke.geometry,fx.sparks.geometry])item.dispose();assets.ring.map?.dispose();},[assets,fx]);
   useFrame(({camera,size,gl},delta)=>{
-    const dt=Math.min(delta,.05),current=feed.current,f=current.frame,alpha=feedAlpha(current);
+    const dt=Math.min(delta,.05),current=feed.current,f=current.frame,alpha=liveAlpha(current);
     if(generation.current!==current.generation){generation.current=current.generation;fx.clear();seen.current.clear();for(const d of Object.values(domeState.current))Object.assign(d,{mode:'idle',age:0,hp:-1,baseHp:-1,shield:-1});}
     assets.uniforms.uScale.value=size.height*gl.getPixelRatio()/(2*Math.tan(((camera as THREE.PerspectiveCamera).fov||42)*Math.PI/360));
     if(f){fx.arena=f.arena;for(const e of current.events){const key=e.id||`${e.tick}:${e.type}:${e.robot}:${e.x}:${e.y}`;if(seen.current.has(key))continue;seen.current.add(key);fx.spawn(e,current,alpha);}}

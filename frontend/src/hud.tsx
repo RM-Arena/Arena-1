@@ -4,7 +4,7 @@ import {Html} from '@react-three/drei';
 import * as THREE from 'three';
 import type {MatchEvent,RenderFeed,TeamId} from './types';
 import {baseProtected,outpostHolder} from './types';
-import {feedAlpha,robotWorld,screenFit,toWorld} from './world';
+import {liveAlpha,robotWorld,screenFit,toWorld} from './world';
 import {mechanismProgress,type MechanismKind} from './mechanismProgress';
 import {LED_COLORS} from './teamMaterials';
 
@@ -107,7 +107,7 @@ export function RobotHud({id,team,feed,focus,onSelect}:{id:string;team:TeamId;fe
   useEffect(()=>()=>{digit.texture.dispose();digitMaterial.dispose();ammo.texture.dispose();ammo.material.dispose();buffs.texture.dispose();buffs.material.dispose();plate.dispose();},[digit,digitMaterial,ammo,buffs,plate]);
   useFrame(({clock},dt)=>{
     const f=feed.current.frame,r=f?.robots.find(r=>r.id===id),g=root.current;if(!g)return;g.visible=!!r;if(!r)return;
-    robotWorld(feed.current,r,feedAlpha(feed.current),g.position).y+=r.role==='aerial'?.62:1.0;
+    robotWorld(feed.current,r,liveAlpha(feed.current),g.position).y+=r.role==='aerial'?.62:1.0;
     const s=state.current,hasHp=r.max_hp>0,hp=hasHp?THREE.MathUtils.clamp(r.hp/r.max_hp,0,1):r.support_active?1:0;damp(s,hp,dt);
     const u=plate.uniforms;u.uHp.value=s.hp;u.uTrail.value=s.trail;u.uFlash.value=s.flash;u.uSegments.value=hasHp?Math.max(1,Math.round(r.max_hp/50)):1;
     u.uDead.value=r.alive||!hasHp?0:1;u.uRespawn.value=r.respawn_required>0?Math.min(1,r.respawn_progress/r.respawn_required):0;u.uFocus.value=focus?1:0;u.uTime.value=clock.elapsedTime;u.uLevel.value=r.level||1;
@@ -181,7 +181,7 @@ export function CombatText({feed}:{feed:MutableRefObject<RenderFeed>}){
   useFrame((_state,delta)=>{
     const current=feed.current,f=current.frame;if(!f)return;const dt=Math.min(delta,.05);
     if(generation.current!==current.generation){generation.current=current.generation;seen.current.clear();pool.forEach(p=>{p.active=false;p.mesh.visible=false;});}
-    const alpha=feedAlpha(current),p=new THREE.Vector3();
+    const alpha=liveAlpha(current),p=new THREE.Vector3();
     for(const e of current.events){
       const key=e.id||`${e.tick}:${e.type}:${e.robot}:${e.x}`;if(seen.current.has(key))continue;seen.current.add(key);
       if((e.type==='hit'||e.type==='level_up')&&e.robot){const r=f.robots.find(r=>r.id===e.robot);if(!r)continue;robotWorld(current,r,alpha,p).y+=r.role==='aerial'?.95:1.36;spawn(e.type==='hit'?`-${Math.round(e.damage||0)}`:'LEVEL UP',e.type==='hit'?'damage':'level',p,e.robot);}

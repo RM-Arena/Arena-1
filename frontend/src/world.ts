@@ -53,8 +53,57 @@ export function feedAlpha(feed:RenderFeed){
   const f=feed.frame;if(!f)return 1;
   if(feed.paused)return 1;
   if(feed.replay)return feed.alpha??1;
-  return Math.min(OVERDUE_MAX,Math.max(0,(performance.now()-feed.received)/sampleSpan(feed)));
+  return Math.min(OVERDUE_MAX,Math.max(0,(clock()-feed.received)/sampleSpan(feed)));
 }
+
+// The phase the scene actually draws with. `feedAlpha` restarts from zero on every packet, and packets
+// do not arrive at an even cadence: the socket callback, the JSON parse, the React commit and the
+// compositor each add their own delay, so on a 50 ms window a 12 ms wobble is a quarter of a step. The
+// field then speeds up, stalls and catches up several times a second ? which is what "????" is, and
+// it shows most in the channel with the least visual damping: the eye height.
+//
+// The playhead is a second clock in *engine* time. It advances with the frame's own elapsed time and is
+// only nudged to stay inside a band of one sample behind the newest packet ? not servoed onto the
+// arrival phase, because that phase is a sawtooth whose mean error would keep stealing speed. Inside
+// the band the speed is exactly 1.0, so the picture moves at a constant rate however the packets fall,
+// and a packet that arrives late or early merely moves the playhead within the band. Outside it, a
+// ?10 % correction brings it back over a few hundred milliseconds; nothing ever rewinds.
+type Playhead={ready:boolean;t:number;generation:unknown;now:number};
+const playhead:Playhead={ready:false,t:0,generation:null,now:0};
+// Draw this far behind the newest sample, in steps. Three quarters of a step means the drawn phase
+// sweeps 0.25 ? 1.25 across each pair: mostly interpolation, at most a quarter step of extrapolation.
+export const PLAYHEAD_LAG=.75;
+// Correction authority. Inside a quarter of a step the speed is exactly 1.0, which is the whole point:
+// a browser's packet jitter is ?8?12 ms on a 50 ms step (0.16?0.24 of a step), so it is absorbed
+// without the picture ever changing speed. Outside it, a 6 % trim brings the phase back over ~a second.
+export const PLAYHEAD_DEAD=.25,PLAYHEAD_GAIN=1,PLAYHEAD_TRIM=.06;
+export function resetPlayhead(){playhead.ready=false;playhead.now=0;}
+const clock=()=>typeof performance==='undefined'?Date.now():performance.now();
+export function liveAlpha(feed:RenderFeed,now=clock()):number{
+  const f=feed.frame;if(!f)return 1;
+  if(feed.paused||feed.replay){playhead.ready=false;playhead.now=0;return feedAlpha(feed);}
+  const rate=Math.max(.5,feed.speed),step=Math.max(.005,(f.dt??.05)/rate);
+  const elapsed=playhead.now?Math.min(.25,Math.max(0,(now-playhead.now)/1000)):0;
+  playhead.now=now;
+  const alpha=()=>Math.min(OVERDUE_MAX,Math.max(-PHASE_BEHIND,1+(playhead.t-f.time)/step));
+  if(!playhead.ready||playhead.generation!==feed.generation){
+    playhead.ready=true;playhead.generation=feed.generation;
+    playhead.t=f.time-PLAYHEAD_LAG*step;
+    return alpha();
+  }
+  // Where the newest sample says we ought to be drawing. Unlike the arrival phase this reference is
+  // *continuous* across a packet: `f.time` jumps by the step the packet advanced and the arrival clock
+  // restarts from zero by the same amount, so their sum moves only with wall time.
+  const expected=f.time+(now-feed.received)/1000*rate;
+  const err=(expected-PLAYHEAD_LAG*step-playhead.t)/step;
+  const trim=Math.abs(err)>PLAYHEAD_DEAD?Math.max(-PLAYHEAD_TRIM,Math.min(PLAYHEAD_TRIM,PLAYHEAD_GAIN*err)):0;
+  playhead.t+=elapsed*(1+trim)*rate;
+  return alpha();
+}
+// How far the drawn phase may sit before the newest pair (a few milliseconds of the previous step). A
+// phase below zero continues the Hermite curve backwards for that sliver instead of skipping it, which
+// would be one small hiccup per early packet ? exactly the jitter this exists to remove.
+const PHASE_BEHIND=.35;
 
 // Cubic Hermite through p0 → p1 with the sample velocities as tangents. A straight line between two
 // snapshots is continuous in position but not in velocity: the eye changes speed abruptly at every
