@@ -36,7 +36,7 @@ def binary_path():
 
 
 class Match:
-    def __init__(self, seed=42, duration=420, map_name="rmuc2026", replay_version=None, lineups=None, battle_settings=None):
+    def __init__(self, seed=42, duration=420, map_name="rmuc2026", replay_version=None, lineups=None, battle_settings=None, training_scenario=None):
         self.lock = threading.RLock()
         binary = ROOT / "legacy/v2/simulation/target/release" / ("rmuc-sim.exe" if os.name == "nt" else "rmuc-sim") if replay_version == 2 else binary_path()
         if not binary.is_file():
@@ -50,7 +50,7 @@ class Match:
         self._reader = threading.Thread(target=self._read_output, args=(self.process.stdout, self._responses), daemon=True)
         self._reader.start()
         try:
-            self._frame = self._request({"op": "init", "seed": int(seed), "duration": duration, "map": map_name, "lineups": lineups, "battle_settings": battle_settings})
+            self._frame = self._request({"op": "init", "seed": int(seed), "duration": duration, "map": map_name, "lineups": lineups, "battle_settings": battle_settings, "training_scenario":training_scenario})
             self._static = {key: self._frame[key] for key in STATIC_FRAME_KEYS if key in self._frame}
             # The latest compact step's JSON, for callers that store frames without static fields.
             self.raw_frame = None
@@ -61,6 +61,17 @@ class Match:
         except BaseException:
             self.close()
             raise
+
+    def reset(self, seed=42, duration=420, map_name="rmuc2026", lineups=None, battle_settings=None, training_scenario=None):
+        """Reset an existing simulator process for the next training episode."""
+        with self.lock:
+            frame = self._request({"op": "init", "seed": int(seed), "duration": duration,
+                                   "map": map_name, "lineups": lineups, "battle_settings": battle_settings,
+                                   "training_scenario":training_scenario})
+            self._frame = frame
+            self._static = {key: frame[key] for key in STATIC_FRAME_KEYS if key in frame}
+            self.raw_frame = None
+            return self.snapshot()
 
     def _request(self, request, raw=False):
         with self.lock:
@@ -139,7 +150,10 @@ class Match:
         if self.closed:
             return
         self.closed = True
-        self.process.stdin.close()
+        try:
+            self.process.stdin.close()
+        except (OSError, BrokenPipeError):
+            pass
         try:
             self.process.wait(timeout=2)
         except subprocess.TimeoutExpired:

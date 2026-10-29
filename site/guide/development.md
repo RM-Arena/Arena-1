@@ -34,6 +34,8 @@ uv run python -m rmuc_arena match --trusted-local --map rmuc2026 --duration 30 -
 
 30 秒只用于检查启动与基本行为，完整判胜使用 420 秒。2026 和 2027 的策略、阵容与地图不能混用。命令里的 `claude_opus55_xhigh_*` 标明策略由 Claude Opus 5.5 xhigh 编写；界面提供便于比较的基线、守势与型号名称。
 
+并行批量比赛和持久训练环境见 [CLI、并行与强化学习](./cli)。
+
 ## 更新规则、示例与文档插图
 
 ```sh

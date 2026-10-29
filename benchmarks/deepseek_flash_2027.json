@@ -1,0 +1,826 @@
+{
+ "format": "rmuc-deepseek-flash-evaluation-v1",
+ "created_at_utc": "2026-10-27T10:34:50.263737+00:00",
+ "agent": {
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash-1017"
+ },
+ "season": "2027",
+ "submission": "deepseek_flash_2027_anchor",
+ "version": "89761e0cca9802d3",
+ "source_sha256": "a5ec2245a29c77018b640c940872bffcd71e4d7c28460d023290af0036b3ac51",
+ "lineup": {
+  "1": 2711,
+  "3": 2731,
+  "4": 2732,
+  "6": 2761,
+  "7": 2771
+ },
+ "protocol": {
+  "duration_s": 420,
+  "decision_deadline_s": 0.2,
+  "sandbox": "trusted-local",
+  "identical_hardware": true,
+  "paired_sides": true,
+  "seed": 17,
+  "ranked": false,
+  "note": "Fixed-seed full-length development comparisons. The candidate lineup is forced on both teams by the evaluator; not an independent Elo estimate."
+ },
+ "summary": {
+  "win": 8,
+  "draw": 0,
+  "loss": 0,
+  "valid_games": 8,
+  "invalid_games": 0,
+  "policy_errors": 0,
+  "control_margin": {
+   "min": 65.59999999997069,
+   "max": 970.7999999998915,
+   "mean": 537.7999999999153
+  },
+  "decision_ms": {
+   "max": 206.62741700652987,
+   "p99_max": 21.005582995712757
+  }
+ },
+ "reproduce": [
+  ".venv/bin/python scripts/build_deepseek_flash_2027.py --check",
+  ".venv/bin/python scripts/evaluate_2027.py examples/deepseek_flash_2027_anchor examples/gpt61_2027_trident examples/dsv41_1017_pair_omni --seeds 17 --jobs 2 --output build/deepseek-flash/top-a.json",
+  ".venv/bin/python scripts/evaluate_2027.py examples/deepseek_flash_2027_anchor examples/gemini38_2027_blitz examples/dsv41_1017_sentry --seeds 17 --jobs 2 --output build/deepseek-flash/top-b.json"
+ ],
+ "development": {
+  "note": "The card starts from the serial-leg trident lesson: one body on a base card denies a whole +3 position. The 305/2772 serial-leg rush was rejected after repeated stalls at the 2027 west kerb and road guards; the selected 2711/2731/2732/2761/2771 split keeps the 2731 step climb for the raid and puts 2711 on the home base card. The only red/blue asymmetry is the home-collapse threshold (4.5 m red, 8 m blue), compensating for the two lanes reaching the enemy base at different times. All eight games use the exact published source hash; no earlier experiment is included.",
+  "excluded": "305 and 2772 serial-leg variants, heavy-tech variants, and the 120 s screening runs are development-only and are not part of this record.",
+  "identity_note": "The public profile and this record use deepseek-v4.1-flash-1017. The code header still carries the working name; the exact evaluated source hash and manifest version are unchanged."
+ },
+ "matches": [
+  {
+   "opponent": "dsv41_1017_pair_omni-686ba92d1226e7bf",
+   "seed": 17,
+   "side": "red",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "89761e0cca9802d3",
+    "blue": "686ba92d1226e7bf"
+   },
+   "agents": {
+    "red": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    },
+    "blue": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017-max"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 142.05008296994492,
+    "p99": 14.631166006438434
+   },
+   "digest": "195ca3b6cc2482e744eea0c967a16791119dbdc9247e26d071f3ac80bd2625e4",
+   "control": {
+    "candidate": 212.15000000000518,
+    "opponent": 1.6500000000000008
+   },
+   "candidate_damage": 3700.0,
+   "opponent_damage": 5035.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 55.999999999998956,
+     "empty_s": 364.0000000000485,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 148.69999999999956,
+     "distance_m": 130.58709247736283,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 258.25000000002444,
+     "enemy_half_s": 357.15000000004693,
+     "healthy_enemy_half_s": 357.15000000004693,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 106.84482661290198,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 24.550000000000214,
+     "empty_s": 221.70000000001616,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 279.6000000000293,
+     "distance_m": 99.59493184760537,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 270.10000000002714,
+     "enemy_half_s": 365.15000000004875,
+     "healthy_enemy_half_s": 365.15000000004875,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 100.43641295451593,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "dsv41_1017_pair_omni-686ba92d1226e7bf",
+   "seed": 17,
+   "side": "blue",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "686ba92d1226e7bf",
+    "blue": "89761e0cca9802d3"
+   },
+   "agents": {
+    "red": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017-max"
+    },
+    "blue": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 93.49875000771135,
+    "p99": 16.492624999955297
+   },
+   "digest": "c43c5e5f5cee55a00a1acd17d74cbbc1d3439a68aeb91dd211a778d71d7d890e",
+   "control": {
+    "candidate": 327.549999999996,
+    "opponent": 261.9500000000253
+   },
+   "candidate_damage": 4805.0,
+   "opponent_damage": 6183.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 9.700000000000003,
+     "empty_s": 410.300000000059,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 398.65000000005637,
+     "distance_m": 53.584910639399155,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.0,
+     "dead_s": 26.000000000000234,
+     "empty_s": 173.65000000000524,
+     "enemy_half_s": 196.30000000001039,
+     "healthy_enemy_half_s": 169.90000000000438,
+     "healthy_s": 335.20000000004194,
+     "distance_m": 142.24582526641973,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 53.349999999999106,
+     "empty_s": 153.7500000000007,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 261.9500000000253,
+     "distance_m": 147.89959460799497,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 75.04999999999788,
+     "enemy_half_s": 369.20000000004967,
+     "healthy_enemy_half_s": 15.650000000000087,
+     "healthy_s": 66.44999999999837,
+     "distance_m": 97.55257413662574,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "gpt61_2027_trident-6ff3dd843d31ab06",
+   "seed": 17,
+   "side": "red",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "89761e0cca9802d3",
+    "blue": "6ff3dd843d31ab06"
+   },
+   "agents": {
+    "red": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    },
+    "blue": {
+     "provider": "openai",
+     "model": "gpt-6.1-sol-xhigh"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 38.344500004313886,
+    "p99": 10.948209033813328
+   },
+   "digest": "9dcc1457d43b4902b281887c0799b401f0dd855e2a4d894dc7c058d51c265261",
+   "control": {
+    "candidate": 1022.7499999998906,
+    "opponent": 51.949999999999186
+   },
+   "candidate_damage": 4590.0,
+   "opponent_damage": 3236.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 420.0000000000612,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 8.102634657055953,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 215.00000000001464,
+     "enemy_half_s": 368.5500000000495,
+     "healthy_enemy_half_s": 368.5500000000495,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 91.13314888232262,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 0.05,
+     "empty_s": 171.7000000000048,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 392.750000000055,
+     "distance_m": 39.47663135167286,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 267.10000000002645,
+     "enemy_half_s": 368.75000000004957,
+     "healthy_enemy_half_s": 368.75000000004957,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 96.61904916689903,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "gpt61_2027_trident-6ff3dd843d31ab06",
+   "seed": 17,
+   "side": "blue",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "6ff3dd843d31ab06",
+    "blue": "89761e0cca9802d3"
+   },
+   "agents": {
+    "red": {
+     "provider": "openai",
+     "model": "gpt-6.1-sol-xhigh"
+    },
+    "blue": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 49.21429097885266,
+    "p99": 19.552582991309464
+   },
+   "digest": "44663085e0cb85083caba068b79425cf6a2fb75f35e374dd48f8c482fb962ae2",
+   "control": {
+    "candidate": 554.6999999999616,
+    "opponent": 314.95000000003733
+   },
+   "candidate_damage": 5010.0,
+   "opponent_damage": 5934.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 420.0000000000612,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 8.101631149759447,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.3,
+     "dead_s": 99.14999999999651,
+     "empty_s": 43.149999999999686,
+     "enemy_half_s": 8.549999999999986,
+     "healthy_enemy_half_s": 6.849999999999984,
+     "healthy_s": 225.90000000001712,
+     "distance_m": 241.8907771189961,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 120.84999999999528,
+     "empty_s": 1.1000000000000003,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 74.6999999999979,
+     "distance_m": 160.53859047983346,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 48.99999999999935,
+     "empty_s": 71.1499999999981,
+     "enemy_half_s": 223.45000000001656,
+     "healthy_enemy_half_s": 210.35000000001358,
+     "healthy_s": 357.9000000000471,
+     "distance_m": 172.74079334460492,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "gemini38_2027_blitz-2df2cae513752ff6",
+   "seed": 17,
+   "side": "red",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "89761e0cca9802d3",
+    "blue": "2df2cae513752ff6"
+   },
+   "agents": {
+    "red": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    },
+    "blue": {
+     "provider": "google",
+     "model": "gemini-3.8-flash"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 51.84508301317692,
+    "p99": 16.193625051528215
+   },
+   "digest": "2083c1e4243ae55eea377917866b13eee0bbe57b50892b74c0ad2f42cba7301e",
+   "control": {
+    "candidate": 775.6999999999281,
+    "opponent": 136.4999999999968
+   },
+   "candidate_damage": 5003.0,
+   "opponent_damage": 5522.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 420.0000000000612,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 8.101435109761793,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 3.2999999999999963,
+     "dead_s": 207.10000000001284,
+     "empty_s": 1.1000000000000003,
+     "enemy_half_s": 27.500000000000256,
+     "healthy_enemy_half_s": 1.3000000000000005,
+     "healthy_s": 47.49999999999944,
+     "distance_m": 205.07252669928457,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 163.05000000000283,
+     "empty_s": 13.350000000000055,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 174.70000000000547,
+     "distance_m": 107.64686533835302,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 29.20000000000028,
+     "enemy_half_s": 289.8500000000316,
+     "healthy_enemy_half_s": 0.8000000000000002,
+     "healthy_s": 130.94999999999553,
+     "distance_m": 98.68340745415935,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "gemini38_2027_blitz-2df2cae513752ff6",
+   "seed": 17,
+   "side": "blue",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "2df2cae513752ff6",
+    "blue": "89761e0cca9802d3"
+   },
+   "agents": {
+    "red": {
+     "provider": "google",
+     "model": "gemini-3.8-flash"
+    },
+    "blue": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 140.36041701911017,
+    "p99": 18.846417020540684
+   },
+   "digest": "58e8f239562c25d72d612b7c74e3c925b20ecd2b78af09144cc0ce526106c7f2",
+   "control": {
+    "candidate": 978.0499999998974,
+    "opponent": 325.50000000003973
+   },
+   "candidate_damage": 3975.0,
+   "opponent_damage": 6428.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 420.0000000000612,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 8.101521069849372,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.15000000000000002,
+     "dead_s": 159.10000000000193,
+     "empty_s": 122.39999999999519,
+     "enemy_half_s": 55.249999999999,
+     "healthy_enemy_half_s": 1.6000000000000008,
+     "healthy_s": 115.1999999999956,
+     "distance_m": 294.69264913018156,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 179.05000000000646,
+     "empty_s": 62.149999999998606,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 118.34999999999542,
+     "distance_m": 183.954132169316,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 155.000000000001,
+     "enemy_half_s": 356.1000000000467,
+     "healthy_enemy_half_s": 136.0499999999967,
+     "healthy_s": 199.95000000001122,
+     "distance_m": 108.92547044856894,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "dsv41_1017_sentry-e1247673ed298afc",
+   "seed": 17,
+   "side": "red",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "89761e0cca9802d3",
+    "blue": "e1247673ed298afc"
+   },
+   "agents": {
+    "red": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    },
+    "blue": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017-max"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 206.62741700652987,
+    "p99": 19.80458397883922
+   },
+   "digest": "339a3ed0003a94931aae02ebecf43ed93c672388d2fa4b9581f6d719a3557607",
+   "control": {
+    "candidate": 1015.4999999998918,
+    "opponent": 281.50000000002973
+   },
+   "candidate_damage": 4824.0,
+   "opponent_damage": 4470.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 420.0000000000612,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 19.150594508931384,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 213.00000000001418,
+     "enemy_half_s": 372.3000000000504,
+     "healthy_enemy_half_s": 372.3000000000504,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 92.2415260034086,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 199.050000000011,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 362.45000000004814,
+     "distance_m": 120.72157202704975,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 241.80000000002073,
+     "enemy_half_s": 359.35000000004743,
+     "healthy_enemy_half_s": 359.35000000004743,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 106.76322131144464,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  },
+  {
+   "opponent": "dsv41_1017_sentry-e1247673ed298afc",
+   "seed": 17,
+   "side": "blue",
+   "outcome": "win",
+   "time": 420.0,
+   "reason": "timeout",
+   "valid": true,
+   "policy_errors": 0,
+   "diagnostics": [],
+   "lineup": {
+    "1": 2711,
+    "3": 2731,
+    "4": 2732,
+    "6": 2761,
+    "7": 2771
+   },
+   "versions": {
+    "red": "e1247673ed298afc",
+    "blue": "89761e0cca9802d3"
+   },
+   "agents": {
+    "red": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017-max"
+    },
+    "blue": {
+     "provider": "deepseek",
+     "model": "deepseek-v4.1-flash-1017"
+    }
+   },
+   "engine_hash": "5805ff2ddb2fd6773d588cbbfedd921c87f0af3ef3b6b205364d6c3413500cc1",
+   "rules_hash": "47af7390577056cf7e36c84499deac4ac8eb998f824a43357c6e0cf3a6dd3d28",
+   "sdk_hash": "7b9323237a94d958464fba3ba9d3b42336049df16ae0cbe94dd976c7d1de9c8a",
+   "decision_ms": {
+    "max": 111.6279159905389,
+    "p99": 21.005582995712757
+   },
+   "digest": "ed05d22490cf8464cd2758fbf3286efcd267a4de29389141711f275a1e6c13a4",
+   "control": {
+    "candidate": 1003.4999999998936,
+    "opponent": 213.5000000000143
+   },
+   "candidate_damage": 5150.0,
+   "opponent_damage": 5821.0,
+   "activity": {
+    "1": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 420.0000000000612,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 12.279789277078235,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "3": {
+     "tipped_s": 0.25,
+     "dead_s": 46.99999999999947,
+     "empty_s": 96.19999999999668,
+     "enemy_half_s": 233.7500000000189,
+     "healthy_enemy_half_s": 178.65000000000637,
+     "healthy_s": 266.3000000000263,
+     "distance_m": 252.69913912918446,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "4": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 231.25000000001833,
+     "enemy_half_s": 0.0,
+     "healthy_enemy_half_s": 0.0,
+     "healthy_s": 357.400000000047,
+     "distance_m": 112.46317723430063,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    },
+    "7": {
+     "tipped_s": 0.0,
+     "dead_s": 0.0,
+     "empty_s": 229.55000000001795,
+     "enemy_half_s": 370.3000000000499,
+     "healthy_enemy_half_s": 370.3000000000499,
+     "healthy_s": 420.0000000000612,
+     "distance_m": 97.77725015967391,
+     "jumps": 0,
+     "terrain_buffs": {},
+     "self_righted": 0
+    }
+   }
+  }
+ ]
+}

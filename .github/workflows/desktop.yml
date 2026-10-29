@@ -88,7 +88,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 120); do
             result=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --limit 1 --json status,conclusion --jq '.[0] | [.status, .conclusion] | @tsv')
             if [ "$result" = $'completed\tsuccess' ]; then exit 0; fi
             if [[ "$result" == completed* ]]; then echo "Native checks failed: $result"; exit 1; fi
